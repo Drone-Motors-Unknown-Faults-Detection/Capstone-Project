@@ -112,7 +112,7 @@ const RENDER = {
       + `<h3>(b) 部署策略</h3>`
       + table([["k", "策略"], ["healthy_accept_mean", "平均健康接受率", v => pct(v)], ["fault_detect_mean", "平均故障偵測率", v => pct(v)]],
               Object.entries(sum).map(([k, v]) => ({k, ...v})))
-      + `<h3>(c) 壽命期漂移：以 T1 為基準，各馬達健康資料的分數</h3>`
+      + `<h3>(c) 跨馬達健康分布：以 T1 為基準</h3><div class="mini">不同馬達個體；個體與老化影響無法分離，不能視為同一馬達的退化歷程。</div>`
       + table([["motor", "馬達"], ["rpm", "RPM"], ["n", "樣本數"], ["median_score", "分數中位數", v => num(v, 2)],
                ["p90_score", "分數 P90", v => num(v, 2)], ["flagged_unknown", "被判未知", v => pct(v, 1)]], r.drift.rows);
   },
@@ -130,18 +130,18 @@ const RENDER = {
   },
   exp6_formal(r){
     const m = k => r.rows.reduce((s, x) => s + (x[k] ?? 0), 0) / r.rows.length;
-    return kpis([["Open Set accuracy（平均）", pct(m("open_set_accuracy"), 2)], ["已知認出率（平均）", pct(m("known_accuracy"), 1)],
+    return kpis([["二元正確率（平均）", pct(m("open_set_accuracy"), 2)], ["健康接受率（平均）", pct(m("known_accuracy"), 1)],
                  ["AUROC（平均）", num(m("auroc"), 4)], ["unknown F1（平均）", num(m("unknown_f1"), 4)]])
       + `<div class="mini">方法 ${esc(r.method)}，seed ${esc(r.seed)}，${r.rows.length} 組工況；資料指紋 ${esc(String(r.dataset_fingerprint).slice(0, 12))}…；commit ${esc(String(r.commit_sha).slice(0, 7))}</div>`
-      + table([["dataset", "工況"], ["n_known_test", "健康測試", int], ["n_unknown_test", "未知測試", int],
-               ["known_accuracy", "已知認出率", v => pct(v, 1)], ["open_set_accuracy", "Open Set accuracy", v => pct(v, 2)],
+      + table([["dataset", "工況"], ["n_train", "健康訓練", int], ["n_calibration", "健康校準", int], ["n_known_test", "健康測試", int], ["n_unknown_test", "未知測試", int],
+               ["known_accuracy", "健康接受率", v => pct(v, 1)], ["open_set_accuracy", "二元正確率", v => pct(v, 2)],
                ["auroc", "AUROC", v => num(v, 4)], ["fpr_at_tpr95", "FPR@TPR95", v => num(v, 4)], ["unknown_f1", "unknown F1", v => num(v, 4)],
                ["known_score_median", "健康分數中位數", v => num(v, 2)], ["unknown_score_median", "未知分數中位數", v => num(v, 2)]], r.rows);
   },
   exp7(r){
     return table([["openset_method", "方法"], ["auroc", "AUROC", v => num(v, 4)], ["aupr_unknown_positive", "AUPR", v => num(v, 4)],
                   ["fpr_at_95_tpr", "FPR@TPR95", v => num(v, 4)], ["open_set_accuracy", "Open Set accuracy", v => pct(v, 2)],
-                  ["known_class_accuracy", "已知類別認出率", v => pct(v, 1)], ["unknown_recall", "unknown recall", v => pct(v, 1)],
+                  ["known_class_accuracy", "健康接受率", v => pct(v, 1)], ["unknown_recall", "unknown recall", v => pct(v, 1)],
                   ["unknown_precision", "unknown precision", v => pct(v, 2)], ["f1_unknown", "unknown F1", v => num(v, 4)]], r.results)
       + `<div class="mini">公平性：seed ${esc(r.fairness.same_random_seed)}、${esc(r.fairness.same_features)}、閾值資料 ${esc(r.fairness.same_threshold_data)}</div>`
       + details("逐配置結果", table([["openset_method", "方法"], ["config", "配置"], ["kind", "類型"], ["n", "樣本數"],
@@ -152,7 +152,7 @@ const RENDER = {
     return kpis([["健康差距 known−unknown（平均）", num(m("health_gap_known_minus_unknown"), 3)], ["Open Set accuracy（平均）", pct(m("open_set_accuracy"), 2)],
                  ["AUROC（平均）", num(m("auroc"), 4)], ["unknown 健康度中位數（平均）", num(m("unknown_health_median"), 3)]])
       + `<div class="mini">${esc(r.health_interpretation)}；方法 ${esc(r.method)}，seed ${esc(r.seed)}</div>`
-      + table([["dataset", "工況"], ["known_health_mean", "健康樣本健康度", (v, x) => pm(v, x.known_health_std)],
+      + table([["dataset", "工況"], ["n_train", "健康訓練", int], ["n_calibration", "健康校準", int], ["n_known_test", "健康測試", int], ["n_unknown_test", "未知測試", int], ["known_health_mean", "健康樣本相對指數", (v, x) => pm(v, x.known_health_std)],
                ["unknown_health_mean", "未知樣本健康度", (v, x) => pm(v, x.unknown_health_std)],
                ["health_gap_known_minus_unknown", "差距", v => num(v, 3)], ["health_gap_known_minus_unknown", "", v => bar(v)],
                ["known_healthy_fraction", "健康樣本判 healthy 段", v => pct(v, 0)], ["unknown_critical_fraction", "未知判 critical 段", v => pct(v, 0)],
@@ -178,7 +178,8 @@ const COMMITTED_RENDER = {
                ["known_accuracy_mean", "已知認出率", (v, x) => `${pct(v, 1)} ± ${pct(x.known_accuracy_std, 1)}`],
                ["auroc_mean", "AUROC", v => num(v, 4)], ["n_condition_seed_rows", "列數", int]], c.macro_summary)
       + details("k-NN − Mahalanobis 成對差", table([["metric", "指標"], ["n_pairs", "配對數"], ["mean_difference", "平均差", v => num(v, 6)],
-               ["knn_better_pairs", "k-NN 較好"], ["mahalanobis_better_pairs", "Mahalanobis 較好"], ["ties", "平手"]], c.paired_differences));
+               ["knn_better_pairs", "差值>0"], ["mahalanobis_better_pairs", "差值<0"], ["ties", "平手"]], c.paired_differences))
+      + `<div class="mini">正差不一律較好：FPR 越低越好。封存差值不會因上方選項改變而重算。</div>`;
   },
   exp8_health_index_results(c){
     const rows = Object.entries(c.overall).map(([method, v]) => ({method, ...v}));
@@ -343,6 +344,7 @@ function streamExp(e){
   $(`stream-${e.id}`).disabled = true; $(`stop-${e.id}`).hidden = false;
   st.className = "mini"; st.textContent = "⚙ 擬合模型中…";
   es.onmessage = msg => {
+    if (!ACTIVE || ACTIVE.es !== es) return;
     const f = JSON.parse(msg.data);
     if (f.event === "fitted") st.textContent = "⏵ 播放中…";
     else if (f.event === "error"){ st.className = "mini err"; st.textContent = "✗ " + f.error; stopStream(); }
@@ -381,23 +383,29 @@ function fieldHtml(e, p){
 }
 
 function cardHtml(e){
+  const noData = !CATALOG.datasets.length;
+  const coverage = e.params.some(p => p.type === "dataset") ? "本卡只使用所選工況。"
+    : `本卡處理掃描到的 ${CATALOG.datasets.length} 工況：${CATALOG.datasets.join("、")}。`;
   return `<div class="panel" id="card-${e.id}">
     <div class="exp-head"><h2>${esc(e.no)}${e.sub ? " " + esc(e.sub) : ""}：${esc(e.title)}</h2>
       <div class="q">${esc(e.question)}</div>
       <div class="mini">程式 <code>${esc(e.code)}</code>　技術報告 <code>${esc(e.doc)}</code></div>
-      <div class="mini" style="margin-top:4px">⚙ 每次按「執行」都會從頭擬合：${esc(e.fits)}。本機約 ${e.seconds < 1 ? "不到 1" : esc(e.seconds)} 秒。
-        模型只在這次執行的記憶體裡，跑完即丟，不保存；只存結果 JSON 到 <code>output/web_server/{ts}/experiments/</code>。同 seed 重跑結果相同。</div></div>
+      <div class="mini">資料角色：${esc(e.data_roles)} ${esc(coverage)}</div>
+      <div class="mini">解讀限制：${esc(e.limitations)}</div>
+      <div class="mini" style="margin-top:4px">⚙ 每次按「執行」都會從頭擬合：${esc(e.fits)}。耗時隨方法、資料與硬體而變。
+        模型只在這次執行的記憶體裡，跑完即丟，不保存；只存結果 JSON 到 <code>output/web_server/{ts}/experiments/</code>。同來源、設定與 seed 才可核對重現。</div></div>
     <div class="form">${e.params.map(p => fieldHtml(e, p)).join("")}
-      <button class="primary" id="run-${e.id}">▶ 執行</button>
+      <button class="primary" id="run-${e.id}"${noData ? " disabled" : ""}>▶ 執行</button>
       ${e.stream ? `<label>播放速度<select id="rate-${e.id}"><option value="20">慢（20 筆/秒）</option><option value="80" selected>中（80 筆/秒）</option><option value="400">快（400 筆/秒）</option></select></label>
-      <button id="stream-${e.id}">⏵ 邊跑邊畫</button><button id="stop-${e.id}" class="warn" hidden>■ 停止</button>` : ""}
+      <button id="stream-${e.id}"${noData ? " disabled" : ""}>⏵ 邊跑邊畫</button><button id="stop-${e.id}" class="warn" hidden>■ 停止</button>` : ""}
       <span class="mini" id="status-${e.id}"></span></div>
     ${e.stream ? `<div id="live-${e.id}" style="margin-top:10px"></div>` : ""}
     <div id="out-${e.id}" style="margin-top:10px"></div>
+    ${noData ? '<div class="mini err">沒有可用工況。請管理者確認 --data-root 與正式特徵 CSV，重啟服務後重新整理；目前不能執行或播放。</div>' : ""}
   </div>
   ${e.committed ? `<div class="panel"><div class="exp-head"><h2>${esc(e.no)}${e.committed_sub ? " " + esc(e.committed_sub) : ""}：${esc(e.committed_title || "已提交的正式結果")}</h2>
       <div class="mini">程式 <code>${esc(e.committed_code || "")}</code>　技術報告 <code>${esc(e.committed_doc || "")}</code></div>
-      <div class="mini" style="margin-top:4px">已提交的正式結果，唯讀：讀現成檔案，不擬合、不從網頁重跑。</div></div>
+      <div class="mini" style="margin-top:4px">封存結果，唯讀：與上方選項及本次執行分開，讀現成檔案，不擬合、不從網頁重跑；來源日期／SHA以該包manifest為準，頁面沒有另行核實新資料資格。</div></div>
       <div id="committed-${e.committed}" class="mini" style="margin-top:10px">載入中…</div></div>` : ""}`;
 }
 
@@ -405,9 +413,24 @@ function showResult(e, payload){
   const out = $(`out-${e.id}`);
   if (!out) return;
   const p = Object.entries(payload.params).map(([k, v]) => `${k}=${v}`).join("，");
-  out.innerHTML = `<div class="mini">參數 ${esc(p)}；${esc(payload.seconds)} 秒；結果存於 <code>${esc(payload.saved || "（未存檔）")}</code></div>`
+  out.innerHTML = `<div class="mini" role="status" id="context-${e.id}">${esc(resultContext(e, payload))}</div><div class="mini">結果參數 ${esc(p)}；${esc(payload.seconds)} 秒；結果存於 <code>${esc(payload.saved || "（未存檔）")}</code></div>`
     + RENDER[e.id](payload.result);
+  const model = payload.result?.model;
+  if (model?.classes) out.innerHTML += details("本次模型資料用途（逐類池為分母）",
+    table([["config", "已註冊配置"], ["n_train", "訓練", int], ["n_cal", "校準", int], ["n_holdout", "holdout", int]], model.classes)
+    + `<div class="mini">分數 ${esc(model.score_type)}；門檻來源 ${esc(model.threshold_strategy)}。列級切分不證明採集獨立。</div>`);
   drawLines(out);
+}
+
+function resultContext(e, payload){
+  const current = collectParams(e), actual = payload.params;
+  const same = Object.keys(current).every(k => current[k] === actual[k]);
+  return `保存結果時間：${payload.finished_at || "未記錄"}。${same ? "與目前選項一致；這是該次執行的結果。" : "選項已變更；下方仍是舊設定結果，尚未按新選項執行。"}`;
+}
+
+function refreshResultContext(e){
+  const box = $(`context-${e.id}`);
+  if (box && LAST[e.id]) box.textContent = resultContext(e, LAST[e.id]);
 }
 
 function collectParams(e){
@@ -463,7 +486,11 @@ function renderPage(key){
   for (const e of grp.items){
     $(`run-${e.id}`).onclick = () => runExp(e);
     if (e.stream){ $(`stream-${e.id}`).onclick = () => streamExp(e); $(`stop-${e.id}`).onclick = () => {
-      stopStream(); $(`status-${e.id}`).textContent = "■ 已停止（伺服器端同步中止）"; }; }
+      stopStream(); $(`status-${e.id}`).textContent = "■ 已停止；未收到完成結果不算完整執行，待伺服器釋放鎖再重試。"; }; }
+    for (const p of e.params){
+      $(`f-${e.id}-${p.name}`).oninput = () => refreshResultContext(e);
+      $(`f-${e.id}-${p.name}`).onchange = () => refreshResultContext(e);
+    }
     if (LAST[e.id]) showResult(e, LAST[e.id]);
     if (e.committed) loadCommitted(e.committed);
   }

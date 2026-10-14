@@ -38,7 +38,7 @@
 |---|---|---|---|
 | 即時展示 `/` | `web.live.LiveDemo`；[導覽手冊](exp24_experiment_navigation.md) | 串起偵測、隔離、候選、模擬確認及模型更新 | 初始只 fit 健康；確認後使用完整配置池。首頁具名來源是展示真值，不是模型猜出的故障名稱 |
 | `/#exp1`，ID `exp1` | `exp1_cold_start.run/iter_run`；[實驗一](exp1_cold_start.md) | 健康基準會誤報多少、能拒絕多少未知配置？ | 同工況健康 train/cal/holdout；故障全池只測試，沒有訓練故障分類器 |
-| `/#exp2`，ID `exp2` | `exp2_scale_growth.run`；[實驗二](exp2_scale_growth.md) | 候選群經確認後能否納入模型？ | 發現資料與確認後完整池更新並非完全獨立；認出率不等於分類正確率 |
+| `/#exp2`，ID `exp2` | `exp2_scale_growth.run`；[實驗二](exp2_scale_growth.md) | 候選群經確認後能否納入模型？ | 批次own_holdout_acc核對配置分類；首頁post_rate只量接受為任一known。發現與完整池更新並非完全獨立 |
 | `/#exp3`，ID `exp3` | `exp3_trend.run/iter_run`；[實驗三](exp3_trend.md) | 合成的漸進／突發順序能否辨別？ | CSV 抽樣劇本，延遲單位是重播筆數，不是現場秒數或壽命 |
 | `/#exp4`，ID `exp4` | `exp4_polar_map.run/iter_run`；[實驗四](exp4_polar_map.md) | 已確認配置的方向與半徑如何呈現？ | 幾何可解釋圖；不是經物理標定的故障程度。Web 沒有 Open Set 方法選單，走 runner 固定設定 |
 | `/#exp5`，ID `exp5` | `exp5_cross_condition.run`；[實驗五](exp5_cross_condition.md) | 一個工況的健康基準能否搬到另一工況？ | 跑實際掃到的工況；先看 source→target，不能只報總平均或預設一定九組 |
@@ -106,7 +106,9 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 `GET /api/experiments/{id}/stream` 接受 JSON 物件 params 與有限 rate；速率限制在 1～1000 筆／秒，只控制播放節奏。SSE 事件從 start 開始，再推送 scores／tick／window 等實驗事件，完成才發 done。done 的 payload 已由 runner 存入 `output/web_server/{時間戳}/experiments/`，帶 `streamed: true`；停止或失敗沒有 done 就不得當作完整結果。
 
-批次與 SSE 使用同一執行鎖，另一工作執行中即拒絕。瀏覽器停止或斷線時中止後續播放；已交給 executor 的一次計算可能仍需完成。finally 關閉 generator，即使 close 丟例外也釋放鎖。完成、取消或錯誤後，待伺服器釋放鎖再重試；不能以重新點擊掩蓋中斷。回歸入口為 `tests/test_stream_integration.py`、`tests/test_iter_run.py`、`tests/test_health_monitor.py`。
+批次與 SSE 使用同一執行鎖，另一工作執行中即拒絕。瀏覽器停止或斷線時中止後續播放；已交給 executor 的一次計算可能仍需完成。finally 關閉 generator，即使 close 丟例外也釋放鎖。完成、取消或錯誤後，待伺服器釋放鎖再重試；不能以重新點擊掩蓋中斷。回歸入口為 `tests/test_stream_integration.py`、`tests/test_health_monitor.py`。
+
+前端呈現契約另由 `tests/test_web_experiment_alignment.py` 呼叫 Node.js 執行真正的 `experiments.js`，驗證舊設定結果標示、空資料、失敗後重試與欄位映射；執行測試的 PATH 需有 Node.js。這是合成 DOM 工程測試，不能代替實際瀏覽器操作或組員理解驗收。頁面顯示保存結果的時間與參數；選項改變但尚未重跑時，下方明標舊設定結果，封存矩陣不隨新選項變動。
 
 獨立導覽另用 [UI 操作腳本](../navigation/exp24_UI操作腳本.md) 的 WebSocket session：重連不自動播放，模型失敗須明確重設或重建。兩個入口均為 CSV 重播，不保證實體時間、原始視窗獨立或部署誤報率。現行 server／guide 的部分錯誤會把例外文字傳給 client，可能包含私人路徑；這項限制仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤，不能宣稱全部錯誤回應已去敏。
 
