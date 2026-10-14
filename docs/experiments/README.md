@@ -49,7 +49,7 @@
 | `/#exp8`，ID `exp8` | `health_index_benchmark.run`；[健康指數](exp8_health_index_benchmark.md) | 偏離分數轉成相對量尺後，兩群相隔多遠？ | 分位數由健康校準列建立；0～1 不是損壞百分比 |
 | 同頁 8-2 封存卡 | `/api/committed/exp8_health_index_results`；[矩陣](exp8_health_index_matrix.md)、[唯讀重算](exp8_health_index_aggregate.md) | 唯讀查看保存的 54 列 | 歷史彙總的兩欄差異須另查重算產物；不是頁面重跑 54 列 |
 | `/#exp8`，ID `exp8_monitor` | `health_monitor.run/iter_run`；[逐窗監測](exp8_health_monitor.md) | 選定配置的相對指數與告警怎麼走？ | unknown 取其全池再截 max_windows，不是套健康 holdout 索引；順序未證實為原始時間 |
-| 實驗九 | 共用 `exp6_osr_benchmark` 的 `autoencoder`；[實驗九](exp9_autoencoder.md) | 非線性重建是否比線性重建分得開？ | 沒有獨立實驗九頁；權重只從健康 train 建立 |
+| 實驗九 | 共用 `exp6_osr_benchmark` 的 `mlp_autoencoder`；[實驗九](exp9_autoencoder.md) | 非線性重建是否比線性重建分得開？ | 沒有獨立實驗九頁；權重只從健康 train 建立 |
 | 實驗十 | CLI／`exp10_transfer.run`；[實驗十](exp10_transfer.md) | 少量目標健康資料的中心平移有沒有用？ | 沒有 Web 卡；direct、adapted、scratch 的資料角色要逐項看 |
 | 實驗十一 | CLI／`exp11_ancestor_comparison.run`；[實驗十一](exp11_ancestor_comparison.md) | 同一 Ancestor-style 協定的分類 API 有何差別？ | 沒有 Web 卡；legacy 的 -1 label 會影響分類分數，不能全歸因於 LW |
 | 實驗十二 | CLI／`exp12_confusion_tsne.run`；[實驗十二](exp12_confusion_tsne.md) | 混淆矩陣與投影能看出哪些錯誤？ | 沒有 Web 卡；t-SNE 混入 fit 列只作診斷，不是獨立測試 |
@@ -58,6 +58,39 @@
 呼叫鏈：實驗卡片的選項 → `POST /api/experiments/{id}/run` 或 `GET /api/experiments/{id}/stream` → `ExperimentRunner._clean/_dispatch` → 上表 runner → `jsonable` → `experiments.js` 的 renderer。封存卡另走 `/api/committed/{name}`；導覽走自己的 `/ws`。只有 `exp1`、`exp3`、`exp4`、`exp8_monitor` 支援 SSE。實驗九～十二 CLI 的存在不能當成 Web 已支援。
 
 講解時先選正確問題：判未知比例回答「拒絕」，`predict_known_class` 才涉及「已知分類」，HDBSCAN 候選回答「形成群」，確認後更新回答「學進模型」，EWMA 回答「序列變化」。不把這些都叫準確率。成功標準與未通過條件見各手冊；現行 runner 沒有共同的部署可靠性 PASS。
+
+## 資料用量與分母怎麼讀
+
+以下是[唯讀用量產物](../../output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的六工況資料版本：60 個 CSV、19,053 個有效105維特徵列，全部列有限。本機沒有 T2。它不等於研究分支90個CSV／28,910列的資料版本，也不能拿六工況代替九工況矩陣驗收。`source_inventory` 保存各檔原位元組 SHA，`content_inventory_sha256` 是這份排序清冊的摘要，不沿用歷史 stat-based fingerprint。
+
+| 工況 | 全部有效列 | 健康池 H | 健康 train／H | 健康 cal／H | 健康 holdout／H | 故障全池 U |
+|---|---:|---:|---:|---:|---:|---:|
+| T1／11000rpm | 3352 | 358 | 214／358 | 71／358 | 73／358 | 2994 |
+| T1／6000rpm | 3358 | 320 | 192／320 | 64／320 | 64／320 | 3038 |
+| T1／8000rpm | 3049 | 313 | 187／313 | 62／313 | 64／313 | 2736 |
+| T3／11000rpm | 3128 | 300 | 180／300 | 60／300 | 60／300 | 2828 |
+| T3／6000rpm | 2941 | 314 | 188／314 | 62／314 | 64／314 | 2627 |
+| T3／8000rpm | 3225 | 272 | 163／272 | 54／272 | 55／272 | 2953 |
+
+H的三個角色互斥、合計H；U另列，不把未知全池混進「20%測試」。例如T1／8000rpm是健康池187+62+64=313，再加2736未知列；不是全部3049列的60/20/20。三個seeds為42／123／2026，數量相同但索引摘要不同，不能累加成三倍獨立資料。
+
+工具只呼叫既有loader與`make_split`，沒有fit、選參或算新分數；這些是實際可用列的配置量，不代表某次串流已消耗幾列。輸出另含多類Ancestor A、逐配置數量、監測截取上限、遷移support與exp5策略重疊。查其他資料版本時重新計數，不複製本表：
+
+```bash
+uv run --locked python -m tests.experiment_data_usage_evidence --data-root data --seeds 42,123,2026
+```
+
+writer是[tests/experiment_data_usage_evidence.py](../../tests/experiment_data_usage_evidence.py)，經setup_run保存`logs/experiment_data_usage_evidence/{ts}.log`、`output/experiment_data_usage_evidence/{ts}/environment.json`與`usage.json`；fixture見[test_experiment_data_usage_evidence.py](../../tests/test_experiment_data_usage_evidence.py)。來源讀取前後逐檔SHA一致；raw/session獨立性與fresh資格保留UNKNOWN。特徵列索引不能恢復清理前視窗、刪點遮罩或採集時間。
+
+## 共通原理：先問模型拿什麼比較
+
+RobustScaler先把每欄減去健康train的中位數，再除以train四分位距；其作用是讓大單位欄位不直接壓過小單位欄位。常數欄的零尺度由套件安全處理，不手算除零。用test學縮放量會讓基準偷看評估資料，因此其餘角色只transform。[官方定義](https://scikit-learn.org/1.7/modules/generated/sklearn.preprocessing.RobustScaler.html)對應`core/monitor.py:_refit`。
+
+馬氏距離把新向量和健康中心比較，並考慮各欄的共同變動。縮放後輸入z、train中心μ、精度矩陣P（共變異數的逆）給出`d(z)=sqrt((z−μ)ᵀP(z−μ))`。LW把經驗共變異數S向等向目標收縮：`Σ=(1−α)S+α·trace(S)/p·I`；p是特徵維度，α由train估計，不是本輪調的係數。這讓少量高維樣本的逆矩陣較穩，不能保證跨馬達分得開。[Ledoit–Wolf公式及原論文](https://scikit-learn.org/1.7/modules/generated/sklearn.covariance.LedoitWolf.html)；距離實作在`core/mahalanobis.py:_distances`。
+
+k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`，j為最近k個參考點。cal列只能查鄰居，不加入參考庫。LW／k-NN各以cal距離的95%分位數q正規化，`s=d/max(q,eps)`；多類取最小s，大於1才拒絕。**legacy例外用train自身定q**。分數沒有物理單位，1是經校準的界線，不是機率。名義95%只描述校準規則，不保證新馬達固定5%誤報。
+
+講解指標時說分母：未知召回=拒絕的未知／全部未知，健康誤報=拒絕的健康／全部健康，已知分類正確率=猜對配置／已知測試列。AUROC問的是未知分數有沒有排在健康前，與固定門檻的召回不同。新類別被接受不等於設備修好；健康指數也不等於剩餘壽命。
 
 ## 共用模型生命週期
 
