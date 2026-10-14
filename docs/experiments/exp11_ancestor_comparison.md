@@ -1,5 +1,28 @@
 # 實驗十一：Ancestor配置協定的Accuracy與F1對照
 
+## 資料角色用量表
+
+流程：固定A/B類別角色 → 每known類切分 → 建全域legacy或逐類LW → known holdout與unknown全池分類 → 分別報accuracy、balanced accuracy與macro-F1。它與老師healthy＋五fault known／四unknown不同；A是healthy＋四fault known／五unknown。
+
+| 資料角色 | T1／8000rpm、A協定 | 有效數量 | 比例與分母 | 用途 | 重疊 |
+|---|---|---:|---|---|---|
+| known train | 8／1／2／3／4共1478列 | 884 | 各類floor(.6n)再合計；884/1478 | scaler及分布 | 與本類cal/test互斥 |
+| known cal | 同上 | 293 | 各類floor(.2n)再合計 | LW各類q95；legacy例外 | legacy門檻不讀此組 |
+| known test | 同上 | 301 | 1478−884−293 | 配置分類，含被拒錯誤 | 列級互斥 |
+| unknown test | 5／6／7／3_14／4_146 | 1571 | 1571/1571故障子池 | 合併unknown分類 | 未fit／cal |
+| B協定 | 只known健康 | 187／62／64，unknown2736 | 健康分母313；unknown全池 | 冷啟動分類API對照 | 不與A當新獨立資料相加 |
+
+依[用量產物](README.md#資料用量與分母怎麼讀)，三seed只是同資料不同索引。A評估分母為301+1571=1872，不是全部3049；已用known train/cal不再進分類測試。沒有validation選參或新final test。
+
+## 發表與理解檢查
+
+口頭主軸：「先區分看過的配置與保留未知，再比較輸出分類。必須注意legacy把label固定為-1，現行classify無法返回known名稱；所以大分差混合了分類介面、逐類結構與校準差異，不能報成單改LW的純提升。」結果及5pp內部門檻見下方，未自動產生可靠性PASS。
+
+- 全判unknown能否有高accuracy？未知佔多數時可以，所以還要看各known召回與balanced accuracy。
+- 是否完整重跑Ancestor？不是，只重建指定類別角色，未重建原notebook資料協定。
+- 5pp達標是否已可部署？仍受不公平基線、列級切分與缺獨立資料限制。
+- 組員請說出A有幾個known faulty、unknown分母及legacy介面問題，勿與老師的另一協定混用。
+
 本實驗在Lineage現行monitor中比較legacy全域分布與逐類LW，分開「認得部分配置」及「只認健康」兩種情境。它重建指定類別角色，不是完整重跑Ancestor原始notebook、原始資料切分或公平隔離單一共變異數變更的實驗。
 
 ## 資料、類別與切分
