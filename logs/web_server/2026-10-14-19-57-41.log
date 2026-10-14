@@ -1,0 +1,10 @@
+2026-10-14 19:57:41 | INFO    | Logger initialized: web_server
+2026-10-14 19:57:41 | INFO    | log_file=logs\web_server\2026-10-14-19-57-41.log
+2026-10-14 19:57:41 | INFO    | output_dir=output\web_server\2026-10-14-19-57-41
+2026-10-14 19:57:41 | INFO    | 載入資料集 T1/8000rpm 並擬合健康基準…
+2026-10-14 19:57:41 | INFO    | Open Set method=mahalanobis（Mahalanobis estimator=ledoit_wolf）
+2026-10-14 19:57:41 | INFO    | session 紀錄（逐筆樣本 + 模型快照）→ output\web_server\2026-10-14-19-57-41
+2026-10-14 19:57:42 | INFO    | 就緒 → http://localhost:8640  （Ctrl+C 結束）
+2026-10-14 19:57:54 | INFO    | 實驗頁執行 exp1 {'dataset': 'T1/8000rpm', 'seed': -1}
+2026-10-14 19:57:54 | INFO    | 實驗頁執行 exp1 {'dataset': 'T1/8000rpm', 'seed': 42, 'openset_method': 'knn'}
+2026-10-14 19:57:54 | INFO    | 實驗頁完成 exp1（0.37 秒）→ output\web_server\2026-10-14-19-57-41\experiments\exp1_2026-10-14-19-57-54.json

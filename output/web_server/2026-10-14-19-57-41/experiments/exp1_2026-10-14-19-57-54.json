@@ -1,0 +1,166 @@
+{
+  "experiment": "exp1",
+  "no": "實驗一",
+  "code": "experiments/exp1_cold_start.py",
+  "params": {
+    "dataset": "T1/8000rpm",
+    "openset_method": "knn",
+    "seed": 42
+  },
+  "seconds": 0.37,
+  "finished_at": "2026-10-14T19:57:54",
+  "result": {
+    "rows": [
+      {
+        "config": "8screws",
+        "display": "Healthy（8 螺絲全鎖）",
+        "kind": "healthy-holdout",
+        "n": 64,
+        "flagged": 1,
+        "detect_rate": 0.015625,
+        "auroc": null,
+        "median_score": 0.8482287235304524
+      },
+      {
+        "config": "7screws",
+        "display": "7 螺絲（最輕微鬆動）",
+        "kind": "unknown-fault",
+        "n": 322,
+        "flagged": 322,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 24.833146741706614
+      },
+      {
+        "config": "6screws",
+        "display": "6 螺絲（輕微鬆動）",
+        "kind": "unknown-fault",
+        "n": 314,
+        "flagged": 314,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 28.660736483367494
+      },
+      {
+        "config": "5screws",
+        "display": "5 螺絲（中度鬆動）",
+        "kind": "unknown-fault",
+        "n": 212,
+        "flagged": 212,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 44.31833255362661
+      },
+      {
+        "config": "4screws",
+        "display": "4 螺絲（明顯鬆動）",
+        "kind": "unknown-fault",
+        "n": 287,
+        "flagged": 287,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 45.69756936974772
+      },
+      {
+        "config": "3screws",
+        "display": "3 螺絲（嚴重鬆動）",
+        "kind": "unknown-fault",
+        "n": 241,
+        "flagged": 241,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 40.398574581376636
+      },
+      {
+        "config": "2screws",
+        "display": "2 螺絲（很嚴重鬆動）",
+        "kind": "unknown-fault",
+        "n": 288,
+        "flagged": 288,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 37.16698360736888
+      },
+      {
+        "config": "1screws",
+        "display": "1 螺絲（最嚴重鬆動）",
+        "kind": "unknown-fault",
+        "n": 349,
+        "flagged": 349,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 53.752660018901736
+      },
+      {
+        "config": "3_14screws",
+        "display": "3_14（複合不均勻鬆動）",
+        "kind": "unknown-fault",
+        "n": 351,
+        "flagged": 351,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 24.103369143312293
+      },
+      {
+        "config": "4_146screws",
+        "display": "4_146（複合不均勻鬆動）",
+        "kind": "unknown-fault",
+        "n": 372,
+        "flagged": 372,
+        "detect_rate": 1.0,
+        "auroc": 1.0,
+        "median_score": 8.693014489154315
+      }
+    ],
+    "healthy_fp_rate": 0.015625,
+    "macro_detect_rate": 1.0,
+    "macro_auroc": 1.0,
+    "model": {
+      "openset_method": "knn",
+      "method": "ledoit_wolf",
+      "score_type": "normalized_class_knn_mean_euclidean",
+      "threshold": 1.0,
+      "threshold_strategy": "known_calibration_class_quantile_0.95",
+      "calibration_source": "known-only 20% calibration split",
+      "confidence": 0.95,
+      "knn_neighbors": 5,
+      "random_seed": 42,
+      "split": {
+        "train": 0.6,
+        "calibration": 0.2,
+        "holdout": 0.2
+      },
+      "n_known": 1,
+      "classes": [
+        {
+          "config": "8screws",
+          "label": 0,
+          "n_train": 187,
+          "n_cal": 62,
+          "n_holdout": 64,
+          "threshold": 8.015692682211517,
+          "centroid_pca": [
+            0.0,
+            0.0
+          ],
+          "n_reference": 187,
+          "effective_neighbors": 5
+        }
+      ]
+    },
+    "confidence": 0.95,
+    "openset_method": "knn",
+    "method": "ledoit_wolf",
+    "score_type": "normalized_class_knn_mean_euclidean",
+    "threshold": 1.0,
+    "threshold_strategy": "known_calibration_class_quantile_0.95",
+    "calibration_source": "known-only 20% calibration split",
+    "split": {
+      "train": 0.6,
+      "calibration": 0.2,
+      "holdout": 0.2
+    },
+    "knn_neighbors": 5,
+    "seed": 42
+  }
+}
