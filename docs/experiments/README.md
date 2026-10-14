@@ -30,6 +30,35 @@
 
 實驗九～十二依序檢查非線性重建、跨工況平移、Ancestor協定對照及可視化。實驗十的direct與adapted／scratch不完全共用測試健康列；實驗十一的legacy分類label固定為-1，與逐類LW的分差混合了分類API差異，不能直接解讀成共變異數估計帶來的改善。實驗十二的t-SNE使用包含known fit列的完整資料池，只作圖像診斷。各手冊列出實際流程與固定產物；入口存在不等於獨立驗收通過。
 
+## 先分清頁面與研究問題
+
+首頁 `/` 的「即時展示」持有一個持續存在的模型；`/#exp1`～`/#exp8` 是重新執行實驗的頁籤，不是獨立伺服器路由。選頁籤本身不代表完成研究。下表的 ID 是 `web.experiments.CATALOG` 與 API 使用的識別字；同一編號的子卡片不重複計算研究成果。
+
+| 頁面／入口 | runner／主要手冊 | 主問題與實際用途 | 資料角色與呈現限制 |
+|---|---|---|---|
+| 即時展示 `/` | `web.live.LiveDemo`；[導覽手冊](exp24_experiment_navigation.md) | 串起偵測、隔離、候選、模擬確認及模型更新 | 初始只 fit 健康；確認後使用完整配置池。首頁具名來源是展示真值，不是模型猜出的故障名稱 |
+| `/#exp1`，ID `exp1` | `exp1_cold_start.run/iter_run`；[實驗一](exp1_cold_start.md) | 健康基準會誤報多少、能拒絕多少未知配置？ | 同工況健康 train/cal/holdout；故障全池只測試，沒有訓練故障分類器 |
+| `/#exp2`，ID `exp2` | `exp2_scale_growth.run`；[實驗二](exp2_scale_growth.md) | 候選群經確認後能否納入模型？ | 發現資料與確認後完整池更新並非完全獨立；認出率不等於分類正確率 |
+| `/#exp3`，ID `exp3` | `exp3_trend.run/iter_run`；[實驗三](exp3_trend.md) | 合成的漸進／突發順序能否辨別？ | CSV 抽樣劇本，延遲單位是重播筆數，不是現場秒數或壽命 |
+| `/#exp4`，ID `exp4` | `exp4_polar_map.run/iter_run`；[實驗四](exp4_polar_map.md) | 已確認配置的方向與半徑如何呈現？ | 幾何可解釋圖；不是經物理標定的故障程度。Web 沒有 Open Set 方法選單，走 runner 固定設定 |
+| `/#exp5`，ID `exp5` | `exp5_cross_condition.run`；[實驗五](exp5_cross_condition.md) | 一個工況的健康基準能否搬到另一工況？ | 跑實際掃到的工況；先看 source→target，不能只報總平均或預設一定九組 |
+| `/#exp6`，ID `exp6` | `exp6_osr_benchmark.run`；[廣度比較](exp6_osr_benchmark.md)、[實驗九](exp9_autoencoder.md) | 八種單類方法的排序與誤報有何差異？ | 包含 AutoEncoder；legacy 使用不同門檻來源。不是八種獨立切分實驗 |
+| `/#exp6`，ID `exp6_formal` | `exp6_formal_benchmark.run`；[正式比較](exp6_formal_benchmark.md) | 固定一個方法與 seed，檢查各工況二元識別 | Web 允許少於九工況，必須看實際 coverage；不是已知五配置／未知四配置研究 |
+| 同頁 6-3 封存卡 | `/api/committed/exp6_formal_matrix`；[矩陣](exp6_matrix.md)、[彙總](exp6_aggregate.md) | 唯讀查看保存的配對矩陣 | 不受上方新選項控制；不能把封存分數當成本次執行 |
+| `/#exp7`，ID `exp7` | `compare_openset.run`；[實驗七](exp7_compare_openset.md) | 同工況同 split，LW 與 k-NN 差多少？ | healthy-only，兩方法共用資料角色；不是跨馬達 fault-type 分類 |
+| `/#exp8`，ID `exp8` | `health_index_benchmark.run`；[健康指數](exp8_health_index_benchmark.md) | 偏離分數轉成相對量尺後，兩群相隔多遠？ | 分位數由健康校準列建立；0～1 不是損壞百分比 |
+| 同頁 8-2 封存卡 | `/api/committed/exp8_health_index_results`；[矩陣](exp8_health_index_matrix.md)、[唯讀重算](exp8_health_index_aggregate.md) | 唯讀查看保存的 54 列 | 歷史彙總的兩欄差異須另查重算產物；不是頁面重跑 54 列 |
+| `/#exp8`，ID `exp8_monitor` | `health_monitor.run/iter_run`；[逐窗監測](exp8_health_monitor.md) | 選定配置的相對指數與告警怎麼走？ | unknown 取其全池再截 max_windows，不是套健康 holdout 索引；順序未證實為原始時間 |
+| 實驗九 | 共用 `exp6_osr_benchmark` 的 `autoencoder`；[實驗九](exp9_autoencoder.md) | 非線性重建是否比線性重建分得開？ | 沒有獨立實驗九頁；權重只從健康 train 建立 |
+| 實驗十 | CLI／`exp10_transfer.run`；[實驗十](exp10_transfer.md) | 少量目標健康資料的中心平移有沒有用？ | 沒有 Web 卡；direct、adapted、scratch 的資料角色要逐項看 |
+| 實驗十一 | CLI／`exp11_ancestor_comparison.run`；[實驗十一](exp11_ancestor_comparison.md) | 同一 Ancestor-style 協定的分類 API 有何差別？ | 沒有 Web 卡；legacy 的 -1 label 會影響分類分數，不能全歸因於 LW |
+| 實驗十二 | CLI／`exp12_confusion_tsne.run`；[實驗十二](exp12_confusion_tsne.md) | 混淆矩陣與投影能看出哪些錯誤？ | 沒有 Web 卡；t-SNE 混入 fit 列只作診斷，不是獨立測試 |
+| 獨立導覽 `/assets/guide.html` | `web.guide`，另啟服務；[實驗二十四](exp24_experiment_navigation.md) | 帶操作員走過同一串流流程，並顯示研究細節 | 展示／研究模式共用 session，不新增實驗。主首頁沒有直連這個獨立服務的入口 |
+
+呼叫鏈：實驗卡片的選項 → `POST /api/experiments/{id}/run` 或 `GET /api/experiments/{id}/stream` → `ExperimentRunner._clean/_dispatch` → 上表 runner → `jsonable` → `experiments.js` 的 renderer。封存卡另走 `/api/committed/{name}`；導覽走自己的 `/ws`。只有 `exp1`、`exp3`、`exp4`、`exp8_monitor` 支援 SSE。實驗九～十二 CLI 的存在不能當成 Web 已支援。
+
+講解時先選正確問題：判未知比例回答「拒絕」，`predict_known_class` 才涉及「已知分類」，HDBSCAN 候選回答「形成群」，確認後更新回答「學進模型」，EWMA 回答「序列變化」。不把這些都叫準確率。成功標準與未通過條件見各手冊；現行 runner 沒有共同的部署可靠性 PASS。
+
 ## 共用模型生命週期
 
 `core.monitor.OpenSetMonitor` 建構後尚未擬合。`score()`、`classify()`、`project()`、`summary()` 都要求完整成功的擬合，否則丟出 `RuntimeError` 並要求成功呼叫 `fit_initial()`。健康基準只用 healthy train 擬合 scaler、detector 與 PCA，known calibration 設門檻；未知資料不參與擬合與校準。
