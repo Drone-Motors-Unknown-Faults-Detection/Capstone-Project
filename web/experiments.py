@@ -23,6 +23,7 @@ from typing import Any, Callable
 import numpy as np
 
 from core.data import HEALTHY, config_sort_key, display_name, load_pools
+from core.detectors import ALL_DETECTORS
 from core.openset import SUPPORTED_OPENSET_METHODS
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -78,28 +79,28 @@ CATALOG: list[dict] = [
     },
     {
         "id": "exp5", "no": "實驗五", "title": "跨工況冷啟動泛化",
-        "question": "某一工況的健康基準能否搬到別的工況？（9 組全跑）",
+        "question": "某一工況的健康基準能否搬到別的工況？範圍以實際掃描工況為準。",
         "code": "experiments/exp5_cross_condition.py",
         "doc": "docs/experiments/exp5_cross_condition.md",
-        "fits": "9 個工況各擬合一個監測器（同實驗一），再交叉測試",
+        "fits": "各可用工況擬合健康監測器，再交叉測試；策略比較另有外層／內層切分限制",
         "seconds": 7,
         "params": [_SEED],
     },
     {
-        "id": "exp6", "no": "實驗六", "sub": "6-1", "title": "七種偵測器廣度比較",
-        "question": "七種單類偵測器在同一校準規則下，誰的誤報較低？（9 組全跑）",
+        "id": "exp6", "no": "實驗六", "sub": "6-1", "title": f"{len(ALL_DETECTORS)} 種偵測器廣度比較",
+        "question": "相同健康切分下，各方法的排序與誤報有何不同？legacy 門檻來源不同，須分開解讀。",
         "code": "experiments/exp6_osr_benchmark.py",
         "doc": "docs/experiments/exp6_osr_benchmark.md",
-        "fits": "9 工況 × 7 種偵測器：Ledoit–Wolf 與 legacy 馬氏距離、One-Class SVM、Isolation Forest、LOF、k-NN 距離、PCA 重建",
+        "fits": f"各可用工況 × {len(ALL_DETECTORS)} 種偵測器：Ledoit–Wolf 與 legacy 馬氏距離、One-Class SVM、Isolation Forest、LOF、k-NN 距離、PCA 重建、MLP AutoEncoder",
         "seconds": 4,
         "params": [_SEED],
     },
     {
         "id": "exp6_formal", "no": "實驗六", "sub": "6-2", "title": "正式版 Mahalanobis vs k-NN（單次）",
-        "question": "主線 Mahalanobis 與 k-NN 在 9 組工況、同一切分下的正式比較，跑一個方法、一個 seed。",
+        "question": "同一健康切分規則下，跑一個方法與 seed；Web 允許部分工況，須看實際覆蓋。",
         "code": "experiments/exp6_formal_benchmark.py",
         "doc": "docs/experiments/exp6_formal_benchmark.md",
-        "fits": "9 工況各擬合一個 RobustScaler 與所選方法的開集偵測器，校準集定閾值",
+        "fits": "各可用工況的健康 train 擬合 RobustScaler 與所選開集偵測器，健康 cal 定閾值",
         "seconds": 2,
         "params": [_OPENSET, _SEED],
         "committed": "exp6_formal_matrix",
@@ -119,10 +120,10 @@ CATALOG: list[dict] = [
     },
     {
         "id": "exp8", "no": "實驗八", "sub": "8-1", "title": "相對健康指數（單次比較）",
-        "question": "把開集分數映成 0～1 健康度後，健康與未知分得多開？（9 組全跑）",
+        "question": "開集分數映成 0～1 相對指數後，健康與未知分得多開？不是損壞百分比。",
         "code": "experiments/health_index_benchmark.py",
         "doc": "docs/experiments/exp8_health_index_benchmark.md",
-        "fits": "9 工況各擬合一個開集偵測器與健康指數分位數刻度（校準集第 10／95 百分位）",
+        "fits": "各可用工況的健康 train 建開集參考；同一份健康 cal 定門檻與第 10／95 百分位刻度",
         "seconds": 2,
         "params": [_OPENSET, _SEED],
         "committed": "exp8_health_index_results",
@@ -133,7 +134,7 @@ CATALOG: list[dict] = [
     },
     {
         "id": "exp8_monitor", "no": "實驗八", "sub": "8-3", "title": "健康監測逐窗輸出",
-        "question": "單一配置的 holdout 窗口逐筆送進 SessionTrajectoryMonitor，健康度與告警怎麼走？",
+        "question": "健康 holdout 或故障全池的前段列逐筆重播，相對指數與告警怎麼走？原始時間未確認。",
         "code": "experiments/health_monitor.py",
         "doc": "docs/experiments/exp8_health_monitor.md",
         "fits": "單一工況的開集偵測器與健康指數刻度；逐窗趨勢狀態只存在這次執行",
@@ -145,6 +146,21 @@ CATALOG: list[dict] = [
                     "default": 120, "min": 5, "max": 1000}],
     },
 ]
+
+_EXPLANATIONS = {
+    "exp1": ("健康 train 建基準、cal 定線；健康 holdout 與故障全池只評估。", "只學健康，不是九故障分類器；列級切分不證明錄製獨立。"),
+    "exp2": ("初始只 fit 健康；未知全池循環重播，模擬確認後用完整配置池更新。", "發現資料可能進後續 fit／test；批次自動確認與首頁人工操作不同。"),
+    "exp3": ("一份健康基準供所有 trial；健康從 holdout、故障從全池循環抽樣。", "劇本順序不是實際退化；延遲單位為筆，不能當秒或 RUL。"),
+    "exp4": ("已確認配置 train 建射線；fault holdout 另校準方向，排序圖含錨點。", "固定 LW 幾何；方向、半徑沒有物理損傷標定，也非獨立方向測試。"),
+    "exp5": ("source 健康建立基準；跨 target 用完整健康及 fault 池。", "策略 b 的 per_condition 與共同外層測試有用途重疊；T1/T2/T3 是不同個體，不是生命週期。"),
+    "exp6": ("同工況所有方法共用健康 train／cal／holdout；fault 全池只測試。", "包含 AutoEncoder，內部驗證另切；legacy 用 train 定線，不是相同校準保證。"),
+    "exp6_formal": ("每工況健康 train／cal／holdout；其他配置全池為 unknown。", "known 只有健康，accuracy 是二元識別；部分工況不等於完整九工況。"),
+    "exp7": ("兩方法在同一資料、seed 與健康切分下比較；unknown 不進 fit／cal。", "只支持同條件健康／未知比較，不是跨馬達 fault-type 準確率。"),
+    "exp8": ("健康 train 建模型；同一 cal 設距離線及健康錨點；其餘只評估。", "指數可能飽和；0～1 不等於損壞百分比、故障機率或剩餘壽命。"),
+    "exp8_monitor": ("健康 train／cal 建基準；healthy 用 holdout，fault 用全池前段。", "window_index 是重播索引，時間戳缺失；告警政策與實體事件真值不同。"),
+}
+for _entry in CATALOG:
+    _entry["data_roles"], _entry["limitations"] = _EXPLANATIONS[_entry["id"]]
 _BY_ID = {e["id"]: e for e in CATALOG}
 SCORE_CHUNK = 4  # 實驗一每個 frame 送幾筆分數
 
