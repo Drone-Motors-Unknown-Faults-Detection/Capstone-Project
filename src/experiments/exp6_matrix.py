@@ -182,6 +182,18 @@ def _is_complete(summary_path: Path, expected: dict, fingerprint: str | None = N
     return not validate_run(summary_path.parent, expected, fingerprint)
 
 
+def _condition_result(result: dict, entry: dict) -> dict:
+    """benchmark 結果只留目標工況那一列；找不到或多於一列就丟 ValueError。不修改輸入。"""
+    condition_rows = [
+        row
+        for row in result["rows"]
+        if row.get("motor") == entry["motor"] and row.get("rpm") == entry["rpm"]
+    ]
+    if len(condition_rows) != 1:
+        raise ValueError(f"expected one row for {entry['condition']}, found {len(condition_rows)}")
+    return dict(result, formal_condition_count=1, rows=condition_rows)
+
+
 def _write_run_csv(run_dir: Path, result: dict) -> None:
     frame = pd.DataFrame(result["rows"])
     temporary = run_dir / "results.csv.tmp"
@@ -252,16 +264,7 @@ def run_matrix(
                 openset_method=entry["method"],
                 require_nine=True,
             )
-            condition_rows = [
-                row
-                for row in result["rows"]
-                if row.get("motor") == entry["motor"] and row.get("rpm") == entry["rpm"]
-            ]
-            if len(condition_rows) != 1:
-                raise ValueError(
-                    f"expected one row for {entry['condition']}, found {len(condition_rows)}"
-                )
-            result = dict(result, formal_condition_count=1, rows=condition_rows)
+            result = _condition_result(result, entry)
             fingerprint = result["dataset_fingerprint"]
             _atomic_json(summary_path, result)
             _write_run_csv(run_dir, result)

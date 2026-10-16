@@ -11,7 +11,7 @@ from unittest.mock import patch
 import pandas as pd
 
 from experiments import exp6_matrix
-from experiments.exp6_matrix import _is_complete, expected_run_matrix, run_matrix, validate_run
+from experiments.exp6_matrix import _condition_result, _is_complete, expected_run_matrix, run_matrix, validate_run
 from tests.exp6_fixture import condition_row, write_run
 
 EXPECTED = {"method": "knn", "seed": 42, "motor": "T1", "rpm": "6000rpm", "condition": "T1/6000rpm"}
@@ -129,6 +129,30 @@ class RunMatrixResumeTests(unittest.TestCase):
             self.assertEqual(len(calls), 2)
             self.assertNotIn("resumed", third["runs"][0])
             self.assertTrue((output / "runs" / "T1_6000rpm_seed42_knn" / "results.csv").is_file())
+
+
+class ConditionResultTests(unittest.TestCase):
+    """#49 抽出的 _condition_result：只留目標工況那一列。"""
+
+    ENTRY = {"motor": "T1", "rpm": "6000rpm", "condition": "T1/6000rpm"}
+
+    def _result(self, *rows: dict) -> dict:
+        return {"status": "completed", "formal_condition_count": len(rows), "rows": list(rows)}
+
+    def test_keeps_only_the_target_row_without_mutating_input(self) -> None:
+        target = condition_row("T1", "6000rpm", 42, "knn")
+        other = condition_row("T3", "6000rpm", 42, "knn")
+        result = self._result(other, target)
+        picked = _condition_result(result, self.ENTRY)
+        self.assertEqual((picked["rows"], picked["formal_condition_count"]), ([target], 1))
+        self.assertEqual((result["rows"], result["formal_condition_count"]), ([other, target], 2))
+
+    def test_missing_or_duplicate_rows_raise(self) -> None:
+        target = condition_row("T1", "6000rpm", 42, "knn")
+        for rows, found in (((), 0), ((target, target), 2)):
+            with self.subTest(found=found):
+                with self.assertRaisesRegex(ValueError, f"expected one row for T1/6000rpm, found {found}"):
+                    _condition_result(self._result(*rows), self.ENTRY)
 
 
 if __name__ == "__main__":
