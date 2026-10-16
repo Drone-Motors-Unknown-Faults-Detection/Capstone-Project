@@ -8,6 +8,9 @@
 
 from __future__ import annotations
 
+import copy
+import hashlib
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -85,6 +88,52 @@ def load_pools(dataset_path: Path | str, *, require_complete: bool = False,
     report["status"] = "VERIFIED"
     report["accepted_rows"] = sum(len(values) for values in pools.values())
     return pools
+
+
+class PoolCache:
+    """以內容 SHA 為鍵的 load_pools() 記憶體快取；契約見 docs/profiling_contract.md。
+
+    範圍由呼叫端決定（例如一次 run_matrix）。命中時回傳深拷貝；載入失敗不快取。
+    """
+
+    def __init__(self) -> None:
+        self._entries: dict[str, tuple[dict[str, np.ndarray], dict]] = {}
+        self.hits = 0
+        self.misses = 0
+
+    @staticmethod
+    def content_key(dataset_path: Path | str, *, require_complete: bool = False) -> str:
+        root = Path(dataset_path)
+        listing = []
+        if root.is_dir():
+            for folder in sorted(p for p in root.iterdir() if p.is_dir()):
+                files = [[path.name, hashlib.sha256(path.read_bytes()).hexdigest()]
+                         for path in sorted(folder.glob("*_Group_feature_data_clean.csv"))]
+                listing.append([folder.name, files])
+        payload = {"registry": REGISTRY_VERSION, "require_complete": bool(require_complete),
+                   "is_dir": root.is_dir(), "folders": listing}
+        return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    def load(self, dataset_path: Path | str, *, require_complete: bool = False,
+             audit: dict | None = None) -> dict[str, np.ndarray]:
+        key = self.content_key(dataset_path, require_complete=require_complete)
+        cached = self._entries.get(key)
+        if cached is not None:
+            self.hits += 1
+            pools, report = cached
+            if audit is not None:
+                audit.clear()
+                audit.update(copy.deepcopy(report))
+            return {name: values.copy() for name, values in pools.items()}
+        self.misses += 1
+        report: dict = {}
+        pools = load_pools(dataset_path, require_complete=require_complete, audit=report)
+        if self.content_key(dataset_path, require_complete=require_complete) == key:
+            self._entries[key] = ({name: values.copy() for name, values in pools.items()}, copy.deepcopy(report))
+        if audit is not None:
+            audit.clear()
+            audit.update(report)
+        return pools
 
 
 def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:

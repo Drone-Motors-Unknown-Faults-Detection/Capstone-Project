@@ -54,6 +54,8 @@ class ProfileTests(unittest.TestCase):
         self.assertEqual([row["known_classes"] for row in result["knn_score_by_classes"]], [1, 3])
         self.assertEqual(result["os_page_cache"], "not_controlled")
         self.assertIn("worth_it", result["decision"]["csv_cache"])
+        self.assertEqual(len(result["cached_load"]["samples"]), 2)
+        self.assertGreater(result["cached_load"]["speedup_vs_load"], 0)
 
     def test_invalid_repeats_rejected(self):
         with self.assertRaises(ValueError):

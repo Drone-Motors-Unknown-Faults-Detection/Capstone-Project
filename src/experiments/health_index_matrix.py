@@ -12,6 +12,7 @@ from typing import Sequence
 
 import pandas as pd
 
+from core.data import PoolCache
 from core.logger import setup_run
 from core.openset import SUPPORTED_OPENSET_METHODS, canonical_openset_method
 from experiments.health_index_benchmark import FORMAL_CONDITION_COUNT, run
@@ -71,6 +72,7 @@ def run_matrix(
     }
     output_path.mkdir(parents=True, exist_ok=True)
     manifest_path = output_path / "matrix_manifest.json"
+    pool_cache = PoolCache()
     for seed in seeds:
         for method in canonical_methods:
             run_id = f"seed_{int(seed)}_{method}"
@@ -95,7 +97,7 @@ def run_matrix(
                 except (OSError, json.JSONDecodeError):
                     pass
             try:
-                result = run(data_root, seed=int(seed), openset_method=method, require_nine=True)
+                result = run(data_root, seed=int(seed), openset_method=method, require_nine=True, pool_cache=pool_cache)
                 _atomic_json(json_path, result)
                 pd.DataFrame(result["rows"]).to_csv(csv_path, index=False)
                 entry.update({"status": "completed", "path": str(json_path.relative_to(output_path))})

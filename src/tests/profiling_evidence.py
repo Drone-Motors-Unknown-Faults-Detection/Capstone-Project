@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import RobustScaler
 
-from core.data import HEALTHY, load_pools, make_split
+from core.data import HEALTHY, PoolCache, load_pools, make_split
 from core.feature_schema import CONFIGURATIONS, SCHEMAS
 from core.logger import setup_run
 from core.openset import create_openset_detector
@@ -131,9 +131,16 @@ def profile(dataset: Path, *, methods: Sequence[str] = ("mahalanobis", "knn"), r
             "reference_bank": measured[0]["reference_bank"],
         }
     knn = _knn_by_classes(dataset, class_counts, seed, repeats, warmup)
+    cache = PoolCache()
+    cache.load(dataset)
+    cached = [_measure(lambda: cache.load(dataset))[1] for _ in range(warmup + repeats)]
+    uncached = min(item["stats"]["load"]["median_seconds"] for item in pipelines.values())
+    cached_load = {"warmup": cached[:warmup], "samples": cached[warmup:], "stats": _stats(cached[warmup:])}
+    cached_load["speedup_vs_load"] = uncached / cached_load["stats"]["median_seconds"]
     return {"schema_version": "profiling_v1", "contract": CONTRACT, "seed": seed, "repeats": repeats,
             "warmup": warmup, "os_page_cache": "not_controlled", "cpu_count": os.cpu_count(),
-            "pipelines": pipelines, "knn_score_by_classes": knn, "decision": decide(pipelines, knn)}
+            "pipelines": pipelines, "knn_score_by_classes": knn, "cached_load": cached_load,
+            "decision": decide(pipelines, knn)}
 
 
 def decide(pipelines: dict, knn: list[dict]) -> dict:
@@ -180,6 +187,9 @@ def main(argv: Sequence[str] | None = None) -> int:
         log.info(f"{method}：{shares}；load median {item['stats']['load']['median_seconds']:.4f}s")
     for row in result["knn_score_by_classes"]:
         log.info(f"k-NN {row['known_classes']} 類：median {row['stats']['median_seconds']:.4f}s")
+    cached_load = result["cached_load"]
+    log.info(f"PoolCache 命中：median {cached_load['stats']['median_seconds']:.4f}s，"
+             f"比未快取快 {cached_load['speedup_vs_load']:.1f} 倍")
     decision = result["decision"]
     log.info(f"CSV cache 值得做：{decision['csv_cache']['worth_it']}；k-NN 批次化值得做：{decision['knn_vectorization']['worth_it']}")
     print(json.dumps({"output_dir": str(paths.output_dir), "csv_cache": decision["csv_cache"]["worth_it"],

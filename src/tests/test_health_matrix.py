@@ -13,7 +13,7 @@ from experiments import health_index_matrix
 from experiments.health_index_matrix import FORMAL_CONDITION_COUNT, expected_run_ids, main
 
 
-def _fake_run(data_root, *, seed, openset_method, require_nine):
+def _fake_run(data_root, *, seed, openset_method, require_nine, pool_cache=None):
     rows = [{"condition": f"c{index}", "seed": seed, "method": openset_method} for index in range(FORMAL_CONDITION_COUNT)]
     return {"status": "completed", "seed": seed, "method": openset_method,
             "formal_condition_count": FORMAL_CONDITION_COUNT, "rows": rows}
