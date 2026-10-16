@@ -1,3 +1,7 @@
+import contextlib
+import io
+import json
+import os
 import unittest
 import tempfile
 from pathlib import Path
@@ -5,7 +9,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from experiments.health_index_benchmark import run
+from loguru import logger
+
+from experiments.health_index_benchmark import main, run
 from core.feature_schema import SCHEMAS
 
 
@@ -42,5 +48,32 @@ class HealthBenchmarkTests(unittest.TestCase):
             result = run(root, seed=123, openset_method="knn", require_nine=False)
             self.assertEqual(result["method"], "knn")
             self.assertEqual(result["rows"][0]["method"], "knn")
+        finally:
+            temporary.cleanup()
+
+    def test_cli_uses_setup_run_and_saves_same_result_as_api(self):
+        """#24：CLI 經 setup_run 寫 logs/output，同 seed 的 result.json 與 API 回傳相同。"""
+        temporary, root = self._fixture_root()
+        previous = Path.cwd()
+        try:
+            with tempfile.TemporaryDirectory() as workspace:
+                try:
+                    os.chdir(workspace)
+                    stdout = io.StringIO()
+                    with contextlib.redirect_stdout(stdout):
+                        self.assertEqual(main(["--data-root", str(root), "--seed", "42", "--allow-partial"]), 0)
+                    self.assertEqual(len(list(Path("logs/exp8_health_index_benchmark").glob("*.log"))), 1)
+                    (output_dir,) = Path("output/exp8_health_index_benchmark").iterdir()
+                    saved = json.loads((output_dir / "result.json").read_text(encoding="utf-8"))
+                    table = pd.read_csv(output_dir / "rows.csv")
+                    summary = json.loads(stdout.getvalue())
+                    self.assertEqual(summary["output_dir"], str(output_dir))
+                    self.assertFalse(Path("reports").exists())
+                finally:
+                    logger.remove()
+                    os.chdir(previous)
+            expected = run(root, seed=42, require_nine=False)
+            self.assertEqual(saved, json.loads(json.dumps(expected)))
+            self.assertEqual(len(table), len(expected["rows"]))
         finally:
             temporary.cleanup()

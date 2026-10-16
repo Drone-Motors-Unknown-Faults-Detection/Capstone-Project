@@ -11,8 +11,10 @@ from pathlib import Path
 from typing import Sequence
 
 import numpy as np
+import pandas as pd
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.logger import setup_run
 from core.openset import canonical_openset_method
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
@@ -195,6 +197,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args(argv)
+    log, paths = setup_run("exp8_health_index_benchmark")
+    log.info(f"參數：{vars(args)}")
     result = run(
         args.data_root,
         seed=args.seed,
@@ -204,7 +208,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         knn_neighbors=args.knn_neighbors,
         require_nine=not args.allow_partial,
     )
-    print(json.dumps({"status": result["status"], "rows": len(result["rows"]), "method": result["method"], "seed": result["seed"]}))
+    (paths.output_dir / "result.json").write_text(
+        json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    pd.DataFrame(result["rows"]).to_csv(paths.output_dir / "rows.csv", index=False)
+    log.info(f"完成：{len(result['rows'])} 列，結果寫入 {paths.output_dir}")
+    print(json.dumps({"status": result["status"], "rows": len(result["rows"]), "method": result["method"],
+                      "seed": result["seed"], "output_dir": str(paths.output_dir)}))
     return 0
 
 
