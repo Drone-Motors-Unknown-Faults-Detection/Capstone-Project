@@ -42,7 +42,7 @@ uv run --locked python -m experiments.health_index_benchmark --data-root data/fo
 uv run --locked python -m experiments.health_index_benchmark --data-root data/formal_local --seed 42 --openset-method knn --knn-neighbors 5
 ```
 
-API run(data_root,seed=42,openset_method="mahalanobis",mahalanobis_method="ledoit_wolf",confidence=0.95,knn_neighbors=5,require_nine=True)回傳九列dict。**單次CLI只印status／列數／方法／seed，不保存完整結果，也未setup_run**；需要持久化請用矩陣入口，不能假設stdout含逐窗預測。這是與現行日誌慣例的缺口。
+API run(data_root,seed=42,openset_method="mahalanobis",mahalanobis_method="ledoit_wolf",confidence=0.95,knn_neighbors=5,require_nine=True)回傳九列dict。CLI經`core.logger.setup_run("exp8_health_index_benchmark")`初始化：日誌寫`logs/exp8_health_index_benchmark/{ts}.log`，完整結果寫`output/exp8_health_index_benchmark/{ts}/`的`result.json`（與API回傳的dict相同）與`rows.csv`（九列表），另有setup_run寫的`environment.json`。stdout只印status／列數／方法／seed與output_dir；結果是逐工況彙總，不含逐窗預測。
 
 Web依[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)啟動，實驗八8-1選方法／seed後按「▶ 執行」，跑伺服器root；Web允許部分工況，須看列數。沒有中途取消、串流或續跑；8-3是另一個逐窗入口。Web由ExperimentRunner保存JSON到output/web_server/{ts}/experiments/。
 
