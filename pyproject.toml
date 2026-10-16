@@ -3,7 +3,7 @@ requires = ["setuptools>=79,<80", "wheel>=0.45,<0.46"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "lineage"
+name = "Drone-Motors-Unknown-Faults-Detection"
 version = "0.2.0"
 requires-python = ">=3.10,<3.11"
 # 冷啟動 PHM 專題（core / experiments / web）的依賴——不需要 TensorFlow 與 GPU
@@ -28,8 +28,7 @@ test = [
 # 重跑論文版管線（Ancestor repo）才需要的額外套件：tensorflow 的 numpy 範圍跟上面主依賴
 # 衝突，放進 optional-dependencies 會讓 uv.lock 的 universal lock 無解，所以改放純
 # requirements 檔，不受 uv.lock 管理；未鎖版，非本輪正式驗證範圍，見 docs/runtime_policy.md。
-#   ./build_uv.sh --legacy        （Linux, GPU；requirements-legacy-linux.txt）
-#   ./build_uv.sh --legacy-mac    （macOS；requirements-legacy-mac.txt）
+#   ./scripts/opt/build_uv.sh --legacy   （Ubuntu, GPU；requirements-legacy-linux.txt）
 
 [tool.setuptools]
 package-dir = {"" = "src"}

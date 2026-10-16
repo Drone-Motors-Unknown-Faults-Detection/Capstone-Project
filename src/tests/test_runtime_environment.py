@@ -8,7 +8,6 @@ import json
 import os
 from pathlib import Path
 import subprocess
-import shutil
 import tempfile
 import unittest
 from unittest.mock import Mock, patch
@@ -137,15 +136,27 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertNotIn("3.14.0", policy)
 
     def test_build_scripts_do_not_delete_existing_environments(self):
-        for name in ("build_uv.sh", "build_uv_mac.sh", "build_uv.ps1"):
-            text = (ROOT / name).read_text(encoding="utf-8")
-            with self.subTest(script=name):
-                self.assertNotIn("rm -rf", text)
-                self.assertNotIn("Remove-Item", text)
-        for name in ("build_uv.sh", "build_uv.ps1"):
-            text = (ROOT / name).read_text(encoding="utf-8")
-            self.assertIn("--locked", text)
-        self.assertIn(".venv310/", (ROOT / ".gitignore").read_text(encoding="utf-8"))
+        quantity = ("run_pytest.sh", "run_ruff.sh")
+        opt = ("build_uv.sh", "run_web.sh")
+        self.assertEqual(sorted(path.name for path in (ROOT / "scripts/quantity").glob("*.sh")), sorted(quantity))
+        self.assertEqual(sorted(path.name for path in (ROOT / "scripts/opt").glob("*.sh")), sorted(opt))
+        for name in (*quantity, *opt, "build_uv.ps1", "build_uv_mac.sh"):
+            self.assertFalse((ROOT / name).exists(), name)
+        self.assertFalse((ROOT / "requirements-legacy-mac.txt").exists())
+        build = (ROOT / "scripts/opt/build_uv.sh").read_text(encoding="utf-8")
+        self.assertNotIn("rm -rf", build)
+        self.assertNotIn("Remove-Item", build)
+        self.assertNotIn("legacy-mac", build)
+        self.assertIn("--locked", build)
+        self.assertIn('VENV_DIR="venv"', build)
+        self.assertIn('cd -- "$(dirname -- "$0")/../.."', build)
+        for name in (*quantity, "run_web.sh"):
+            folder = "quantity" if name in quantity else "opt"
+            text = (ROOT / "scripts" / folder / name).read_text(encoding="utf-8")
+            self.assertIn('cd "$(dirname "$0")/../.."', text)
+        ignored = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn("venv/", ignored)
+        self.assertIn(".venv310/", ignored)
 
     def test_run_and_main_preserve_environment_contract(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
@@ -154,26 +165,6 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             with patch("sys.argv", ["runtime_environment", "--program", "runtime_environment"]):
                 runtime.main()
             self.assertTrue(any(Path("output/runtime_environment").glob("*/environment.json")))
-
-    @unittest.skipUnless(os.name == "nt" and shutil.which("pwsh"), "Windows PowerShell 7 專用安裝拒絕測試")
-    def test_windows_existing_target_is_not_changed(self):
-        with tempfile.TemporaryDirectory() as directory:
-            marker = Path(directory) / "preserve.txt"
-            marker.write_text("保留使用者環境", encoding="utf-8")
-            result = subprocess.run([shutil.which("pwsh"), "-NoProfile", "-File", str(ROOT / "build_uv.ps1"),
-                                     "-Python", "不存在的Python", "-VenvDir", directory], capture_output=True, timeout=15)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertEqual(marker.read_text(encoding="utf-8"), "保留使用者環境")
-            self.assertEqual(list(Path(directory).iterdir()), [marker])
-
-    @unittest.skipUnless(os.name == "nt" and shutil.which("pwsh"), "Windows PowerShell 7 專用安裝拒絕測試")
-    def test_windows_invalid_python_does_not_create_target(self):
-        with tempfile.TemporaryDirectory() as directory:
-            target = Path(directory) / "new_environment"
-            result = subprocess.run([shutil.which("pwsh"), "-NoProfile", "-File", str(ROOT / "build_uv.ps1"),
-                                     "-Python", "不存在的Python", "-VenvDir", str(target)], capture_output=True, timeout=15)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertFalse(target.exists())
 
 
 if __name__ == "__main__":

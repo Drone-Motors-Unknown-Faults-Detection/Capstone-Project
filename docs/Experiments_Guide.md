@@ -329,7 +329,7 @@ venv/bin/python -m experiments.health_index_matrix --data-root data/formal_local
 
 ---
 
-## 10. Web 即時展示怎麼看（./run_web.sh）
+## 10. Web 即時展示怎麼看（./scripts/opt/run_web.sh）
 
 | 畫面元件 | 對應實驗 | 看什麼 |
 |---|---|---|

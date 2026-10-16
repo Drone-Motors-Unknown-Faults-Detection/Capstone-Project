@@ -323,8 +323,8 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
   模型（統計擬合，不用 GPU）；模型跑完即丟、不保存，同 seed 重跑結果相同。每頁會寫出這次擬合哪些模型、約需幾秒。
 
 ```bash
-./run_web.sh                      # 預設 T1/8000rpm、http://localhost:8600
-./run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
+./scripts/opt/run_web.sh                      # 預設 T1/8000rpm、http://localhost:8600
+./scripts/opt/run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
 ```
 
 功能：
@@ -405,8 +405,8 @@ Lineage/
 │   └── Step-*/myfeature/{Motor}/{RPM}/{Screws}/*_Group_feature_data_clean.csv
 ├── logs/                        # 每次執行的 loguru 日誌（納入版控）
 ├── output/                      # 每次執行的結果檔與圖表（納入版控）
-├── run_web.sh                   # 啟動展示伺服器
-├── build_uv.sh / build_uv_mac.sh# 建立 venv（--legacy 可加裝論文版管線依賴）
+├── scripts/quantity/            # run_pytest.sh、run_ruff.sh（提交前檢查）
+├── scripts/opt/                 # run_web.sh、build_uv.sh（展示與環境）
 └── pyproject.toml               # 正式 Python 3.10.x；版本訂死，完整依賴樹鎖在 uv.lock
 ```
 
@@ -415,11 +415,11 @@ Lineage/
 ## 環境與執行
 
 ```bash
-./build_uv.sh --python python3.10 --venv venv  # 新目錄才可建立，既有 venv 不刪除
-./build_uv.sh --legacy --venv venv-legacy     # legacy extras 未完整鎖版，非正式驗證環境
+./scripts/opt/build_uv.sh --python python3.10 --venv venv  # 新目錄才可建立，既有 venv 不刪除
+./scripts/opt/build_uv.sh --legacy --venv venv-legacy     # legacy extras 未完整鎖版，非正式驗證環境
 ```
 
-Windows 使用 PowerShell 7：`./build_uv.ps1 -Python 'C:/path/to/python3.10.exe' -VenvDir 'venv'`。兩平台都使用同一份 constraints；正式範圍、更新流程與未完成的 health CLI 覆蓋見 [執行環境契約](docs/runtime_policy.md)。3.14 歷史研究不代表本輪 main 安裝相容。
+正式範圍、更新流程與未完成的 health CLI 覆蓋見 [執行環境契約](docs/runtime_policy.md)。3.14 歷史研究不代表本輪 main 安裝相容。
 
 所有指令都在**專案根目錄**執行，直接用 `venv/bin/python`，不需 activate：
 
@@ -427,7 +427,7 @@ Windows 使用 PowerShell 7：`./build_uv.ps1 -Python 'C:/path/to/python3.10.exe
 venv/bin/python -m experiments.exp1_cold_start --motor T1 --rpm 8000rpm
 venv/bin/python -m experiments.exp2_scale_growth
 venv/bin/python -m experiments.exp3_trend --trials 40
-./run_web.sh
+./scripts/opt/run_web.sh
 ```
 
 ### 日誌與輸出慣例（沿用論文版專案習慣，改以 loguru 實作）

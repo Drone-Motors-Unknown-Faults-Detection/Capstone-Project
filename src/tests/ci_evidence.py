@@ -1,6 +1,6 @@
 """CI 工程證據：真實執行指定命令，只公開白名單摘要。
 
-pytest／ruff 改由 CI yaml 的獨立 step（./run_pytest.sh、./run_ruff.sh）把關，
+pytest／ruff 改由 CI yaml 的獨立 step（./scripts/quantity/run_pytest.sh、./scripts/quantity/run_ruff.sh）把關，
 不在這裡重複跑；這裡只留 pip check、CLI help 與文件相對連結檢查。
 """
 from __future__ import annotations

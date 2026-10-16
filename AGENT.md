@@ -49,13 +49,10 @@ docs/            實驗技術報告在 docs/experiments/（每個 src/experiment
 data/            特徵資料（git 忽略；由論文版管線產出，本專案唯讀）
 logs/ output/    每次執行的日誌與結果（納入版控）。output/ 只能是程式碼寫出的檔案，見鐵則 9
 uv.lock          完整依賴樹的唯一鎖版來源（含間接依賴）；pyproject.toml 只宣告直接依賴的訂死版本
-run_web.sh       啟動展示伺服器
-run_pytest.sh    提交前跑全套 pytest（鐵則 10）；CI 的獨立 Pytest step 也呼叫它
-run_ruff.sh      提交前跑 ruff 風格檢查（鐵則 12）；CI 的獨立 Ruff step 也呼叫它
-build_uv.sh      保留入口名稱；環境管理工具固定為 uv（`uv sync --locked`），
-                 版本訂死在 pyproject.toml，完整依賴樹鎖在 uv.lock；不刪除既有目錄
-build_uv.ps1     Windows PowerShell 7 的同版安裝入口；詳見 docs/runtime_policy.md
-build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
+scripts/quantity/ 提交前檢查：run_pytest.sh（鐵則 10）、run_ruff.sh（鐵則 12）；
+                 CI 的獨立 Pytest／Ruff step 也呼叫這兩支
+scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；build_uv.sh 以 uv sync --locked
+                 建立新環境，版本訂死在 pyproject.toml，完整依賴樹鎖在 uv.lock，不刪除既有目錄
 ```
 
 ---
@@ -88,7 +85,7 @@ build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
    repo 內沒有任何程式碼寫這兩個檔案，應移除或改放 `docs/`）。
 10. **新增或修改程式碼一律要有對應的 pytest 測試，且測試要能通過。** 測試放在 `src/tests/`，
     檔名 `test_<module>.py`，對應 `src/core/`、`src/experiments/`、`src/experiments/health/` 或 `src/web/` 裡被改動的
-    模組；提交前跑 `./run_pytest.sh`（或 `venv/bin/python -m pytest src/tests/`，或至少跑到相關檔案）
+    模組；提交前跑 `./scripts/quantity/run_pytest.sh`（或 `venv/bin/python -m pytest src/tests/`，或至少跑到相關檔案）
     確認全部通過，不要留下失敗或被跳過的測試就視為完成。
 11. **Python 環境管理工具固定為 [uv](https://docs.astral.sh/uv/)。** 建環境、裝套件一律用
     `uv sync` / `uv pip install`，不要退回 `python -m venv` 配 `pip install`。版本分兩層：
@@ -96,11 +93,11 @@ build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
     `uv.lock`，`uv sync --locked` 強制照 lock 檔安裝、不會偷偷重新解析版本。legacy extras
     （`tensorflow` 相關）跟主依賴的 numpy 版本衝突，刻意不進 `uv.lock`，改放
     `requirements-legacy-*.txt`，走 `uv pip install -r` 單次安裝，不鎖版。
-    細節見 `build_uv.sh`／`build_uv.ps1`／`docs/runtime_policy.md`。
+    細節見 `scripts/opt/build_uv.sh`／`docs/runtime_policy.md`。
 12. **`ruff check .` 必須零錯誤才能合併。** 規則集合固定在 `pyproject.toml` 的
     `[tool.ruff.lint] select`（`E4`／`E7`／`E9`／`F`），不依賴 ruff 版本的預設集合。
     CI 用 `.github/workflows/ci.yml` 的獨立 `Ruff` step 跑這關；提交前本機先跑
-    `./run_ruff.sh`，有錯就地修掉，不要用 `# noqa` 繞過真正的問題。
+    `./scripts/quantity/run_ruff.sh`，有錯就地修掉，不要用 `# noqa` 繞過真正的問題。
 
 ---
 
@@ -180,16 +177,16 @@ venv/bin/python -m experiments.exp6_matrix                # 正式版 9 工況 �
 venv/bin/python -m experiments.compare_openset --openset-methods mahalanobis knn   # 實驗七
 
 # 即時展示（http://localhost:8600）
-./run_web.sh
-./run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
+./scripts/opt/run_web.sh
+./scripts/opt/run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
 
 # 環境
-./build_uv.sh --python python3.10 --venv venv  # 只建立新目錄；正式支援 3.10.x
-./build_uv.sh --legacy --venv venv-legacy     # legacy extras 非本輪正式鎖版驗證範圍
+./scripts/opt/build_uv.sh --python python3.10 --venv venv  # 只建立新目錄；正式支援 3.10.x
+./scripts/opt/build_uv.sh --legacy --venv venv-legacy     # legacy extras 非本輪正式鎖版驗證範圍
 
 # 提交前檢查
-./run_ruff.sh
-./run_pytest.sh
+./scripts/quantity/run_ruff.sh
+./scripts/quantity/run_pytest.sh
 ```
 
 ---

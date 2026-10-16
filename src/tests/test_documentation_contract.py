@@ -130,8 +130,8 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertIn("uv.lock", runtime)
         self.assertIn("-m pytest src/tests", runtime)
         ci = (ROOT / "docs/ci_contract.md").read_text(encoding="utf-8")
-        self.assertIn("./run_ruff.sh", ci)
-        self.assertIn("./run_pytest.sh", ci)
+        self.assertIn("./scripts/quantity/run_ruff.sh", ci)
+        self.assertIn("./scripts/quantity/run_pytest.sh", ci)
         self.assertIn("不在其中重跑 pytest／ruff", ci)
         self.assertIn("只有 Ubuntu", ci)
 
