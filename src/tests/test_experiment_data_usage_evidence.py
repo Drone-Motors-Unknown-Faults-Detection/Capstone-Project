@@ -1,5 +1,4 @@
 """資料用量以合成 CSV 驗證；不依賴忽略的正式 data。"""
-from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
