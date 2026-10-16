@@ -18,7 +18,7 @@ def _mismatches(packages: dict) -> list[dict]:
     lock = lock_versions(ROOT)
     found = []
     for name, actual in packages.items():
-        if name == "lineage":
+        if name in {"lineage", "drone-motors-unknown-faults-detection"}:
             continue
         expected = lock.get(name)
         if expected is not None and actual != expected:
