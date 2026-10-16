@@ -2,7 +2,7 @@
 
 啟動：
     venv/bin/python -m web.server --motor T1 --rpm 8000rpm --port 8600
-或使用專案根目錄的 ./run_web.sh。
+或使用 ./scripts/opt/run_web.sh。
 
 伺服器本身不含實驗邏輯：以固定頻率呼叫 LiveDemo.tick()，把訊息廣播給
 所有連線的瀏覽器；重擬合（確認納入、重置、換資料集）丟進執行緒池，

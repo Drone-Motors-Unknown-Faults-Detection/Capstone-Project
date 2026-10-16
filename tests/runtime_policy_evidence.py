@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-import shutil
 import sys
 
 from core.logger import setup_run
@@ -36,12 +35,9 @@ def run(mode: str, python: str, venv: str | None = None) -> dict:
             raise ValueError("install 必須指定新的 --venv 路徑")
         if Path(venv).exists():
             raise ValueError("目標已存在；拒絕覆寫")
-        powershell = shutil.which("pwsh") or shutil.which("powershell")
-        if powershell is None:
-            raise RuntimeError("本入口的 Windows 真實安裝需要 PowerShell")
-        results.append(command([powershell, "-NoProfile", "-File", "build_uv.ps1", "-Python", python, "-VenvDir", venv]))
+        results.append(command(["bash", "scripts/opt/build_uv.sh", "--python", python, "--venv", venv]))
         if results[-1]["returncode"] == 0:
-            installed = str(Path(venv) / "Scripts/python.exe")
+            installed = str(Path(venv) / "bin/python")
             results.append(command(["uv", "pip", "check", "--python", installed]))
             versions = command([installed, "-c", "import json; from core.runtime_environment import collect_environment; print(json.dumps(collect_environment()))"])
             results.append(versions)

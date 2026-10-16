@@ -7,8 +7,8 @@
 push／pull_request 觸發 Ubuntu、CPython 3.10 的 contracts job。checkout 取完整 Git 歷史供固定舊版回歸使用；測試不依賴被忽略的正式 data。workflow 用 uv sync --locked 建立 venv，依 uv.lock 安裝專案與 test extras，再執行獨立步驟：
 
 ```bash
-./run_pytest.sh -ra --tb=short
-./run_ruff.sh
+./scripts/quantity/run_pytest.sh -ra --tb=short
+./scripts/quantity/run_ruff.sh
 venv/bin/python -m tests.ci_evidence
 ```
 
@@ -24,6 +24,6 @@ Actions 成功或失敗都上傳白名單 public_summary.json，保存14天。ar
 
 ## 支援邊界與預期成果
 
-現行 CI 只有 Ubuntu，不含 Windows／macOS；Windows 安裝入口仍保留，需另附實機測試。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 任意 Origin 測試描述既有不安全行為，缺口仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤。
+現行 CI 只有 Ubuntu。安裝入口是 `scripts/opt/build_uv.sh`，沒有 Windows／macOS 腳本。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 任意 Origin 測試描述既有不安全行為，缺口仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤。
 
 預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。歷史紅燈／綠燈與整合紀錄見 [改寫前固定版本](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/791216cf5602c370091fa516264f1ce6aaad6ab1/docs/ci_contract.md)，相關 logs/output 保留。

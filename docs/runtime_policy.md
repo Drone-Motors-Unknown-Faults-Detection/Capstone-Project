@@ -7,26 +7,17 @@
 先安裝 uv，指定實際 Python executable，目的環境目錄必須不存在。入口拒絕刪除或覆寫既有環境；失敗目錄保留供診斷。
 
 ```bash
-./build_uv.sh --python python3.10 --venv .venv310
-uv run --no-project --no-sync --python .venv310/bin/python python -m pytest tests -ra --tb=short
-uv run --no-project --no-sync --python .venv310/bin/python python -m ruff check .
-uv pip check --python .venv310/bin/python
+./scripts/opt/build_uv.sh --python python3.10
+uv run --no-project --no-sync --python venv/bin/python python -m pytest tests -ra --tb=short
+uv run --no-project --no-sync --python venv/bin/python python -m ruff check .
+uv pip check --python venv/bin/python
 ```
 
-Windows PowerShell 7：
+`scripts/opt/build_uv.sh` 先回到專案根目錄，設定 `UV_PROJECT_ENVIRONMENT`，執行 `uv sync --python <Python> --extra test --locked`。test extras 包含 pytest、ruff；lock 與專案宣告不一致時失敗，不在安裝途中重新解析版本。目標環境不需安裝 pip／setuptools／wheel，依賴檢查使用 `uv pip check`。
 
-```powershell
-./build_uv.ps1 -Python 'C:/path/to/python3.10.exe' -VenvDir '.venv310'
-uv run --no-project --no-sync --python .venv310/Scripts/python.exe python -m pytest tests -ra --tb=short
-uv run --no-project --no-sync --python .venv310/Scripts/python.exe python -m ruff check .
-uv pip check --python .venv310/Scripts/python.exe
-```
+`--legacy` 在標準環境安裝後，用 `uv pip install -r requirements-legacy-linux.txt` 單次解析，不受 uv.lock 管理；TensorFlow 與 numpy 的相容性須另驗。沒有 macOS 或 Windows 安裝入口。
 
-`build_uv.sh`／`build_uv.ps1` 設定 `UV_PROJECT_ENVIRONMENT`，執行 `uv sync --python <Python> --extra test --locked`。test extras 包含 pytest、ruff；lock 與專案宣告不一致時失敗，不在安裝途中重新解析版本。目標環境不需安裝 pip／setuptools／wheel，依賴檢查使用 `uv pip check`。
-
-`build_uv_mac.sh` 轉呼叫 legacy-mac 分支。legacy 清單位於 `requirements-legacy-linux.txt`／`requirements-legacy-mac.txt`，標準環境安裝後再用 `uv pip install -r` 單次解析，不受 uv.lock 管理；TensorFlow 與 numpy 的相容性及平台支援須另驗。
-
-若使用預設 `venv` 目錄，也可執行 `./run_pytest.sh` 與 `./run_ruff.sh`。兩者固定呼叫 `venv/bin/python`，不會自動尋找 .venv310 或 Windows Scripts 路徑。
+若使用預設 `venv` 目錄，也可執行 `./scripts/quantity/run_pytest.sh` 與 `./scripts/quantity/run_ruff.sh`。兩者先回到專案根目錄，再呼叫 `venv/bin/python`。
 
 ## 執行環境紀錄
 
@@ -36,6 +27,6 @@ uv pip check --python .venv310/Scripts/python.exe
 
 ## 更新與支援邊界
 
-版本變更須另驗依賴、完整 pytest、ruff、CLI 與數值回歸後交付 PR，不原地升級研究環境。現行 [CI](ci_contract.md) 僅跑 Ubuntu，不能由其成功宣稱 Windows／macOS 全部已驗證；skip 須分開回報。安裝成功也不證明資料獨立或模型可靠。
+版本變更須另驗依賴、完整 pytest、ruff、CLI 與數值回歸後交付 PR，不原地升級研究環境。現行 [CI](ci_contract.md) 只跑 Ubuntu。skip 須分開回報。安裝成功也不證明資料獨立或模型可靠。
 
 安裝失敗、版本決策與當時實測見 [固定版本紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/runtime_policy.md)。歷史結果不能代替當前環境的檢查。
