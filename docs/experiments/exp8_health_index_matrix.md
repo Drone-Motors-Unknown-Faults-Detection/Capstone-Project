@@ -32,21 +32,22 @@
 
 ## 怎麼跑與續跑
 
-在repo根目錄依[uv環境政策](../runtime_policy.md)準備正式資料；**指定新輸出根，不用預設覆寫reports封存**：
+在repo根目錄依[uv環境政策](../runtime_policy.md)準備正式資料。CLI經`core.logger.setup_run("exp8_health_index_matrix")`初始化，日誌寫`logs/exp8_health_index_matrix/{ts}.log`；不給`--output-root`時結果寫本次的`output/exp8_health_index_matrix/{ts}/`。要續跑既有輸出根才給`--output-root`，不要指向`reports/exp8_health_index_results/`封存：
 
 ```bash
 uv run --locked python -m experiments.health_index_matrix --help
-uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --output-root output/health_index_matrix/manual_run_001 --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
+uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
+uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --output-root output/exp8_health_index_matrix/2026-10-17-10-00-00   # 續跑上一次的輸出根
 ```
 
-範例根已存在就換新名稱。API run_matrix(data_root,output_root,seeds=(42,123,2026),methods=("mahalanobis","knn"),resume=True)。沒有run(pools)，也沒有Web重跑入口。
+API run_matrix(data_root,output_root,seeds=(42,123,2026),methods=("mahalanobis","knn"),resume=True)；data_root與output_root都必須明確給，沒有預設寫入位置。沒有run(pools)，也沒有Web重跑入口。
 
 resume只查JSON status、seed、method及formal_condition_count==9；**沒核對rows實際長度／唯一工況、當前資料fingerprint、參數、CSV或來源SHA**。即使data-root已缺件，快取條件通過仍可能全部跳過；因此不能說resume已重新驗證九工況完整。--no-resume會覆寫同名JSON／CSV；不在封存目錄使用。錯誤寫manifest後繼續，最後incomplete退出碼2。
 
 ## 輸出與讀法
 
 [run_matrix](../../src/experiments/health_index_matrix.py)以_atomic_json與pandas直接寫output-root：
-matrix_manifest.json、seed_{seed}/{method}.json及同名.csv。manifest記expected_runs=6、每run狀態／相對路徑，JSON保存benchmark九列設定與指標；CSV是rows表。此模組**未setup_run、沒有logs/health_index_matrix**，也不自動產生aggregate_summary.json。
+matrix_manifest.json、seed_{seed}/{method}.json及同名.csv。manifest記expected_runs=6、每run狀態／相對路徑，JSON保存benchmark九列設定與指標；CSV是rows表。每個run的完成、續跑或失敗原因都寫進`logs/exp8_health_index_matrix/{ts}.log`。此模組不自動產生aggregate_summary.json。
 
 健康指數與各指標見[benchmark](exp8_health_index_benchmark.md#輸出怎麼看)。預期六run完成、54列齊全且same-source同seed一致；這是工程coverage，不是獨立馬達信賴保證。每次重跑先保留失敗原因，不混入其他fingerprint的平均。
 

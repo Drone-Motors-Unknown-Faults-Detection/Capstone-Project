@@ -10,6 +10,7 @@ from typing import Sequence
 import numpy as np
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.logger import setup_run
 from experiments.health.index import CalibratedHealthIndex
 from experiments.health.trajectory import SessionTrajectoryMonitor
 
@@ -134,6 +135,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="allow output without temporal identity; trend remains insufficient_history when absent",
     )
     args = parser.parse_args(argv)
+    log, paths = setup_run("exp8_health_monitor")
+    log.info(f"參數：{vars(args)}")
     results = run(
         args.data_root,
         args.motor,
@@ -148,13 +151,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         max_windows=args.max_windows,
         require_identity=not args.allow_no_identity,
     )
+    lines = []
     for result in results:
         # ``to_dict`` is applied after stream state updates so the CLI and
         # programmatic API expose exactly the same contract.
         if args.output_mode == "binary":
-            print(json.dumps({"is_fault": result["is_fault"]}, ensure_ascii=False))
+            lines.append(json.dumps({"is_fault": result["is_fault"]}, ensure_ascii=False))
         elif args.output_mode == "health":
-            print(json.dumps({key: result[key] for key in (
+            lines.append(json.dumps({key: result[key] for key in (
                 "is_fault", "health_index", "degradation_score", "severity_stage", "trend",
                 "degradation_rate", "openset_method", "openset_score", "is_unknown_fault",
                 "prediction_confidence", "uncertainty", "timestamp", "condition", "data_quality",
@@ -162,7 +166,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                 "smoothed_health_index", "change_point_state", "window_index",
             )}, ensure_ascii=False))
         else:
-            print(json.dumps(result, ensure_ascii=False))
+            lines.append(json.dumps(result, ensure_ascii=False))
+    (paths.output_dir / "windows.jsonl").write_text("".join(line + "\n" for line in lines), encoding="utf-8")
+    for line in lines:
+        print(line)
+    log.info(f"完成：{len(lines)} 窗，結果寫入 {paths.output_dir / 'windows.jsonl'}")
     return 0
 
 

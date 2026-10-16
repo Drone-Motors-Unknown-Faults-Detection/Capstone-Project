@@ -12,6 +12,7 @@ from typing import Sequence
 
 import pandas as pd
 
+from core.logger import setup_run
 from core.openset import SUPPORTED_OPENSET_METHODS, canonical_openset_method
 from experiments.health_index_benchmark import FORMAL_CONDITION_COUNT, run
 
@@ -45,12 +46,13 @@ def expected_run_ids(seeds: Sequence[int] = DEFAULT_SEEDS, methods: Sequence[str
 
 
 def run_matrix(
-    data_root: Path | str = "data",
-    output_root: Path | str = "reports/exp8_health_index_results",
+    data_root: Path | str,
+    output_root: Path | str,
     *,
     seeds: Sequence[int] = DEFAULT_SEEDS,
     methods: Sequence[str] = DEFAULT_METHODS,
     resume: bool = True,
+    log=None,
 ) -> dict:
     output_path = Path(output_root).expanduser().resolve()
     canonical_methods = tuple(canonical_openset_method(method) for method in methods)
@@ -85,6 +87,8 @@ def run_matrix(
                         and cached.get("formal_condition_count") == FORMAL_CONDITION_COUNT
                     ):
                         entry.update({"status": "completed", "resumed": True, "path": str(json_path.relative_to(output_path))})
+                        if log is not None:
+                            log.info(f"{run_id}：沿用既有結果")
                         manifest["runs"].append(entry)
                         _atomic_json(manifest_path, manifest)
                         continue
@@ -95,8 +99,12 @@ def run_matrix(
                 _atomic_json(json_path, result)
                 pd.DataFrame(result["rows"]).to_csv(csv_path, index=False)
                 entry.update({"status": "completed", "path": str(json_path.relative_to(output_path))})
+                if log is not None:
+                    log.info(f"{run_id}：完成 {len(result['rows'])} 列")
             except Exception as exc:
                 entry.update({"status": "failed", "error": f"{type(exc).__name__}: {exc}"})
+                if log is not None:
+                    log.error(f"{run_id}：失敗 {entry['error']}")
             manifest["runs"].append(entry)
             _atomic_json(manifest_path, manifest)
     completed = sum(item["status"] == "completed" for item in manifest["runs"])
@@ -116,19 +124,26 @@ def run_matrix(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", default="data")
-    parser.add_argument("--output-root", default="reports/exp8_health_index_results")
+    parser.add_argument("--output-root", help="續跑既有輸出根時才給；預設寫本次 output/exp8_health_index_matrix/{ts}/")
     parser.add_argument("--seed", action="append", type=int, dest="seeds")
     parser.add_argument("--method", action="append", dest="methods")
     parser.add_argument("--no-resume", action="store_true")
     args = parser.parse_args(argv)
+    log, paths = setup_run("exp8_health_index_matrix")
+    output_root = Path(args.output_root) if args.output_root else paths.output_dir
+    log.info(f"參數：{vars(args)}；輸出根 {output_root}")
     manifest = run_matrix(
         args.data_root,
-        args.output_root,
+        output_root,
         seeds=tuple(args.seeds or DEFAULT_SEEDS),
         methods=tuple(args.methods or DEFAULT_METHODS),
         resume=not args.no_resume,
+        log=log,
     )
-    print(json.dumps({k: manifest[k] for k in ("status", "expected_runs", "completed_runs", "failed_runs")}))
+    log.info(f"矩陣 {manifest['status']}：完成 {manifest['completed_runs']}／{manifest['expected_runs']}")
+    summary = {k: manifest[k] for k in ("status", "expected_runs", "completed_runs", "failed_runs")}
+    summary["output_root"] = str(output_root)
+    print(json.dumps(summary))
     return 0 if manifest["status"] == "completed" else 2
 
 

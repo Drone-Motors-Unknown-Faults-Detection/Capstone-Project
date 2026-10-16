@@ -51,7 +51,7 @@ uv run --locked python -m experiments.health_monitor --data-root data/formal_loc
 
 motor／rpm必填，rpm可8000或8000rpm；config須實際存在，max_windows須正整數。API run(data_root,motor,rpm,config,...)回傳逐窗列表，iter_run先yield fitted再window；**CLI先把run收集完，才逐行印JSON**，並非計算到一筆即stdout一筆。full含全部欄位；health含指數／狀態等；binary僅is_fault。
 
-此CLI沒有setup_run、logs或output持久檔；不假造自動JSONL保存。Web依[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)啟動，8-3選工況／配置／方法／seed／筆數，按「▶ 執行」或「⏵ 邊跑邊畫」看逐窗；Web使用web-demo及資料集-config的展示session ID，不能當採集身分證明。「■ 停止」取消後續SSE，未done不算完整；完成JSON由web_server保存，重跑重新開始。
+CLI經`core.logger.setup_run("exp8_health_monitor")`初始化：日誌寫`logs/exp8_health_monitor/{ts}.log`，逐窗結果依所選output-mode寫`output/exp8_health_monitor/{ts}/windows.jsonl`，一行一窗，與stdout印出的內容逐行相同；另有setup_run寫的`environment.json`。Web依[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)啟動，8-3選工況／配置／方法／seed／筆數，按「▶ 執行」或「⏵ 邊跑邊畫」看逐窗；Web使用web-demo及資料集-config的展示session ID，不能當採集身分證明。「■ 停止」取消後續SSE，未done不算完整；完成JSON由web_server保存，重跑重新開始。
 
 ## 輸出怎麼讀
 

@@ -41,7 +41,7 @@ uv run --locked python -m experiments.health_index_matrix --help
 uv run --locked python -m experiments.health_monitor --help
 ```
 
-三支health入口尚未統一setup_run：benchmark與monitor主要印stdout，matrix預設reports/exp8_health_index_results/。不要對封存reports重跑覆寫；新研究應指定新版本路徑，輸出慣例缺口由 [#24](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/24) 追蹤。
+三支health入口都經`core.logger.setup_run()`初始化：日誌寫`logs/exp8_health_index_benchmark/`、`logs/exp8_health_index_matrix/`、`logs/exp8_health_monitor/`，結果寫同名的`output/{program}/{ts}/`。matrix不給`--output-root`就寫本次output目錄；不要把`--output-root`指向封存的reports/exp8_health_index_results/。
 
 health_monitor對healthy取未擬合holdout，其他配置依原順序取整池，與iter_run一致；這不使CSV視窗成為獨立採集，真實時間與重疊仍需證據。
 
