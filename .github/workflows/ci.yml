@@ -39,9 +39,9 @@ jobs:
           uv sync --python 3.10 --extra test --locked
           echo "$PWD/venv/bin" >> "$GITHUB_PATH"
       - name: Pytest
-        run: ./run_pytest.sh
+        run: ./scripts/quantity/run_pytest.sh
       - name: Ruff
-        run: ./run_ruff.sh
+        run: ./scripts/quantity/run_ruff.sh
       - name: 套件、CLI 與文件目標
         run: python -m tests.ci_evidence
       - name: 成功或失敗均只保存去敏摘要
