@@ -17,7 +17,7 @@
 每個量測值保存全部重複，不只保存最好的一次：
 
 - `warmup`（預設 1 次）不計入統計，另存。
-- `repeats`（預設 5 次）逐次保存 walltime（`time.perf_counter`）與 Python 配置峰值（`tracemalloc`，只算 Python 物件與 NumPy 緩衝，不等於 RSS）。
+- `repeats`（預設 5 次）逐次保存 walltime（`time.perf_counter`）與 Python 配置峰值（`tracemalloc`，只算 Python 物件與 NumPy 緩衝，不等於 RSS）。兩者分開量：先在沒有 tracemalloc 的情況下計時，再重跑同一步驟量記憶體，因為 tracemalloc 會明顯拖慢純 Python 的 CSV 解析，讓 `load` 的比例偏高。
 - 統計欄位：median、min、max，以及 `load`、`fit`、`score` 在單次 run 中所佔的比例（以 median 計算）。
 - 每次都記錄方法、seed、資料列數、類別數、批次大小與 reference bank 大小。
 - 執行環境（Python、OS、套件、CPU 數、git HEAD）由 `setup_run` 寫的 `environment.json` 保存。
