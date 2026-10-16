@@ -1,0 +1,256 @@
+{
+  "schema_version": "source_content_v2",
+  "dataset_fingerprint": "6bcec6f50747d6296b588b964bbcafa3fd90ffc93b5b1aae05a6b52b671a5125",
+  "data_version": "source_content_v2:6bcec6f50747d6296b588b964bbcafa3fd90ffc93b5b1aae05a6b52b671a5125",
+  "files": [
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/1screws/T1_Group_feature_data_clean.csv",
+      "sha256": "250f04db28a88b947ef847491d92b5ec3a6e41d6e3eb527d0086081e56f649db"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/2screws/T1_Group_feature_data_clean.csv",
+      "sha256": "53fb035f50c42bbd5258c46e8322ce8bc5f1ae818f4d7effb6379059afcfd7da"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/3_14screws/T1_Group_feature_data_clean.csv",
+      "sha256": "91de872027bdb1d7e7185f3f8a1027373954a67cff6e240ab42e7f74bdfebc29"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/3screws/T1_Group_feature_data_clean.csv",
+      "sha256": "5a4c045175dd2a2cea6030f6b3f4af0c80eb48e1ad7c20be9c804ce570b5f203"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/4_146screws/T1_Group_feature_data_clean.csv",
+      "sha256": "f5067559366dde8f7d5e61260a141b24034d7ad98a9a50bd6fb0b011b13351f5"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/4screws/T1_Group_feature_data_clean.csv",
+      "sha256": "bfc4e838c4c31051125390368fa9bfdf37de4fe07aa4391d5fbc6407e13c684c"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/5screws/T1_Group_feature_data_clean.csv",
+      "sha256": "3cbd632348178626bbe8438105bcadaa2a289aa140b0e0d71c214ad14dae3112"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/6screws/T1_Group_feature_data_clean.csv",
+      "sha256": "3f129b2947edb2f095af76aa5f5de8d8d6b2063f18ff0e50ede53f5ca6b38a5f"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/7screws/T1_Group_feature_data_clean.csv",
+      "sha256": "09d13918a86ffb545e26352e69f788ebde752ae5c01237c0f5d02340b3246510"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/11000rpm/8screws/T1_Group_feature_data_clean.csv",
+      "sha256": "6641a21fa6a812d12a902a1e564448c12475cb31115679f7ee8e21f77040946d"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/1screws/T1_Group_feature_data_clean.csv",
+      "sha256": "d41126e87178c2a9628ae4c38be3f4640af2857fc1500149a53590be6d7bedc1"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/2screws/T1_Group_feature_data_clean.csv",
+      "sha256": "a897e26f35fa5b2783ee695267c326aba004f9ca1fceb689d21078289de707e4"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/3_14screws/T1_Group_feature_data_clean.csv",
+      "sha256": "31a6b5d6dbab32f5b09255e06ddf3dc001e5e39caa554954efd9e6c588dbce9d"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/3screws/T1_Group_feature_data_clean.csv",
+      "sha256": "db06c5e06eb4345d339d420331cad8277a6a165f1733924119d2907808c6af94"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/4_146screws/T1_Group_feature_data_clean.csv",
+      "sha256": "f2b0af267c7c5e30094dddbb2cb34a5a5fccfb24ca4ee7d3ace5d8aa016fd9d9"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/4screws/T1_Group_feature_data_clean.csv",
+      "sha256": "4d946a55fab5f916bffc30e6c46578894f72c0033dbe75f1af7723236f00aae7"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/5screws/T1_Group_feature_data_clean.csv",
+      "sha256": "6b01cc5c98d154273a55966e647c2c0f82aa71dad58d66da685e4e9d747684f5"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/6screws/T1_Group_feature_data_clean.csv",
+      "sha256": "e600d14bba71accf16408bdc1b1188d4c2bd3f31b41b09c13ab2e6dd76a6a787"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/7screws/T1_Group_feature_data_clean.csv",
+      "sha256": "f5460038d4af39736b63e93dcf895d2aa14f843d5107851d1b5a7d8fc46669f8"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/6000rpm/8screws/T1_Group_feature_data_clean.csv",
+      "sha256": "62e0dde1bd09c869842be86aa634012bddeab2ac62b6cc10d0c9407235dbfe54"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/1screws/T1_Group_feature_data_clean.csv",
+      "sha256": "10c587ec4367237d88e93546530ee89b4c753124759e21fec2dc6cbe17dfd4bc"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/2screws/T1_Group_feature_data_clean.csv",
+      "sha256": "2d333530699d5b3258f55be32b7e5b47c515576913fc358d83266d9f28de4636"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/3_14screws/T1_Group_feature_data_clean.csv",
+      "sha256": "90e248732c96c6717136a0d30a095b1996be9ba8c9bfea916178b5ba88054ad2"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/3screws/T1_Group_feature_data_clean.csv",
+      "sha256": "076d8e9f9f3253e45d3bf4c7802ec7508fcfb4e66afb09c3caf5d94ae213b9b1"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/4_146screws/T1_Group_feature_data_clean.csv",
+      "sha256": "8a5bb68845181f9ed980e284dd5dede7e91fd6fa0037bcf3710e4a0fc44b27bc"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/4screws/T1_Group_feature_data_clean.csv",
+      "sha256": "780b8848eefec624981e41a62ed849baeec230a2b722cdbfe4a0ca4b35fafd0f"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/5screws/T1_Group_feature_data_clean.csv",
+      "sha256": "21de6416d8666953ccaea14053914f1309279a01956f8fa214aa9bcef6e2ac3e"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/6screws/T1_Group_feature_data_clean.csv",
+      "sha256": "38e79fa0809c8cafae0d546e492541f44a1a654f0242092b78238e6420e07c7f"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/7screws/T1_Group_feature_data_clean.csv",
+      "sha256": "b7f6cdaf7deb0b1ab5a788d116bd49f2f367716cbb5dea50f4d7693e61eccd86"
+    },
+    {
+      "source_id": "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv",
+      "sha256": "d51de499c4ce3416044ccef242f30411b01a05a4b206344a4cdc5b12357e2743"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/1screws/T3_Group_feature_data_clean.csv",
+      "sha256": "af4bbc56f9dde2c03dd891f63fa1e95f201038bbc6b369f72f166dc6928a7ed3"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/2screws/T3_Group_feature_data_clean.csv",
+      "sha256": "a250f79bd0934dda1977e450d850c37cadd4e6f0f35c593b5f20783075024b54"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/3_14screws/T3_Group_feature_data_clean.csv",
+      "sha256": "4e3f6082aefe0e7158ff2e539084515c4e86ac9ab562f370aad394339ba58c02"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/3screws/T3_Group_feature_data_clean.csv",
+      "sha256": "65b590acd7c127c7074886a890589e70afefc48c813af97660169a2170e897a2"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/4_146screws/T3_Group_feature_data_clean.csv",
+      "sha256": "938a8e7e950d3924d40dbdd4b84fa6792d3cf614dd98b6de222b4335f07c5414"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/4screws/T3_Group_feature_data_clean.csv",
+      "sha256": "e487dd72b0f8c9b9671f615d002039fcc8e43c59c8ff48992447ad4aa2c85b31"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/5screws/T3_Group_feature_data_clean.csv",
+      "sha256": "7366f20d3a3b63520b060b497e4669572863cfbb94c2b641d24cafed601948f4"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/6screws/T3_Group_feature_data_clean.csv",
+      "sha256": "dfb68e4af67c679876e318edfc24202ee61f1c354e45f5476c63026cf497d9c1"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/7screws/T3_Group_feature_data_clean.csv",
+      "sha256": "c579bde714ed7c2239edaa5cf778de6cce669cd7c6a648adaf11694f86668b3c"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/11000rpm/8screws/T3_Group_feature_data_clean.csv",
+      "sha256": "e83191c13a96fd85468e2667cbcba30a00000a94360e8d6a3a880ca141f95739"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/1screws/T3_Group_feature_data_clean.csv",
+      "sha256": "dc3ba647d60b88e12dd72dc7239db84f3d494df06754036b5fa8456bf05b8e1a"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/2screws/T3_Group_feature_data_clean.csv",
+      "sha256": "ca54a29c7b07ae896849620d9679594f6e2ea1436eb568288f3019258b622593"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/3_14screws/T3_Group_feature_data_clean.csv",
+      "sha256": "3da7511a5b3747ff8c5660662ceecdc279a1b55db077785f1d7a6055a0e9f6e7"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/3screws/T3_Group_feature_data_clean.csv",
+      "sha256": "286bb675b403cf97d72327a65e1f7ede9b74000aba1bc18c7da2906d7e29746e"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/4_146screws/T3_Group_feature_data_clean.csv",
+      "sha256": "e28a695272196eff115df03031aebc2c6f97d8c6ea619a50dce7141a5b2de39f"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/4screws/T3_Group_feature_data_clean.csv",
+      "sha256": "aa93264edc81126c6dd9aeadbdffaae5ec4d1a10c4073bc6259fe1f942baf253"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/5screws/T3_Group_feature_data_clean.csv",
+      "sha256": "6c46e576cb8e7ddae4af0454fdef6cdadccc234f12a9c1246a851a69db4f55cd"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/6screws/T3_Group_feature_data_clean.csv",
+      "sha256": "18f33c0ee605ec15dfdd9d73c2a4029339b3fb7225ec7dce71f3ff0f5d6187e2"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/7screws/T3_Group_feature_data_clean.csv",
+      "sha256": "c734f1d36ed32dd9d3d1db470eb5253e5f8070c5adba3c441ca3042360c5ad03"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/6000rpm/8screws/T3_Group_feature_data_clean.csv",
+      "sha256": "8254f2a705d62b1cbb5221f71e982a34b155a7d321a28783f22036332241e72b"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/1screws/T3_Group_feature_data_clean.csv",
+      "sha256": "bf7341aebfea805989e3b5067a6c29ac2b8da576d4c3089781ca7accb5af1021"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/2screws/T3_Group_feature_data_clean.csv",
+      "sha256": "17dced682bb8146c80f5d5d381b74665fa8315fe77c95fd454e85eb798bf262d"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/3_14screws/T3_Group_feature_data_clean.csv",
+      "sha256": "a69519b35a95578df6d29a23fcfdf659aa8bb66514afd3aab3c82c0330743d68"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/3screws/T3_Group_feature_data_clean.csv",
+      "sha256": "f956eaa2ee3885282f7db2e0d14d0150a1257608215a525ad03cee7aa4ef4651"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/4_146screws/T3_Group_feature_data_clean.csv",
+      "sha256": "7b611655e8badda1b23e4223a29b5ac3953a8d63c4abb3b289875c994c480e48"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/4screws/T3_Group_feature_data_clean.csv",
+      "sha256": "cf2a11254331652afee04d8a50ab95255e5c2cdd04019b161531513fa8b626e3"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/5screws/T3_Group_feature_data_clean.csv",
+      "sha256": "b91968689f4f906fb387e1e592473c4ed0bbe53424c0fb23ffed14ce6e5d03cc"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/6screws/T3_Group_feature_data_clean.csv",
+      "sha256": "697d0b66e57520fd2b24d379358c1ddfa0cb97b330d7e5008fd4763663defad9"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/7screws/T3_Group_feature_data_clean.csv",
+      "sha256": "436d7afbf372ce60b287388db8b10799eaa3836aa83ea9b97596e49e48e0a32d"
+    },
+    {
+      "source_id": "Step-3/myfeature/T3/8000rpm/8screws/T3_Group_feature_data_clean.csv",
+      "sha256": "9def4e99fe07e8cd9a7bea126440637eba877348e3df866cacb80c25ec7b7939"
+    }
+  ],
+  "manifest_schema": null,
+  "manifest_sha256": null,
+  "manifest_validation": "ABSENT",
+  "content_aliases": [],
+  "sample_source": "relative_file_id_plus_original_row_index",
+  "raw_session_independence": "UNKNOWN",
+  "fresh_test": "UNKNOWN",
+  "private_context_id": "6f0adb4afd1a4e56916bdb75808a532d",
+  "status": "VERIFIED"
+}

@@ -4,6 +4,8 @@
 
 當前缺口與交付狀態請查 [GitHub issues](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues) 及各 PR 的受測 SHA，不把歷史測試次數當成最新 main 驗收。
 
+內容指紋、portable manifest 與本機 private sidecar 的操作見[內容來源契約](content_provenance_contract.md)；它只涵蓋正式入口，不代表所有 runner 都有完整來源紀錄。
+
 匯入105維 CSV 前先讀[正式特徵載入契約](formal_feature_schema_contract.md)與[完整欄名清冊](formal_feature_schema.json)；清冊供維護者與測試比對，runtime 規則在 `core/feature_schema.py`。
 
 ## 歷史交付附件（不作現行操作手冊）
@@ -14,6 +16,7 @@
 - [當時引用核對](../reports/Andy_20261008_議題交付/citation_followup.md)、[導覽驗收](../reports/Andy_20261008_議題交付/guide_acceptance.md)、[未擬合舊回歸](../reports/Andy_20261008_議題交付/execution_log.md#未擬合防護的原驗收邊界)。現行操作見[共用模型生命週期](experiments/README.md#共用模型生命週期)。
 - [當時給老師的說明](../reports/Andy_20261009_主線交付/README.md)、[當時執行紀錄](../reports/Andy_20261009_主線交付/execution_log.md)。
 - [封存彙總重算的原交付說明](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp8_health_index_aggregate_delivery.md)保存該次差異與驗收；現行操作見下表重算手冊。
+- [正式入口來源的原交付與失敗紀錄](../reports/Andy_20261009_正式入口來源/交付紀錄.md)，只適用其中固定版本。
 
 老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp24_README.md)；歷史研究分數只在固定來源下解讀，不當成新增盲測結果。
 

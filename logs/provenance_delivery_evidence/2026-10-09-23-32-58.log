@@ -1,0 +1,4 @@
+2026-10-09 23:32:58 | INFO    | Logger initialized: provenance_delivery_evidence
+2026-10-09 23:32:58 | INFO    | log_file=logs\provenance_delivery_evidence\2026-10-09-23-32-58.log
+2026-10-09 23:32:58 | INFO    | output_dir=output\provenance_delivery_evidence\2026-10-09-23-32-58
+2026-10-09 23:33:00 | INFO    | 60 檔與既有來源SHA完全相同；沒有擬合正式模型

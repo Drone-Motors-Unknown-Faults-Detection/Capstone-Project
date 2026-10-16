@@ -30,7 +30,7 @@ class RunPaths:
     _plot_index: int = field(default=0, repr=False)
 
 
-def setup_run(program: str, make_output: bool = True):
+def setup_run(program: str, make_output: bool = True, *, unique: bool = False):
     """初始化本次執行的 loguru logger 與輸出目錄，回傳 (logger, RunPaths)。"""
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     log_dir = Path("logs") / program
@@ -38,7 +38,28 @@ def setup_run(program: str, make_output: bool = True):
     log_file = log_dir / f"{timestamp}.log"
 
     output_dir: Path | None = None
-    if make_output:
+    if unique:
+        base_timestamp = timestamp
+        index = 0
+        while True:
+            timestamp = base_timestamp if index == 0 else f"{base_timestamp}_{index:03d}"
+            log_file = log_dir / f"{timestamp}.log"
+            try:
+                with log_file.open("x", encoding="utf-8"):
+                    pass
+            except FileExistsError:
+                index += 1
+                continue
+            if make_output:
+                output_dir = Path("output") / program / timestamp
+                try:
+                    output_dir.mkdir(parents=True, exist_ok=False)
+                except FileExistsError:
+                    log_file.unlink()  # 只清除本次exclusive保留的空檔。
+                    index += 1
+                    continue
+            break
+    elif make_output:
         output_dir = Path("output") / program / timestamp
         output_dir.mkdir(parents=True, exist_ok=True)
 

@@ -22,17 +22,21 @@ uv run --locked python -m experiments.exp6_formal_benchmark --data-root data/for
 uv run --locked python -m experiments.exp6_formal_benchmark --data-root data/formal_local --seed 42 --openset-method knn --knn-neighbors 5 --confidence 0.95
 ```
 
-API run(data_root,seed=42,confidence=0.95,openset_method="mahalanobis",mahalanobis_method="ledoit_wolf",knn_neighbors=5,require_nine=True)回傳dict，不寫CLI檔案。confidence須在0與1間；缺九工況、healthy、unknown或非有限score明確失敗，先查來源，不借test調門檻。
+API run(data_root,seed=42,confidence=0.95,openset_method="mahalanobis",mahalanobis_method="ledoit_wolf",knn_neighbors=5,require_nine=True)回傳dict，並保存來源與環境紀錄；API不寫CLI的results.csv與圖。confidence須在0與1間；缺九工況、healthy、unknown或非有限score明確失敗，先查來源，不借test調門檻。
 
 ### 輸入契約
 
 正式 `require_nine=True` 入口另驗每工況完整10個配置，cold-start與顯式partial入口允許健康資料或較少配置，但記錄缺類。ordered105維header、finite/nonempty與alias政策見 [正式特徵契約](../formal_feature_schema_contract.md)。不改健康train／cal／holdout、q95、模型、指標或既有數值；不是新的研究比較。預期非法資料明確拒絕、合法來源逐元素與切分不變，達不到即工程驗收失敗。
+
+來源指紋另依 [內容來源契約](../content_provenance_contract.md) 版本化為 `source_content_v2`；每次讀取實際CSV bytes，舊stat／manifest指紋僅明確legacy讀取。formal API記環境與來源，模型／閾值／切分不變；預期同stat異bytes可區分、同內容副本不冒充獨立採集。
 
 Web啟動見[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)，選「實驗六正式版」、方法／seed後「▶ 執行」。Web用require_nine=False，因此看見成功不代表正式九工況完整；須看formal_condition_count。沒有逐筆串流、取消或續跑。多seed持久化由[矩陣](exp6_matrix.md)負責，不用手動覆寫歷史目錄。
 
 ## 輸出怎麼讀
 
 main經setup_run寫logs/exp6_formal_benchmark/{ts}.log及output/exp6_formal_benchmark/{ts}/environment.json、summary.json、results.csv、osr_benchmark.png。Web另寫web_server的experiments JSON。
+
+API未傳 evidence_paths 時，以 setup_run("exp6_formal_api", unique=True) 寫 environment.json、provenance.json；CLI使用同一執行目錄。失敗紀錄保留 error_type，不公開任意例外內容；私人解析根只在被 Git 忽略的 `.lineage_private/`。
 
 | 欄位 | 含義 |
 |---|---|
@@ -44,7 +48,7 @@ main經setup_run寫logs/exp6_formal_benchmark/{ts}.log及output/exp6_formal_benc
 | raw_thresholds／threshold_strategy | cal的原距離線與政策，正規化threshold固定1 |
 | inference_seconds／peak_memory_mb | 兩次打分的耗秒，不含fit；記憶體未量測為null |
 
-dataset_fingerprint目前有manifest時雜湊其穩定欄位，**不重新驗證每個實際CSV內容**；無manifest時只用相對路徑、size、mtime，不是CSV內容SHA。不能單憑這欄宣稱來源位元組已完整核實。commit_sha、python與config供設定追溯，未存逐樣本ID、預測或模型checkpoint。
+dataset_fingerprint 預設為 `source_content_v2`，對排序的相對檔案ID與實際CSV內容SHA清冊取雜湊；有manifest時另驗清冊與已宣告輸出SHA，前後來源變動拒絕完成。相同內容副本不代表獨立採集。明確指定 `legacy_fingerprint_v1` 才使用舊stat／manifest指紋，不回寫舊結果。schema 3摘要包含 source、environment、provenance_record_id 與有效 config；未保存逐樣本預測或模型checkpoint。
 
 預期完整九列、有限指標且unknown排序高／健康誤報低；沒有通用可靠模型PASS門檻。舊完整結果查[固定矩陣](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_formal_matrix)，不把不同資料指紋或seed直接當改善。不保證5%現場誤報、錄製獨立或fresh final。
 

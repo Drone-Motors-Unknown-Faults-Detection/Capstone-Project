@@ -18,9 +18,9 @@ uv run --locked python -m core.formal_data --source-root SOURCE --output-root NE
 
 SOURCE、NEW_DEST是呼叫者替換的路徑；不要直接使用既存正式data作目的地。--force是覆寫選項，不應用於封存正式資料。
 
-特徵及formal_materialization_manifest.json寫到指定目的地。main目前為formal_materialization_v2，記錄archive SHA、各檔與通道形狀、清理規則及同步未知狀態；manifest仍含本機絕對路徑，不宜直接公開。內容SHA／公開私人分離由 [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46) 追蹤，不把候選PR寫成main已完成。
+特徵及formal_materialization_manifest.json寫到指定目的地。此版本寫 formal_materialization_v3：根以固定ID表示，各檔 output 為相對ID、另記 output_sha256；保留 archive SHA、通道形狀、清理規則及同步未知狀態。v1／v2 舊檔唯讀相容，不回寫；內容核對與公開／私人邊界見[內容來源契約](content_provenance_contract.md)。
 
-run()／CLI另經setup_run("formal_materialization")保存logs、environment與去除私人路徑的summary。直接materialize()不初始化該執行紀錄。
+run()／CLI另經setup_run("formal_materialization", unique=True)保存logs、environment與去除私人路徑的summary，解析根保存於本機 `.lineage_private/` sidecar。直接materialize()不初始化該執行紀錄或保存sidecar，呼叫者須保留來源上下文。sidecar失敗會使run失敗，但已物化檔案可能保留，不宣稱整批交易。
 
 ## 路徑與寫入
 

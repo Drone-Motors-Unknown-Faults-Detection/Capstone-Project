@@ -49,6 +49,7 @@ class DocumentationContractTests(unittest.TestCase):
             "README.md", "exp1_cold_start.md", "exp3_trend.md", "exp4_polar_map.md",
             "exp8_health_monitor.md", "exp6_formal_benchmark.md"))
         documents.add(ROOT / "docs/formal_feature_schema_contract.md")
+        documents.add(ROOT / "docs/content_provenance_contract.md")
         documents.update(ROOT.glob("reports/Andy_20261008_*/*.md"))
         documents.update(ROOT.glob("reports/Andy_20261009_*/*.md"))
         for document in sorted(documents):

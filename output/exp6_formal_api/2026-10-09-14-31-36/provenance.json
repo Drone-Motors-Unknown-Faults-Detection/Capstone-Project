@@ -1,0 +1,38 @@
+{
+  "schema_version": "formal_run_provenance_v1",
+  "status": "FAILED",
+  "configuration_arguments": {
+    "seed": 42,
+    "confidence": 0.95,
+    "openset_method": "mahalanobis",
+    "requested_method": "mahalanobis",
+    "mahalanobis_method": "ledoit_wolf",
+    "knn_neighbors": 5,
+    "require_nine": false
+  },
+  "fingerprint_version": "source_content_v2",
+  "private_context_id": "13f64cba02a041059c892a24be011aae",
+  "source": {
+    "schema_version": "source_content_v2",
+    "dataset_fingerprint": "38fa9e476204d5b4d01e1b474add908c7ddfa463dace4bf9b496b50356e70e7a",
+    "data_version": "source_content_v2:38fa9e476204d5b4d01e1b474add908c7ddfa463dace4bf9b496b50356e70e7a",
+    "files": [
+      {
+        "source_id": "Step-1/myfeature/T1/8000rpm/7screws/T1_Group_feature_data_clean.csv",
+        "sha256": "d57d17fd08b6edac9188559cade6b75e81aefe20465bfc7f39d8dc5b348b78fb"
+      },
+      {
+        "source_id": "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv",
+        "sha256": "582b655cfc1f210f2eb33f89c0948f24dd6ab77ded193fa3bb04e65ad0d2569f"
+      }
+    ],
+    "manifest_schema": null,
+    "manifest_sha256": null,
+    "manifest_validation": "ABSENT",
+    "content_aliases": [],
+    "sample_source": "relative_file_id_plus_original_row_index",
+    "raw_session_independence": "UNKNOWN",
+    "fresh_test": "UNKNOWN"
+  },
+  "error_type": "ValueError"
+}

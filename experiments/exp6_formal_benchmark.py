@@ -45,6 +45,7 @@ from core.data import HEALTHY, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.openset import OpenSetMethod, canonical_openset_method, create_openset_detector
 from core.runner import save_json
+from core.provenance import CONTENT_VERSION, capture_source, write_private_context
 
 
 FORMAL_CONDITION_COUNT = 9
@@ -65,7 +66,7 @@ def _git_sha(project_root: Path) -> str:
     return result.stdout.strip()
 
 
-def dataset_fingerprint(data_root: Path | str) -> str:
+def legacy_dataset_fingerprint(data_root: Path | str) -> str:
     """Hash the formal manifest, excluding its volatile generation timestamp."""
     root = Path(data_root).expanduser().resolve()
     manifest_path = root / "formal_materialization_manifest.json"
@@ -90,6 +91,15 @@ def dataset_fingerprint(data_root: Path | str) -> str:
             entries.append((str(path.relative_to(root)), stat.st_size, stat.st_mtime_ns))
         payload = json.dumps(entries, ensure_ascii=False).encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
+
+
+def dataset_fingerprint(data_root: Path | str, *, version: str = CONTENT_VERSION) -> str:
+    """明確版本化；預設驗證實際內容，legacy僅供歷史唯讀相容。"""
+    if version == "legacy_fingerprint_v1":
+        return legacy_dataset_fingerprint(data_root)
+    if version != CONTENT_VERSION:
+        raise ValueError("未知fingerprint版本")
+    return capture_source(data_root)[0]["dataset_fingerprint"]
 
 
 def _fpr_at_tpr95(known_scores: np.ndarray, unknown_scores: np.ndarray) -> float:
@@ -144,7 +154,7 @@ def _detector_metadata(detector, confidence: float, openset_method: str, knn_nei
     }
 
 
-def run(
+def _run_benchmark(
     data_root: Path | str = "data",
     seed: int = 42,
     confidence: float = 0.95,
@@ -248,7 +258,7 @@ def run(
         )
 
     return {
-        "schema_version": 2,
+        "schema_version": 3,
         "status": "completed",
         "method": openset_method,
         "requested_method": requested_method,
@@ -256,8 +266,9 @@ def run(
         "confidence": float(confidence),
         "formal_condition_count": len(rows),
         "dataset_fingerprint": dataset_fingerprint(data_path),
+        "fingerprint_version": CONTENT_VERSION,
         # Keep committed summaries portable and free of user-specific absolute paths.
-        "dataset_root": data_path.name,
+        "dataset_root": "formal_features",
         "positive_class": "unknown",
         "score_direction": "higher_is_unknown",
         "polarmap_base_method": "mahalanobis",
@@ -277,6 +288,48 @@ def run(
         "python": platform.python_version(),
         "rows": rows,
     }
+
+
+def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95,
+        openset_method: str = "mahalanobis", mahalanobis_method: str = "ledoit_wolf",
+        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None) -> dict:
+    """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。"""
+    if evidence_paths is None:
+        _, evidence_paths = setup_run("exp6_formal_api", unique=True)
+    try:
+        recorded_method = canonical_openset_method(openset_method)
+        recorded_requested_method = str(openset_method)
+    except ValueError:
+        recorded_method = recorded_requested_method = "INVALID"
+    config = {"seed": int(seed) if isinstance(seed, (int, np.integer)) else "INVALID",
+              "confidence": float(confidence) if isinstance(confidence, (int, float)) and np.isfinite(confidence) else "INVALID",
+              "openset_method": recorded_method, "requested_method": recorded_requested_method,
+              "mahalanobis_method": mahalanobis_method if mahalanobis_method in {"legacy", "ledoit_wolf", "oas", "mcd"} else "INVALID",
+              "knn_neighbors": int(knn_neighbors) if isinstance(knn_neighbors, (int, np.integer)) else "INVALID",
+              "require_nine": bool(require_nine)}
+    evidence = {"schema_version": "formal_run_provenance_v1", "status": "RUNNING",
+                "configuration_arguments": config, "fingerprint_version": CONTENT_VERSION}
+    try:
+        source, private = capture_source(data_root)
+        evidence["private_context_id"] = write_private_context(private)
+        evidence["source"] = source
+        result = _run_benchmark(data_root, seed, confidence, openset_method, mahalanobis_method,
+                                knn_neighbors, require_nine=require_nine)
+        after = capture_source(data_root)[0]
+        if source != after:
+            raise ValueError("評估期間來源內容或manifest變動，拒絕完成")
+        result["environment"] = json.loads((evidence_paths.output_dir / "environment.json").read_text(encoding="utf-8"))
+        result["source"] = source
+        evidence["effective_configuration"] = result["config"]
+        evidence["environment"] = result["environment"]
+        evidence["status"] = "COMPLETED"
+    except BaseException as exc:
+        evidence.update(status="FAILED", error_type=type(exc).__name__)
+        save_json(evidence_paths.output_dir / "provenance.json", evidence)
+        raise
+    save_json(evidence_paths.output_dir / "provenance.json", evidence)
+    result["provenance_record_id"] = f"{evidence_paths.program}/{evidence_paths.timestamp}"
+    return result
 
 
 def _figure(result: dict):
@@ -309,7 +362,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args(argv)
 
-    log, paths = setup_run("exp6_formal_benchmark")
+    log, paths = setup_run("exp6_formal_benchmark", unique=True)
     started = datetime.now(timezone.utc).isoformat()
     log.info(
         f"正式 OSR benchmark method={args.openset_method}, seed={args.seed}, "
@@ -322,6 +375,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.openset_method,
         args.mahalanobis_method,
         args.knn_neighbors,
+        evidence_paths=paths,
     )
     result["started_at_utc"] = started
     result["finished_at_utc"] = datetime.now(timezone.utc).isoformat()

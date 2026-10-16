@@ -173,8 +173,9 @@ class FeatureSchemaTests(unittest.TestCase):
     def test_formal_complete_coverage_rejects_before_factory(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            write(root)
-            ds = [{"motor": f"T{m}", "rpm": rpm, "path": root}
+            dataset = root / "Step-1/myfeature/T1/8000rpm"
+            write(dataset)
+            ds = [{"motor": f"T{m}", "rpm": rpm, "path": dataset}
                   for m in (1, 2, 3) for rpm in ("6000rpm", "8000rpm", "11000rpm")]
             with patch("experiments.exp6_formal_benchmark.discover_datasets", return_value=ds), \
                     patch("experiments.exp6_formal_benchmark.create_openset_detector") as factory:

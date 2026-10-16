@@ -199,7 +199,7 @@ class MaterializationSafetyTests(unittest.TestCase):
             old = old_module().materialize(root / "source", root / "old", stages=["2"])
             new = formal.materialize(root / "source", root / "new", stages=["2"])
             old_payload = Path(old["files"][0]["output"]).read_bytes()
-            new_payload = Path(new["files"][0]["output"]).read_bytes()
+            new_payload = (root / "new" / new["files"][0]["output"]).read_bytes()
             self.assertEqual(new_payload, old_payload)
             self.assertEqual(new["archive_sha256"]["2"], checksum)
             self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), checksum)
@@ -207,7 +207,7 @@ class MaterializationSafetyTests(unittest.TestCase):
             self.assertTrue(all(shape == [128, 3] for shape in record["channel_shapes"].values()))
             self.assertTrue(all(value == 0 for value in record["discarded_windows"].values()))
             self.assertEqual(record["alignment_status"], "UNKNOWN")
-            self.assertEqual(new["schema_version"], "formal_materialization_v2")
+            self.assertEqual(new["schema_version"], "formal_materialization_v3")
 
     def test_clean_feature_copy_preserves_bytes_and_rejects_nested_attack(self):
         payload = pd.DataFrame(np.ones((3, 105)), columns=formal.FEATURE_NAMES).to_csv(index=False).encode()
@@ -226,7 +226,7 @@ class MaterializationSafetyTests(unittest.TestCase):
                     self.assertFalse((root / "output").exists())
                 else:
                     manifest = formal.materialize(source, root / "output", stages=["1"])
-                    self.assertEqual(Path(manifest["files"][0]["output"]).read_bytes(), payload)
+                    self.assertEqual((root / "output" / manifest["files"][0]["output"]).read_bytes(), payload)
 
     def test_interruption_cleans_temporary_file_and_keeps_existing_target(self):
         for exception in (OSError("磁碟失敗fixture"), KeyboardInterrupt()):
