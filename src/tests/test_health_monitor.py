@@ -1,6 +1,9 @@
 """experiments.health_monitor：故障配置的窗口取樣（#35）與 8screws 輸出不變。"""
+import contextlib
 from functools import lru_cache
+import io
 import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -8,7 +11,9 @@ import unittest
 
 import numpy as np
 
-from experiments.health_monitor import iter_run, run
+from loguru import logger
+
+from experiments.health_monitor import iter_run, main, run
 from core.feature_schema import SCHEMAS
 from web.experiments import ExperimentRunner, jsonable
 
@@ -97,6 +102,31 @@ class HealthMonitorWindows(unittest.TestCase):
             self.assertTrue(saved["streamed"])
             for frame, _ in frames:
                 json.dumps(frame, allow_nan=False)
+
+    def test_cli_uses_setup_run_and_saves_printed_windows(self):
+        """#24：CLI 經 setup_run 寫 logs/output，windows.jsonl 與 stdout 及 API 逐行相同。"""
+        argv = ["--data-root", str(self.root), "--motor", "T1", "--rpm", "8000rpm", "--config", "5screws",
+                "--seed", "42", "--motor-id", "m", "--session-id", "s", "--max-windows", "12"]
+        previous = Path.cwd()
+        with tempfile.TemporaryDirectory() as workspace:
+            try:
+                os.chdir(workspace)
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    self.assertEqual(main(argv), 0)
+                logs = list(Path("logs/exp8_health_monitor").glob("*.log"))
+                outputs = list(Path("output/exp8_health_monitor").iterdir())
+                self.assertEqual(len(logs), 1)
+                self.assertEqual(len(outputs), 1)
+                saved = (outputs[0] / "windows.jsonl").read_text(encoding="utf-8")
+                self.assertTrue((outputs[0] / "environment.json").is_file())
+            finally:
+                logger.remove()
+                os.chdir(previous)
+        self.assertEqual(saved, stdout.getvalue())
+        batch = self.call(run, "5screws", max_windows=12)
+        self.assertEqual([json.loads(line) for line in saved.splitlines()],
+                         json.loads(json.dumps(batch, ensure_ascii=False)))
 
 
 if __name__ == "__main__":
