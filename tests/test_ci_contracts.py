@@ -138,6 +138,10 @@ class ExperimentContracts(unittest.TestCase):
 class FakeDemo:
     t = 0
     epoch = 0
+    flushed = 0
+
+    def flush(self):
+        self.flushed += 1
 
     def state(self):
         return {"epoch": self.epoch}
@@ -199,6 +203,7 @@ class WebSocketContracts(AsyncHTTPTestCase):
         try:
             self.assertTrue((await self.send_until(socket, {"cmd": "start"}))[-1]["running"])
             self.assertFalse((await self.send_until(socket, {"cmd": "pause"}))[-1]["running"])
+            self.assertEqual(self.hub.demo.flushed, 1)
             self.assertEqual((await self.send_until(socket, {"cmd": "rate", "value": 50}))[-1]["rate"], 10)
             messages = await self.send_until(socket, {"cmd": "invalidcmd"})
             self.assertEqual([message["type"] for message in messages], ["state"])

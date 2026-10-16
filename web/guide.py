@@ -18,7 +18,7 @@ from core.runner import add_openset_args
 from experiments.navigation_data_contract import run as data_contract, split_audit
 from experiments.exp3_trend import SCENARIOS
 from web.live import LiveDemo
-from web.server import Hub
+from web.server import Hub, serve
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -36,6 +36,7 @@ class GuideHub(Hub):
         self.audit_dir = None
         self.preview = None
         self.busy_state = None
+        self.catalog_status = "available" if datasets else "no_datasets"
 
     def candidate_id(self):
         if self.demo is None or self.demo.session.candidate is None:
@@ -108,12 +109,15 @@ class GuideHub(Hub):
                  "configs": [], "quarantine": 0, "attempts": 0,
                  "evidence": "CSV舊資料展示；來源獨立性UNKNOWN；fresh INCOMPLETE"}
         state["preview"] = self.preview
+        state["catalog_status"] = self.catalog_status
         if self.demo:
             d = self.demo
             step = "待確認" if self.candidate_id() else "累積" if d.session.quarantine_X else "監測中"
             if not self.running:
                 step = "已更新" if self.last_action == "learned" else "可輸入" if d.t == 0 else "暫停"
             state.update(t=d.t, epoch=d.epoch, meta=d.meta, openset=d.session.monitor.summary(),
+                         persistence=d.state()["persistence"],
+                         metrics=self.public_metrics(d.metrics_msg()),
                          configs=[self.public_config(c["config"]) for c in self.contract["configs"]],
                          source=self.public_config(d.source)["id"],
                          known=list(d.session.monitor.known), quarantine=len(d.session.quarantine_X),
@@ -135,21 +139,26 @@ class GuideHub(Hub):
         state["step"] = step
         return state
 
+    def public_metrics(self, msg):
+        return {"type": "metrics", "session_id": self.session_id,
+                "epoch": self.demo.epoch, "t": msg.get("t", self.demo.t),
+                "rows": [
+                    {**{k: v for k, v in row.items() if k not in ("config", "display")},
+                     "source": self.public_config(row["config"])} for row in msg["rows"]],
+                "alarms": [{k: v for k, v in alarm.items() if k not in ("source", "kind_display")}
+                           for alarm in msg["alarms"]]}
+
     def broadcast(self, msg):
         kind = msg.get("type")
         if kind in ("state", "state_patch"):
             msg = self.full_state()
         elif kind == "sample":
             msg = {k: v for k, v in msg.items() if k not in ("truth", "truth_display", "health", "cls")}
+            msg.update(session_id=self.session_id, epoch=self.demo.epoch)
             msg["prediction"] = {"unknown": "未知異常：原因未確認", "healthy": "接受為健康",
                                  "known": "接受為已知配置"}[msg["verdict"]]
         elif kind == "metrics":
-            msg = {"type": "metrics", "rows": [
-                {**{k: v for k, v in row.items() if k not in ("config", "display")},
-                 "source": self.public_config(row["config"])}
-                for row in msg["rows"]],
-                "alarms": [{k: v for k, v in alarm.items() if k not in ("source", "kind_display")}
-                           for alarm in msg["alarms"]]}
+            msg = self.public_metrics(msg)
         elif kind == "event" and not msg.get("guide_safe"):
             # 既有事件可能帶配置答案／純度，僅輸出可公開的動作提示。
             msg = {"type": "event", "level": msg.get("level", "info"), "t": msg.get("t", 0),
@@ -163,13 +172,8 @@ class GuideHub(Hub):
         logger.info(text)
         super().broadcast({"type": "event", "guide_safe": True, "level": level, "text": text})
 
-    def pause(self):
-        """停止逐筆呼叫並落盤；busy時不讀worker正在更新的檔案。"""
-        self.running = False
-        if self.demo is not None and not self.busy:
-            sample_file = self.demo._sample_file
-            if sample_file is not None and not sample_file.closed:
-                sample_file.flush()
+    def pause(self, *, publish=True):
+        super().pause(publish=publish)
 
     def tick(self):
         if not self.demo or self.busy:
@@ -183,9 +187,7 @@ class GuideHub(Hub):
         self.broadcast(self.full_state())
 
     def close_client(self, client):
-        self.clients.discard(client)
-        if not self.clients:
-            self.pause()
+        super().close_client(client)
 
 
 class GuideSocket(tornado.websocket.WebSocketHandler):
@@ -199,15 +201,13 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
     def open(self):
         self.hub.clients.add(self)
         self.hub.broadcast(self.hub.full_state())
-        if self.hub.demo:
-            self.hub.broadcast(self.hub.demo.metrics_msg())
 
     def on_close(self):
         self.hub.close_client(self)
 
     async def heavy(self, command, fn):
         h = self.hub
-        h.pause()
+        h.pause(publish=False)
         h.busy_state = h.full_state()
         h.busy, h.operation, h.running = True, command, False
         h.broadcast(h.full_state())
@@ -216,10 +216,14 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
             h.error = None
             h.event("success", str(result))
         except Exception as exc:
-            h.error = f"操作失敗：{exc}"
+            logger.exception("導覽操作失敗")
+            h.error = (f"資料讀取失敗（{type(exc).__name__}）；請管理者確認讀取權限與正式資料。"
+                       if isinstance(exc, OSError) else
+                       f"操作失敗（{type(exc).__name__}）；可重新確認所選資料，仍失敗請查看伺服器日誌。")
             h.event("error", h.error)
         finally:
             h.busy, h.operation = False, None
+        h.pause(publish=False)
         h.broadcast(h.full_state())
 
     async def on_message(self, raw):
@@ -236,7 +240,7 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
             elif h.demo is None:
                 raise ValueError("請先選資料並建立健康基準")
             elif cmd == "pause":
-                h.pause()
+                h.pause(publish=False)
             elif cmd == "reset":
                 def reset():
                     h.demo._build()
@@ -299,15 +303,12 @@ def main():
     hub = GuideHub(discover_datasets(args.data_root), args.seed, args.rate, paths.output_dir,
                    {"openset_method": args.openset_method, "mahalanobis_method": args.method,
                     "confidence": args.confidence, "knn_neighbors": args.knn_neighbors})
+    if not Path(args.data_root).is_dir():
+        hub.catalog_status = "data_root_missing"
     application(hub).listen(args.port, address="127.0.0.1")
     hub.set_rate(args.rate)
     log.info(f"逐步導覽：http://127.0.0.1:{args.port}；尚未擬合")
-    try:
-        tornado.ioloop.IOLoop.current().start()
-    finally:
-        if hub.demo:
-            hub.demo.close()
-        hub.executor.shutdown(wait=True)
+    serve(tornado.ioloop.IOLoop.current(), hub)
 
 
 if __name__ == "__main__":

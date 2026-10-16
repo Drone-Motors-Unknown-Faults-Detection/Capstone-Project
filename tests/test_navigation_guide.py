@@ -73,6 +73,20 @@ class GuideTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run({"path": Path(folder), "motor": "T1", "rpm": "8000rpm"})
 
+    def test_zero_healthy_rows_cannot_build(self):
+        with tempfile.TemporaryDirectory() as folder:
+            ds = fixture(Path(folder), healthy=0)
+            with self.assertRaises(ValueError):
+                run(ds)
+
+    def test_empty_catalog_has_explicit_reason_without_fit(self):
+        hub = GuideHub([])
+        try:
+            self.assertEqual(hub.full_state()["catalog_status"], "no_datasets")
+            self.assertIsNone(hub.demo)
+        finally:
+            hub.close()
+
     def test_only_healthy_fit(self):
         self.hub.build("T1", "8000rpm")
         audit = split_audit(self.hub.demo)

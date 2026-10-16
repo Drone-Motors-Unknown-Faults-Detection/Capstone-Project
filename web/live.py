@@ -62,6 +62,7 @@ class LiveDemo:
         self.out_dir = Path(out_dir) if out_dir else None
         self.epoch = 0
         self._sample_file = None
+        self._closed = False
         self._build()
 
     def _build(self) -> None:
@@ -98,19 +99,56 @@ class LiveDemo:
             self._sample_file.close()
             self._sample_file = None
         self._sample_writer = None
+        self._closed = False
+        self._write_error = None
+        self.written_t = self.flushed_t = 0
         if self.out_dir is None:
             return
-        path = self.out_dir / f"samples_epoch{self.epoch:02d}.csv"
-        self._sample_file = open(path, "w", newline="", encoding="utf-8")
+        # 換資料集會建立新的 LiveDemo；共用目錄中的舊 epoch 不可覆寫。
+        while True:
+            metadata = self.out_dir / f"session_epoch{self.epoch:02d}.json"
+            if (metadata.exists() or metadata.with_suffix(".json.tmp").exists()
+                    or any(self.out_dir.glob(f"model_epoch{self.epoch:02d}_*.json"))):
+                self.epoch += 1
+                continue
+            path = self.out_dir / f"samples_epoch{self.epoch:02d}.csv"
+            try:
+                self._sample_file = open(path, "x", newline="", encoding="utf-8")
+            except FileExistsError:
+                self.epoch += 1
+                continue
+            break
         self._sample_writer = csv.writer(self._sample_file)
         self._sample_writer.writerow(SAMPLE_FIELDS)
 
     def _log_sample(self, row: list) -> None:
         if self._sample_writer is None:
             return
-        self._sample_writer.writerow(row)
+        try:
+            self._sample_writer.writerow(row)
+        except Exception as exc:
+            self._write_error = exc
+            raise
+        self.written_t = self.t
         if self.t % 15 == 0:
+            self.flush()
+
+    def flush(self) -> None:
+        """讓已寫入列可重新開檔讀取；不保證強制終止或掉電耐久性。"""
+        if self._write_error is not None:
+            raise RuntimeError("樣本寫入失敗，不能確認完整保存") from self._write_error
+        if self._sample_file is not None:
             self._sample_file.flush()
+            self.flushed_t = self.written_t
+            payload = {"epoch": self.epoch, "t": self.t, "dataset": self.meta,
+                       "source": self.source, "scenario": None if self.scenario is None else self.scenario["key"],
+                       "seed": self.seed, "written_t": self.written_t, "flushed_t": self.flushed_t,
+                       "openset_method": self.openset_method, "mahalanobis_method": self.mahalanobis_method,
+                       "confidence": self.confidence, "knn_neighbors": self.knn_neighbors}
+            path = self.out_dir / f"session_epoch{self.epoch:02d}.json"
+            temporary = path.with_suffix(".json.tmp")
+            temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            temporary.replace(path)
 
     def _snapshot_model(self, tag: str) -> None:
         if self.out_dir is None:
@@ -121,11 +159,12 @@ class LiveDemo:
         path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
     def close(self) -> None:
+        self.flush()
         if self._sample_file is not None:
-            self._sample_file.flush()
             self._sample_file.close()
             self._sample_file = None
             self._sample_writer = None
+        self._closed = True
 
     def _refresh_samplers(self) -> None:
         """已知配置只從 holdout 抽（未參與擬合），未知配置從整池抽。"""
@@ -147,6 +186,7 @@ class LiveDemo:
         self.switch_t = self.t
         self.fault_onset_t = self.t if config != HEALTHY else None
         self.trend.rearm()
+        self.flush()
         return [_event("info", f"注入來源切換 → {display_name(config)}", self.t)]
 
     def start_scenario(self, key: str) -> list[dict]:
@@ -157,6 +197,7 @@ class LiveDemo:
         self.switch_t = self.t
         self.fault_onset_t = self.t + scen["phases"][0][2]
         self.trend.rearm()
+        self.flush()
         return [_event("info", f"▶ 啟動{scen['name']}（先回到健康基線）", self.t)]
 
     def confirm(self) -> dict:
@@ -195,6 +236,8 @@ class LiveDemo:
         return pick, msgs
 
     def tick(self) -> list[dict]:
+        if self._closed or self._write_error is not None:
+            raise RuntimeError("session 已關閉或寫入失敗，不接受新樣本")
         config, msgs = self._draw_config()
         was_known = config in self.session.monitor.known
         prev_attempts = self.session.cluster_attempts
@@ -235,6 +278,7 @@ class LiveDemo:
 
         out = [{
             "type": "sample",
+            "epoch": self.epoch,
             "t": self.t,
             "score": round(float(r["score"]), 3),
             "verdict": verdict,
@@ -301,6 +345,8 @@ class LiveDemo:
             "openset": self.session.monitor.summary(),
             "t": self.t,
             "epoch": self.epoch,
+            "persistence": {"enabled": self.out_dir is not None,
+                            "written_t": self.written_t, "flushed_t": self.flushed_t},
             "phase": self.phase(),
             "source": self.source,
             "scenario": None if self.scenario is None else {
@@ -356,4 +402,5 @@ class LiveDemo:
                 "post_rate": None if m["post_streamed"] == 0
                 else round((1 - m["post_flagged"] / m["post_streamed"]) * 100, 1),
             })
-        return {"type": "metrics", "rows": rows, "alarms": self.alarms[-5:]}
+        return {"type": "metrics", "epoch": self.epoch, "t": self.t,
+                "meta": self.meta, "rows": rows, "alarms": self.alarms[-5:]}

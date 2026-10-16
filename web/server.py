@@ -61,6 +61,9 @@ class Hub:
         self.clients: set[tornado.websocket.WebSocketHandler] = set()
         self.running = False
         self.busy = False
+        self.error = None
+        self.closed = False
+        self._busy_state = None
         self.rate = rate
         self.periodic: tornado.ioloop.PeriodicCallback | None = None
         self.executor = ThreadPoolExecutor(max_workers=1)
@@ -76,13 +79,17 @@ class Hub:
                 self.clients.discard(client)
 
     def full_state(self) -> dict:
+        if self.busy and self._busy_state is not None:
+            return {**self._busy_state, "busy": True, "running": False}
         state = self.demo.state()
         state.update({
             "type": "state",
             "running": self.running,
             "busy": self.busy,
+            "error": self.error,
             "rate": self.rate,
             "datasets": [{"motor": d["motor"], "rpm": d["rpm"]} for d in self.datasets],
+            "metrics": self.demo.metrics_msg(),
         })
         return state
 
@@ -92,13 +99,48 @@ class Hub:
 
     # -- 節拍 ------------------------------------------------------------------
 
+    def pause(self, *, publish=True) -> None:
+        """IOLoop 的同步 tick 先完成；停止後才確認尾批資料已保存。"""
+        self.running = False
+        if self.busy:
+            raise RuntimeError("工作進行中，尚不能確認保存完成")
+        if self.demo is not None:
+            try:
+                self.demo.flush()
+            except Exception as exc:
+                self.error = f"保存失敗：{exc!r}"
+                raise
+            if publish:
+                self.broadcast(self.full_state())
+
+    def close_client(self, client) -> None:
+        self.clients.discard(client)
+        if not self.clients:
+            self.running = False
+            if not self.busy:
+                try:
+                    self.pause()
+                except Exception:
+                    logger.exception("最後連線離開時保存失敗")
+
+    def close(self) -> None:
+        """先停止節拍並等重任務結束，再關閉 session；可重複呼叫。"""
+        self.running = False
+        if self.periodic is not None:
+            self.periodic.stop()
+        self.executor.shutdown(wait=True)
+        if self.demo is not None:
+            self.demo.close()
+        self.closed = True
+
     def tick(self) -> None:
-        if not self.running or self.busy:
+        if not self.running or self.busy or self.closed or self.error:
             return
         try:
             msgs = self.demo.tick()
         except Exception as exc:  # 展示現場永不讓伺服器死掉
             self.running = False
+            self.error = f"串流錯誤：{exc!r}"
             self.event("error", f"串流錯誤，已暫停：{exc!r}")
             self.broadcast(self.full_state())
             return
@@ -265,11 +307,12 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
     def open(self) -> None:
         HUB.clients.add(self)
-        self.write_message(json.dumps(HUB.full_state(), ensure_ascii=False))
-        self.write_message(json.dumps(HUB.demo.metrics_msg(), ensure_ascii=False))
+        state = HUB.full_state()
+        self.write_message(json.dumps(state, ensure_ascii=False))
+        self.write_message(json.dumps(state["metrics"], ensure_ascii=False))
 
     def on_close(self) -> None:
-        HUB.clients.discard(self)
+        HUB.close_client(self)
 
     async def on_message(self, raw: str) -> None:
         try:
@@ -281,12 +324,16 @@ class WSHandler(tornado.websocket.WebSocketHandler):
 
     async def dispatch(self, msg: dict) -> None:
         cmd = msg.get("cmd")
+        if HUB.busy:
+            raise ValueError("工作進行中，拒絕重複操作")
+        if HUB.error and cmd not in ("pause", "reset", "dataset"):
+            raise ValueError("目前有錯誤，請明確重設／重建後再監測")
         if cmd == "start":
             HUB.running = True
             HUB.event("info", "▶ 串流開始")
         elif cmd == "pause":
-            HUB.running = False
-            HUB.event("info", "⏸ 串流暫停")
+            HUB.pause(publish=False)
+            HUB.event("info", "⏸ 串流暫停；已寫入樣本完成 flush")
         elif cmd == "rate":
             HUB.set_rate(msg.get("value", 4))
         elif cmd == "set_source":
@@ -313,17 +360,21 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         if HUB.busy:
             HUB.event("warn", f"{label}略過：另一項工作進行中")
             return
+        HUB.pause(publish=False)
+        HUB._busy_state = HUB.full_state()
         HUB.busy = True
         HUB.broadcast(HUB.full_state())
         loop = tornado.ioloop.IOLoop.current()
         t0 = time.time()
         try:
             done_text = await loop.run_in_executor(HUB.executor, fn)
+            HUB.error = None
             HUB.event("success", f"{done_text}（{time.time() - t0:.1f} 秒）")
         except Exception as exc:
             HUB.event("error", f"{label}失敗：{exc!r}")
         finally:
             HUB.busy = False
+        HUB.pause(publish=False)
         HUB.broadcast(HUB.full_state())
         HUB.broadcast(HUB.demo.metrics_msg())
 
@@ -419,11 +470,22 @@ def main() -> None:
     app.listen(args.port, address=args.bind_address)
     HUB.set_rate(args.rate)
     log.info(f"就緒 → http://localhost:{args.port}  （Ctrl+C 結束）")
+    serve(tornado.ioloop.IOLoop.current(), HUB, JOBS)
+
+
+def serve(loop, hub, jobs=None) -> None:
+    """正常 stop 與 Ctrl+C 共用收尾；保存錯誤仍向呼叫端傳遞。"""
     try:
-        tornado.ioloop.IOLoop.current().start()
+        loop.start()
     except KeyboardInterrupt:
-        HUB.demo.close()
-        log.info("伺服器結束")
+        pass
+    finally:
+        try:
+            hub.close()
+        finally:
+            if jobs is not None:
+                jobs.executor.shutdown(wait=True)
+        logger.info("伺服器結束；session 已關閉")
 
 
 if __name__ == "__main__":

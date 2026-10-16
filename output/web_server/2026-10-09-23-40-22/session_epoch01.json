@@ -1,0 +1,17 @@
+{
+  "epoch": 1,
+  "t": 51,
+  "dataset": {
+    "motor": "T1",
+    "rpm": "8000rpm"
+  },
+  "source": "8screws",
+  "scenario": null,
+  "seed": 42,
+  "written_t": 51,
+  "flushed_t": 51,
+  "openset_method": "mahalanobis",
+  "mahalanobis_method": "ledoit_wolf",
+  "confidence": 0.95,
+  "knn_neighbors": 5
+}

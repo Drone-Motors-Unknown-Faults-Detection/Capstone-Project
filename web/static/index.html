@@ -340,6 +340,7 @@ function onState(m){
   }
   setSteps(m.phase, m.quarantine, m.min_cluster_size);
   drawScatter(); drawPolar();
+  if(m.metrics)onMetrics(m.metrics);
 }
 let knownChipsLast = 1;
 
@@ -414,6 +415,8 @@ function logLine(level, text, t){
 }
 
 function onMetrics(m){
+  if(state && m.meta && (m.meta.motor!==state.meta.motor || m.meta.rpm!==state.meta.rpm ||
+    m.epoch!==state.epoch || m.t<state.t))return;
   const fmt = (n, rate, good) => n === 0 ? "<td>—</td><td>—</td>"
     : `<td>${n}</td><td style="color:${rate >= good ? "var(--green)" : "var(--yellow)"}">${rate.toFixed(1)}%</td>`;
   $("metricsTable").querySelector("tbody").innerHTML = m.rows.map(r =>

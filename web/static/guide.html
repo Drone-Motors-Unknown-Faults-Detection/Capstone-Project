@@ -28,6 +28,7 @@
 <button id="reset" disabled>重設健康基準</button>
 <label>重播速度 <select id="rate"><option value="4">4 筆／秒</option><option value="10">10 筆／秒</option><option value="1">1 筆／秒</option></select></label></div>
 <div id="learning"><label>訊號來源 <select id="source" disabled></select></label><button id="inject" disabled>輸入所選來源</button>
+<p id="sourceStatus" role="status">尚無已套用來源；選項須按「輸入所選來源」才會套用。</p>
 <p id="quarantine">隔離 0 筆；分群連續失敗 0 次（成功歸零，非總嘗試）；沒有候選</p>
 <button id="confirm" disabled>模擬操作員確認</button>
 <p class="limit">至少 25 筆不保證有群。確認才顯示配置答案；既有後端有 truth 快取，分群幾何不讀 truth。確認後使用完整標記配置池重擬合，不是只學剛到達的叢集。</p></div>
