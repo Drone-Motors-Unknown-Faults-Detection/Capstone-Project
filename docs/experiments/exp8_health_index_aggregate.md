@@ -62,4 +62,4 @@ field_differences列key、old、new、difference、allowed_tolerance與matches�
 
 ## 方法來源與程式碼
 
-平均、ddof、容差是Lineage重算約定，原演算法文獻見[benchmark](exp8_health_index_benchmark.md#方法來源與程式碼)。[aggregate](../../experiments/health_index_aggregate.py)實作驗證／重算／writer；[契約](exp8_health_index_aggregate_contract.json)鎖來源；[test_health_index_aggregate](../../tests/test_health_index_aggregate.py)測完整與失敗fixtures；[exp8_aggregate_validation](../../tests/exp8_aggregate_validation.py)保存測試證據。正式資料、模型、歷史摘要與Web邏輯均不改動。
+平均、ddof、容差是Lineage重算約定，原演算法文獻見[benchmark](exp8_health_index_benchmark.md#方法來源與程式碼)。[aggregate](../../src/experiments/health_index_aggregate.py)實作驗證／重算／writer；[契約](exp8_health_index_aggregate_contract.json)鎖來源；[test_health_index_aggregate](../../src/tests/test_health_index_aggregate.py)測完整與失敗fixtures；[exp8_aggregate_validation](../../src/tests/exp8_aggregate_validation.py)保存測試證據。正式資料、模型、歷史摘要與Web邏輯均不改動。

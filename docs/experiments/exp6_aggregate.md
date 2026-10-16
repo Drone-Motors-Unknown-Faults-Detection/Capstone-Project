@@ -63,10 +63,10 @@ uv run --locked python -m experiments.aggregate_exp6 --manifest output/exp6_form
 
 ## 輸出、判斷與限制
 
-writer是[write_aggregate](../../experiments/aggregate_exp6.py)，寫五檔：aggregate.json、condition_summary.csv、macro_summary.csv、paired_differences.csv與aggregate.md。aggregate.md雖是Markdown，確由程式生成，不是手寫報告。main經`setup_run("exp6_aggregate", make_output=False)`寫`logs/exp6_aggregate/{ts}.log`，執行環境記在該log裡。
+writer是[write_aggregate](../../src/experiments/aggregate_exp6.py)，寫五檔：aggregate.json、condition_summary.csv、macro_summary.csv、paired_differences.csv與aggregate.md。aggregate.md雖是Markdown，確由程式生成，不是手寫報告。main經`setup_run("exp6_aggregate", make_output=False)`寫`logs/exp6_aggregate/{ts}.log`，執行環境記在該log裡。
 
 預期同來源重算數字一致，paired鍵對齊，缺件明確失敗；工況、方法、seed都依名稱排序，同一輸入的輸出逐位元組相同。它只能核對摘要算術，不證明逐樣本預測、錄製獨立、fresh test或最佳部署方法。未知正類比例不同時不直接比accuracy／AUPR；不同指紋／split／cal策略不可混為方法提升。完整舊平均查[固定正式aggregate](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_formal_matrix/aggregate)，不人工複製分數表。
 
 ## 依據與程式碼
 
-平均、ddof與配對方向是Lineage統計約定，沒有新模型；原演算法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)。[aggregate_exp6](../../experiments/aggregate_exp6.py)讀取、驗證與寫檔；[test_aggregate_exp6](../../tests/test_aggregate_exp6.py)提供不依賴data的fixtures；[web/experiments](../../web/experiments.py)只讀正式結果。程式元件測試不替代來源完整性查核。
+平均、ddof與配對方向是Lineage統計約定，沒有新模型；原演算法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)。[aggregate_exp6](../../src/experiments/aggregate_exp6.py)讀取、驗證與寫檔；[test_aggregate_exp6](../../src/tests/test_aggregate_exp6.py)提供不依賴data的fixtures；[web/experiments](../../src/web/experiments.py)只讀正式結果。程式元件測試不替代來源完整性查核。

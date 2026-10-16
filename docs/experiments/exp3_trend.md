@@ -39,7 +39,7 @@
 
 機率剩餘部分抽健康holdout，不是把兩筆特徵線性混合。onset固定40；各trial第一個alarm_now出現就停止，未必播完表中全部筆數。
 
-每筆先算Open Set score，再交給[core/trend.py](../../core/trend.py)：
+每筆先算Open Set score，再交給[src/core/trend.py](../../src/core/trend.py)：
 `flag=1{score>1}; ewma += 0.08*(flag-ewma)`。EWMA平滑的是異常旗標，不是原始振動或健康百分比。超過warmup10筆後，EWMA至少0.5才首次警報。當下從最近120筆歷史數EWMA落在[0.2,0.5)的筆數，transition≤12叫sudden，其餘gradual；當前警報點是在判定後才加入history。CUSUM為`max(0,previous+score-1)`，只展示、不決定kind。
 
 這些固定規則不訓練神經網路，沒有loss／optimizer；不從T1／T2／T3推論退化速度。健康早期若已誤報也會停止，latency可能是負值，不能偷偷截成0。
@@ -61,7 +61,7 @@ Web啟動見[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)，切
 
 ## 輸出怎麼看
 
-[main](../../experiments/exp3_trend.py)寫`logs/exp3_trend/{ts}.log`及`output/exp3_trend/{ts}/environment.json`、`trials.csv`、`summary.json`；Web結果另存web_server的experiments子目錄。
+[main](../../src/experiments/exp3_trend.py)寫`logs/exp3_trend/{ts}.log`及`output/exp3_trend/{ts}/environment.json`、`trials.csv`、`summary.json`；Web結果另存web_server的experiments子目錄。
 
 `trials.csv`每列是劇本／trial，不是輸入視窗。expected是劇本指定標籤；verdict是程式結果；correct含未警報為false。alarm_t、latency=alarm_t−40、transition單位都是**筆**，無警報為None。`alarm_rate`以所有trial為分母；`correct_rate`同樣包含未警報；mean_latency／mean_transition只平均已警報trial，不是所有trial平均。兩劇本各自匯總，不把它們當新獨立採集。
 
@@ -71,7 +71,7 @@ Web啟動見[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)，切
 
 Roberts（1959），*Control Chart Tests Based on Geometric Moving Averages*，Technometrics1(3),239–250，[DOI](https://doi.org/10.1080/00401706.1959.10489860)，支持EWMA遞迴。Page（1954），*Continuous Inspection Schemes*，Biometrika41(1/2),100–115，[DOI](https://doi.org/10.1093/biomet/41.1-2.100)；既有[固定引用查證](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/issue_delivery_20261008/citation_followup.md)仍列Page全文未取得，不能宣稱整套控制圖已原文驗證。0.08／0.2／0.5／12及劇本是Lineage操作約定，非上述論文為此資料保證的參數。
 
-[exp3](../../experiments/exp3_trend.py)產生劇本、管理trial與writer；[core/trend](../../core/trend.py)實作旗標EWMA／CUSUM；[web/live](../../web/live.py)重用劇本；[test_stream_integration](../../tests/test_stream_integration.py)與[test_web_experiments](../../tests/test_web_experiments.py)檢查編排。實驗八另用SessionTrajectoryMonitor，不是同一趨勢演算法。
+[exp3](../../src/experiments/exp3_trend.py)產生劇本、管理trial與writer；[core/trend](../../src/core/trend.py)實作旗標EWMA／CUSUM；[web/live](../../src/web/live.py)重用劇本；[test_stream_integration](../../src/tests/test_stream_integration.py)與[test_web_experiments](../../src/tests/test_web_experiments.py)檢查編排。實驗八另用SessionTrajectoryMonitor，不是同一趨勢演算法。
 
 兩套趨勢的輸入與用途見[兩套趨勢](../health_and_reports.md#兩套趨勢)；EWMA／CUSUM 的引用核對與未確認項見[來源附件](../../reports/Andy_20261008_議題交付/citation_followup.md)。
 

@@ -60,4 +60,4 @@ open_set_accuracy是score>1的健康／fault二元正確率；AUROC、AUPR、unk
 
 ## 方法來源與程式碼
 
-LW與近鄰文獻見[實驗一](exp1_cold_start.md#方法來源與程式定位)；10%／95%錨點、stage與健康映射是Lineage操作約定。[benchmark](../../experiments/health_index_benchmark.py)管迴圈／摘要；[index](../../experiments/health/index.py)fit與predict；[calibration](../../experiments/health/calibration.py)映射；[evaluation](../../experiments/health/evaluation.py)指標；[test_health_benchmark](../../tests/test_health_benchmark.py)與[test_health_index](../../tests/test_health_index.py)核對known-only與輸出。Web編排在[web/experiments](../../web/experiments.py)，不另訓練模型。
+LW與近鄰文獻見[實驗一](exp1_cold_start.md#方法來源與程式定位)；10%／95%錨點、stage與健康映射是Lineage操作約定。[benchmark](../../src/experiments/health_index_benchmark.py)管迴圈／摘要；[index](../../src/experiments/health/index.py)fit與predict；[calibration](../../src/experiments/health/calibration.py)映射；[evaluation](../../src/experiments/health/evaluation.py)指標；[test_health_benchmark](../../src/tests/test_health_benchmark.py)與[test_health_index](../../src/tests/test_health_index.py)核對known-only與輸出。Web編排在[web/experiments](../../src/web/experiments.py)，不另訓練模型。

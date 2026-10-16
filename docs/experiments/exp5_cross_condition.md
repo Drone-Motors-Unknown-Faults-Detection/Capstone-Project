@@ -26,7 +26,7 @@
 
 ## 資料與共同處理
 
-[runner](../../experiments/exp5_cross_condition.py)掃描data-root下的Motor／RPM，通常預期T1／T2／T3×6000／8000／11000rpm，但程式**沒有強制九工況齊全**。實際coverage看輸出keys，不拿「9組」補缺件。每個配置池是105維clean特徵，資料列、loader與未知單位／raw視窗限制見[實驗一](exp1_cold_start.md#資料與載入)；沒有去重或重建錄製順序。
+[runner](../../src/experiments/exp5_cross_condition.py)掃描data-root下的Motor／RPM，通常預期T1／T2／T3×6000／8000／11000rpm，但程式**沒有強制九工況齊全**。實際coverage看輸出keys，不拿「9組」補缺件。每個配置池是105維clean特徵，資料列、loader與未知單位／raw視窗限制見[實驗一](exp1_cold_start.md#資料與載入)；沒有去重或重建錄製順序。
 
 每次模型只用healthy建立OpenSetMonitor：列洗牌60/20/20，RobustScaler fit健康train，LW估計中心／共變異數，cal的confidence0.95分位數定線，score>1判異常。CLI可改confidence或馬氏method；legacy改用train距離定線，不能混稱校準政策相同。此實驗沒有k-NN選項，沒有神經網路訓練。
 
@@ -65,4 +65,4 @@ healthy_accept是健康score≤1比例，fault_detect是fault score>1比例，AU
 
 馬氏距離、LW、RobustScaler來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)。三種混合策略、配對工況與統計分組是Lineage操作約定，不是由某篇論文保證的域適應方法。
 
-[exp5](../../experiments/exp5_cross_condition.py)負責載入、三部分、彙總與writer；[core/data](../../core/data.py)切分；[core/monitor](../../core/monitor.py)建健康基準；[web/experiments](../../web/experiments.py)批次編排；[test_web_experiments](../../tests/test_web_experiments.py)與[test_monitor_guard](../../tests/test_monitor_guard.py)檢查入口／基準。這些測試不消除b的外層／內層holdout重疊。
+[exp5](../../src/experiments/exp5_cross_condition.py)負責載入、三部分、彙總與writer；[core/data](../../src/core/data.py)切分；[core/monitor](../../src/core/monitor.py)建健康基準；[web/experiments](../../src/web/experiments.py)批次編排；[test_web_experiments](../../src/tests/test_web_experiments.py)與[test_monitor_guard](../../src/tests/test_monitor_guard.py)檢查入口／基準。這些測試不消除b的外層／內層holdout重疊。

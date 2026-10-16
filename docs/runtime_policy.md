@@ -8,7 +8,7 @@
 
 ```bash
 ./scripts/opt/build_uv.sh --python python3.10
-uv run --no-project --no-sync --python venv/bin/python python -m pytest tests -ra --tb=short
+uv run --no-project --no-sync --python venv/bin/python python -m pytest src/tests -ra --tb=short
 uv run --no-project --no-sync --python venv/bin/python python -m ruff check .
 uv pip check --python venv/bin/python
 ```

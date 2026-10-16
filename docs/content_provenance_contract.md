@@ -1,6 +1,6 @@
 # 內容SHA與portable／private來源契約
 
-給維護資料匯入與正式實驗入口的組員：本頁說明 `core/provenance.py` 如何辨識內容、驗證 manifest，以及哪些資訊留在本機。正式欄位檢查見[載入契約](formal_feature_schema_contract.md)，模型與切分見[實驗六手冊](experiments/exp6_formal_benchmark.md)。原交付與失敗紀錄另存[固定版本證據](../reports/Andy_20261009_正式入口來源/交付紀錄.md)，不在本頁維護單次測試數。
+給維護資料匯入與正式實驗入口的組員：本頁說明 `src/core/provenance.py` 如何辨識內容、驗證 manifest，以及哪些資訊留在本機。正式欄位檢查見[載入契約](formal_feature_schema_contract.md)，模型與切分見[實驗六手冊](experiments/exp6_formal_benchmark.md)。原交付與失敗紀錄另存[固定版本證據](../reports/Andy_20261009_正式入口來源/交付紀錄.md)，不在本頁維護單次測試數。
 
 ## 版本與雜湊規則
 
@@ -20,7 +20,7 @@
 
 ```bash
 uv run --locked python -m core.provenance --data-root data/formal_local
-uv run --locked --extra test python -m pytest tests/test_provenance.py
+uv run --locked --extra test python -m pytest src/tests/test_provenance.py
 ```
 
 唯讀核對入口經 setup_run("source_provenance", unique=True) 寫 logs/source_provenance/{ts}.log、output/source_provenance/{ts}/environment.json 與 source.json。成功的 VERIFIED 只證實所讀內容與適用manifest；raw/session與fresh test仍UNKNOWN。失敗保存error_type並拋出例外，不輸出假成功。

@@ -59,7 +59,7 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 
 ## 輸出怎麼看與判斷
 
-[main writer](../../experiments/exp2_scale_growth.py)寫`logs/exp2_scale_growth/{ts}.log`、`output/exp2_scale_growth/{ts}/environment.json`、`stages.csv`、`summary.json`；Web只由runner存結果JSON到`output/web_server/{ts}/experiments/`。模型不長期保存。
+[main writer](../../src/experiments/exp2_scale_growth.py)寫`logs/exp2_scale_growth/{ts}.log`、`output/exp2_scale_growth/{ts}/environment.json`、`stages.csv`、`summary.json`；Web只由runner存結果JSON到`output/web_server/{ts}/experiments/`。模型不長期保存。
 
 - `config`是注入劇本，`learned`是實際加入的多數配置；兩者要一起看。
 - `discovered=false`表示該段未learned；不能當作故障不存在。失敗段不一定有delay等欄。
@@ -74,4 +74,4 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 
 Campello、Moulavi與Sander（2013），*Density-Based Clustering Based on Hierarchical Density Estimates*，PAKDD／LNCS7819,160–172，[DOI](https://doi.org/10.1007/978-3-642-37456-2_14)。隔離2.0、密度階梯、25筆候選與自動confirm是Lineage約定，不是論文保證。LW／k-NN來源同實驗一，Ancestor來源註記在Mahalanobis檔頭。
 
-[ScaleGrowthSession與run](../../experiments/exp2_scale_growth.py)管理隔離／確認；[monitor](../../core/monitor.py)管理完整池fit；[web/live.py](../../web/live.py)管理即時session；[test_monitor_guard](../../tests/test_monitor_guard.py)、[test_geometry](../../tests/test_geometry.py)、[test_web_experiments](../../tests/test_web_experiments.py)測狀態與編排，不證明候選物理真值、獨立採集或長期部署。
+[ScaleGrowthSession與run](../../src/experiments/exp2_scale_growth.py)管理隔離／確認；[monitor](../../src/core/monitor.py)管理完整池fit；[src/web/live.py](../../src/web/live.py)管理即時session；[test_monitor_guard](../../src/tests/test_monitor_guard.py)、[test_geometry](../../src/tests/test_geometry.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)測狀態與編排，不證明候選物理真值、獨立採集或長期部署。

@@ -53,7 +53,7 @@ manual_run_001只是範例，已存在就換新名稱，不能覆寫封存。API
 | `results.csv` | 恰一列；dataset、motor、rpm、seed、method、status與八個指標和summary那一列相同 |
 | `run.log` | 有`status=completed`；condition、seed、method三行與鍵相同 |
 
-[`validate_run`](../../experiments/exp6_matrix.py)把每項不符寫成一條原因（例如`results.csv auroc: summary=0.91 csv=0.92`），`_is_complete`就是「原因清單為空」；[彙總](exp6_aggregate.md)用同一個函數。缺九工況或非法方法在開跑前拒絕；個別run失敗保存error並繼續，最後退出碼2，不把失敗靜默刪除。
+[`validate_run`](../../src/experiments/exp6_matrix.py)把每項不符寫成一條原因（例如`results.csv auroc: summary=0.91 csv=0.92`），`_is_complete`就是「原因清單為空」；[彙總](exp6_aggregate.md)用同一個函數。缺九工況或非法方法在開跑前拒絕；個別run失敗保存error並繼續，最後退出碼2，不把失敗靜默刪除。
 
 ## 輸出怎麼看
 
@@ -68,4 +68,4 @@ completed只表示本工具54格完成，unknown召回／健康接受等解釋�
 
 ## 方法來源與程式碼
 
-統計方法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)，run_id、54格與resume為Lineage操作約定。[exp6_matrix](../../experiments/exp6_matrix.py)負責排程與writer；[benchmark](../../experiments/exp6_formal_benchmark.py)負責fit／校準／指標；[test_exp6_matrix](../../tests/test_exp6_matrix.py)用fixture檢查完成判定的每條拒絕原因與續跑。[web/experiments](../../web/experiments.py)的唯讀結果入口不會啟動此工具。
+統計方法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)，run_id、54格與resume為Lineage操作約定。[exp6_matrix](../../src/experiments/exp6_matrix.py)負責排程與writer；[benchmark](../../src/experiments/exp6_formal_benchmark.py)負責fit／校準／指標；[test_exp6_matrix](../../src/tests/test_exp6_matrix.py)用fixture檢查完成判定的每條拒絕原因與續跑。[web/experiments](../../src/web/experiments.py)的唯讀結果入口不會啟動此工具。

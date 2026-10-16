@@ -65,4 +65,4 @@ rows先round4，summary按protocol×method等工況-seed平均；Wilcoxon只對d
 
 馬氏／LW與Ancestor沿用來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)。Wilcoxon（1945），*Individual Comparisons by Ranking Methods*，Biometrics Bulletin1,80–83，[DOI](https://doi.org/10.2307/3001968)。類別角色、5pp與兩協定是Lineage操作約定，不由文獻保證成效。
 
-[exp11](../../experiments/exp11_ancestor_comparison.py)建monitor／評估／writer；[monitor](../../core/monitor.py)分割與classify；[mahalanobis](../../core/mahalanobis.py)兩分布實作；[test_exp11_ancestor_comparison](../../tests/test_exp11_ancestor_comparison.py)核對known集合與unknown不add_class。測試不證明原Ancestor完整重現或錄製獨立。
+[exp11](../../src/experiments/exp11_ancestor_comparison.py)建monitor／評估／writer；[monitor](../../src/core/monitor.py)分割與classify；[mahalanobis](../../src/core/mahalanobis.py)兩分布實作；[test_exp11_ancestor_comparison](../../src/tests/test_exp11_ancestor_comparison.py)核對known集合與unknown不add_class。測試不證明原Ancestor完整重現或錄製獨立。
