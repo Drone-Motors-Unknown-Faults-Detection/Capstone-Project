@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = "==3.10.*"
 
 [[package]]
@@ -52,6 +52,42 @@ sdist = { url = "https://files.pythonhosted.org/packages/a9/95/a3dbbb5028f35eafb
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e7/05/c19819d5e3d95294a6f5947fb9b9629efb316b96de511b418c53d245aae6/cycler-0.12.1-py3-none-any.whl", hash = "sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30", size = 8321, upload-time = "2023-10-07T05:32:16.783Z" },
 ]
+
+[[package]]
+name = "drone-motors-unknown-faults-detection"
+version = "0.2.0"
+source = { editable = "." }
+dependencies = [
+    { name = "hdbscan" },
+    { name = "loguru" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pandas" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "tornado" },
+]
+
+[package.optional-dependencies]
+test = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "hdbscan", specifier = "==0.8.44" },
+    { name = "loguru", specifier = "==0.7.3" },
+    { name = "matplotlib", specifier = "==3.10.9" },
+    { name = "numpy", specifier = "==2.2.6" },
+    { name = "pandas", specifier = "==2.3.3" },
+    { name = "pytest", marker = "extra == 'test'", specifier = "==9.1.1" },
+    { name = "ruff", marker = "extra == 'test'", specifier = "==0.16.10" },
+    { name = "scikit-learn", specifier = "==1.7.2" },
+    { name = "scipy", specifier = "==1.15.3" },
+    { name = "tornado", specifier = "==6.5.10" },
+]
+provides-extras = ["test"]
 
 [[package]]
 name = "exceptiongroup"
@@ -146,42 +182,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/02/24/18d8a755acdae79c37ca2f1a925795aab67b9456c30c8569c377ea3abc77/kiwisolver-1.5.1-pp310-pypy310_pp73-manylinux_2_24_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:f0a887b6565bbfe80efde2b7f6e8890d7d9bbdb11bdb17028a3690c32fe0621f", size = 77582, upload-time = "2026-08-28T10:28:17.719Z" },
     { url = "https://files.pythonhosted.org/packages/df/a9/b86dde4f553ef74db0f9c32398614e24b2e8ec1d29a6ca04ae080d7dd29b/kiwisolver-1.5.1-pp310-pypy310_pp73-win_amd64.whl", hash = "sha256:1983f0974a750a6f6556f368ba11105d1d8369c735b944747c9f12ae5aea7aae", size = 98321, upload-time = "2026-08-28T10:28:19.087Z" },
 ]
-
-[[package]]
-name = "lineage"
-version = "0.2.0"
-source = { editable = "." }
-dependencies = [
-    { name = "hdbscan" },
-    { name = "loguru" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "pandas" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "tornado" },
-]
-
-[package.optional-dependencies]
-test = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "hdbscan", specifier = "==0.8.44" },
-    { name = "loguru", specifier = "==0.7.3" },
-    { name = "matplotlib", specifier = "==3.10.9" },
-    { name = "numpy", specifier = "==2.2.6" },
-    { name = "pandas", specifier = "==2.3.3" },
-    { name = "pytest", marker = "extra == 'test'", specifier = "==9.1.1" },
-    { name = "ruff", marker = "extra == 'test'", specifier = "==0.16.10" },
-    { name = "scikit-learn", specifier = "==1.7.2" },
-    { name = "scipy", specifier = "==1.15.3" },
-    { name = "tornado", specifier = "==6.5.10" },
-]
-provides-extras = ["test"]
 
 [[package]]
 name = "loguru"
