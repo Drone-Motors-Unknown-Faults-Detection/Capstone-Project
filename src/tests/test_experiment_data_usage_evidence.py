@@ -13,10 +13,12 @@ from tests.experiment_data_usage_evidence import allocation, inspect
 
 def fixture(root, motor="T1", n=53):
     rng = np.random.default_rng(42)
+    columns = list(SCHEMAS["historical_clean_v1"])
     for config in (HEALTHY, "1screw", "2screws", "3screws", "4screws", "5screws"):
         folder = root / "Step-1/myfeature" / motor / "8000rpm" / config
         folder.mkdir(parents=True)
-        pd.DataFrame(rng.normal(size=(n, 105)), columns=SCHEMAS["historical_clean_v1"]).to_csv(folder / "x_Group_feature_data_clean.csv", index=False)
+        pd.DataFrame(rng.normal(size=(n, 105)), columns=columns).to_csv(
+            folder / "x_Group_feature_data_clean.csv", index=False)
 
 
 def test_counts_rounding_known_roles_and_no_training(tmp_path):

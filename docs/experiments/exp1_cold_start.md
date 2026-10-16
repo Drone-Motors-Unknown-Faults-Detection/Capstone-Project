@@ -32,7 +32,7 @@
 
 ## 資料與載入
 
-從儲存庫根目錄執行。[core/data.py](../../core/data.py) 掃描
+從儲存庫根目錄執行。[src/core/data.py](../../src/core/data.py) 掃描
 `data/Step-*/myfeature/{Motor}/{RPM}/{Screws}/*_Group_feature_data_clean.csv`。
 每次選一個馬達／轉速目錄，預設T1／8000rpm；可用組合以實際檔案為準。
 
@@ -44,7 +44,7 @@
 
 ## 如何切分與建立基準
 
-[OpenSetMonitor](../../core/monitor.py)只註冊健康配置。`make_split`用`numpy.random.default_rng(seed)`洗牌資料列；預設seed42。訓練筆數為`int(n*0.6)`，校準為`max(1,int(n*0.2))`，剩餘是holdout，比例有整數捨入。
+[OpenSetMonitor](../../src/core/monitor.py)只註冊健康配置。`make_split`用`numpy.random.default_rng(seed)`洗牌資料列；預設seed42。訓練筆數為`int(n*0.6)`，校準為`max(1,int(n*0.2))`，剩餘是holdout，比例有整數捨入。
 
 | 用途 | 資料 | 實際動作 |
 |---|---|---|
@@ -57,7 +57,7 @@
 
 模型學的是健康特徵的位置與散布。RobustScaler只在train學每欄中位數與四分位距；其餘集合只transform。預設Mahalanobis-Ledoit–Wolf從縮放後train估中心／收縮共變異數，距離除以calibration的0.95分位數。改k-NN則保存train近鄰索引，取平均歐氏距離；k預設5，樣本不足時取較小的有效k。多已知類時分數取各類正規化距離的最小值；本實驗初始只有健康一類。`score > 1`才判未知，等於1仍接受。
 
-**legacy例外**：[core/mahalanobis.py](../../core/mahalanobis.py)的`legacy`刻意用train本身的距離定門檻，而非獨立calibration；不能把它寫成與LW相同的校準契約。它的類別label為-1，不適合作為多類配置辨識的成功證據。本實驗只比較score。OAS、MCD是可選共變異數方法；MCD另fit train-only PCA。顯示用2維PCA固定random_state0，不是主要偵測特徵，分數仍走105維（MCD除外）。這些統計／近鄰方法沒有epoch、loss或optimizer。
+**legacy例外**：[src/core/mahalanobis.py](../../src/core/mahalanobis.py)的`legacy`刻意用train本身的距離定門檻，而非獨立calibration；不能把它寫成與LW相同的校準契約。它的類別label為-1，不適合作為多類配置辨識的成功證據。本實驗只比較score。OAS、MCD是可選共變異數方法；MCD另fit train-only PCA。顯示用2維PCA固定random_state0，不是主要偵測特徵，分數仍走105維（MCD除外）。這些統計／近鄰方法沒有epoch、loss或optimizer。
 
 ## 實驗怎麼跑與怎麼使用
 
@@ -79,7 +79,7 @@ Web實際入口為`uv run --locked python -m web.server --bind-address 127.0.0.1
 
 ## 輸出怎麼看
 
-CLI writer是[main()](../../experiments/exp1_cold_start.py)：
+CLI writer是[main()](../../src/experiments/exp1_cold_start.py)：
 `logs/exp1_cold_start/{時間戳}.log`及`output/exp1_cold_start/{時間戳}/`。
 目錄含`environment.json`（setup_run記環境）、`results.csv`（逐配置）、`summary.json`（整體及model設定）、`detect_rates.png`（判未知比例）。Web由ExperimentRunner另存`output/web_server/{ts}/experiments/`的JSON，與CLI檔案不同。
 
@@ -100,7 +100,7 @@ CLI writer是[main()](../../experiments/exp1_cold_start.py)：
 - Ledoit與Wolf（2004），*A well-conditioned estimator for large-dimensional covariance matrices*，JMVA 88(2),365–411；[DOI](https://doi.org/10.1016/S0047-259X(03)00096-4)。
 - Cover與Hart（1967），*Nearest Neighbor Pattern Classification*，IEEE TIT 13(1),21–27；[DOI](https://doi.org/10.1109/TIT.1967.1053964)。本repo的平均k距離／分位數拒絕規則是專案操作約定，不能說該論文提出本套校準管線。
 - [RobustScaler官方說明](https://scikit-learn.org/1.7/modules/generated/sklearn.preprocessing.RobustScaler.html)。實際版本由uv.lock固定，不按網站最新版本推論現行行為。
-- [core/runner.py](../../core/runner.py)負責資料定位／CLI；[core/openset.py](../../core/openset.py)是正式兩方法factory；Mahalanobis檔頭記Ancestor來源，Lineage的monitor整合scaler、切分及擴張。
-- [tests/test_openset.py](../../tests/test_openset.py)、[test_monitor_guard.py](../../tests/test_monitor_guard.py)、[test_stream_integration.py](../../tests/test_stream_integration.py)、[test_web_experiments.py](../../tests/test_web_experiments.py)核對共用方法／guard／串流與Web編排，不能證明raw來源獨立或現場準確率。
+- [src/core/runner.py](../../src/core/runner.py)負責資料定位／CLI；[src/core/openset.py](../../src/core/openset.py)是正式兩方法factory；Mahalanobis檔頭記Ancestor來源，Lineage的monitor整合scaler、切分及擴張。
+- [src/tests/test_openset.py](../../src/tests/test_openset.py)、[test_monitor_guard.py](../../src/tests/test_monitor_guard.py)、[test_stream_integration.py](../../src/tests/test_stream_integration.py)、[test_web_experiments.py](../../src/tests/test_web_experiments.py)核對共用方法／guard／串流與Web編排，不能證明raw來源獨立或現場準確率。
 
 串流停止、錯誤復原與模型有效狀態見[Web 串流生命週期](README.md#web-串流生命週期)及[共用模型生命週期](README.md#共用模型生命週期)。當次串流整合來源與配對證據見[固定交付紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/integration_20261008/integration_report.md)。

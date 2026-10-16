@@ -150,7 +150,7 @@ venv/bin/python -m experiments.exp3_trend --motor T1 --rpm 8000rpm --trials 40
 自動判別是「已知故障家族的更嚴重版本」（同方向更遠）還是「真正的新故障模式」
 （新方向）？嚴重度能否從距離回復？
 
-**方法**（`core/geometry.py`）：以健康類 Ledoit–Wolf precision 的 Cholesky 白化
+**方法**（`src/core/geometry.py`）：以健康類 Ledoit–Wolf precision 的 Cholesky 白化
 特徵空間，健康中心為原點——半徑 = 馬氏距離（嚴重度原始量）、每個已知故障類
 = 一條射線；逐樣本算**方向熟悉度**（對各射線的最大 cos，連續分數）。
 
@@ -207,7 +207,7 @@ venv/bin/python -m experiments.exp5_cross_condition
 
 **問題**：主線的逐類 Ledoit–Wolf 馬氏距離相對其他單類/異常偵測方法是否合理？
 
-**方法**（`core/detectors.py`）：七種方法統一資料切分與校準哲學（校準集 95 百分位
+**方法**（`src/core/detectors.py`）：七種方法統一資料切分與校準哲學（校準集 95 百分位
 = 門檻），9 組資料集各測一輪取平均——LW 馬氏（主線）、legacy 全域馬氏（論文版
 對照）、OC-SVM、Isolation Forest、LOF、kNN 距離、PCA 重建誤差。
 
@@ -225,7 +225,7 @@ venv/bin/python -m experiments.exp6_osr_benchmark
 
 ### 實驗七：Open Set 方法切換與單工況公平比較（`compare_openset`）
 
-程式 `experiments/compare_openset.py`，技術報告 [docs/experiments/exp7_compare_openset.md](docs/experiments/exp7_compare_openset.md)。
+程式 `src/experiments/compare_openset.py`，技術報告 [docs/experiments/exp7_compare_openset.md](docs/experiments/exp7_compare_openset.md)。
 所有實驗及 Web server 都可用同一個 CLI 介面切換 detector：
 
 ```bash
@@ -266,8 +266,8 @@ accuracy 差異 < 0.00001。
 
 ### 實驗八：相對健康指數與健康監測（`health_index_*`、`health_monitor`）
 
-程式 `experiments/health_index_benchmark.py`、`experiments/health_index_matrix.py`、
-`experiments/health_monitor.py`，邏輯在 `experiments/health/`。把開集分數依 `8screws` 校準分數的
+程式 `src/experiments/health_index_benchmark.py`、`src/experiments/health_index_matrix.py`、
+`src/experiments/health_monitor.py`，邏輯在 `src/experiments/health/`。把開集分數依 `8screws` 校準分數的
 第 10／95 百分位映成 0～1 的相對健康指數，再分四段嚴重度、逐 session 追蹤趨勢告警。
 
 ```bash
@@ -492,7 +492,7 @@ repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也�
 - 本專案**翻轉**：起點從「已知 5 類」改為「只知健康」；HDBSCAN 從「判定器」
   改為「新方向發現器」；判定粒度從叢集改為逐樣本。
 - **規範**：新程式碼一律不依賴論文版程式碼——需要的零件以「複製 + 來源註記」帶入
-  （見 `core/mahalanobis.py` 檔頭）。
+  （見 `src/core/mahalanobis.py` 檔頭）。
 
 ---
 

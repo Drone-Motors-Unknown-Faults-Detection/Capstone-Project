@@ -65,6 +65,6 @@ timestamp固定None，estimated_rul=None／rul_available=false。不能算每小
 
 LW／近鄰來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)；Roberts（1959），*Control Chart Tests Based on Geometric Moving Averages*，Technometrics1,239–250，[DOI](https://doi.org/10.1080/00401706.1959.10489860)支持EWMA遞迴。median、alpha0.2與告警政策是Lineage約定，與[實驗三](exp3_trend.md)alpha0.08不同。
 
-[health_monitor](../../experiments/health_monitor.py)取樣／CLI；[trajectory](../../experiments/health/trajectory.py)狀態；[index](../../experiments/health/index.py)單窗模型；[schema](../../experiments/health/schema.py)模式；[web/experiments](../../web/experiments.py)編排；[test_health_monitor](../../tests/test_health_monitor.py)、[test_health_trajectory](../../tests/test_health_trajectory.py)與[test_health_schema](../../tests/test_health_schema.py)驗證工程行為，不提供實體退化真值。
+[health_monitor](../../src/experiments/health_monitor.py)取樣／CLI；[trajectory](../../src/experiments/health/trajectory.py)狀態；[index](../../src/experiments/health/index.py)單窗模型；[schema](../../src/experiments/health/schema.py)模式；[web/experiments](../../src/web/experiments.py)編排；[test_health_monitor](../../src/tests/test_health_monitor.py)、[test_health_trajectory](../../src/tests/test_health_trajectory.py)與[test_health_schema](../../src/tests/test_health_schema.py)驗證工程行為，不提供實體退化真值。
 
 共用模組與資料流見[模組資料流](../health_and_reports.md#模組資料流)；封存結果的讀法見[reports與預期成果](../health_and_reports.md#reports與預期成果)。串流停止與復原見[Web 串流生命週期](README.md#web-串流生命週期)。

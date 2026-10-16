@@ -13,8 +13,8 @@ class PytestEvidenceTests(unittest.TestCase):
             self.assertEqual(summarize(xml, code)["status"], status)
 
     def test_trace_and_paths_are_not_serialized(self):
-        validate_targets(["tests/", "tests/test_provenance.py"])
-        for targets in ([], ["/private/tests"], ["tests/../private"], ["D:/private/tests"]):
+        validate_targets(["src/tests/", "src/tests/test_provenance.py"])
+        for targets in ([], ["/private/tests"], ["src/tests/../private"], ["D:/private/tests"]):
             with self.assertRaises(ValueError):
                 validate_targets(targets)
         xml = b'<testsuites><testsuite tests="1" failures="1"><testcase name="private-token"><failure>private-path</failure></testcase></testsuite></testsuites>'

@@ -46,7 +46,7 @@ resume只查JSON status、seed、method及formal_condition_count==9；**沒核�
 
 ## 輸出與讀法
 
-[run_matrix](../../experiments/health_index_matrix.py)以_atomic_json與pandas直接寫output-root：
+[run_matrix](../../src/experiments/health_index_matrix.py)以_atomic_json與pandas直接寫output-root：
 matrix_manifest.json、seed_{seed}/{method}.json及同名.csv。manifest記expected_runs=6、每run狀態／相對路徑，JSON保存benchmark九列設定與指標；CSV是rows表。每個run的完成、續跑或失敗原因都寫進`logs/exp8_health_index_matrix/{ts}.log`。此模組不自動產生aggregate_summary.json。
 
 健康指數與各指標見[benchmark](exp8_health_index_benchmark.md#輸出怎麼看)。預期六run完成、54列齊全且same-source同seed一致；這是工程coverage，不是獨立馬達信賴保證。每次重跑先保留失敗原因，不混入其他fingerprint的平均。
@@ -55,4 +55,4 @@ matrix_manifest.json、seed_{seed}/{method}.json及同名.csv。manifest記expec
 
 ## 來源與程式碼
 
-方法文獻見[benchmark](exp8_health_index_benchmark.md#方法來源與程式碼)，六run命名與resume是Lineage操作約定。[matrix](../../experiments/health_index_matrix.py)排程與writer；[test_health_matrix](../../tests/test_health_matrix.py)檢查矩陣；[web/experiments](../../web/experiments.py)的_load_exp8_results讀封存。原完整結果見[固定封存包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/reports/exp8_health_index_results)，不是新資料驗證。
+方法文獻見[benchmark](exp8_health_index_benchmark.md#方法來源與程式碼)，六run命名與resume是Lineage操作約定。[matrix](../../src/experiments/health_index_matrix.py)排程與writer；[test_health_matrix](../../src/tests/test_health_matrix.py)檢查矩陣；[web/experiments](../../src/web/experiments.py)的_load_exp8_results讀封存。原完整結果見[固定封存包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/reports/exp8_health_index_results)，不是新資料驗證。

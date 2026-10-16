@@ -78,7 +78,7 @@ class PairedStreamTests(unittest.TestCase):
             list(ExperimentRunner([], "unused").stream("exp5", {}))
 
     def test_localhost_option_is_explicit_and_original_default_retained(self):
-        source = (ROOT / "web/server.py").read_text(encoding="utf-8")
+        source = (ROOT / "src/web/server.py").read_text(encoding="utf-8")
         self.assertIn('"--bind-address", default="0.0.0.0"', source)
         self.assertIn('app.listen(args.port, address=args.bind_address)', source)
 

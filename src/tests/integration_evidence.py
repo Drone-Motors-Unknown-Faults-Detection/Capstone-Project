@@ -53,7 +53,7 @@ def run(phase, data_root):
                    if p.startswith("tests/test_") and p.endswith(".py")]
         suite = loader.loadTestsFromNames(modules)
     else:
-        suite = loader.discover("tests", pattern="test_*.py")
+        suite = loader.discover("src/tests", pattern="test_*.py", top_level_dir="src")
     started = time.monotonic()
     result = unittest.TextTestRunner(stream=stream, verbosity=2).run(suite)
     # 一個 test method 可以有數個 subTest 失敗，不能扣成數個未通過方法。

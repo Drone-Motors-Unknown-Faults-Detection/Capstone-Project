@@ -1,6 +1,6 @@
 # CI 使用與輸出契約
 
-本頁說明 `.github/workflows/ci.yml` 與 `tests/ci_evidence.py` 的操作、輸出及限制。各次 Actions 的受測 SHA 與結果另外保存，本頁不維護單次驗收報告。
+本頁說明 `.github/workflows/ci.yml` 與 `src/tests/ci_evidence.py` 的操作、輸出及限制。各次 Actions 的受測 SHA 與結果另外保存，本頁不維護單次驗收報告。
 
 ## 執行流程
 

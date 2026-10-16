@@ -39,7 +39,7 @@ scaler學整份外層train，**包含MLP內部validation**，因此內部validat
 
 ## 網路如何訓練
 
-[MLPAutoencoderDet](../../core/detectors.py)呼叫sklearn MLPRegressor，把X當輸入也當目標，105→64→16→64→105，隱藏層ReLU、輸出線性。程式指定random_state=seed、max_iter=2000、early_stopping=True；其他沿uv.lock固定sklearn1.7.2的[官方預設](https://scikit-learn.org/1.7/modules/generated/sklearn.neural_network.MLPRegressor.html)：
+[MLPAutoencoderDet](../../src/core/detectors.py)呼叫sklearn MLPRegressor，把X當輸入也當目標，105→64→16→64→105，隱藏層ReLU、輸出線性。程式指定random_state=seed、max_iter=2000、early_stopping=True；其他沿uv.lock固定sklearn1.7.2的[官方預設](https://scikit-learn.org/1.7/modules/generated/sklearn.neural_network.MLPRegressor.html)：
 
 loss=squared_error（實作half squared error），含alpha=0.0001的L2；optimizer=Adam，learning_rate_init=0.001；batch_size=auto（min(200,n_samples)），每epoch洗牌。內部validation_fraction=0.1，以重建R²改善選最佳權重；tol=1e-4、n_iter_no_change=10，不改善則提早停，最多2000epoch，不是保證跑滿。沒有用fault挑epoch／瓶頸。
 
@@ -70,4 +70,4 @@ AUROC、健康誤報、fault_detect、事後FPR@TPR95與等工況mean／ddof0的
 
 Sakurada與Yairi（2014），*Anomaly Detection Using Autoencoders with Nonlinear Dimensionality Reduction*，MLSDA,4–11，[DOI](https://doi.org/10.1145/2689746.2689747)提供重建異常偵測方法背景。網路大小、ReLU與cal分位數是Lineage設定，非逐項重現該論文。
 
-[core/detectors](../../core/detectors.py)建網路與分數；[exp6 runner](../../experiments/exp6_osr_benchmark.py)做比較／writer；[test_exp9_autoencoder](../../tests/test_exp9_autoencoder.py)檢查成員、重現與校準邊界；[web/experiments](../../web/experiments.py)編排。未另新增Ancestor神經網路依賴。
+[core/detectors](../../src/core/detectors.py)建網路與分數；[exp6 runner](../../src/experiments/exp6_osr_benchmark.py)做比較／writer；[test_exp9_autoencoder](../../src/tests/test_exp9_autoencoder.py)檢查成員、重現與校準邊界；[web/experiments](../../src/web/experiments.py)編排。未另新增Ancestor神經網路依賴。

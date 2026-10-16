@@ -7,12 +7,12 @@
 
 ## 1. 未知故障辨識與遷移學習
 
-已有：只用健康資料的冷啟動偵測（`exp1_cold_start`）、HDBSCAN 新故障發現（`exp2_scale_growth`）、七種單類偵測器比較（`exp6_osr_benchmark`，含 PCA 重建 `core/detectors.py:127`）。
+已有：只用健康資料的冷啟動偵測（`exp1_cold_start`）、HDBSCAN 新故障發現（`exp2_scale_growth`）、七種單類偵測器比較（`exp6_osr_benchmark`，含 PCA 重建 `src/core/detectors.py:127`）。
 
 - [x] [#13](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/13) 實驗九：非線性 AutoEncoder 偵測器
   - [x] 手冊 `docs/experiments/exp9_autoencoder.md`
-  - [x] `core/detectors.py` 新增 `MLPAutoencoderDet`（sklearn `MLPRegressor`，不加依賴），加進 `ALL_DETECTORS`
-  - [x] `exp6_osr_benchmark` 9 工況比較；`tests/test_exp9_autoencoder.py` 加 seed 重現檢查
+  - [x] `src/core/detectors.py` 新增 `MLPAutoencoderDet`（sklearn `MLPRegressor`，不加依賴），加進 `ALL_DETECTORS`
+  - [x] `exp6_osr_benchmark` 9 工況比較；`src/tests/test_exp9_autoencoder.py` 加 seed 重現檢查
   - 實測：AUROC 全頂滿 1.0，健康誤報 5.8%，八種方法裡最低，但沒有展現非線性優勢（線性方法已經打滿 AUROC）
 - [x] [#14](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/14) 實驗十：遷移學習
   - [x] 手冊 `docs/experiments/exp10_transfer.md`：72 組 `(src,dst)` 配對、目標端健康樣本數 0/10/25/50
@@ -26,7 +26,7 @@
 
 - [x] [#15](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/15) 實驗十一：Ancestor 對照實驗
   - [x] 手冊 `docs/experiments/exp11_ancestor_comparison.md`，先寫定主指標與達標門檻（Balanced Accuracy、macro-F1；絕對提升 ≥5 pp）
-  - [x] legacy 邏輯沿用既有 `core/mahalanobis.py`（已依鐵則 1 複製並註記來源，未新增）
+  - [x] legacy 邏輯沿用既有 `src/core/mahalanobis.py`（已依鐵則 1 複製並註記來源，未新增）
   - [x] Ancestor 協定（已知 8/1/2/3/4screws、未知 5/6/7/3_14/4_146screws）＋冷啟動協定
   - [x] 9 工況 × 3 seed（42/123/2026），輸出 Accuracy、Balanced Accuracy、macro-F1、unknown F1、Wilcoxon 配對檢定
   - [x] 手冊「注意」段落寫明切分方式，不和 [#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9) 的 campaign-group 結果混用
@@ -35,7 +35,7 @@
 
 ## 3. 視覺化：混淆矩陣與 t-SNE
 
-已有：PCA 投影（`core/monitor.py:90`、Web）、`polar_map.png`、`detect_rates.png`、`cross_condition.png`、`osr_benchmark.png`。
+已有：PCA 投影（`src/core/monitor.py:90`、Web）、`polar_map.png`、`detect_rates.png`、`cross_condition.png`、`osr_benchmark.png`。
 
 - [x] [#16](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/16) 實驗十二：混淆矩陣與 t-SNE
   - [x] 手冊 `docs/experiments/exp12_confusion_tsne.md`
@@ -78,12 +78,12 @@
   - [x] hard600 subset/all-train k-NN outer 已實際執行 E02/E04 並封存；seed0 三 motor 等權 fault accuracy 分別下降 3.507／3.655 個百分點，T1 unknown recall 仍為 0%。[固定收尾證據](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/e7ee971d2ed41d5ce80e3a56f912eb4dc1c038dc/reports/issue_delivery_20261005/hard600_closeout.md)。
   - 原 Q／solver 結果保留：[Q報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/8bd6d14042e61a40548e37e989a1f2db2d7a4fbb/reports/continuous_research/final_findings.md)、[solver報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/8bd6d14042e61a40548e37e989a1f2db2d7a4fbb/reports/continuous_research/solver_findings.md)。#22 已因有限研究交付關閉；沒有通過可靠性契約，不關閉 #9，不整批合併研究分支。
 
-## 6. 文件：`experiments/health/` 與 `reports/`
+## 6. 文件：`src/experiments/health/` 與 `reports/`
 
 - [x] [#21](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/21) 釐清 health 與 reports 內容
-  - [x] `docs/health_and_reports.md`：`experiments/health/` 各模組與呼叫端、`core/trend.py` 與 `experiments/health/trajectory.py` 兩套趨勢邏輯的差別、`reports/` 各子目錄的來源與現況
+  - [x] `docs/health_and_reports.md`：`src/experiments/health/` 各模組與呼叫端、`src/core/trend.py` 與 `src/experiments/health/trajectory.py` 兩套趨勢邏輯的差別、`reports/` 各子目錄的來源與現況
   - [x] 更新 `docs/README.md`、`README.md`、`AGENT.md` 目錄說明
-  - [x] 2026-10-03 `health/` 搬到 `experiments/health/`；`reports/` 只保留 `exp8_health_index_results/`，稽核紀錄刪除（可從 commit `80bdf54` 取回）
+  - [x] 2026-10-03 `health/` 搬到 `src/experiments/health/`；`reports/` 只保留 `exp8_health_index_results/`，稽核紀錄刪除（可從 commit `80bdf54` 取回）
   - 文件記下的不一致已另開 issue：[#24](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/24) health CLI 未走 `setup_run`、[#25](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/25) 健康指數彙總檔沒有產生程式、[#26](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/26)–[#29](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/29) 抽查仍成立的稽核發現、[#30](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/30) 重驗其餘 17 項。
 - [x] 實驗編號：`compare_openset` 定為實驗七、健康指數三支定為實驗八；規劃中的 #13–#16 順延為實驗九～十二。相關文件改名為 `expN_` 開頭，`docs/experiments/README.md` 加各實驗檔案位置表。程式檔名不變。
 

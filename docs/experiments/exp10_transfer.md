@@ -67,4 +67,4 @@ main經setup_run寫logs/exp10_transfer/{ts}.log及output/exp10_transfer/{ts}/env
 
 Sun、Feng、Saenko（2016），*Return of Frustratingly Easy Domain Adaptation*，AAAI30,2058–2065，[原文](https://arxiv.org/abs/1511.05547)提出CORAL二階相關對齊；本程式**只平移median，沒有共變異數白化／重著色，不是完整CORAL實作**，shift公式為Lineage操作約定。LW來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)。
 
-[exp10](../../experiments/exp10_transfer.py)管support／eval、策略、指標與writer；[monitor](../../core/monitor.py)建基準；[test_exp10_transfer](../../tests/test_exp10_transfer.py)檢查結構與索引不重疊。資料處理沿Ancestor特徵來源，方法整合在Lineage，不依賴Ancestor可執行碼。
+[exp10](../../src/experiments/exp10_transfer.py)管support／eval、策略、指標與writer；[monitor](../../src/core/monitor.py)建基準；[test_exp10_transfer](../../src/tests/test_exp10_transfer.py)檢查結構與索引不重疊。資料處理沿Ancestor特徵來源，方法整合在Lineage，不依賴Ancestor可執行碼。

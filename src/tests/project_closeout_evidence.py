@@ -14,7 +14,7 @@ from tests.issue_delivery_evidence import local_links
 
 def run() -> dict:
     logger, paths = setup_run("project_closeout_evidence")
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     names = ("TODO.md", "docs/README.md", "docs/health_and_reports.md",
              "reports/Andy_20261009_主線交付/README.md",
              "reports/Andy_20261009_主線交付/execution_log.md", "docs/runtime_policy.md",

@@ -18,7 +18,7 @@ def run(data_root: Path, baseline: Path) -> dict:
         raise AssertionError("來源與既有逐檔SHA不符，不宣稱資料未變")
     if capture_source(data_root)[0] != before:
         raise AssertionError("核對期間來源改變")
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     result = {"schema_version": "provenance_delivery_evidence_v1", "status": "VERIFIED",
               "file_count": len(inventory), "dataset_fingerprint": before["dataset_fingerprint"],
               "fingerprint_version": before["schema_version"], "baseline_evidence_sha256": file_sha(baseline),
@@ -27,7 +27,7 @@ def run(data_root: Path, baseline: Path) -> dict:
               "manifest_validation": before["manifest_validation"],
               "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN",
               "source_code_sha256": {name: file_sha(root / name) for name in (
-                  "core/provenance.py", "core/logger.py", "core/formal_data.py", "experiments/exp6_formal_benchmark.py")}}
+                  "src/core/provenance.py", "src/core/logger.py", "src/core/formal_data.py", "src/experiments/exp6_formal_benchmark.py")}}
     (paths.output_dir / "verification.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     log.info("{} 檔與既有來源SHA完全相同；沒有擬合正式模型", len(inventory))
