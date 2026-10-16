@@ -100,6 +100,23 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 `holdout(config)` 只讀既有 splits，不使用推論 guard，未註冊配置保留 `KeyError`。成功擬合後，Mahalanobis-LW／k-NN 均以正規化分數大於 1 拒絕；PolarMap 幾何不受本生命週期說明改動。回歸入口為 `src/tests/test_monitor_guard.py`、`src/tests/test_openset.py` 與 `src/tests/test_geometry.py`。
 
+### 共用設定解析
+
+所有 Open Set 入口的方法參數都經 [`core.openset.resolve_openset_config()`](../../src/core/openset.py) 解析一次，`create_openset_detector()` 與 `OpenSetMonitor` 也走同一個函數。CLI（`core.runner.add_openset_args` 解析後交給 `run()`）、程式 `run()` 與 Web catalog 呼叫的是同一段解析，因此同一組參數得到同一份設定。回傳的 resolved config（`version="openset_config_v1"`）寫進各入口的輸出：
+
+| 欄位 | 內容 |
+|---|---|
+| `method_id` | 穩定方法 ID：`mahalanobis/ledoit_wolf`、`mahalanobis/oas`、`knn/k5` 等 |
+| `openset_method`、`requested_method` | 正規化後的方法名與呼叫端原本傳入的字串（例如 `maha` → `mahalanobis`） |
+| `effective` | 實際生效的參數：`confidence`、`threshold=1.0`，以及 Mahalanobis 的 `mahalanobis_method` 或 k-NN 的 `knn_neighbors` |
+| `ignored` | 有傳入但這個方法不使用的參數，附原因；k-NN 會列 `mahalanobis_method`，Mahalanobis 會列 `knn_neighbors` |
+
+輸出位置：`OpenSetMonitor.summary()["resolved_config"]`（實驗一、二、三、四、七與 Web 的 `model` 都帶這份）、實驗六正式版與實驗八 benchmark 結果的頂層 `resolved_config`。
+
+非法值在擬合前就以 `OpenSetConfigError`（`ValueError` 子類）拒絕，訊息固定以參數名開頭，不退回 library 預設值：未知方法、`confidence` 不在 (0, 1) 或不是有限數、`knn_neighbors` 不是 ≥1 的整數（`5.7`、`True` 都拒絕）、`mahalanobis_method` 不在 `legacy／ledoit_wolf／oas／mcd`。用 k-NN 時 covariance 選項不影響模型，只記在 `ignored`。特徵維度不符由 detector 的 `fit()`／`score_samples()` 檢查，訊息帶實際與預期維度。
+
+預設值不變：Mahalanobis-LW、confidence 0.95、k=5；分數、門檻與事件順序不變。回歸測試在 `src/tests/test_openset.py`。
+
 ## Web 串流生命週期
 
 `web.experiments.CATALOG` 的 stream 旗標決定可播放的實驗：exp1、exp3、exp4、exp8_monitor。既有 `run()` 批次與 `iter_run()` 逐步計算共用實驗邏輯；展示編排不自行計算另一套指標。使用 `uv run --locked python -m web.server --bind-address 127.0.0.1 --data-root data --port 8600` 啟動本機展示，再在實驗卡片選批次執行或「邊跑邊畫」。
