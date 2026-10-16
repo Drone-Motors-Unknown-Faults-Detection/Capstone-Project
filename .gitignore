@@ -224,6 +224,8 @@ __marimo__/
 .streamlit/secrets.toml
 
 # Raw data
+# 本機明文來源路徑sidecar；不提交或上傳公開artifact。
+.lineage_private/
 data/*
 *.gz
 *.tar.gz

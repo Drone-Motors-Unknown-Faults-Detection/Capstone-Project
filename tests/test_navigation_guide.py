@@ -12,6 +12,7 @@ import tornado.websocket
 from tornado.testing import AsyncHTTPTestCase, gen_test
 
 from core.data import HEALTHY
+from core.feature_schema import SCHEMAS
 from experiments.navigation_data_contract import run, split_audit
 from web.guide import GuideHub, application
 from web.live import LiveDemo
@@ -24,7 +25,7 @@ def fixture(root, healthy=50):
                          ("7screws", 50, 2), ("6screws", 50, 4), ("4screws", 50, 10)):
         folder = root / c
         folder.mkdir()
-        pd.DataFrame(rng.normal(size=(n, 105)) + shift).to_csv(
+        pd.DataFrame(rng.normal(size=(n, 105)) + shift, columns=SCHEMAS["historical_clean_v1"]).to_csv(
             folder / "fixture_Group_feature_data_clean.csv", index=False)
     return ds
 

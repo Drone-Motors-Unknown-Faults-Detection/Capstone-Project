@@ -1,0 +1,4 @@
+2026-10-09 14:46:28 | INFO    | Logger initialized: source_provenance
+2026-10-09 14:46:28 | INFO    | log_file=logs\source_provenance\2026-10-09-14-46-28.log
+2026-10-09 14:46:28 | INFO    | output_dir=output\source_provenance\2026-10-09-14-46-28
+2026-10-09 14:46:28 | INFO    | 內容來源60檔；raw/session仍UNKNOWN

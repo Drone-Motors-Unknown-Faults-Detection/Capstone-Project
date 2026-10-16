@@ -1,0 +1,21 @@
+{
+  "schema_version": "provenance_delivery_evidence_v1",
+  "status": "VERIFIED",
+  "file_count": 60,
+  "dataset_fingerprint": "6bcec6f50747d6296b588b964bbcafa3fd90ffc93b5b1aae05a6b52b671a5125",
+  "fingerprint_version": "source_content_v2",
+  "baseline_evidence_sha256": "d91d20a7171a4bce584e6f0503d1a857b3d476214a9472f83b9f377e1a492492",
+  "baseline_file_count": 60,
+  "baseline_rows": 19053,
+  "source_bytes_unchanged": true,
+  "models_fitted": 0,
+  "manifest_validation": "ABSENT",
+  "raw_session_independence": "UNKNOWN",
+  "fresh_test": "UNKNOWN",
+  "source_code_sha256": {
+    "core/provenance.py": "1e1c82659a6c93335f7c2a09e1431985515cc2f6a5adb5d5b70123c69c83b148",
+    "core/logger.py": "add7696f38489457445063fb6794dc626fbb82988ad39ad4ab7e9037128d3ef6",
+    "core/formal_data.py": "d78233e6049272862dab0a33945772733e7e2a86b85794ad6ccc0d9d2bdbd2c0",
+    "experiments/exp6_formal_benchmark.py": "1cd36a92cd15917d31da2ba577ff1bd760ac3bd7928f3033cf9c976bcb58514b"
+  }
+}

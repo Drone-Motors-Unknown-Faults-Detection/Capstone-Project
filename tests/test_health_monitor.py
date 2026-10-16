@@ -9,6 +9,7 @@ import unittest
 import numpy as np
 
 from experiments.health_monitor import iter_run, run
+from core.feature_schema import SCHEMAS
 from web.experiments import ExperimentRunner, jsonable
 
 BASE = "64cb71d84663e1745ec54db74abad68def67e8e6"  # #35 修正前的 main
@@ -28,7 +29,7 @@ def baseline_run():
 def write_dataset(root: Path) -> None:
     rng = np.random.default_rng(3)
     base = root / "Step-5" / "myfeature" / "T1" / "8000rpm"
-    columns = ",".join(f"f{i}" for i in range(105))
+    columns = ",".join(SCHEMAS["adapter_generated_v1"])
     for i, config in enumerate(CONFIGS):
         folder = base / config
         folder.mkdir(parents=True)

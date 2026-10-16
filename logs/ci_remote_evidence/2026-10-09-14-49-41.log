@@ -1,0 +1,4 @@
+2026-10-09 14:49:41 | INFO    | Logger initialized: ci_remote_evidence
+2026-10-09 14:49:41 | INFO    | log_file=logs\ci_remote_evidence\2026-10-09-14-49-41.log
+2026-10-09 14:49:41 | INFO    | output_dir=output\ci_remote_evidence\2026-10-09-14-49-41
+2026-10-09 14:49:47 | INFO    | 封存 1 次真實 Actions 執行

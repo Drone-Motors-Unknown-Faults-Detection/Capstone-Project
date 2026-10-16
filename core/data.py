@@ -12,10 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import pandas as pd
+from core.feature_schema import (FEATURE_DIM as FEATURE_DIM, REGISTRY_VERSION, CONFIGURATIONS, CONFIG_ALIASES,
+                                 FeatureSchemaError, read_feature_csv, validate_pool_coverage)
 
 HEALTHY = "8screws"
-FEATURE_DIM = 105
 
 # 展示與報表排序：健康 → 鬆動由輕到重 → 複合配置
 CONFIG_ORDER = [
@@ -65,27 +65,79 @@ def discover_datasets(data_root: Path | str) -> list[dict]:
     return found
 
 
-def load_pools(dataset_path: Path | str) -> dict[str, np.ndarray]:
-    """讀取一個 (motor, rpm) 目錄下所有螺絲配置的 clean 特徵矩陣。"""
+def load_pools(dataset_path: Path | str, *, require_complete: bool = False,
+               audit: dict | None = None) -> dict[str, np.ndarray]:
+    """只接受登錄的ordered105欄；不刪列，coverage按用途另驗。"""
+    report = audit if audit is not None else {}
+    report.clear()
+    report.update(schema_version=REGISTRY_VERSION, status="RUNNING", files=[], rejected_rows=0,
+                  discarded_rows=0, raw_session_independence="UNKNOWN")
+    try:
+        pools = _load_pools(Path(dataset_path), report)
+        report["coverage"] = validate_pool_coverage(pools, require_complete=require_complete)
+    except FeatureSchemaError as exc:
+        report.update(status="REJECTED", rejection=exc.audit, rejected_rows=exc.audit["rejected_rows"])
+        raise
+    except OSError as exc:
+        rejection = FeatureSchemaError("unreadable_dataset", detail=type(exc).__name__)
+        report.update(status="REJECTED", rejection=rejection.audit, rejected_rows=0)
+        raise rejection from exc
+    report["status"] = "VERIFIED"
+    report["accepted_rows"] = sum(len(values) for values in pools.values())
+    return pools
+
+
+def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:
     pools: dict[str, np.ndarray] = {}
+    if not dataset_path.is_dir():
+        raise FeatureSchemaError("missing_dataset")
     config_dirs = sorted(
-        (p for p in Path(dataset_path).iterdir() if p.is_dir()),
+        (p for p in dataset_path.iterdir() if p.is_dir()),
         key=lambda p: config_sort_key(p.name),
     )
     for config_dir in config_dirs:
         files = sorted(config_dir.glob("*_Group_feature_data_clean.csv"))
-        if not files:
+        canonical = CONFIG_ALIASES.get(config_dir.name, config_dir.name)
+        if canonical not in CONFIGURATIONS:
+            if files:
+                raise FeatureSchemaError("unknown_configuration", config_dir.name)
             continue
-        frames = [pd.read_csv(f) for f in files]
-        X = pd.concat(frames, ignore_index=True).select_dtypes("number").to_numpy(dtype=float)
-        X = X[np.isfinite(X).all(axis=1)]
-        if X.shape[1] != FEATURE_DIM:
-            raise ValueError(f"{config_dir}: 預期 {FEATURE_DIM} 維特徵，實際 {X.shape[1]}")
-        if len(X):
-            pools[config_dir.name] = X
-    if HEALTHY not in pools:
-        raise ValueError(f"{dataset_path} 缺少健康基準 {HEALTHY}")
+        if not files:
+            raise FeatureSchemaError("empty_configuration", config_dir.name)
+        matrices = []
+        for path in files:
+            values, record = read_feature_csv(path, path.relative_to(dataset_path).as_posix())
+            report["files"].append(record)
+            matrices.append(values)
+        pools[config_dir.name] = np.concatenate(matrices, axis=0)
     return pools
+
+
+def run(dataset_path: Path | str, *, require_complete: bool = False) -> dict:
+    """唯讀格式稽核入口；結果只含相對file ID與品質摘要。"""
+    import json
+    from core.logger import setup_run
+
+    log, paths = setup_run("formal_schema_audit")
+    audit = {}
+    try:
+        load_pools(dataset_path, require_complete=require_complete, audit=audit)
+    except FeatureSchemaError as exc:
+        log.error("輸入拒絕：{}", exc)
+    (paths.output_dir / "schema_audit.json").write_text(
+        json.dumps(audit, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    log.info("格式稽核={}；刪除列數=0；raw/session=UNKNOWN", audit["status"])
+    return audit
+
+
+def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="唯讀核對正式105維欄位、數值與配置coverage")
+    parser.add_argument("--dataset", required=True)
+    parser.add_argument("--require-complete", action="store_true")
+    args = parser.parse_args()
+    return 0 if run(args.dataset, require_complete=args.require_complete)["status"] == "VERIFIED" else 1
 
 
 @dataclass(frozen=True)
@@ -119,3 +171,7 @@ class CycleSampler:
         if not self._order:
             self._order = list(self.rng.permutation(self.indices))
         return self.pool[self._order.pop()]
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

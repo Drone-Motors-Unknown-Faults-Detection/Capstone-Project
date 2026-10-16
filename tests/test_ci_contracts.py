@@ -19,6 +19,7 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 from tornado.websocket import websocket_connect
 
 from core.data import discover_datasets, load_pools, make_split
+from core.feature_schema import SCHEMAS
 from experiments import exp1_cold_start as exp1, exp2_scale_growth as exp2, exp3_trend as exp3
 from tests.ci_evidence import execute
 from tests.test_stream_integration import pools
@@ -34,7 +35,7 @@ def write_fixture(root: Path, data: dict, chunks: bool = False) -> Path:
         folder.mkdir(parents=True)
         pieces = np.array_split(values, 2) if chunks else [values]
         for index, piece in enumerate(pieces):
-            pd.DataFrame(piece, columns=[f"f{i}" for i in range(105)]).to_csv(
+            pd.DataFrame(piece, columns=SCHEMAS["historical_clean_v1"]).to_csv(
                 folder / f"{index}_Group_feature_data_clean.csv", index=False)
     return dataset
 

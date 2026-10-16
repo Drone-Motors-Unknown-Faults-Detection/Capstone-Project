@@ -1,0 +1,15 @@
+{
+  "schema_version": "formal_run_provenance_v1",
+  "status": "FAILED",
+  "configuration_arguments": {
+    "seed": 42,
+    "confidence": 0.95,
+    "openset_method": "mahalanobis",
+    "requested_method": "mahalanobis",
+    "mahalanobis_method": "ledoit_wolf",
+    "knn_neighbors": 5,
+    "require_nine": true
+  },
+  "fingerprint_version": "source_content_v2",
+  "error_type": "FileNotFoundError"
+}

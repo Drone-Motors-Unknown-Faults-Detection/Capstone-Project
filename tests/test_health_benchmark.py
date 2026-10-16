@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 
 from experiments.health_index_benchmark import run
+from core.feature_schema import SCHEMAS
 
 
 class HealthBenchmarkTests(unittest.TestCase):
@@ -14,7 +15,7 @@ class HealthBenchmarkTests(unittest.TestCase):
         root = Path(temporary.name)
         base = root / "Step-1" / "myfeature" / "T1" / "8000rpm"
         rng = np.random.default_rng(7)
-        columns = [f"f{i}" for i in range(105)]
+        columns = SCHEMAS["historical_clean_v1"]
         for config, offset in (("8screws", 0.0), ("1screws", 2.0)):
             directory = base / config
             directory.mkdir(parents=True)

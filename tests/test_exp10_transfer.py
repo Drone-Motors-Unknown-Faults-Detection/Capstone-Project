@@ -8,11 +8,12 @@ import numpy as np
 import pandas as pd
 
 from experiments.exp10_transfer import _draw_support, run
+from core.feature_schema import SCHEMAS
 
 
 def _fixture(root: Path) -> Path:
     rng = np.random.default_rng(3)
-    columns = [f"f{i}" for i in range(105)]
+    columns = SCHEMAS["adapter_generated_v1"]
     datasets = {"T1": 0.0, "T2": 2.0, "T3": -2.0}
     for motor, center in datasets.items():
         directory = root / "Step-1" / "myfeature" / motor / "8000rpm"

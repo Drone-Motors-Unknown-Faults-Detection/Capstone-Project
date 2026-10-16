@@ -1,0 +1,4 @@
+2026-10-09 14:20:46 | INFO    | Logger initialized: feature_schema_evidence
+2026-10-09 14:20:46 | INFO    | log_file=logs\feature_schema_evidence\2026-10-09-14-20-46.log
+2026-10-09 14:20:46 | INFO    | output_dir=output\feature_schema_evidence\2026-10-09-14-20-46
+2026-10-09 14:20:47 | INFO    | 來源60檔／6工況／19053列；值與split相同；模型fit=0

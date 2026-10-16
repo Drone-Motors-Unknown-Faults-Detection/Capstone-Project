@@ -565,10 +565,10 @@ def materialize(
     if archive_sha != {stage: _sha256_file(path) for stage, path in archives.items()}:
         raise FormalDataError("讀取期間來源 SHA 改變，拒絕物化")
     manifest = {
-        "schema_version": "formal_materialization_v2",
+        "schema_version": "formal_materialization_v3",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
-        "source_root": str(source),
-        "output_root": str(output),
+        "source_id": "formal_archive_source",
+        "output_id": "formal_materialized_features",
         "stages": list(stages),
         "archive_sha256": archive_sha,
         "formal_contract": {
@@ -579,7 +579,8 @@ def materialize(
             "window_policy": "equal_window_counts_v1",
             "alignment_status": "UNKNOWN",
         },
-        "files": [asdict(record) for record in records],
+        "files": [dict(asdict(record), output=Path(record.output).relative_to(output).as_posix(),
+                       output_sha256=record.source_sha256) for record in records],
     }
     manifest_path = output / "formal_materialization_manifest.json"
     pending.append((manifest_path, json.dumps(manifest, ensure_ascii=False, indent=2).encode("utf-8")))
@@ -590,16 +591,21 @@ def materialize(
 def run(source_root: Path | str, output_root: Path | str, **options) -> dict:
     """具日誌的物化入口；公開執行摘要不包含私人來源路徑。"""
     from core.logger import setup_run
-    log, paths = setup_run("formal_materialization")
+    from core.provenance import write_private_context
+    log, paths = setup_run("formal_materialization", unique=True)
     try:
         manifest = materialize(source_root, output_root, **options)
+        private_id = write_private_context({"schema_version": "private_materialization_context_v1",
+                                            "resolved_source_root": str(Path(source_root).resolve()),
+                                            "resolved_output_root": str(Path(output_root).resolve()),
+                                            "archive_sha256": manifest["archive_sha256"]})
     except BaseException as exc:
         summary = {"status": "FAILED", "error_type": type(exc).__name__, "alignment_status": "UNKNOWN"}
         (paths.output_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
         raise
     summary = {"status": "COMPLETED", "schema_version": manifest["schema_version"],
                "files": len(manifest["files"]), "archive_sha256": manifest["archive_sha256"],
-               "alignment_status": "UNKNOWN"}
+               "alignment_status": "UNKNOWN", "private_context_id": private_id}
     (paths.output_dir / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     log.info("物化完成：{} 個檔案；物理同步仍 UNKNOWN", len(manifest["files"]))
     return manifest
