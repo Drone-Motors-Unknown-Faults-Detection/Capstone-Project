@@ -7,6 +7,7 @@ import pandas as pd
 import pytest
 
 from core.data import HEALTHY
+from core.feature_schema import SCHEMAS, FeatureSchemaError
 from tests.experiment_data_usage_evidence import allocation, inspect
 
 
@@ -15,7 +16,7 @@ def fixture(root, motor="T1", n=53):
     for config in (HEALTHY, "1screw", "2screws", "3screws", "4screws", "5screws"):
         folder = root / "Step-1/myfeature" / motor / "8000rpm" / config
         folder.mkdir(parents=True)
-        pd.DataFrame(rng.normal(size=(n, 105))).to_csv(folder / "x_Group_feature_data_clean.csv", index=False)
+        pd.DataFrame(rng.normal(size=(n, 105)), columns=SCHEMAS["historical_clean_v1"]).to_csv(folder / "x_Group_feature_data_clean.csv", index=False)
 
 
 def test_counts_rounding_known_roles_and_no_training(tmp_path):
@@ -40,18 +41,23 @@ def test_counts_rounding_known_roles_and_no_training(tmp_path):
     assert inspect(tmp_path) == result
 
 
-def test_nonfinite_filter_and_exact_source_bytes(tmp_path):
+def test_nonfinite_rejected_and_exact_source_bytes(tmp_path):
+    """正式 loader（#44）拒絕非有限列而不是丟掉；檢查過程不改來源位元組。"""
     fixture(tmp_path)
+    result = inspect(tmp_path, (42,))
+    row = next(r for r in result["datasets"][0]["configurations"] if r["config"] == "5screws")
+    assert (row["raw_feature_rows"], row["finite_rows"], row["discarded_nonfinite"]) == (53, 53, 0)
+    assert all(not Path(r["relative_path"]).is_absolute() for r in result["source_inventory"])
     file = next(tmp_path.rglob("5screws/*csv"))
     frame = pd.read_csv(file)
     frame.iloc[0, 0] = np.inf
     frame.to_csv(file, index=False)
     before = {p: p.read_bytes() for p in tmp_path.rglob("*.csv")}
-    result = inspect(tmp_path, (42,))
-    row = next(r for r in result["datasets"][0]["configurations"] if r["config"] == "5screws")
-    assert (row["raw_feature_rows"], row["finite_rows"], row["discarded_nonfinite"]) == (53, 52, 1)
+    with pytest.raises(FeatureSchemaError) as error:
+        inspect(tmp_path, (42,))
+    assert error.value.audit["reason"] == "non_finite"
+    assert error.value.audit["rejected_rows"] == 1
     assert all(p.read_bytes() == payload for p, payload in before.items())
-    assert all(not Path(r["relative_path"]).is_absolute() for r in result["source_inventory"])
 
 
 def test_missing_data_duplicate_conditions_and_seeds_rejected(tmp_path):
