@@ -1,0 +1,11 @@
+2026-10-17 02:29:43 | INFO    | Logger initialized: profiling_evidence
+2026-10-17 02:29:43 | INFO    | log_file=logs/profiling_evidence/2026-10-17-02-29-43.log
+2026-10-17 02:29:43 | INFO    | output_dir=output/profiling_evidence/2026-10-17-02-29-43
+2026-10-17 02:29:43 | INFO    | 參數：{'data_root': None, 'methods': ['mahalanobis', 'knn'], 'repeats': 5, 'warmup': 1, 'seed': 42}；契約 docs/profiling_contract.md
+2026-10-17 02:29:47 | INFO    | mahalanobis：load 77.0%、fit 9.9%、score 13.1%；load median 0.0649s
+2026-10-17 02:29:47 | INFO    | knn：load 87.2%、fit 9.5%、score 3.4%；load median 0.0682s
+2026-10-17 02:29:47 | INFO    | k-NN 1 類：median 0.0040s
+2026-10-17 02:29:47 | INFO    | k-NN 5 類：median 0.0179s
+2026-10-17 02:29:47 | INFO    | k-NN 10 類：median 0.0393s
+2026-10-17 02:29:47 | INFO    | PoolCache 命中：median 0.0031s，比未快取快 20.7 倍
+2026-10-17 02:29:47 | INFO    | CSV cache 值得做：True；k-NN 批次化值得做：False
