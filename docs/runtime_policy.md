@@ -8,7 +8,7 @@
 
 ```bash
 ./build_uv.sh --python python3.10 --venv .venv310
-uv run --no-project --no-sync --python .venv310/bin/python python -m pytest tests -ra --tb=short
+uv run --no-project --no-sync --python .venv310/bin/python python -m pytest src/tests -ra --tb=short
 uv run --no-project --no-sync --python .venv310/bin/python python -m ruff check .
 uv pip check --python .venv310/bin/python
 ```
@@ -17,7 +17,7 @@ Windows PowerShell 7：
 
 ```powershell
 ./build_uv.ps1 -Python 'C:/path/to/python3.10.exe' -VenvDir '.venv310'
-uv run --no-project --no-sync --python .venv310/Scripts/python.exe python -m pytest tests -ra --tb=short
+uv run --no-project --no-sync --python .venv310/Scripts/python.exe python -m pytest src/tests -ra --tb=short
 uv run --no-project --no-sync --python .venv310/Scripts/python.exe python -m ruff check .
 uv pip check --python .venv310/Scripts/python.exe
 ```

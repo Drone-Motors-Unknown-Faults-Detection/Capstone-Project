@@ -56,7 +56,7 @@
 
 ## 2. 實驗一：冷啟動偵測能力（exp1_cold_start）
 
-> 程式：`experiments/exp1_cold_start.py`。技術報告：[experiments/exp1_cold_start.md](experiments/exp1_cold_start.md)。
+> 程式：`src/experiments/exp1_cold_start.py`。技術報告：[experiments/exp1_cold_start.md](experiments/exp1_cold_start.md)。
 
 ### 想回答的問題
 > 只看過健康的系統，能不能把「從來沒見過的九種故障」通通抓出來？
@@ -91,7 +91,7 @@ venv/bin/python -m experiments.exp1_cold_start --motor T1 --rpm 8000rpm
 
 ## 3. 實驗二：量尺擴張（exp2_scale_growth）
 
-> 程式：`experiments/exp2_scale_growth.py`。技術報告：[experiments/exp2_scale_growth.md](experiments/exp2_scale_growth.md)。
+> 程式：`src/experiments/exp2_scale_growth.py`。技術報告：[experiments/exp2_scale_growth.md](experiments/exp2_scale_growth.md)。
 
 ### 想回答的問題
 > 故障一種一種出現時，系統能不能自動「發現 → 命名 → 學會」，而且不忘記舊的？
@@ -131,7 +131,7 @@ venv/bin/python -m experiments.exp2_scale_growth
 
 ## 4. 實驗三：漸進 vs 突發判別（exp3_trend）
 
-> 程式：`experiments/exp3_trend.py`、`core/trend.py`。技術報告：[experiments/exp3_trend.md](experiments/exp3_trend.md)。
+> 程式：`src/experiments/exp3_trend.py`、`src/core/trend.py`。技術報告：[experiments/exp3_trend.md](experiments/exp3_trend.md)。
 
 ### 想回答的問題
 > 能不能從「異常出現的節奏」分辨：這是慢慢磨壞的，還是突然被撞壞的？
@@ -166,7 +166,7 @@ venv/bin/python -m experiments.exp3_trend --trials 40
 
 ## 5. 實驗四：極座標健康地圖（exp4_polar_map）
 
-> 程式：`experiments/exp4_polar_map.py`、`core/geometry.py`。技術報告：[experiments/exp4_polar_map.md](experiments/exp4_polar_map.md)。
+> 程式：`src/experiments/exp4_polar_map.py`、`src/core/geometry.py`。技術報告：[experiments/exp4_polar_map.md](experiments/exp4_polar_map.md)。
 
 ### 想回答的問題
 > 異常不只「有多遠」，還有「往哪個方向」。新異常出現時，能不能自動判斷它是
@@ -211,7 +211,7 @@ venv/bin/python -m experiments.exp4_polar_map --motor T1 --rpm 8000rpm
 
 ## 6. 實驗五：跨工況冷啟動泛化（exp5_cross_condition）
 
-> 程式：`experiments/exp5_cross_condition.py`。技術報告：[experiments/exp5_cross_condition.md](experiments/exp5_cross_condition.md)。
+> 程式：`src/experiments/exp5_cross_condition.py`。技術報告：[experiments/exp5_cross_condition.md](experiments/exp5_cross_condition.md)。
 
 ### 想回答的問題
 > 在 A 條件（某顆馬達、某轉速）建的健康基準，直接拿去 B 條件用，行不行？
@@ -249,7 +249,7 @@ venv/bin/python -m experiments.exp5_cross_condition
 
 ## 7. 實驗六：開集偵測方法基準比較（exp6_osr_benchmark）
 
-> 程式：`experiments/exp6_osr_benchmark.py`；正式版 `experiments/exp6_formal_benchmark.py`、`exp6_matrix.py`、`aggregate_exp6.py`。技術報告：[experiments/exp6_osr_benchmark.md](experiments/exp6_osr_benchmark.md)。
+> 程式：`src/experiments/exp6_osr_benchmark.py`；正式版 `src/experiments/exp6_formal_benchmark.py`、`exp6_matrix.py`、`aggregate_exp6.py`。技術報告：[experiments/exp6_osr_benchmark.md](experiments/exp6_osr_benchmark.md)。
 
 ### 想回答的問題
 > 主線採用的「Ledoit–Wolf 馬氏距離」是不是合理選擇？換別的方法會不會更好？
@@ -283,13 +283,13 @@ venv/bin/python -m experiments.exp6_osr_benchmark
 
 ## 8. 實驗七：單工況 Mahalanobis vs k-NN 對照（compare_openset）
 
-> 程式：`experiments/compare_openset.py`。技術報告：[experiments/exp7_compare_openset.md](experiments/exp7_compare_openset.md)。
+> 程式：`src/experiments/compare_openset.py`。技術報告：[experiments/exp7_compare_openset.md](experiments/exp7_compare_openset.md)。
 
 ### 想回答的問題
 > 在同一個工況、同一份資料切分下，把主線的馬氏距離換成 k-NN 距離，結果會差多少？
 
 ### 設計理念
-實驗六的七方法比較用的是 `core/detectors.py` 那套偵測器。這支直接用主線監測器
+實驗六的七方法比較用的是 `src/core/detectors.py` 那套偵測器。這支直接用主線監測器
 `OpenSetMonitor`，只切換 `--openset-method`，其他設定（切分、校準 95 百分位、
 `score > 1` 判未知）都不動，所以差異只來自距離本身。它是實驗六正式版
 （9 工況 × 3 seed）的單工況前身，適合在一個工況上快速看圖。
@@ -307,7 +307,7 @@ venv/bin/python -m experiments.compare_openset --motor T1 --rpm 8000rpm
 
 ## 9. 實驗八：相對健康指數與健康監測（health_index_*、health_monitor）
 
-> 程式：`experiments/health_index_benchmark.py`、`health_index_matrix.py`、`health_monitor.py`，邏輯在 `experiments/health/` 套件。技術報告：[exp8_health_index_benchmark](experiments/exp8_health_index_benchmark.md)、[exp8_health_index_matrix](experiments/exp8_health_index_matrix.md)、[exp8_health_monitor](experiments/exp8_health_monitor.md)；流程總覽 [exp8_health_monitoring_workflow.md](exp8_health_monitoring_workflow.md)。
+> 程式：`src/experiments/health_index_benchmark.py`、`health_index_matrix.py`、`health_monitor.py`，邏輯在 `src/experiments/health/` 套件。技術報告：[exp8_health_index_benchmark](experiments/exp8_health_index_benchmark.md)、[exp8_health_index_matrix](experiments/exp8_health_index_matrix.md)、[exp8_health_monitor](experiments/exp8_health_monitor.md)；流程總覽 [exp8_health_monitoring_workflow.md](exp8_health_monitoring_workflow.md)。
 
 ### 想回答的問題
 > 能不能把「開集分數」換成 0～1 的健康度，讓人看得懂「這顆馬達離健康多遠」？

@@ -25,7 +25,7 @@ from tests.ci_evidence import execute
 from tests.test_stream_integration import pools
 from web import server
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def write_fixture(root: Path, data: dict, chunks: bool = False) -> Path:

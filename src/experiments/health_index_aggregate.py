@@ -19,7 +19,7 @@ from typing import Sequence
 
 from core.logger import setup_run
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT / "reports/exp8_health_index_results"
 DEFAULT_CONTRACT = ROOT / "docs/experiments/exp8_health_index_aggregate_contract.json"
 METRICS = (

@@ -1,6 +1,6 @@
 # 實驗八：健康監測工作流程
 
-> 實驗八（exp8）的總覽。程式在 `experiments/health_index_benchmark.py`、`experiments/health_index_matrix.py`、`experiments/health_monitor.py` 與 `experiments/health/` 套件；逐支技術報告在 `docs/experiments/exp8_*.md`，全部檔案位置見 [experiments/README.md](experiments/README.md#各實驗的檔案位置)。
+> 實驗八（exp8）的總覽。程式在 `src/experiments/health_index_benchmark.py`、`src/experiments/health_index_matrix.py`、`src/experiments/health_monitor.py` 與 `src/experiments/health/` 套件；逐支技術報告在 `docs/experiments/exp8_*.md`，全部檔案位置見 [experiments/README.md](experiments/README.md#各實驗的檔案位置)。
 
 ## 資料能力與層級
 

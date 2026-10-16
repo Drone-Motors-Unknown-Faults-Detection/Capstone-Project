@@ -6,7 +6,7 @@ import unittest
 from web.experiments import CATALOG
 from web.guide import GuideHub
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class IntegrationNavigationTests(unittest.TestCase):
@@ -36,7 +36,7 @@ class IntegrationNavigationTests(unittest.TestCase):
             hub.executor.shutdown()
 
     def test_modes_do_not_send_model_commands(self):
-        text = (ROOT / "web/static/guide.js").read_text(encoding="utf-8")
+        text = (ROOT / "src/web/static/guide.js").read_text(encoding="utf-8")
         body = re.search(r"function mode\(\)\{([^\n]+)\}", text).group(1)
         self.assertNotIn("send(", body)
         self.assertIn("research=!research", body)

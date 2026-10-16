@@ -20,7 +20,7 @@ from packaging.specifiers import SpecifierSet
 from core.logger import setup_run
 from core import runtime_environment as runtime
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 @contextmanager

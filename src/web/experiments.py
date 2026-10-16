@@ -1,9 +1,9 @@
 """Web 實驗頁的目錄與執行層。
 
-每個實驗頁對應一支 experiments/ 模組：本模組只負責把前端送來的參數驗證後，
+每個實驗頁對應一支 src/experiments/ 模組：本模組只負責把前端送來的參數驗證後，
 轉成該模組 run() 的引數、把回傳值轉成可 JSON 化的 dict，並把每次執行的結果
 存到 output/web_server/{ts}/experiments/。判定、統計與分群邏輯仍全部在
-experiments/ 與 core/（AGENT.md 鐵則 2）。
+src/experiments/ 與 src/core/（AGENT.md 鐵則 2）。
 
 已提交的矩陣結果（實驗六正式矩陣、實驗八 54 列）只讀取、不從網頁重跑，
 避免覆蓋 output/ 與 reports/ 裡進版的證據。
@@ -26,7 +26,7 @@ from core.data import HEALTHY, config_sort_key, display_name, load_pools
 from core.detectors import ALL_DETECTORS
 from core.openset import SUPPORTED_OPENSET_METHODS
 
-ROOT = Path(__file__).resolve().parent.parent
+ROOT = Path(__file__).resolve().parents[2]
 
 _OPENSET = {
     "name": "openset_method", "label": "Open Set 方法", "type": "select",
@@ -39,7 +39,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp1", "no": "實驗一", "title": "冷啟動偵測能力",
         "question": "只用 8screws 建健康基準，九種故障抓不抓得到？",
-        "code": "experiments/exp1_cold_start.py",
+        "code": "src/experiments/exp1_cold_start.py",
         "doc": "docs/experiments/exp1_cold_start.md",
         "fits": "8screws 的 RobustScaler 與開集偵測器（Mahalanobis 為逐類 Ledoit–Wolf 共變異數、k-NN 為參考樣本近鄰索引），再用校準集定閾值",
         "seconds": 0.3,
@@ -49,7 +49,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp2", "no": "實驗二", "title": "量尺擴張",
         "question": "未知樣本能否由 HDBSCAN 分群、經確認後擴張量尺？",
-        "code": "experiments/exp2_scale_growth.py",
+        "code": "src/experiments/exp2_scale_growth.py",
         "doc": "docs/experiments/exp2_scale_growth.md",
         "fits": "8screws 的 RobustScaler 與開集偵測器（Mahalanobis 為逐類 Ledoit–Wolf 共變異數、k-NN 為參考樣本近鄰索引），再用校準集定閾值；之後每種新故障都跑 HDBSCAN 分群，確認後重新擬合監測器",
         "seconds": 11,
@@ -58,7 +58,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp3", "no": "實驗三", "title": "漸進 vs 突發判別",
         "question": "漸進鬆脫與突發切換能否從分數序列分開？",
-        "code": "experiments/exp3_trend.py",
+        "code": "src/experiments/exp3_trend.py",
         "doc": "docs/experiments/exp3_trend.md",
         "fits": "8screws 的 RobustScaler 與開集偵測器（Mahalanobis 為逐類 Ledoit–Wolf 共變異數、k-NN 為參考樣本近鄰索引），再用校準集定閾值",
         "seconds": 0.6,
@@ -70,7 +70,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp4", "no": "實驗四", "title": "極座標健康地圖",
         "question": "故障方向與半徑能不能對上螺絲配置？",
-        "code": "experiments/exp4_polar_map.py",
+        "code": "src/experiments/exp4_polar_map.py",
         "doc": "docs/experiments/exp4_polar_map.md",
         "fits": "監測器（同實驗一）與極座標健康地圖 PolarMap，並逐步加入故障射線重擬合",
         "seconds": 10,
@@ -80,7 +80,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp5", "no": "實驗五", "title": "跨工況冷啟動泛化",
         "question": "某一工況的健康基準能否搬到別的工況？範圍以實際掃描工況為準。",
-        "code": "experiments/exp5_cross_condition.py",
+        "code": "src/experiments/exp5_cross_condition.py",
         "doc": "docs/experiments/exp5_cross_condition.md",
         "fits": "各可用工況擬合健康監測器，再交叉測試；策略比較另有外層／內層切分限制",
         "seconds": 7,
@@ -89,7 +89,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp6", "no": "實驗六", "sub": "6-1", "title": f"{len(ALL_DETECTORS)} 種偵測器廣度比較",
         "question": "相同健康切分下，各方法的排序與誤報有何不同？legacy 門檻來源不同，須分開解讀。",
-        "code": "experiments/exp6_osr_benchmark.py",
+        "code": "src/experiments/exp6_osr_benchmark.py",
         "doc": "docs/experiments/exp6_osr_benchmark.md",
         "fits": f"各可用工況 × {len(ALL_DETECTORS)} 種偵測器：Ledoit–Wolf 與 legacy 馬氏距離、One-Class SVM、Isolation Forest、LOF、k-NN 距離、PCA 重建、MLP AutoEncoder",
         "seconds": 4,
@@ -98,7 +98,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp6_formal", "no": "實驗六", "sub": "6-2", "title": "正式版 Mahalanobis vs k-NN（單次）",
         "question": "同一健康切分規則下，跑一個方法與 seed；Web 允許部分工況，須看實際覆蓋。",
-        "code": "experiments/exp6_formal_benchmark.py",
+        "code": "src/experiments/exp6_formal_benchmark.py",
         "doc": "docs/experiments/exp6_formal_benchmark.md",
         "fits": "各可用工況的健康 train 擬合 RobustScaler 與所選開集偵測器，健康 cal 定閾值",
         "seconds": 2,
@@ -106,13 +106,13 @@ CATALOG: list[dict] = [
         "committed": "exp6_formal_matrix",
         "committed_sub": "6-3",
         "committed_title": "正式矩陣與彙總（9 工況 × 3 seed × 2 方法）",
-        "committed_code": "experiments/exp6_matrix.py → experiments/aggregate_exp6.py",
+        "committed_code": "src/experiments/exp6_matrix.py → experiments/aggregate_exp6.py",
         "committed_doc": "docs/experiments/exp6_matrix.md、docs/experiments/exp6_aggregate.md",
     },
     {
         "id": "exp7", "no": "實驗七", "title": "單工況 Mahalanobis vs k-NN",
         "question": "同一工況、同一切分下，換成 k-NN 距離差多少？",
-        "code": "experiments/compare_openset.py",
+        "code": "src/experiments/compare_openset.py",
         "doc": "docs/experiments/exp7_compare_openset.md",
         "fits": "同一切分下 Mahalanobis 與 k-NN 兩個監測器各擬合一次",
         "seconds": 0.6,
@@ -121,7 +121,7 @@ CATALOG: list[dict] = [
     {
         "id": "exp8", "no": "實驗八", "sub": "8-1", "title": "相對健康指數（單次比較）",
         "question": "開集分數映成 0～1 相對指數後，健康與未知分得多開？不是損壞百分比。",
-        "code": "experiments/health_index_benchmark.py",
+        "code": "src/experiments/health_index_benchmark.py",
         "doc": "docs/experiments/exp8_health_index_benchmark.md",
         "fits": "各可用工況的健康 train 建開集參考；同一份健康 cal 定門檻與第 10／95 百分位刻度",
         "seconds": 2,
@@ -129,13 +129,13 @@ CATALOG: list[dict] = [
         "committed": "exp8_health_index_results",
         "committed_sub": "8-2",
         "committed_title": "正式矩陣（9 工況 × 3 seed × 2 方法 = 54 列）",
-        "committed_code": "experiments/health_index_matrix.py",
+        "committed_code": "src/experiments/health_index_matrix.py",
         "committed_doc": "docs/experiments/exp8_health_index_matrix.md",
     },
     {
         "id": "exp8_monitor", "no": "實驗八", "sub": "8-3", "title": "健康監測逐窗輸出",
         "question": "健康 holdout 或故障全池的前段列逐筆重播，相對指數與告警怎麼走？原始時間未確認。",
-        "code": "experiments/health_monitor.py",
+        "code": "src/experiments/health_monitor.py",
         "doc": "docs/experiments/exp8_health_monitor.md",
         "fits": "單一工況的開集偵測器與健康指數刻度；逐窗趨勢狀態只存在這次執行",
         "seconds": 0.2,
@@ -403,7 +403,7 @@ def _load_exp6_matrix() -> dict:
     return {
         "available": True,
         "path": str(path.relative_to(ROOT)),
-        "producer": "experiments/exp6_matrix.py → experiments/aggregate_exp6.py",
+        "producer": "src/experiments/exp6_matrix.py → src/experiments/aggregate_exp6.py",
         "completed_runs": data.get("completed_runs"),
         "expected_runs": data.get("expected_runs"),
         "seeds": data.get("seeds"),
@@ -431,7 +431,7 @@ def _load_exp8_results() -> dict:
     return {
         "available": True,
         "path": str(base.relative_to(ROOT)),
-        "producer": "experiments/health_index_matrix.py",
+        "producer": "src/experiments/health_index_matrix.py",
         "seeds": data.get("seeds"),
         "rows": data.get("rows"),
         "overall": data.get("overall", {}),

@@ -26,11 +26,11 @@
 
 ## 資料與fit順序
 
-data-root依[loader](../../core/data.py)掃描單一motor／RPM的105維clean特徵池，沒有強制九工況。每列／單位／移除非有限列／未去重及來源限制見[實驗一](exp1_cold_start.md#資料與載入)。數量以rows與實際來源為準。三顆馬達是不同個體，列隨機切分不能證明錄製獨立。
+data-root依[loader](../../src/core/data.py)掃描單一motor／RPM的105維clean特徵池，沒有強制九工況。每列／單位／移除非有限列／未去重及來源限制見[實驗一](exp1_cold_start.md#資料與載入)。數量以rows與實際來源為準。三顆馬達是不同個體，列隨機切分不能證明錄製獨立。
 
 run以一個default_rng(seed=42)連續處理所有工況，健康池每次列洗牌60/20/20；改變掃描集合可能改變後續切分。同工況所有方法共用同一train／cal／holdout。每個方法獨立用train fit RobustScaler和參考模型，cal只定0.95分位數門檻，healthy holdout與所有fault配置全池只評估，unknown不選參或校準。legacy是例外：用train本身距離定線。
 
-[core/detectors.py](../../core/detectors.py)的ALL_DETECTORS目前有**八個**方法，早期「七種」是尚未加入AE的名稱：
+[src/core/detectors.py](../../src/core/detectors.py)的ALL_DETECTORS目前有**八個**方法，早期「七種」是尚未加入AE的名稱：
 
 | 方法ID | train學什麼／原分數 | 影響重現的設定 |
 |---|---|---|
@@ -76,4 +76,4 @@ auroc衡量unknown分數是否較高；healthy_fp為健康score>1比例；fault_
 - Ramaswamy、Rastogi、Shim（2000），*Efficient Algorithms for Mining Outliers from Large Data Sets*，SIGMOD,427–438，[DOI](https://doi.org/10.1145/342009.335437)。本repo用平均k距離，不能稱與論文的第k距離定義完全相同。
 - Jolliffe（2002），*Principal Component Analysis*，Springer，[DOI](https://doi.org/10.1007/b98835)。重建分數／cal正規化是專案組合。
 
-[runner](../../experiments/exp6_osr_benchmark.py)負責公平切分、指標、writer；[detectors](../../core/detectors.py)實作模型；[web/experiments](../../web/experiments.py)只編排；[test_exp9_autoencoder](../../tests/test_exp9_autoencoder.py)、[test_web_experiments](../../tests/test_web_experiments.py)檢查元件與入口。正式factory的k-NN與此knn_dist不是同一類別實作，不直接混用結果。
+[runner](../../src/experiments/exp6_osr_benchmark.py)負責公平切分、指標、writer；[detectors](../../src/core/detectors.py)實作模型；[web/experiments](../../src/web/experiments.py)只編排；[test_exp9_autoencoder](../../src/tests/test_exp9_autoencoder.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)檢查元件與入口。正式factory的k-NN與此knn_dist不是同一類別實作，不直接混用結果。

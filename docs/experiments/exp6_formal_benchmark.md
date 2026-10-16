@@ -23,7 +23,7 @@
 
 這支runner只用健康建立基準，透過同一個core.openset factory比較兩種偵測器，保留設定與工況指標。它與[八方法廣度比較](exp6_osr_benchmark.md)分開；不是多類故障配置分類，也不修改正式預設。
 
-這份手冊給執行實驗六正式版的組員，回答資料如何切分、如何建立模型、如何執行與解讀輸出。`docs/experiments/README.md`、`docs/README.md` 及 `web/experiments.py:CATALOG[exp6_formal].doc` 引用本頁；runner 不讀取 Markdown，也不從本頁取得模型參數。完整欄名與通用載入拒絕政策另見[正式特徵契約](../formal_feature_schema_contract.md)，本頁只說明實驗六如何使用該契約。
+這份手冊給執行實驗六正式版的組員，回答資料如何切分、如何建立模型、如何執行與解讀輸出。`docs/experiments/README.md`、`docs/README.md` 及 `src/web/experiments.py:CATALOG[exp6_formal].doc` 引用本頁；runner 不讀取 Markdown，也不從本頁取得模型參數。完整欄名與通用載入拒絕政策另見[正式特徵契約](../formal_feature_schema_contract.md)，本頁只說明實驗六如何使用該契約。
 
 ## 資料、切分與模型
 
@@ -77,4 +77,4 @@ dataset_fingerprint 預設為 `source_content_v2`，對排序的相對檔案ID�
 
 馬氏距離、LW與近鄰來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)；平均k距離／分位數正規化是Lineage操作約定。Ancestor提供馬氏核心來源，Lineage整合factory與正式比較。
 
-[runner](../../experiments/exp6_formal_benchmark.py)負責流程／指標／writer；[factory](../../core/openset.py)建立兩法；[test_exp6_benchmark](../../tests/test_exp6_benchmark.py)檢查known-only與指標；[test_openset](../../tests/test_openset.py)驗證參考與校準分離；[web/experiments](../../web/experiments.py)編排。這些測試不證明raw來源鏈完整。
+[runner](../../src/experiments/exp6_formal_benchmark.py)負責流程／指標／writer；[factory](../../src/core/openset.py)建立兩法；[test_exp6_benchmark](../../src/tests/test_exp6_benchmark.py)檢查known-only與指標；[test_openset](../../src/tests/test_openset.py)驗證參考與校準分離；[web/experiments](../../src/web/experiments.py)編排。這些測試不證明raw來源鏈完整。

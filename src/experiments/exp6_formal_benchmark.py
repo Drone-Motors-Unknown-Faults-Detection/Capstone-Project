@@ -284,7 +284,7 @@ def _run_benchmark(
             "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
             "checkpoint_identifier": None,
         },
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[1]),
+        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
         "python": platform.python_version(),
         "rows": rows,
     }

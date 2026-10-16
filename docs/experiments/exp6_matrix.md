@@ -56,4 +56,4 @@ completed只表示本工具54格完成，unknown召回／健康接受等解釋�
 
 ## 方法來源與程式碼
 
-統計方法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)，run_id、54格與resume為Lineage操作約定。[exp6_matrix](../../experiments/exp6_matrix.py)負責排程與writer；[benchmark](../../experiments/exp6_formal_benchmark.py)負責fit／校準／指標；[test_exp6_matrix](../../tests/test_exp6_matrix.py)檢查矩陣與續跑。[web/experiments](../../web/experiments.py)的唯讀結果入口不會啟動此工具。
+統計方法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)，run_id、54格與resume為Lineage操作約定。[exp6_matrix](../../src/experiments/exp6_matrix.py)負責排程與writer；[benchmark](../../src/experiments/exp6_formal_benchmark.py)負責fit／校準／指標；[test_exp6_matrix](../../src/tests/test_exp6_matrix.py)檢查矩陣與續跑。[web/experiments](../../src/web/experiments.py)的唯讀結果入口不會啟動此工具。

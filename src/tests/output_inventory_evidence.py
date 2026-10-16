@@ -13,19 +13,19 @@ from core.logger import setup_run
 
 
 WRITERS = {
-    "branch_integration": ["tests/integration_evidence.py"],
-    "exp8_aggregate_baseline": ["tests/exp8_aggregate_baseline.py"],
-    "exp8_aggregate_validation_full": ["tests/exp8_aggregate_validation.py"],
-    "exp8_aggregate_validation_related": ["tests/exp8_aggregate_validation.py"],
-    "exp8_health_index_aggregate": ["experiments/health_index_aggregate.py"],
-    "navigation_regression": ["experiments/navigation_regression.py"],
-    "stream_integration_regression": ["tests/stream_regression.py"],
-    "web_server": ["web/live.py", "web/experiments.py"],
-    "web_guide": ["web/live.py", "web/guide.py"],
-    "exp6_formal_matrix": ["experiments/exp6_matrix.py", "experiments/aggregate_exp6.py"],
-    "exp6_formal_api": ["experiments/exp6_formal_benchmark.py"],
-    "source_provenance": ["core/provenance.py"],
-    "environment_install": ["core/runtime_environment.py", "core/logger.py"],
+    "branch_integration": ["src/tests/integration_evidence.py"],
+    "exp8_aggregate_baseline": ["src/tests/exp8_aggregate_baseline.py"],
+    "exp8_aggregate_validation_full": ["src/tests/exp8_aggregate_validation.py"],
+    "exp8_aggregate_validation_related": ["src/tests/exp8_aggregate_validation.py"],
+    "exp8_health_index_aggregate": ["src/experiments/health_index_aggregate.py"],
+    "navigation_regression": ["src/experiments/navigation_regression.py"],
+    "stream_integration_regression": ["src/tests/stream_regression.py"],
+    "web_server": ["src/web/live.py", "src/web/experiments.py"],
+    "web_guide": ["src/web/live.py", "src/web/guide.py"],
+    "exp6_formal_matrix": ["src/experiments/exp6_matrix.py", "src/experiments/aggregate_exp6.py"],
+    "exp6_formal_api": ["src/experiments/exp6_formal_benchmark.py"],
+    "source_provenance": ["src/core/provenance.py"],
+    "environment_install": ["src/core/runtime_environment.py", "src/core/logger.py"],
 }
 
 # 僅列已由瀏覽器操作紀錄確認的外部截圖，不依 png 副檔名推斷來源。
@@ -74,9 +74,9 @@ def inspect(root: Path) -> dict:
         path.resolve(strict=True).relative_to(output)
         relative = path.relative_to(root).as_posix()
         group = path.relative_to(output).parts[0]
-        candidates = ["core/logger.py"] if path.name == "environment.json" else WRITERS.get(group, [])
+        candidates = ["src/core/logger.py"] if path.name == "environment.json" else WRITERS.get(group, [])
         if not candidates:
-            candidates = [f"tests/{group}.py", f"experiments/{group}.py"]
+            candidates = [f"src/tests/{group}.py", f"src/experiments/{group}.py"]
         evidence = []
         for name in candidates:
             source = root / name
@@ -89,10 +89,10 @@ def inspect(root: Path) -> dict:
                     if any(token in line for token in ("write_text(", "to_csv(", "save_plot(", "save_json(",
                                                        "json.dump(", "open(", "setup_run(", "write_bytes("))]}
             text = source.read_text(encoding="utf-8")
-            dynamic = ((name == "web/live.py" and re.fullmatch(r"(?:samples_epoch\d+\.csv|model_epoch\d+_\d+classes\.json)", path.name))
-                       or (name == "web/guide.py" and re.fullmatch(r"fit_epoch\d+_classes\d+\.json", path.name))
-                       or (name == "web/experiments.py" and re.fullmatch(r"exp\d+_[\d-]+\.json", path.name))
-                       or (name == "tests/exp8_aggregate_validation.py" and re.fullmatch(r"check_\d+\.txt", path.name)))
+            dynamic = ((name == "src/web/live.py" and re.fullmatch(r"(?:samples_epoch\d+\.csv|model_epoch\d+_\d+classes\.json)", path.name))
+                       or (name == "src/web/guide.py" and re.fullmatch(r"fit_epoch\d+_classes\d+\.json", path.name))
+                       or (name == "src/web/experiments.py" and re.fullmatch(r"exp\d+_[\d-]+\.json", path.name))
+                       or (name == "src/tests/exp8_aggregate_validation.py" and re.fullmatch(r"check_\d+\.txt", path.name)))
             if sources[name]["writer_lines"] and (path.name in text or dynamic):
                 evidence.append(name)
         category = "WRITER_MATCH_HISTORY_UNCONFIRMED" if evidence else "UNKNOWN_HISTORY"

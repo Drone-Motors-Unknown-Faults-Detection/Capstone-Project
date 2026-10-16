@@ -21,28 +21,28 @@
 ## 目錄結構
 
 ```
-core/            共用零件：data / mahalanobis / monitor / openset / geometry / detectors / formal_data /
+src/core/        共用零件：data / mahalanobis / monitor / openset / geometry / detectors / formal_data /
                  trend / logger / runner / runtime_environment
 reports/         單次實驗結果／單次說明／更新紀錄，每篇一個資料夾，命名
                  `<Author Name>_<YYYYMMDD>_<Report Subject>`；見「docs／reports／note 分工」
 note/            個人記事，非專案全局變動；每人一個資料夾（例如 note/JW-Albert/）
-experiments/     實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺擴張 exp2_scale_growth.py、
+src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺擴張 exp2_scale_growth.py、
                  exp3 趨勢 exp3_trend.py、exp4 極座標 exp4_polar_map.py、
                  exp5 跨工況 exp5_cross_condition.py、
                  exp6 OSR 基準＋正式矩陣＋彙整（exp6_osr_benchmark.py / exp6_formal_benchmark.py /
                  exp6_matrix.py / aggregate_exp6.py）、exp7 compare_openset.py、
-                 exp8 health_index_* / health_monitor.py（邏輯在 experiments/health/：
+                 exp8 health_index_* / health_monitor.py（邏輯在 src/experiments/health/：
                  健康指數、校準、嚴重度、趨勢/告警、軌跡與診斷，見 docs/health_and_reports.md）、
-                 exp9 非線性 AutoEncoder 偵測器（程式在 core/detectors.py，複用 exp6_osr_benchmark.py）、
+                 exp9 非線性 AutoEncoder 偵測器（程式在 src/core/detectors.py，複用 exp6_osr_benchmark.py）、
                  exp10 跨工況遷移學習 exp10_transfer.py、
                  exp11 Ancestor 協定對照 exp11_ancestor_comparison.py、
                  exp12 混淆矩陣與 t-SNE 視覺化 exp12_confusion_tsne.py）；
                  總覽見 docs/Experiments_Guide.md 與 docs/experiments/README.md；技術報告在 docs/experiments/
-web/             即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
+src/web/         即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
                  server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js）
-tests/           pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）
+src/tests/       pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）
                  一樣經 core.logger.setup_run() 寫 logs/ 與 output/，不得改成手寫報告
-docs/            實驗技術報告在 docs/experiments/（每個 experiments/*.py 一份 .md）
+docs/            實驗技術報告在 docs/experiments/（每個 src/experiments/*.py 一份 .md）
                  ＋論文版技術文件快照、Lineage 研究文件及 navigation 操作導覽；
                  單次交付與整合紀錄放 reports/。
                  歷史快照見 docs/README.md；快照裡的程式路徑不對應現行架構，勿據以改碼
@@ -63,8 +63,8 @@ build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
 ## 鐵則（違反會破壞專案架構）
 
 1. **不依賴論文版程式碼。** 需要其零件時，以「複製 + 檔頭註記來源」帶入
-   （範例：`core/mahalanobis.py`）。論文版程式碼在 Ancestor repo，視為唯讀封存。
-2. **實驗邏輯只住在 `experiments/` 與 `core/`。** `web/` 只做編排與視覺化——
+   （範例：`src/core/mahalanobis.py`）。論文版程式碼在 Ancestor repo，視為唯讀封存。
+2. **實驗邏輯只住在 `src/experiments/` 與 `src/core/`。** `src/web/` 只做編排與視覺化——
    任何判定、分群、統計邏輯若出現在 web 層就是放錯位置。這是為了讓論文批次執行
    與即時展示共用同一份邏輯、數字一致。
 3. **每個實驗模組維持雙介面**：`run(pools, ...) -> dict`（程式化 API，web 與論文都呼叫）
@@ -86,9 +86,9 @@ build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
    `docs/experiments/` 或對應的技術報告。新增檔案前先確認有對應的寫入程式碼，找不到就不要放進
    `output/`（已發現的反例：`output/integration_browser/guide_qa.md`、`stream_qa.md`，
    repo 內沒有任何程式碼寫這兩個檔案，應移除或改放 `docs/`）。
-10. **新增或修改程式碼一律要有對應的 pytest 測試，且測試要能通過。** 測試放在 `tests/`，
-    檔名 `test_<module>.py`，對應 `core/`、`experiments/`、`experiments/health/` 或 `web/` 裡被改動的
-    模組；提交前跑 `./run_pytest.sh`（或 `venv/bin/python -m pytest tests/`，或至少跑到相關檔案）
+10. **新增或修改程式碼一律要有對應的 pytest 測試，且測試要能通過。** 測試放在 `src/tests/`，
+    檔名 `test_<module>.py`，對應 `src/core/`、`src/experiments/`、`src/experiments/health/` 或 `src/web/` 裡被改動的
+    模組；提交前跑 `./run_pytest.sh`（或 `venv/bin/python -m pytest src/tests/`，或至少跑到相關檔案）
     確認全部通過，不要留下失敗或被跳過的測試就視為完成。
 11. **Python 環境管理工具固定為 [uv](https://docs.astral.sh/uv/)。** 建環境、裝套件一律用
     `uv sync` / `uv pip install`，不要退回 `python -m venv` 配 `pip install`。版本分兩層：
@@ -121,14 +121,14 @@ build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
 
 ## 實驗手冊
 
-任何實驗都要在 `docs/experiments/` 放一份 Markdown 技術報告，再改程式。範圍包含新的 `experiments/` 模組，以及既有實驗改了方法、資料切分或指標。每個實驗都有編號 `expN`（實驗N），新實驗取下一個未用的編號（目前已用到 exp12，下一個新實驗編號為 exp13）。報告檔名以 `expN_` 開頭，例如 `docs/experiments/exp13_foo.md`；程式檔名不必帶編號，但報告的「程式碼與輸出」節要列出這個實驗用到的所有路徑：`experiments/` 入口、`core/` 與 `experiments/health/` 的邏輯、`web/` 的展示、`tests/`、`logs/` 與 `output/` 的紀錄與結果。同一實驗在 `docs/` 下的其他文件檔名也以 `expN_` 開頭。完成後在 `docs/experiments/README.md` 的實驗表與「各實驗的檔案位置」表、`docs/README.md` 的現行文件表各加一列。
+任何實驗都要在 `docs/experiments/` 放一份 Markdown 技術報告，再改程式。範圍包含新的 `src/experiments/` 模組，以及既有實驗改了方法、資料切分或指標。每個實驗都有編號 `expN`（實驗N），新實驗取下一個未用的編號（目前已用到 exp12，下一個新實驗編號為 exp13）。報告檔名以 `expN_` 開頭，例如 `docs/experiments/exp13_foo.md`；程式檔名不必帶編號，但報告的「程式碼與輸出」節要列出這個實驗用到的所有路徑：`src/experiments/` 入口、`src/core/` 與 `src/experiments/health/` 的邏輯、`src/web/` 的展示、`src/tests/`、`logs/` 與 `output/` 的紀錄與結果。同一實驗在 `docs/` 下的其他文件檔名也以 `expN_` 開頭。完成後在 `docs/experiments/README.md` 的實驗表與「各實驗的檔案位置」表、`docs/README.md` 的現行文件表各加一列。
 
 手冊至少寫這四項：
 
 1. **實驗方法**：資料從哪來、怎麼切、用哪個模型或統計程序、seed 與關鍵參數、怎麼跑（CLI）。
 2. **參考論文出處**：方法所依的論文，寫作者、年份、篇名、出處，以及 DOI 或穩定網址。沒有文獻依據的步驟，寫明是本專案的操作約定。
 3. **預期成果**：跑完應該看到什麼數字、圖或判定；什麼結果算支持假設，什麼結果算假設不成立。預期與事後實測分開寫，不要把已經跑出來的數字回填成預期。
-4. **影響程式碼範圍**：表列會讀或會改的路徑，例如 `experiments/exp7_foo.py`、`core/openset.py`。路徑必須對得上當時的程式，不要沿用論文版快照的舊路徑。
+4. **影響程式碼範圍**：表列會讀或會改的路徑，例如 `src/experiments/exp7_foo.py`、`src/core/openset.py`。路徑必須對得上當時的程式，不要沿用論文版快照的舊路徑。
 
 ---
 
@@ -140,7 +140,7 @@ build_uv_mac.sh  macOS 版安裝入口，與 build_uv.sh 同一份 uv.lock
 2. 寫能對上檔案、數字、步驟的句子。拍不成畫面的抽象金句刪掉。
 3. 句子長短依內容決定。不要為了節奏湊成三段排比。
 4. 動作留在動詞上。少把事情收成「○○感」「○○性」「○○化」。
-5. 錨在具體座標：路徑、函數名、seed、日期、工況。能寫 `core/openset.py` 就不要寫「某個模組」。
+5. 錨在具體座標：路徑、函數名、seed、日期、工況。能寫 `src/core/openset.py` 就不要寫「某個模組」。
 6. 不寫過去怎樣；現在怎樣。
 
 ---
@@ -198,7 +198,7 @@ venv/bin/python -m experiments.compare_openset --openset-methods mahalanobis knn
 
 1. **健康誤報率 ≈ 10.9%**（名目 5%）：校準集只有 ~62 筆的有限樣本效應，是已知結果
    不是 bug；EWMA 警報線與中間帶下緣（0.5 / 0.2）就是據此拉開的，調整前先看
-   `experiments/exp3_trend.py` 的分布數據。**衍生設計**：誤報分數僅些微超線
+   `src/experiments/exp3_trend.py` 的分布數據。**衍生設計**：誤報分數僅些微超線
    （實測 1.01–1.08），而真實故障最低分 ≥ 10——因此隔離區設「隔離線」
    `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現；若仍有已知類別
    邊界樣本聚成叢，`confirm()` 回傳 `action="rejected_known"`（操作員退回、

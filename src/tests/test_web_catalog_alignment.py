@@ -18,7 +18,7 @@ def test_catalog_matches_method_registry_and_roles():
 
 
 def test_home_scale_is_not_physical_health():
-    text = (Path(__file__).resolve().parents[1] / "web/static/index.html").read_text(encoding="utf-8")
+    text = (Path(__file__).resolve().parents[2] / "src/web/static/index.html").read_text(encoding="utf-8")
     assert "相對偏離量尺（展示）" in text
     assert "不是損壞百分比" in text
     assert 'id="healthPct"' in text

@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# CI 與本機跑 tests/、ruff 用；正式執行期不需要
+# CI 與本機跑 src/tests/、ruff 用；正式執行期不需要
 test = [
     "pytest==9.1.1",
     "ruff==0.16.10",
@@ -32,7 +32,12 @@ test = [
 #   ./build_uv.sh --legacy-mac    （macOS；requirements-legacy-mac.txt）
 
 [tool.setuptools]
-packages = ["core", "experiments", "experiments.health", "web"]
+package-dir = {"" = "src"}
+packages = ["core", "experiments", "experiments.health", "web", "tests"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["src/tests"]
 
 [tool.ruff]
 target-version = "py310"

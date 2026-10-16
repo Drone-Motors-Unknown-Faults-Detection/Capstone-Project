@@ -82,7 +82,7 @@ python -m experiments.health_index_aggregate
 
 本輪實際關閉 **0 個 issue**。回讀 15 個開放 issue 與 PR #40/#36 的本文、留言、檔案後，未發現新 #25 公開實作；main、PR heads 均未變。#29 等 PR #40 整合；#30 的新追蹤議題仍需另授權發布。#19 原文引用、#13～16 研究分支完整驗收、#26 版本／鎖版及 #27 CI 本輪沒有實作。#24/#28/#35/#37 涉及既有重疊或主首頁整合，保留不修改。
 
-本輪只改彙總入口、fixtures、驗證工具、exp8 文件索引與 logs/output。正式 105 維 CSV、Mahalanobis/LW 預設、k-NN factory、PolarMap、health_monitor.py、web/server.py、index.html、experiments.js 及歷史 reports 的 diff 為零。沒有新的 reliable fault-type 或 fresh final 主張。
+本輪只改彙總入口、fixtures、驗證工具、exp8 文件索引與 logs/output。正式 105 維 CSV、Mahalanobis/LW 預設、k-NN factory、PolarMap、health_monitor.py、src/web/server.py、index.html、experiments.js 及歷史 reports 的 diff 為零。沒有新的 reliable fault-type 或 fresh final 主張。
 
 ## 路徑與交付
 

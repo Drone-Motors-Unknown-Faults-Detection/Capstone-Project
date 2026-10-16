@@ -11,7 +11,7 @@ from core.logger import setup_run
 from core.runtime_environment import lock_versions
 from tests.integration_evidence import command
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def _mismatches(packages: dict) -> list[dict]:
