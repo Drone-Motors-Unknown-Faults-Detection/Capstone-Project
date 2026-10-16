@@ -1,5 +1,7 @@
 # docs/ 文件索引
 
+組員學習與發表請先讀[畢業專題總手冊](畢業專題總手冊.md)：在同一份正文說明 Ancestor 基礎、資料角色、各方法與實驗、Web、工程、未解工作及有答案的發表練習；研究分支、歷史結果與現行功能分開標示。真人走讀與試講回饋尚待確認。
+
 先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全契約](formal_materialization_contract.md)、[健康監測模組](health_and_reports.md)、[導覽操作](navigation/exp24_README.md)。各頁說明程式用途、操作、預期輸出與限制。
 
 當前缺口與交付狀態請查 [GitHub issues](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues) 及各 PR 的受測 SHA，不把歷史測試次數當成最新 main 驗收。
