@@ -1,0 +1,9 @@
+2026-10-09 22:25:27 | INFO    | Logger initialized: web_server
+2026-10-09 22:25:27 | INFO    | log_file=logs\web_server\2026-10-09-22-25-27.log
+2026-10-09 22:25:27 | INFO    | output_dir=output\web_server\2026-10-09-22-25-27
+2026-10-09 22:25:28 | INFO    | 載入資料集 T1/8000rpm 並擬合健康基準…
+2026-10-09 22:25:28 | INFO    | Open Set method=mahalanobis（Mahalanobis estimator=ledoit_wolf）
+2026-10-09 22:25:28 | INFO    | session 紀錄（逐筆樣本 + 模型快照）→ output\web_server\2026-10-09-22-25-27
+2026-10-09 22:25:28 | INFO    | 就緒 → http://localhost:8620  （Ctrl+C 結束）
+2026-10-09 22:26:32 | INFO    | [t=0] ▶ 串流開始
+2026-10-09 22:26:38 | INFO    | [t=24] ⏸ 串流暫停

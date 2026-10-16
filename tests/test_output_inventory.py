@@ -5,7 +5,9 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from tests.output_inventory_evidence import inspect, main, run, verify_external_relocations
+from tests.output_inventory_evidence import (
+    inspect, main, run, verify_document_relocations, verify_external_relocations,
+)
 
 
 class OutputInventoryTests(unittest.TestCase):
@@ -83,3 +85,34 @@ class OutputInventoryTests(unittest.TestCase):
                 rows = verify_external_relocations(Path(directory), "fixed", {"output/image.png": "docs/image.png"})
             self.assertFalse(rows[0]["same_bytes"])
             self.assertIsNone(rows[0]["target_sha256"])
+
+    def test_command_summary_relocation_checks_content_and_old_copy(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            old, new = "output/baseline/run/test_summary.json", "reports/baseline/test_summary.json"
+            target = root / new
+            target.parent.mkdir(parents=True)
+            target.write_bytes(b'{"tests": 111}\r\n')
+            with patch("tests.output_inventory_evidence.subprocess.check_output",
+                       side_effect=["same-blob\n", "same-blob\n"]) as git:
+                row = verify_document_relocations(root, "fixed-source", {old: new})[0]
+            self.assertTrue(row["same_git_content"])
+            self.assertTrue(row["old_absent"])
+            self.assertTrue(row["new_exists"])
+            self.assertEqual(git.call_args_list[0].args[0], ["git", "rev-parse", f"fixed-source:{old}"])
+            self.assertEqual(git.call_args_list[1].args[0], ["git", "hash-object", "--path", new, new])
+            (root / old).parent.mkdir(parents=True)
+            (root / old).write_bytes(target.read_bytes())
+            with patch("tests.output_inventory_evidence.subprocess.check_output",
+                       side_effect=["original\n", "tampered\n"]):
+                row = verify_document_relocations(root, "fixed-source", {old: new})[0]
+            self.assertFalse(row["same_git_content"])
+            self.assertFalse(row["old_absent"])
+
+    def test_missing_command_summary_target_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch("tests.output_inventory_evidence.subprocess.check_output",
+                       side_effect=["original\n", subprocess_error := FileNotFoundError("缺目的檔")]):
+                with self.assertRaises(FileNotFoundError) as error:
+                    verify_document_relocations(Path(directory), "fixed", {"output/summary.json": "reports/summary.json"})
+            self.assertIs(error.exception, subprocess_error)

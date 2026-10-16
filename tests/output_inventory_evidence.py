@@ -114,18 +114,28 @@ def inspect(root: Path) -> dict:
                    "原始 bytes SHA 與 Git 換行正規化 blob 分開解讀", "既有 PR58 搬移不在此程式重做"]}
 
 
-def verify_cleanup(root: Path) -> dict:
-    """用 Git blob 核對既有搬移，另查目的檔及 manifest。"""
-    baseline = "5a7865610fff07a455c0a23cec34fc5957ba3569"
+def verify_document_relocations(root: Path, baseline: str, relocations: dict[str, str]) -> list[dict]:
+    """核對指定文字搬移的 Git 正規化內容；原始位元組差異另由搬移紀錄說明。"""
     moves = []
-    for name in ("guide_qa.md", "stream_qa.md"):
-        old = f"output/integration_browser/{name}"
-        new = f"reports/Andy_20261008_分支整合/browser_qa/{name}"
+    for old, new in sorted(relocations.items()):
         old_blob = subprocess.check_output(["git", "rev-parse", f"{baseline}:{old}"], cwd=root, text=True).strip()
         new_blob = subprocess.check_output(["git", "hash-object", "--path", new, new], cwd=root, text=True).strip()
         moves.append({"old": old, "new": new, "old_blob": old_blob, "new_normalized_blob": new_blob,
                       "same_git_content": old_blob == new_blob, "old_absent": not (root / old).exists(),
                       "new_exists": (root / new).is_file()})
+    return moves
+
+
+def verify_cleanup(root: Path) -> dict:
+    """用 Git blob 核對既有搬移，另查目的檔及 manifest。"""
+    baseline = "5a7865610fff07a455c0a23cec34fc5957ba3569"
+    relocations = {f"output/integration_browser/{name}":
+                   f"reports/Andy_20261008_分支整合/browser_qa/{name}"
+                   for name in ("guide_qa.md", "stream_qa.md")}
+    # 原臨時 python -c 命令已核對；未補寫專案 writer，不把摘要當演算法結果。
+    relocations["output/exp8_aggregate_baseline/2026-10-09-03-28-48/test_summary.json"] = (
+        "reports/Andy_20261009_實驗八基線測試/test_summary.json")
+    moves = verify_document_relocations(root, baseline, relocations)
     changed = subprocess.check_output(["git", "diff", "--name-only", "--diff-filter=MDR", baseline, "HEAD", "--", "output"],
                                       cwd=root, text=True).splitlines()
     manifest = json.loads((root / "reports/Andy_20261008_分支整合/manifest.json").read_text(encoding="utf-8"))

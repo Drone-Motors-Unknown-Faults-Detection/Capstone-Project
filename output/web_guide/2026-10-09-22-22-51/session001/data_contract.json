@@ -1,0 +1,156 @@
+{
+  "schema": "navigation_data_v1",
+  "motor": "T1",
+  "rpm": "8000rpm",
+  "seed": 42,
+  "feature_dim": 105,
+  "source_type": "CSV重播",
+  "healthy": "8screws",
+  "configs": [
+    {
+      "id": "S00",
+      "config": "8screws",
+      "n": 313,
+      "sha256": [
+        "d51de499c4ce3416044ccef242f30411b01a05a4b206344a4cdc5b12357e2743"
+      ]
+    },
+    {
+      "id": "S01",
+      "config": "7screws",
+      "n": 322,
+      "sha256": [
+        "b7f6cdaf7deb0b1ab5a788d116bd49f2f367716cbb5dea50f4d7693e61eccd86"
+      ]
+    },
+    {
+      "id": "S02",
+      "config": "6screws",
+      "n": 314,
+      "sha256": [
+        "38e79fa0809c8cafae0d546e492541f44a1a654f0242092b78238e6420e07c7f"
+      ]
+    },
+    {
+      "id": "S03",
+      "config": "5screws",
+      "n": 212,
+      "sha256": [
+        "21de6416d8666953ccaea14053914f1309279a01956f8fa214aa9bcef6e2ac3e"
+      ]
+    },
+    {
+      "id": "S04",
+      "config": "4screws",
+      "n": 287,
+      "sha256": [
+        "780b8848eefec624981e41a62ed849baeec230a2b722cdbfe4a0ca4b35fafd0f"
+      ]
+    },
+    {
+      "id": "S05",
+      "config": "3screws",
+      "n": 241,
+      "sha256": [
+        "076d8e9f9f3253e45d3bf4c7802ec7508fcfb4e66afb09c3caf5d94ae213b9b1"
+      ]
+    },
+    {
+      "id": "S06",
+      "config": "2screws",
+      "n": 288,
+      "sha256": [
+        "2d333530699d5b3258f55be32b7e5b47c515576913fc358d83266d9f28de4636"
+      ]
+    },
+    {
+      "id": "S07",
+      "config": "1screws",
+      "n": 349,
+      "sha256": [
+        "10c587ec4367237d88e93546530ee89b4c753124759e21fec2dc6cbe17dfd4bc"
+      ]
+    },
+    {
+      "id": "S08",
+      "config": "3_14screws",
+      "n": 351,
+      "sha256": [
+        "90e248732c96c6717136a0d30a095b1996be9ba8c9bfea916178b5ba88054ad2"
+      ]
+    },
+    {
+      "id": "S09",
+      "config": "4_146screws",
+      "n": 372,
+      "sha256": [
+        "8a5bb68845181f9ed980e284dd5dede7e91fd6fa0037bcf3710e4a0fc44b27bc"
+      ]
+    }
+  ],
+  "sources": {
+    "8screws": [
+      {
+        "sha256": "d51de499c4ce3416044ccef242f30411b01a05a4b206344a4cdc5b12357e2743",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\8screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "7screws": [
+      {
+        "sha256": "b7f6cdaf7deb0b1ab5a788d116bd49f2f367716cbb5dea50f4d7693e61eccd86",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\7screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "6screws": [
+      {
+        "sha256": "38e79fa0809c8cafae0d546e492541f44a1a654f0242092b78238e6420e07c7f",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\6screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "5screws": [
+      {
+        "sha256": "21de6416d8666953ccaea14053914f1309279a01956f8fa214aa9bcef6e2ac3e",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\5screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "4screws": [
+      {
+        "sha256": "780b8848eefec624981e41a62ed849baeec230a2b722cdbfe4a0ca4b35fafd0f",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\4screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "3screws": [
+      {
+        "sha256": "076d8e9f9f3253e45d3bf4c7802ec7508fcfb4e66afb09c3caf5d94ae213b9b1",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\3screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "2screws": [
+      {
+        "sha256": "2d333530699d5b3258f55be32b7e5b47c515576913fc358d83266d9f28de4636",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\2screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "1screws": [
+      {
+        "sha256": "10c587ec4367237d88e93546530ee89b4c753124759e21fec2dc6cbe17dfd4bc",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\1screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "3_14screws": [
+      {
+        "sha256": "90e248732c96c6717136a0d30a095b1996be9ba8c9bfea916178b5ba88054ad2",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\3_14screws\\T1_Group_feature_data_clean.csv"
+      }
+    ],
+    "4_146screws": [
+      {
+        "sha256": "8a5bb68845181f9ed980e284dd5dede7e91fd6fa0037bcf3710e4a0fc44b27bc",
+        "path": "D:\\schoolshit\\專題\\src\\Lineage\\data\\Step-1\\myfeature\\T1\\8000rpm\\4_146screws\\T1_Group_feature_data_clean.csv"
+      }
+    ]
+  },
+  "raw_session_independence": "UNKNOWN",
+  "fresh_final": "INCOMPLETE",
+  "row_id_meaning": "既有concat後有限值列索引，非raw視窗"
+}

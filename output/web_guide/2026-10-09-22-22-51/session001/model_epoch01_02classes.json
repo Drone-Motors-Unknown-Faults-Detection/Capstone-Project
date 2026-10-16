@@ -1,0 +1,50 @@
+{
+  "t": 108,
+  "tag": "learned_5screws",
+  "dataset": {
+    "motor": "T1",
+    "rpm": "8000rpm"
+  },
+  "seed": 42,
+  "openset_method": "mahalanobis",
+  "method": "ledoit_wolf",
+  "score_type": "normalized_class_mahalanobis",
+  "threshold": 1.0,
+  "threshold_strategy": "known_calibration_class_quantile_0.95",
+  "calibration_source": "known-only 20% calibration split",
+  "confidence": 0.95,
+  "knn_neighbors": null,
+  "random_seed": 42,
+  "split": {
+    "train": 0.6,
+    "calibration": 0.2,
+    "holdout": 0.2
+  },
+  "n_known": 2,
+  "classes": [
+    {
+      "config": "8screws",
+      "label": 0,
+      "n_train": 187,
+      "n_cal": 62,
+      "n_holdout": 64,
+      "threshold": 8.636084343081512,
+      "centroid_pca": [
+        3.5182117591111446,
+        0.2375250746803912
+      ]
+    },
+    {
+      "config": "5screws",
+      "label": 1,
+      "n_train": 127,
+      "n_cal": 42,
+      "n_holdout": 43,
+      "threshold": 8.439651495993608,
+      "centroid_pca": [
+        -5.180359046880187,
+        -0.34974164539553687
+      ]
+    }
+  ]
+}

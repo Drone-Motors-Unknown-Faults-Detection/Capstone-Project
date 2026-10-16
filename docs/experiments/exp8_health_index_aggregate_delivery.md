@@ -21,7 +21,7 @@
 
 既有環境 `D:\schoolshit\專題\src\tmp\lineage_integration310\Scripts\python.exe`，Python 3.10.19；沒有重建 venv。只驗證目前 pyproject 宣告的版本，未宣稱其他 Python 相容。
 
-- main 程式基線：111 項、0 failure、0 error、0 skipped；在手冊 commit 執行，當時未新增程式。證據 `output/exp8_aggregate_baseline/2026-10-09-03-28-48/test_summary.json`、對應 log。
+- main 程式基線：111 項、0 failure、0 error、0 skipped；在手冊 commit 執行，當時未新增程式。證據見 [基線摘要](../../reports/Andy_20261009_實驗八基線測試/test_summary.json) 與 `logs/exp8_aggregate_baseline/2026-10-09-03-28-48.log`。摘要由當次 `python -c` 呼叫 `unittest`、`setup_run('exp8_aggregate_baseline')` 後以 `write_text` 保存；該臨時命令未作為專案模組入庫，故摘要移至 reports，原始位元組 SHA256 為 `0c659a93d320342669783f40770e85ca2d43b2136cfdc127fbba14e32582d04f`。不是重新測試或以新 writer 補造歷史來源。
 - 初次 fixture 執行在受限 Windows 暫存目錄遭 ACL 拒絕：27 項 setup error，並非成功測試。相同程式改用正常權限後，27 項通過；後續增補至 37 項。
 - 新程式提交前相關測試：56 項通過；完整測試：148 項通過。pip check 都通過。保存 `output/exp8_aggregate_validation_related/2026-10-09-03-33-51/`、`output/exp8_aggregate_validation_full/2026-10-09-03-33-55/` 與對應 logs。這兩次 summary 的 HEAD 是手冊提交，程式仍在 working tree；正式重算前將再核對提交版程式與回歸。
 - 完整測試內 generator.close 失敗、無效 CLI 參數等訊息是既有刻意失敗 fixtures；測試總結果仍為 OK，原訊息保留在 check_0.txt。
