@@ -75,6 +75,10 @@ class MahalanobisOpenSetDetector:
 
     def _transform(self, X: np.ndarray) -> np.ndarray:
         X = np.asarray(X, dtype=float)
+        expected = getattr(self, "n_features_in_", None)
+        if expected is not None and (X.ndim != 2 or X.shape[1] != expected):
+            actual = X.shape[1] if X.ndim == 2 else f"shape {X.shape}"
+            raise ValueError(f"X has {actual} features; expected {expected}")
         return self.pca_.transform(X) if self.pca_ is not None else X
 
     def _fit_estimator(self, X: np.ndarray):
@@ -99,6 +103,9 @@ class MahalanobisOpenSetDetector:
         y_calibration = np.asarray(y_calibration)
         if not np.isfinite(X_train).all() or not np.isfinite(X_calibration).all():
             raise ValueError("Mahalanobis inputs must be finite")
+        if X_train.ndim != 2 or X_calibration.ndim != 2 or X_train.shape[1] != X_calibration.shape[1]:
+            raise ValueError("training and calibration feature dimensions must match")
+        self.n_features_in_ = None
 
         if self.method == "mcd":
             smallest_class = min(np.sum(y_train == label) for label in np.unique(y_train))
@@ -117,6 +124,7 @@ class MahalanobisOpenSetDetector:
 
         train_t = self._transform(X_train)
         cal_t = self._transform(X_calibration)
+        self.n_features_in_ = int(X_train.shape[1])
         self.distributions_ = []
 
         if self.method == "legacy":

@@ -43,7 +43,7 @@ from sklearn.preprocessing import RobustScaler
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
-from core.openset import OpenSetMethod, canonical_openset_method, create_openset_detector
+from core.openset import OpenSetMethod, canonical_openset_method, create_openset_detector, resolve_openset_config
 from core.runner import save_json
 from core.provenance import CONTENT_VERSION, capture_source, write_private_context
 
@@ -165,11 +165,10 @@ def _run_benchmark(
     require_nine: bool = True,
 ) -> dict:
     """Run one condition×seed×method benchmark over the formal data root."""
-    data_path = Path(data_root).expanduser().resolve()
-    datasets = sorted(discover_datasets(data_path), key=lambda row: (row["motor"], row["rpm"]))
-    _validate_datasets(datasets, data_path, require_nine)
+    resolved = resolve_openset_config(openset_method, confidence=confidence,
+                                      mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
     requested_method = str(openset_method)
-    openset_method = canonical_openset_method(requested_method)
+    openset_method = resolved["openset_method"]
     if openset_method not in FORMAL_METHODS:
         raise ValueError(f"unsupported formal method {requested_method!r}; choose mahalanobis or knn")
     if openset_method == "mahalanobis" and mahalanobis_method == "legacy":
@@ -177,8 +176,9 @@ def _run_benchmark(
             "formal exp6 rejects mahalanobis_method='legacy': its historical "
             "training-distance threshold is not the shared known-calibration policy"
         )
-    if not 0.0 < confidence < 1.0:
-        raise ValueError("confidence must be between zero and one")
+    data_path = Path(data_root).expanduser().resolve()
+    datasets = sorted(discover_datasets(data_path), key=lambda row: (row["motor"], row["rpm"]))
+    _validate_datasets(datasets, data_path, require_nine)
 
     # The formal benchmark currently uses NumPy/scikit-learn only, but seed the
     # Python RNG as well so future helpers cannot silently add an uncontrolled
@@ -273,6 +273,7 @@ def _run_benchmark(
         "score_direction": "higher_is_unknown",
         "polarmap_base_method": "mahalanobis",
         "checkpoint_identifier": None,
+        "resolved_config": resolved,
         "config": {
             "feature_count": 105,
             "normalization": "RobustScaler fit on known training split only",
@@ -321,6 +322,7 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         result["environment"] = json.loads((evidence_paths.output_dir / "environment.json").read_text(encoding="utf-8"))
         result["source"] = source
         evidence["effective_configuration"] = result["config"]
+        evidence["resolved_config"] = result["resolved_config"]
         evidence["environment"] = result["environment"]
         evidence["status"] = "COMPLETED"
     except BaseException as exc:
