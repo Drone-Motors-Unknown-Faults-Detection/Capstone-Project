@@ -6,7 +6,7 @@
 
 內容指紋、portable manifest 與本機 private sidecar 的操作見[內容來源契約](content_provenance_contract.md)；它只涵蓋正式入口，不代表所有 runner 都有完整來源紀錄。
 
-匯入105維 CSV 前先讀[正式特徵載入契約](formal_feature_schema_contract.md)與[完整欄名清冊](formal_feature_schema.json)；清冊供維護者與測試比對，runtime 規則在 `core/feature_schema.py`。
+匯入105維 CSV 前先讀[正式特徵載入契約](formal_feature_schema_contract.md)與[完整欄名清冊](formal_feature_schema.json)；清冊供維護者與測試比對，runtime 規則在 `src/core/feature_schema.py`。
 
 ## 歷史交付附件（不作現行操作手冊）
 
@@ -36,25 +36,25 @@
 
 | 編號 | 文件 | 程式 |
 |---|---|---|
-| 實驗一 | [exp1_cold_start](experiments/exp1_cold_start.md) | `experiments/exp1_cold_start.py` |
-| 實驗二 | [exp2_scale_growth](experiments/exp2_scale_growth.md) | `experiments/exp2_scale_growth.py` |
-| 實驗三 | [exp3_trend](experiments/exp3_trend.md) | `experiments/exp3_trend.py` |
-| 實驗四 | [exp4_polar_map](experiments/exp4_polar_map.md) | `experiments/exp4_polar_map.py` |
-| 實驗五 | [exp5_cross_condition](experiments/exp5_cross_condition.md) | `experiments/exp5_cross_condition.py` |
-| 實驗六 | [exp6_osr_benchmark](experiments/exp6_osr_benchmark.md) | `experiments/exp6_osr_benchmark.py` |
-| 實驗六 | [exp6_formal_benchmark](experiments/exp6_formal_benchmark.md) | `experiments/exp6_formal_benchmark.py` |
-| 實驗六 | [exp6_matrix](experiments/exp6_matrix.md) | `experiments/exp6_matrix.py` |
-| 實驗六 | [exp6_aggregate](experiments/exp6_aggregate.md) | `experiments/aggregate_exp6.py` |
-| 實驗七 | [exp7_compare_openset](experiments/exp7_compare_openset.md) | `experiments/compare_openset.py` |
-| 實驗八 | [exp8_health_index_benchmark](experiments/exp8_health_index_benchmark.md) | `experiments/health_index_benchmark.py` |
-| 實驗八 | [exp8_health_index_matrix](experiments/exp8_health_index_matrix.md) | `experiments/health_index_matrix.py` |
-| 實驗八 | [封存彙總重算](experiments/exp8_health_index_aggregate.md) | `experiments/health_index_aggregate.py`；來源完整性、54 列重算定義及差異輸出 |
-| 實驗八 | [exp8_health_monitor](experiments/exp8_health_monitor.md) | `experiments/health_monitor.py` |
-| 實驗九 | [exp9_autoencoder](experiments/exp9_autoencoder.md) | `core/detectors.py`（`MLPAutoencoderDet`，`experiments/exp6_osr_benchmark.py` 自動納入） |
-| 實驗十 | [exp10_transfer](experiments/exp10_transfer.md) | `experiments/exp10_transfer.py` |
-| 實驗十一 | [exp11_ancestor_comparison](experiments/exp11_ancestor_comparison.md) | `experiments/exp11_ancestor_comparison.py` |
-| 實驗十二 | [exp12_confusion_tsne](experiments/exp12_confusion_tsne.md) | `experiments/exp12_confusion_tsne.py` |
-| 實驗二十四 | [exp24_experiment_navigation](experiments/exp24_experiment_navigation.md) | `experiments/navigation_data_contract.py`、`experiments/navigation_regression.py`；獨立 `web.guide` |
+| 實驗一 | [exp1_cold_start](experiments/exp1_cold_start.md) | `src/experiments/exp1_cold_start.py` |
+| 實驗二 | [exp2_scale_growth](experiments/exp2_scale_growth.md) | `src/experiments/exp2_scale_growth.py` |
+| 實驗三 | [exp3_trend](experiments/exp3_trend.md) | `src/experiments/exp3_trend.py` |
+| 實驗四 | [exp4_polar_map](experiments/exp4_polar_map.md) | `src/experiments/exp4_polar_map.py` |
+| 實驗五 | [exp5_cross_condition](experiments/exp5_cross_condition.md) | `src/experiments/exp5_cross_condition.py` |
+| 實驗六 | [exp6_osr_benchmark](experiments/exp6_osr_benchmark.md) | `src/experiments/exp6_osr_benchmark.py` |
+| 實驗六 | [exp6_formal_benchmark](experiments/exp6_formal_benchmark.md) | `src/experiments/exp6_formal_benchmark.py` |
+| 實驗六 | [exp6_matrix](experiments/exp6_matrix.md) | `src/experiments/exp6_matrix.py` |
+| 實驗六 | [exp6_aggregate](experiments/exp6_aggregate.md) | `src/experiments/aggregate_exp6.py` |
+| 實驗七 | [exp7_compare_openset](experiments/exp7_compare_openset.md) | `src/experiments/compare_openset.py` |
+| 實驗八 | [exp8_health_index_benchmark](experiments/exp8_health_index_benchmark.md) | `src/experiments/health_index_benchmark.py` |
+| 實驗八 | [exp8_health_index_matrix](experiments/exp8_health_index_matrix.md) | `src/experiments/health_index_matrix.py` |
+| 實驗八 | [封存彙總重算](experiments/exp8_health_index_aggregate.md) | `src/experiments/health_index_aggregate.py`；來源完整性、54 列重算定義及差異輸出 |
+| 實驗八 | [exp8_health_monitor](experiments/exp8_health_monitor.md) | `src/experiments/health_monitor.py` |
+| 實驗九 | [exp9_autoencoder](experiments/exp9_autoencoder.md) | `src/core/detectors.py`（`MLPAutoencoderDet`，`src/experiments/exp6_osr_benchmark.py` 自動納入） |
+| 實驗十 | [exp10_transfer](experiments/exp10_transfer.md) | `src/experiments/exp10_transfer.py` |
+| 實驗十一 | [exp11_ancestor_comparison](experiments/exp11_ancestor_comparison.md) | `src/experiments/exp11_ancestor_comparison.py` |
+| 實驗十二 | [exp12_confusion_tsne](experiments/exp12_confusion_tsne.md) | `src/experiments/exp12_confusion_tsne.py` |
+| 實驗二十四 | [exp24_experiment_navigation](experiments/exp24_experiment_navigation.md) | `src/experiments/navigation_data_contract.py`、`src/experiments/navigation_regression.py`；獨立 `web.guide` |
 
 給老師的七問整理與示範順序：[exp24 導覽入口](navigation/exp24_README.md)。研究摘要連到固定研究提交，未將未合入主線的方法當成 main 功能。
 
@@ -63,7 +63,7 @@
 | 文件 | 內容 |
 |---|---|
 | [exp8_health_monitoring_workflow](exp8_health_monitoring_workflow.md) | 實驗八資料能力、Health Index、趨勢／告警、矩陣方法、限制與 CLI |
-| [health_and_reports](health_and_reports.md) | `experiments/health/` 各模組、兩套趨勢的差別、CLI輸出位置與封存結果讀法 |
+| [health_and_reports](health_and_reports.md) | `src/experiments/health/` 各模組、兩套趨勢的差別、CLI輸出位置與封存結果讀法 |
 
 ## 論文版管線文件（程式碼在 Ancestor）
 
@@ -81,7 +81,7 @@
 
 | 文件 | 內容 | 對新專案的貢獻 |
 |---|---|---|
-| [Mahalanobis_Improvement](Mahalanobis_Improvement.md) | 歷史深層特徵的 Ledoit–Wolf / OAS / MCD 比較 | `core/mahalanobis.py` 採用收縮估計的背景；不是現行105維跨馬達多類成績 |
+| [Mahalanobis_Improvement](Mahalanobis_Improvement.md) | 歷史深層特徵的 Ledoit–Wolf / OAS / MCD 比較 | `src/core/mahalanobis.py` 採用收縮估計的背景；不是現行105維跨馬達多類成績 |
 | [Model_Choice_Analysis](Model_Choice_Analysis.md) | 45 模型實測：閉集準確率飽和、開集分離度才是關鍵 | 「換模型／調參無益，該動特徵與判定機制」——新專案改用 105 維手工特徵冷啟動的背景 |
 | [OpenSet_Recognition](OpenSet_Recognition.md) | OpenMax、能量分數等五種 OSR 替代方案評估 | 新專案的未來方向清單（README「限制與未來工作」）|
 

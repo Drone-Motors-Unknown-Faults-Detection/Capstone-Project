@@ -172,7 +172,7 @@ def run(
         "health_interpretation": "relative calibration only; no physical damage or RUL claim",
         "unknown_calibration_leakage": False,
         "rul_available": False,
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[1]),
+        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
         "python": platform.python_version(),
         "rows": rows,
     }

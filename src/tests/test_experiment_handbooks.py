@@ -14,7 +14,7 @@ from urllib.parse import unquote, urlsplit
 from tests.issue_delivery_evidence import local_links
 from web.experiments import CATALOG
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs/experiments"
 
 
@@ -99,7 +99,7 @@ def test_exp1_fit_roles_and_legacy_exception_are_explicit():
     for term in ("legacy例外", "train本身", "沒有去重", "stride", "未知召回率",
                  "同馬達、同轉速", "沒有epoch", "macro_detect_rate"):
         assert term in text, term
-    source = ast.parse((ROOT / "experiments/exp1_cold_start.py").read_text(encoding="utf-8"))
+    source = ast.parse((ROOT / "src/experiments/exp1_cold_start.py").read_text(encoding="utf-8"))
     assert {"run", "iter_run", "main"}.issubset(
         {n.name for n in source.body if isinstance(n, ast.FunctionDef)})
 

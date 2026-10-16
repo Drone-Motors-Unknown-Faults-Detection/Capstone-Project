@@ -56,4 +56,4 @@ fpr_at_95_tpr取ROC上TPR≥0.95的最小FPR，是事後評估點，不修改門
 
 LW／馬氏／近鄰見[實驗一](exp1_cold_start.md#方法來源與程式定位)。Chen等（2010），*Shrinkage Algorithms for MMSE Covariance Estimation*，IEEE TSP58,5016–5029，[DOI](https://doi.org/10.1109/TSP.2010.2053029)對應OAS；Rousseeuw與Van Driessen（1999），*A Fast Algorithm for the Minimum Covariance Determinant Estimator*，Technometrics41,212–223，[DOI](https://doi.org/10.1080/00401706.1999.10485670)對應MCD。切分與正規化為Lineage操作約定。
 
-[compare_openset](../../experiments/compare_openset.py)評估與writer；[monitor](../../core/monitor.py)建基準；[openset](../../core/openset.py)共用factory；[web/experiments](../../web/experiments.py)編排；[test_openset](../../tests/test_openset.py)及[test_web_experiments](../../tests/test_web_experiments.py)驗證入口，不證明採集獨立。
+[compare_openset](../../src/experiments/compare_openset.py)評估與writer；[monitor](../../src/core/monitor.py)建基準；[openset](../../src/core/openset.py)共用factory；[web/experiments](../../src/web/experiments.py)編排；[test_openset](../../src/tests/test_openset.py)及[test_web_experiments](../../src/tests/test_web_experiments.py)驗證入口，不證明採集獨立。

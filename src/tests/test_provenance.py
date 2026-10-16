@@ -26,7 +26,7 @@ from experiments import exp6_formal_benchmark as formal
 from tests.test_exp6_benchmark import _fixture
 from tests.test_formal_materialization_safety import stage_source
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 BASELINE = "06189bda0b3e83f620ccd08679fcf4bee935dc0a"
 
 

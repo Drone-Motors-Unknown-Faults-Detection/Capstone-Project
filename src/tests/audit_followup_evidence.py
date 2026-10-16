@@ -13,7 +13,7 @@ from tests.issue_delivery_evidence import SOURCE_FILES, local_links
 
 def run() -> dict:
     logger, paths = setup_run("audit_followup_evidence")
-    root = Path(__file__).resolve().parents[1]
+    root = Path(__file__).resolve().parents[2]
     baseline = "4f783c676849a27185cd28d2410b4e76639b7357"
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=root, text=True).strip()
     sources = []

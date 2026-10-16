@@ -20,7 +20,8 @@ from experiments.exp3_trend import SCENARIOS
 from web.live import LiveDemo
 from web.server import Hub, serve
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
+STATIC = Path(__file__).resolve().parent / "static"
 
 
 class GuideHub(Hub):
@@ -286,7 +287,7 @@ def application(hub):
     return tornado.web.Application([
         (r"/ws", GuideSocket),
         (r"/", tornado.web.RedirectHandler, {"url": "/assets/guide.html"}),
-        (r"/assets/(guide\.(?:html|js|css))", tornado.web.StaticFileHandler, {"path": str(ROOT / "web/static")}),
+        (r"/assets/(guide\.(?:html|js|css))", tornado.web.StaticFileHandler, {"path": str(STATIC)}),
         (r"/docs/(.*)", tornado.web.StaticFileHandler, {"path": str(ROOT / "docs/navigation")}),
     ], guide_hub=hub)
 

@@ -1,6 +1,6 @@
 # 正式 archive 物化操作與安全契約
 
-core/formal_data.py 從既有階段ZIP取得105維特徵：Stage1／3複製clean特徵，Stage2依既有五通道流程轉換。本頁說明用途與拒絕條件，不授權重新覆寫正式資料。
+src/core/formal_data.py 從既有階段ZIP取得105維特徵：Stage1／3複製clean特徵，Stage2依既有五通道流程轉換。本頁說明用途與拒絕條件，不授權重新覆寫正式資料。
 
 ## 入口與結果
 
@@ -37,7 +37,7 @@ Stage2的equal_window_counts_v1要求五通道窗口數、每窗口樣本數皆�
 ## 驗證與歷史
 
 ```bash
-uv run --locked python -m pytest tests/test_formal_materialization_safety.py -q
+uv run --locked python -m pytest src/tests/test_formal_materialization_safety.py -q
 ```
 
 fixture涵蓋惡意路徑、symlink、通道差異、拒絕前零寫入、中斷清理、來源不變與舊版數值等價；缺權限而跳過的案例列未驗證。歷史失敗與修正見 [改寫前固定版本](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/791216cf5602c370091fa516264f1ce6aaad6ab1/docs/formal_materialization_contract.md)，原logs/output保留。

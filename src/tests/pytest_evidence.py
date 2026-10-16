@@ -23,7 +23,7 @@ def summarize(payload: bytes, returncode: int) -> dict:
 
 
 def validate_targets(targets: list[str]) -> None:
-    if not targets or any(not re.fullmatch(r"tests/?|tests/test_[A-Za-z0-9_]+\.py", value) for value in targets):
+    if not targets or any(not re.fullmatch(r"src/tests/?|src/tests/test_[A-Za-z0-9_]+\.py", value) for value in targets):
         raise ValueError("只接受專案 tests 的相對目標，不公開私人路徑")
 
 

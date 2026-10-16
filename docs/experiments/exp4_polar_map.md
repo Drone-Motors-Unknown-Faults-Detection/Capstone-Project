@@ -28,9 +28,9 @@
 
 使用一個馬達／RPM的105維clean特徵。每列意義、非有限值移除、未去重、單位與raw視窗來源限制見[實驗一](exp1_cold_start.md#資料與載入)。T1／T2／T3是不同個體，不能串成生命週期。
 
-[exp4](../../experiments/exp4_polar_map.py)依各部分的known清單建立OpenSetMonitor：healthy先列洗牌60/20/20，再逐一加入known配置並重新fit。seed預設42；RobustScaler只fit當次所有known train；所有known的cal用來校準LW距離。unknown不參與這些fit。顯示PCA不取代105維判定。
+[exp4](../../src/experiments/exp4_polar_map.py)依各部分的known清單建立OpenSetMonitor：healthy先列洗牌60/20/20，再逐一加入known配置並重新fit。seed預設42；RobustScaler只fit當次所有known train；所有known的cal用來校準LW距離。unknown不參與這些fit。顯示PCA不取代105維判定。
 
-[PolarMap](../../core/geometry.py)另建LW馬氏幾何，使用已縮放的healthy train中心及共變異數，把其他known train中心轉成射線。每條射線的方向接受線tau，卻使用該known類別**holdout**餘弦的第5百分位。此holdout已參與方向校準，不能同時宣稱為未碰過的獨立方向測試。此工具沒有epoch、loss或optimizer。
+[PolarMap](../../src/core/geometry.py)另建LW馬氏幾何，使用已縮放的healthy train中心及共變異數，把其他known train中心轉成射線。每條射線的方向接受線tau，卻使用該known類別**holdout**餘弦的第5百分位。此holdout已參與方向校準，不能同時宣稱為未碰過的獨立方向測試。此工具沒有epoch、loss或optimizer。
 
 ## 三部分實際比較什麼
 
@@ -69,6 +69,6 @@ main經setup_run寫logs/exp4_polar_map/{ts}.log與output/exp4_polar_map/{ts}/，
 
 LW與馬氏距離來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)。Spearman（1904），*The Proof and Measurement of Association between Two Things*，American Journal of Psychology15(1),72–101，[DOI](https://doi.org/10.2307/1412159)。健康白化、射線、tau與三種severity組合是Lineage操作方法，不宣稱上述論文提出整個PolarMap。
 
-[exp4](../../experiments/exp4_polar_map.py)負責三部分與writer；[core/geometry](../../core/geometry.py)實作射線；[core/monitor](../../core/monitor.py)供known切分與scaler；[web/experiments](../../web/experiments.py)編排。驗證入口為[test_geometry](../../tests/test_geometry.py)、[test_stream_integration](../../tests/test_stream_integration.py)、[test_web_experiments](../../tests/test_web_experiments.py)。視覺幾何測試不能證明獨立馬達泛化或損壞標定。
+[exp4](../../src/experiments/exp4_polar_map.py)負責三部分與writer；[core/geometry](../../src/core/geometry.py)實作射線；[core/monitor](../../src/core/monitor.py)供known切分與scaler；[web/experiments](../../src/web/experiments.py)編排。驗證入口為[test_geometry](../../src/tests/test_geometry.py)、[test_stream_integration](../../src/tests/test_stream_integration.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)。視覺幾何測試不能證明獨立馬達泛化或損壞標定。
 
 串流停止、錯誤復原與模型有效狀態見[Web 串流生命週期](README.md#web-串流生命週期)及[共用模型生命週期](README.md#共用模型生命週期)。當次串流整合來源與配對證據見[固定交付紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/integration_20261008/integration_report.md)。

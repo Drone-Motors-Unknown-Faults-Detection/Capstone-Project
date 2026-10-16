@@ -17,7 +17,7 @@ from core.feature_schema import SCHEMAS
 from core.logger import setup_run
 
 BASELINE = "22a253b14eb5df14058800f5a086bf4d7afeae58"
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def baseline_module():

@@ -13,7 +13,7 @@ from pathlib import Path
 
 from core.logger import setup_run
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def main():
@@ -34,7 +34,7 @@ def main():
                        "tests_run": int(match.group(1)) if match else None, "output": f"check_{index}.txt"})
         logger.info(f"檢查 {index}：exit={result.returncode}，測試數={checks[-1]['tests_run']}")
     sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
-    files = ("experiments/health_index_aggregate.py", "tests/test_health_index_aggregate.py", "tests/exp8_aggregate_validation.py")
+    files = ("src/experiments/health_index_aggregate.py", "src/tests/test_health_index_aggregate.py", "src/tests/exp8_aggregate_validation.py")
     summary = {"scope": args.scope, "python": platform.python_version(), "commit_sha": sha,
                "source_sha256": {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in files},
                "checks": checks, "all_passed": all(item["exit_code"] == 0 for item in checks)}

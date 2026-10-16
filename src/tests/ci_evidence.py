@@ -19,7 +19,7 @@ from core.logger import setup_run
 from core.runtime_environment import collect_environment
 from tests.issue_delivery_evidence import local_links
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 CLIS = ("experiments.exp1_cold_start", "experiments.exp2_scale_growth",
         "experiments.exp3_trend", "experiments.exp4_polar_map",
         "experiments.compare_openset", "experiments.exp6_formal_benchmark", "web.server")

@@ -22,7 +22,7 @@ from core.feature_schema import (SCHEMAS, CONFIGURATIONS, FeatureSchemaError,
 from core.formal_data import FEATURE_NAMES
 from experiments.exp6_formal_benchmark import run as formal_run
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 
 
 def write(root, config="8screws", *, header=None, rows=None, suffix="fixture"):
@@ -43,7 +43,7 @@ class FeatureSchemaTests(unittest.TestCase):
         spec = json.loads((ROOT / "docs/formal_feature_schema.json").read_text(encoding="utf-8"))
         self.assertEqual({k: list(v) for k, v in SCHEMAS.items()}, spec["schemas"])
         self.assertEqual(list(SCHEMAS["adapter_generated_v1"]), FEATURE_NAMES)
-        self.assertEqual(spec["runtime_source"], "core/feature_schema.py:SCHEMAS")
+        self.assertEqual(spec["runtime_source"], "src/core/feature_schema.py:SCHEMAS")
         self.assertEqual(spec["operation_manual"], "docs/formal_feature_schema_contract.md")
 
     def test_both_exact_versions_bom_numeric_values_and_split_unchanged(self):

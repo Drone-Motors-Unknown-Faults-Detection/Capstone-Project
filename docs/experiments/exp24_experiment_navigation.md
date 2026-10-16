@@ -74,6 +74,6 @@ score是無因次偏離，學會前拒絕率與學會後接受率分開；接受
 
 方法文獻沿[實驗一](exp1_cold_start.md#方法來源與程式定位)、[二](exp2_scale_growth.md)、[三](exp3_trend.md)。匿名介面、SHA契約與配對是Lineage工程約定，源研究快照[b3d68f1](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/b3d68f145cfa187e208e38cae74bf33f68d7c367)，不是新演算法。
 
-[web/guide](../../web/guide.py)管理狀態與遮蔽，[guide.html](../../web/static/guide.html)／[guide.js](../../web/static/guide.js)呈現；[web/live](../../web/live.py)共用演算；[data_contract](../../experiments/navigation_data_contract.py)寫來源；[regression](../../experiments/navigation_regression.py)寫配對；[test_navigation_guide](../../tests/test_navigation_guide.py)、[test_integration_navigation](../../tests/test_integration_navigation.py)核對工程行為。沒有實際瀏覽器操作證據時，HTTP／fixture測試不冒稱完整視覺驗收。
+[web/guide](../../src/web/guide.py)管理狀態與遮蔽，[guide.html](../../src/web/static/guide.html)／[guide.js](../../src/web/static/guide.js)呈現；[web/live](../../src/web/live.py)共用演算；[data_contract](../../src/experiments/navigation_data_contract.py)寫來源；[regression](../../src/experiments/navigation_regression.py)寫配對；[test_navigation_guide](../../src/tests/test_navigation_guide.py)、[test_integration_navigation](../../src/tests/test_integration_navigation.py)核對工程行為。沒有實際瀏覽器操作證據時，HTTP／fixture測試不冒稱完整視覺驗收。
 
 導覽的整合來源與檔案位置見[整合索引](../../reports/Andy_20261008_分支整合/manifest.json)，單次交付附件放在 reports/，不放進 output/。

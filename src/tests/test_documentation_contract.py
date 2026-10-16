@@ -11,7 +11,7 @@ from tornado.testing import AsyncHTTPTestCase
 from tests.issue_delivery_evidence import local_links
 
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTS = ("docs/README.md", "docs/ci_contract.md", "docs/runtime_policy.md",
              "docs/formal_materialization_contract.md", "docs/health_and_reports.md",
              "docs/navigation/exp24_README.md")
@@ -75,7 +75,7 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertTrue(all(len(line.strip("|").split("|")) == 8 for line in rows))
         self.assertIn("| 實驗名稱 |", rows[0])
         self.assertIn('fetch("/docs/exp24_實驗總覽.md")',
-                      (ROOT / "web/static/guide.js").read_text(encoding="utf-8"))
+                      (ROOT / "src/web/static/guide.js").read_text(encoding="utf-8"))
 
     def test_report_attachments_and_readers_resolve(self):
         from tests.ci_evidence import DOCUMENTS as ci_documents
@@ -98,7 +98,7 @@ class DocumentationContractTests(unittest.TestCase):
             actual = {path.name for path in (ROOT / directory).glob("*.md")} & summary_names
             self.assertEqual(actual, {name})
         for name in ("ci_evidence.py", "project_closeout_evidence.py", "audit_followup_evidence.py"):
-            text = (ROOT / "tests" / name).read_text(encoding="utf-8")
+            text = (ROOT / "src/tests" / name).read_text(encoding="utf-8")
             self.assertNotIn("/runtime_delivery.md", text)
             self.assertNotIn("/audit_followups.md", text)
             self.assertNotIn('主線交付/issues', text)
@@ -128,7 +128,7 @@ class DocumentationContractTests(unittest.TestCase):
         runtime = (ROOT / "docs/runtime_policy.md").read_text(encoding="utf-8")
         self.assertIn("uv sync", runtime)
         self.assertIn("uv.lock", runtime)
-        self.assertIn("-m pytest tests", runtime)
+        self.assertIn("-m pytest src/tests", runtime)
         ci = (ROOT / "docs/ci_contract.md").read_text(encoding="utf-8")
         self.assertIn("./scripts/quantity/run_ruff.sh", ci)
         self.assertIn("./scripts/quantity/run_pytest.sh", ci)

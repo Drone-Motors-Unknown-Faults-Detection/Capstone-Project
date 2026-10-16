@@ -31,8 +31,8 @@ class OutputInventoryTests(unittest.TestCase):
     def test_writer_unknown_and_screenshot_separate(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            (root / "tests").mkdir()
-            (root / "tests/example.py").write_text('def run():\n    target.write_text("results.json")\n', encoding="utf-8")
+            (root / "src/tests").mkdir(parents=True)
+            (root / "src/tests/example.py").write_text('def run():\n    target.write_text("results.json")\n', encoding="utf-8")
             for name in ("example/run/results.json", "example/run/manual.md", "integration_browser/guide_trend_a.png",
                          "integration_browser/run/image.png", ".gitkeep"):
                 path = root / "output" / name
