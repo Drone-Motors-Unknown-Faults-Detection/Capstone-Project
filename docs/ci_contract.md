@@ -26,4 +26,4 @@ Actions 成功或失敗都上傳白名單 public_summary.json，保存14天。ar
 
 現行 CI 只有 Ubuntu，不含 Windows／macOS；Windows 安裝入口仍保留，需另附實機測試。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 任意 Origin 測試描述既有不安全行為，缺口仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤。
 
-預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。歷史紅燈／綠燈與整合紀錄見 [改寫前固定版本](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/791216cf5602c370091fa516264f1ce6aaad6ab1/docs/ci_contract.md)，相關 logs/output 保留。
+預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。歷史紅燈／綠燈與整合紀錄見 [CI 驗證紀錄](../reports/Andy_20261009_CI驗證紀錄/ci_contract.md)，可對照 [搬遷前固定版本](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/791216cf5602c370091fa516264f1ce6aaad6ab1/docs/ci_contract.md)，相關 logs/output 保留。

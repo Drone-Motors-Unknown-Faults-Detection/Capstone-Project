@@ -38,4 +38,4 @@ uv pip check --python .venv310/Scripts/python.exe
 
 版本變更須另驗依賴、完整 pytest、ruff、CLI 與數值回歸後交付 PR，不原地升級研究環境。現行 [CI](ci_contract.md) 僅跑 Ubuntu，不能由其成功宣稱 Windows／macOS 全部已驗證；skip 須分開回報。安裝成功也不證明資料獨立或模型可靠。
 
-安裝失敗、版本決策與當時實測見 [固定版本紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/runtime_policy.md)。歷史結果不能代替當前環境的檢查。
+安裝失敗、版本決策與當時實測見 [環境驗證紀錄](../reports/Andy_20261009_環境驗證紀錄/runtime_policy.md)，可對照 [搬遷前固定版本](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/runtime_policy.md)。歷史結果不能代替當前環境的檢查。
