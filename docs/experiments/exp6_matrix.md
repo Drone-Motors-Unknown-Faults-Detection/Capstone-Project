@@ -18,7 +18,7 @@
 口頭主軸：「先固定工況、方法與seed清單，把每格的來源和狀態保存，讓失敗可追查。54格全部完成只代表工程coverage；是否好用要看未知召回、健康誤報與來源獨立性。」
 
 - 六個方法／seed執行是否等於六顆馬達？不是，資料重用。
-- resume是否驗完所有來源？沒有，現行快取防護有限，見下方逐項契約。
+- resume是否驗完所有來源？它逐格核對三個必備檔、身分與資料指紋，見下方「完成判定契約」；仍不證明原始錄製獨立。
 - 六工況能否關完整九工況驗收？不能，必須列缺T2三轉速。
 - 組員請分開講run鍵、資料列與獨立採集；歷史分數只查固定輸出，不把排程完成當研究通過。
 
@@ -41,11 +41,23 @@ uv run --locked python -m experiments.exp6_matrix --data-root data/formal_local 
 
 manual_run_001只是範例，已存在就換新名稱，不能覆寫封存。API實際為run_matrix(data_root,output_root,seeds=(42,123,2026),methods=("mahalanobis","knn"),resume=True)，沒有獨立run(pools)介面或Web重跑按鈕。網頁只能讀既有結果。
 
-同命令、同根再跑預設resume：_is_complete查summary狀態、方法、seed、單列motor／rpm及資料fingerprint，通過就跳過。**不驗證results.csv、run.log、模型、全部指標或CSV內容SHA**，也沒有完整參數lock；不能把resumed視為整包證據已驗證。--no-resume會重算並覆寫同run目錄，不用在封存上。缺九工況或非法方法在開跑前拒絕；個別run失敗保存error並繼續，最後退出碼2，不把失敗靜默刪除。
+同命令、同根再跑預設resume：`_is_complete`依下方契約核對該格，全部通過才跳過，並把summary裡的fingerprint、commit與相對路徑補回manifest；任何一項不符就重算該格。它不重新fit，也不比對模型參數。--no-resume會重算並覆寫同run目錄，不用在封存上。
+
+### 完成判定契約
+
+唯一鍵：`run_id = {motor}_{rpm}_seed{seed}_{method}`，目錄固定為`runs/{run_id}/`；manifest裡的路徑一律用`/`分隔，舊封存的`\`路徑讀取時換成`/`。一格算completed要同時滿足：
+
+| 必備產物 | 要求 |
+|---|---|
+| `summary.json` | status=completed；method、seed與鍵相同；恰一列、該列status=completed且motor／rpm／method／seed與鍵相同；有dataset_fingerprint，且等於本次資料指紋（續跑）或manifest該格記錄（彙總） |
+| `results.csv` | 恰一列；dataset、motor、rpm、seed、method、status與八個指標和summary那一列相同 |
+| `run.log` | 有`status=completed`；condition、seed、method三行與鍵相同 |
+
+[`validate_run`](../../experiments/exp6_matrix.py)把每項不符寫成一條原因（例如`results.csv auroc: summary=0.91 csv=0.92`），`_is_complete`就是「原因清單為空」；[彙總](exp6_aggregate.md)用同一個函數。缺九工況或非法方法在開跑前拒絕；個別run失敗保存error並繼續，最後退出碼2，不把失敗靜默刪除。
 
 ## 輸出怎麼看
 
-此模組自己的_atomic_json／_write_run_csv寫output-root，**尚未呼叫setup_run**，也沒有標準logs/exp6_matrix/{ts}.log；這是與AGENT慣例的缺口，不補寫不存在的日誌。
+main經`setup_run("exp6_formal_matrix", make_output=False)`寫`logs/exp6_formal_matrix/{ts}.log`（含執行環境與每格狀態）；結果仍由_atomic_json／_write_run_csv寫output-root，讓同一根可以續跑。
 
 - matrix_manifest.json：預期清單、每格狀態、耗時、摘要相對路徑；開始時會重寫manifest。
 - runs/{run_id}/summary.json：正式benchmark設定、fingerprint、單目標工況列。
@@ -56,4 +68,4 @@ completed只表示本工具54格完成，unknown召回／健康接受等解釋�
 
 ## 方法來源與程式碼
 
-統計方法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)，run_id、54格與resume為Lineage操作約定。[exp6_matrix](../../experiments/exp6_matrix.py)負責排程與writer；[benchmark](../../experiments/exp6_formal_benchmark.py)負責fit／校準／指標；[test_exp6_matrix](../../tests/test_exp6_matrix.py)檢查矩陣與續跑。[web/experiments](../../web/experiments.py)的唯讀結果入口不會啟動此工具。
+統計方法文獻見[正式benchmark](exp6_formal_benchmark.md#方法來源與程式碼)，run_id、54格與resume為Lineage操作約定。[exp6_matrix](../../experiments/exp6_matrix.py)負責排程與writer；[benchmark](../../experiments/exp6_formal_benchmark.py)負責fit／校準／指標；[test_exp6_matrix](../../tests/test_exp6_matrix.py)用fixture檢查完成判定的每條拒絕原因與續跑。[web/experiments](../../web/experiments.py)的唯讀結果入口不會啟動此工具。
