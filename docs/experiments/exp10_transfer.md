@@ -1,5 +1,29 @@
 # 實驗十：少量目標健康資料能不能幫助跨工況
 
+## 資料角色用量表
+
+流程：source健康基準 → target抽健康support → 平移或重新建基準 → 剩餘target健康與全部fault評估。shift只搬中心；沒有重新學跨域共變異數，也沒有深度遷移。
+
+| 資料角色 | source T1／8000rpm → target T3／8000rpm，N=25 | 有效數量 | 比例與分母 | 用途 | 重疊 |
+|---|---|---:|---|---|---|
+| source train／cal | source健康313列 | 187／62 | 各除以313 | 原模型／原門檻 | 不用target fault |
+| target support | target健康272列 | 25 | 25/272=9.19% | adapted算median shift | 與同N target eval互斥 |
+| scratch內切 | 上述25列 | 15 train／5 cal／5不用 | 各除以25 | 從零fit／門檻 | 5列support holdout未評估 |
+| adapted／scratch健康test | target剩餘健康 | 247 | 247/272=90.81% | 同N同pair比較 | 兩策略刻意共用 |
+| direct健康test | target完整健康 | 272 | 272/272 | N=0直接搬用 | 包含上述support，不與另兩策略逐筆相同 |
+| unknown test | target全部fault | 2953 | 故障池100% | 各策略拒絕／排序 | 各策略重用 |
+
+數量依[唯讀用量](README.md#資料用量與分母怎麼讀)，未新fit；N=10/50等另存`transfer_support`。六工況有30個有向配對，不是九工況72對。無validation選N或shift；不同N的support不是巢狀子集。
+
+## 發表與理解檢查
+
+口頭主軸：「用少量已知健康的target資料估中心偏移，再比較保留source模型與從零建立。相同N的adapted和scratch可配對，direct用了完整健康池，不能把所有差值都歸因於遷移。」`shift=median(target support)−median(source train)`，對target減shift再送source模型；此公式是Lineage約定，不是完整CORAL。
+
+- 為什麼要保留target健康不參與support？否則會用適應過的資料評自己。
+- 平移能修好所有域差異嗎？不能，形狀／相關性變化沒有被對齊。
+- 30個配對是否30個獨立馬達？只有本機兩個馬達、各三RPM，重複評估不是新個體。
+- 組員請先指出source、support與eval，再談結果，並主動說明direct不完全配對。
+
 來源工況的健康基準可能不適合另一馬達或RPM。本實驗比較直接搬用、以少量目標健康資料平移、只用這些資料重新建基準；它沒有更新正式預設，也沒有神經網路遷移訓練。
 
 ## 資料與配對順序
