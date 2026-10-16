@@ -1,6 +1,6 @@
-# 內容SHA與portable／private來源契約
+# 內容SHA與portable／private來源規則
 
-給維護資料匯入與正式實驗入口的組員：本頁說明 `src/core/provenance.py` 如何辨識內容、驗證 manifest，以及哪些資訊留在本機。正式欄位檢查見[載入契約](formal_feature_schema_contract.md)，模型與切分見[實驗六手冊](experiments/exp6_formal_benchmark.md)。原交付與失敗紀錄另存[固定版本證據](../reports/Andy_20261009_正式入口來源/交付紀錄.md)，不在本頁維護單次測試數。
+給維護資料匯入與正式實驗入口的組員：本頁說明 `src/core/provenance.py` 如何辨識內容、驗證 manifest，以及哪些資訊留在本機。正式欄位檢查見[載入規則](formal_feature_schema_contract.md)，模型與切分見[實驗六手冊](experiments/exp6_formal_benchmark.md)。
 
 ## 版本與雜湊規則
 
@@ -16,7 +16,7 @@
 
 ## 入口與支援範圍
 
-支援 `core.provenance.run/main`、`core.formal_data.run/main` 與 `experiments.exp6_formal_benchmark.run/main`。其他記憶體pools API、多數runner與統一resolved設定不由本契約保證；缺口見 [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46) 與 [#47](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/47)。
+支援 `core.provenance.run/main`、`core.formal_data.run/main` 與 `experiments.exp6_formal_benchmark.run/main`。其他記憶體pools API、多數runner與統一resolved設定不由本規則保證；缺口見 [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46) 與 [#47](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/47)。
 
 ```bash
 uv run --locked python -m core.provenance --data-root data/formal_local
@@ -28,7 +28,7 @@ uv run --locked --extra test python -m pytest src/tests/test_provenance.py
 ## 預期成果與驗證
 
 fixture涵蓋同stat不同bytes、同內容副本、不同root、無manifest、legacy讀取、損壞／不符manifest、private不進Git公開清冊、來源讀取失敗及無Git。預期同stat異bytes能區分、相同相對ID與內容的副本指紋一致、錯manifest拒絕，來源紀錄不改fixture的score／threshold／classify。實際平台支援與跳過案例以當次受測SHA及測試紀錄為準。
-入口遵循run/main、setup_run及logs/output，工程契約不占exp9–12。
+入口遵循run/main、setup_run及logs/output，工程規則不占exp9–12。
 
 `setup_run(..., unique=True)` 同秒採 `_001` 等尾碼並以exclusive建立保留，避免來源紀錄覆寫；既有呼叫預設不變，不保證所有runner無碰撞。這項只影響新run的產物ID，不消耗模型rng。formal summary版本3，dataset_root固定 `formal_features` ID，真實解析根只留sidecar。
 傳入參數與有效config一併記錄，不代表統一resolved設定schema已完成。standalone `materialize()` 回傳portable v3 manifest；只有 `core.formal_data.run/main` 額外保存本機sidecar，直接API呼叫者需自行保留其來源根。private sidecar失敗會使run失敗，但已物化的檔案可能保留，沿用非整批交易限制。

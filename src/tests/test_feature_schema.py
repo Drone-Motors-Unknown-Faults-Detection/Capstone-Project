@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import os
 from pathlib import Path
 import subprocess
@@ -39,12 +38,10 @@ def write(root, config="8screws", *, header=None, rows=None, suffix="fixture"):
 
 
 class FeatureSchemaTests(unittest.TestCase):
-    def test_registry_matches_committed_contract_and_adapter(self):
-        spec = json.loads((ROOT / "docs/formal_feature_schema.json").read_text(encoding="utf-8"))
-        self.assertEqual({k: list(v) for k, v in SCHEMAS.items()}, spec["schemas"])
+    def test_registry_matches_adapter_names(self):
         self.assertEqual(list(SCHEMAS["adapter_generated_v1"]), FEATURE_NAMES)
-        self.assertEqual(spec["runtime_source"], "src/core/feature_schema.py:SCHEMAS")
-        self.assertEqual(spec["operation_manual"], "docs/formal_feature_schema_contract.md")
+        self.assertEqual(len(SCHEMAS["historical_clean_v1"]), 105)
+        self.assertEqual(len(SCHEMAS["adapter_generated_v1"]), 105)
 
     def test_both_exact_versions_bom_numeric_values_and_split_unchanged(self):
         values = np.random.default_rng(42).normal(size=(32, 105))

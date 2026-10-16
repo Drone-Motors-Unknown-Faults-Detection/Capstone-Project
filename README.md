@@ -271,19 +271,19 @@ accuracy 差異 < 0.00001。
 第 10／95 百分位映成 0～1 的相對健康指數，再分四段嚴重度、逐 session 追蹤趨勢告警。
 
 ```bash
-venv/bin/python -m experiments.health_index_matrix --data-root data/formal_local --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
+uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
 ```
 
-9 工況 × 3 seed × 2 方法：known−unknown 健康差距 0.583（Mahalanobis）／0.602（k-NN），
+9 工況 × 3 seed × 2 方法的封存摘要：known−unknown 健康差距 0.583（Mahalanobis）／0.602（k-NN），
 AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出輕重。現有資料沒有馬達
 編號、時間戳與真實損傷標記，不能把它當成損壞百分比或 RUL。結果在
-`reports/exp8_health_index_results/`，總覽見
-[docs/exp8_health_monitoring_workflow.md](docs/exp8_health_monitoring_workflow.md)。
+`reports/exp8_health_index_results/`，操作見
+[docs/experiments/exp8_health.md](docs/experiments/exp8_health.md)。
 
-### 實驗說明手冊
+### 實驗說明
 
-八個實驗的設計理念、方法、預期與結果的**小白友善版**完整說明：
-[docs/Experiments_Guide.md](docs/Experiments_Guide.md)。
+名詞、畫面與各實驗在問什麼：
+[docs/experiments/README.md](docs/experiments/README.md)。
 
 ---
 
@@ -393,7 +393,7 @@ Lineage/
 │   ├── compare_openset.py       #   實驗七：單工況相同 split 比較 Mahalanobis 與 k-NN
 │   ├── health_index_*.py        #   實驗八：健康指數 benchmark／matrix
 │   ├── health_monitor.py        #   實驗八：健康監測 CLI
-│   └── health/                  #   實驗八的套件：健康指數、校準、嚴重度、趨勢/告警、軌跡、診斷（見 docs/health_and_reports.md）
+│   └── health/                  #   實驗八的套件：健康指數、校準、嚴重度、趨勢/告警、軌跡、診斷（見 docs/experiments/exp8_health.md）
 ├── reports/                     # 實驗八結果 exp8_health_index_results/（health_index_matrix 寫入）
 ├── tests/                       # unittest（venv/bin/python -m unittest discover -s tests -t .）
 ├── web/                         # 即時展示與實驗頁（只做編排與視覺化，不含實驗邏輯）
@@ -419,7 +419,7 @@ Lineage/
 ./scripts/opt/build_uv.sh --legacy --venv venv-legacy     # legacy extras 未完整鎖版，非正式驗證環境
 ```
 
-正式範圍、更新流程與未完成的 health CLI 覆蓋見 [執行環境契約](docs/runtime_policy.md)。3.14 歷史研究不代表本輪 main 安裝相容。
+正式範圍、更新流程與未完成的 health CLI 覆蓋見 [執行環境規則](docs/runtime_policy.md)。3.14 歷史研究不代表本輪 main 安裝相容。
 
 所有指令都在**專案根目錄**執行，直接用 `venv/bin/python`，不需 activate：
 

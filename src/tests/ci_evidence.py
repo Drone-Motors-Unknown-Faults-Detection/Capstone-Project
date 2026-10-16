@@ -23,7 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CLIS = ("experiments.exp1_cold_start", "experiments.exp2_scale_growth",
         "experiments.exp3_trend", "experiments.exp4_polar_map",
         "experiments.compare_openset", "experiments.exp6_formal_benchmark", "web.server")
-DOCUMENTS = ("TODO.md", "docs/README.md", "docs/health_and_reports.md",
+DOCUMENTS = ("TODO.md", "docs/README.md", "docs/experiments/exp8_health.md",
              "docs/runtime_policy.md", "docs/ci_contract.md",
              "reports/Andy_20261009_主線交付/README.md",
              "reports/Andy_20261009_主線交付/execution_log.md",

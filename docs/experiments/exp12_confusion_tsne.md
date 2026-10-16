@@ -57,7 +57,7 @@ main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_t
 
 混淆矩陣行是真值、列是預測。healthy→fault是健康誤報；fault→healthy是漏報；known→unknown是過度拒絕；unknown→known是未拒絕。要算每類recall須除該行總數，空行為不適用，不假填100%。全域筆數不能當各motor等權平均。
 
-預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。完整舊數字與圖查[固定實測包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp12_confusion_tsne/2026-10-09-14-27-55)，不人工另抄完整表。
+預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [exp12 輸出](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp12_confusion_tsne/2026-10-09-14-27-55)。
 
 ## 方法來源與程式碼
 

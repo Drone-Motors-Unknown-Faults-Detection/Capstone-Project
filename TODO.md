@@ -76,12 +76,12 @@
   - 2026-10-03接續：Q 60格／576,144筆重推論與配對報告完成，六完整方法均未通過可靠性門檻；原12格INCOMPLETE保留。
   - train-only solver診斷27fits：hard150 3/9、smooth150 5/9、hard600 9/9收斂；27loss/gradient重算及原Q三成功weights exact。兩Python各396tests/37CLI/pip check PASS。
   - [x] hard600 subset/all-train k-NN outer 已實際執行 E02/E04 並封存；seed0 三 motor 等權 fault accuracy 分別下降 3.507／3.655 個百分點，T1 unknown recall 仍為 0%。[固定收尾證據](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/e7ee971d2ed41d5ce80e3a56f912eb4dc1c038dc/reports/issue_delivery_20261005/hard600_closeout.md)。
-  - 原 Q／solver 結果保留：[Q報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/8bd6d14042e61a40548e37e989a1f2db2d7a4fbb/reports/continuous_research/final_findings.md)、[solver報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/8bd6d14042e61a40548e37e989a1f2db2d7a4fbb/reports/continuous_research/solver_findings.md)。#22 已因有限研究交付關閉；沒有通過可靠性契約，不關閉 #9，不整批合併研究分支。
+  - 原 Q／solver 結果保留：[Q報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/8bd6d14042e61a40548e37e989a1f2db2d7a4fbb/reports/continuous_research/final_findings.md)、[solver報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/8bd6d14042e61a40548e37e989a1f2db2d7a4fbb/reports/continuous_research/solver_findings.md)。#22 已因有限研究交付關閉；沒有通過可靠性規則，不關閉 #9，不整批合併研究分支。
 
 ## 6. 文件：`src/experiments/health/` 與 `reports/`
 
 - [x] [#21](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/21) 釐清 health 與 reports 內容
-  - [x] `docs/health_and_reports.md`：`src/experiments/health/` 各模組與呼叫端、`src/core/trend.py` 與 `src/experiments/health/trajectory.py` 兩套趨勢邏輯的差別、`reports/` 各子目錄的來源與現況
+  - [x] `docs/experiments/exp8_health.md`：`src/experiments/health/` 各模組與呼叫端、`src/core/trend.py` 與 `src/experiments/health/trajectory.py` 兩套趨勢邏輯的差別、`reports/` 各子目錄的來源與現況
   - [x] 更新 `docs/README.md`、`README.md`、`AGENT.md` 目錄說明
   - [x] 2026-10-03 `health/` 搬到 `src/experiments/health/`；`reports/` 只保留 `exp8_health_index_results/`，稽核紀錄刪除（可從 commit `80bdf54` 取回）
   - 文件記下的不一致已另開 issue：[#24](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/24) health CLI 未走 `setup_run`、[#25](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/25) 健康指數彙總檔沒有產生程式、[#26](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/26)–[#29](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/29) 抽查仍成立的稽核發現、[#30](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/30) 重驗其餘 17 項。
