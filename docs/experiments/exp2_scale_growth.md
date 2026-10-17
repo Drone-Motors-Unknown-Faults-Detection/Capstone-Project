@@ -53,7 +53,7 @@ uv run --locked python -m experiments.exp2_scale_growth --data-root data --seque
 
 `run(pools, sequence=None, seed=42, max_ticks_per_stage=600)`回傳dict、不自行存檔；`ScaleGrowthSession(pools)`供逐筆process／confirm。共用CLI支援confidence0.95、method預設ledoit_wolf；密度階梯與隔離線須用API，CLI未暴露。
 
-Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「實驗二」卡選資料集／方法／seed，按「▶ 執行」會跑整個自動確認劇本，沒有邊跑邊畫或人工停住候選的操作。要人工確認，切「即時展示」，開始播放、選故障來源，等候選卡出現再按確認；暫停與重設是session操作。兩入口不是同一操作流程，畫面預先模擬truth不能算實體診斷。
+Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「實驗二」卡選資料集／方法／seed，按「▶ 執行」會跑整個自動確認劇本。「⏵ 邊跑邊畫」依序自動注入各配置並逐筆畫分數，候選出現時停住，按確認才納入並繼續；「■ 停止」取消後續串流。首頁即時展示仍是另一個持續 session，來源要手動選或走實驗三的劇本，確認也在那一頁。兩入口不是同一操作流程，畫面預先模擬truth不能算實體診斷。
 
 缺配置時核對實際資料夾名（1screw／1screws可能不同），不要自行猜名稱。沒有candidate時confirm會RuntimeError。重擬合失敗沒有原子回滾：停止使用、重建健康基準，不以舊scaler與新模型混用。每次CLI建立時間戳目錄，勿同秒並行；沒有此實驗續跑旗標。
 

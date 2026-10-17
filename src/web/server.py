@@ -13,6 +13,7 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
     GET  /api/experiments               實驗目錄、資料集、配置清單
     POST /api/experiments/{id}/run      以 JSON 參數執行一次，回傳結果並存檔
     GET  /api/experiments/{id}/stream   邊跑邊畫（Server-Sent Events）：?params=<JSON>&rate=<筆/秒>
+    POST /api/experiments/exp2/confirm  實驗二逐筆播放遇到候選時放行確認
     GET  /api/committed/{name}          已提交的矩陣結果（唯讀）
 """
 
@@ -232,6 +233,10 @@ class StreamHandler(tornado.web.RequestHandler):
 
     def on_connection_close(self) -> None:
         self.closed = True
+        runner = getattr(JOBS, "runner", None) if JOBS is not None else None
+        gate = getattr(runner, "pending_confirm", None) if runner is not None else None
+        if gate is not None:
+            gate.release("stop")
 
     async def send(self, frame: dict) -> None:
         self.write(f"data: {json.dumps(frame, ensure_ascii=False, allow_nan=False)}\n\n")
@@ -291,6 +296,18 @@ class StreamHandler(tornado.web.RequestHandler):
                 logger.exception("串流產生器關閉失敗；仍釋放執行鎖")
             finally:
                 JOBS.current = None
+
+
+class Exp2ConfirmHandler(_JSONHandler):
+    """放行實驗二邊跑邊畫停住的候選。沒有待確認候選時拒絕。"""
+
+    def post(self) -> None:
+        gate = getattr(JOBS.runner, "pending_confirm", None) if JOBS is not None else None
+        if gate is None or not gate.waiting:
+            self.reply({"error": "目前沒有待確認的實驗二候選"}, 409)
+            return
+        gate.release("confirm")
+        self.reply({"ok": True})
 
 
 class CommittedHandler(_JSONHandler):
@@ -463,6 +480,7 @@ def main() -> None:
         (r"/ws", WSHandler),
         (r"/api/experiments", CatalogHandler),
         (r"/api/experiments/([a-z0-9_]+)/run", RunHandler),
+        (r"/api/experiments/exp2/confirm", Exp2ConfirmHandler),
         (r"/api/experiments/([a-z0-9_]+)/stream", StreamHandler),
         (r"/api/committed/([a-z0-9_]+)", CommittedHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": str(STATIC_DIR)}),

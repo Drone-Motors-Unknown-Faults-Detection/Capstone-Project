@@ -73,9 +73,56 @@ class PairedStreamTests(unittest.TestCase):
 
     def test_catalog_streams_health_monitor_after_issue_35(self):
         self.assertEqual({e["id"] for e in CATALOG if e.get("stream")},
-                         {"exp1", "exp3", "exp4", "exp8_monitor"})
+                         {"exp1", "exp2", "exp3", "exp4", "exp8_monitor"})
         with self.assertRaises(ValueError):
             list(ExperimentRunner([], "unused").stream("exp5", {}))
+
+    def test_exp2_playback_learns_only_after_confirm(self):
+        from experiments.exp2_scale_growth import ScaleGrowthSession, iter_playback
+
+        original = ScaleGrowthSession.process
+
+        def process(session, sample, truth):
+            out = original(session, sample, truth)
+            session.candidate = {
+                "indices": [], "size": 1, "majority": truth, "majority_display": truth,
+                "purity": 1.0, "t_range": [1, 1], "is_known": truth in session.monitor.known,
+                "cluster_params": [25, 3],
+            }
+            return out
+
+        with patch.object(ScaleGrowthSession, "process", process):
+            stopped = list(iter_playback(
+                self.data, sequence=["7screws"], seed=42, max_ticks_per_stage=2,
+                wait_confirm=lambda: "stop",
+            ))
+            learned = list(iter_playback(
+                self.data, sequence=["7screws"], seed=42, max_ticks_per_stage=2,
+                wait_confirm=lambda: "confirm",
+            ))
+        self.assertEqual(stopped[-1]["event"], "stopped")
+        self.assertNotIn("result", [event["event"] for event in stopped])
+        self.assertEqual(learned[-1]["event"], "result")
+        self.assertEqual(learned[-1]["result"]["final_known"], ["8screws", "7screws"])
+        self.assertEqual(learned[-1]["result"]["stages"][0]["samples_to_candidate"], 1)
+
+    def test_exp3_page_can_stream_one_scenario(self):
+        from experiments.exp3_trend import iter_run, run
+
+        events = list(iter_run(self.data, seed=42, n_trials=1, scenarios=("A",)))
+        self.assertEqual([event["trial"]["scenario"] for event in events if event["event"] == "trial"], ["A"])
+        self.assertEqual(set(run(self.data, seed=42, n_trials=1)["summary"]), {"A", "B"})
+        runner = ExperimentRunner(
+            [{"motor": "T1", "rpm": "8000rpm", "path": "unused"}], "unused",
+        )
+        with patch.object(runner, "_pools", return_value=self.data):
+            frames = [frame for frame, _units in runner.stream("exp3", {
+                "dataset": "T1/8000rpm", "seed": 42, "n_trials": 1,
+                "openset_method": "mahalanobis", "scenario": "B",
+            })]
+        self.assertEqual([frame["trial"]["scenario"] for frame in frames if frame["event"] == "trial"], ["B"])
+        with self.assertRaisesRegex(ValueError, "scenario"):
+            list(runner.stream("exp3", {"scenario": "C"}))
 
     def test_localhost_option_is_explicit_and_original_default_retained(self):
         source = (ROOT / "src/web/server.py").read_text(encoding="utf-8")
@@ -128,6 +175,7 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         return tornado.web.Application([
             (r"/stream/([a-z0-9_]+)", server.StreamHandler),
             (r"/run/([a-z0-9_]+)", server.RunHandler),
+            (r"/api/experiments/exp2/confirm", server.Exp2ConfirmHandler),
         ])
 
     def tearDown(self):
@@ -137,6 +185,10 @@ class StreamHTTPTests(AsyncHTTPTestCase):
 
     def frames(self, response):
         return [json.loads(line[6:]) for line in response.body.decode().splitlines() if line.startswith("data: ")]
+
+    def test_confirm_without_candidate_is_rejected(self):
+        response = self.fetch("/api/experiments/exp2/confirm", method="POST", body=b"")
+        self.assertEqual(response.code, 409)
 
     def test_done_releases_shared_lock(self):
         response = self.fetch("/stream/exp1")

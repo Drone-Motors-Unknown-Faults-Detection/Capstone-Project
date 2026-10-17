@@ -7,7 +7,7 @@ from web.experiments import CATALOG
 
 def test_catalog_matches_method_registry_and_roles():
     by_id = {entry["id"]: entry for entry in CATALOG}
-    assert len(by_id) == 10
+    assert len(by_id) == 13
     assert str(len(ALL_DETECTORS)) in by_id["exp6"]["title"]
     assert "AutoEncoder" in by_id["exp6"]["fits"]
     for entry in CATALOG:

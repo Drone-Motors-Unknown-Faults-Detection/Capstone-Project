@@ -21,6 +21,7 @@ ScaleGrowthSession 是核心狀態機（Web 即時展示直接驅動它）：
 from __future__ import annotations
 
 import argparse
+from collections.abc import Callable
 
 import hdbscan
 import numpy as np
@@ -203,7 +204,15 @@ class ScaleGrowthSession:
 # -- 批次重播（論文數據） -----------------------------------------------------
 
 
-def run(
+def _verdict(label: str | None) -> str:
+    if label is None:
+        return "unknown"
+    if label == HEALTHY:
+        return "healthy"
+    return "known"
+
+
+def iter_playback(
     pools: dict[str, np.ndarray],
     sequence: list[str] | None = None,
     seed: int = 42,
@@ -212,8 +221,16 @@ def run(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
-) -> dict:
-    """依序注入各未知配置：量測發現延遲 → 自動確認 → 驗證擴張後的分類能力。"""
+    wait_confirm: Callable[[], str] | None = None,
+    arm_confirm: Callable[[], None] | None = None,
+):
+    """依序注入未知配置。候選出現時呼叫 wait_confirm，回傳 confirm 才納入。
+
+    wait_confirm 回傳 confirm 以外的值會停掉後續配置，不產生 result。
+    預設立即確認，與批次 run() 相同。
+    """
+    if wait_confirm is None:
+        wait_confirm = lambda: "confirm"
     if sequence is None:
         sequence = sorted((c for c in pools if c != HEALTHY), key=config_sort_key)
     session = ScaleGrowthSession(
@@ -225,59 +242,116 @@ def run(
         knn_neighbors=knn_neighbors,
     )
     rng = np.random.default_rng(seed + 1)
+    yield {
+        "event": "fitted",
+        "model": session.monitor.summary(),
+        "known": list(session.monitor.known),
+    }
 
     stages = []
     for config in sequence:
         sampler = CycleSampler(pools[config], np.arange(len(pools[config])), rng)
         res, found_at, rejected = None, None, 0
+        stopped = False
         for tick in range(1, max_ticks_per_stage + 1):
-            session.process(sampler.draw(), config)
-            if session.candidate is not None:
-                outcome = session.confirm()
-                if outcome["action"] == "rejected_known":
-                    rejected += 1  # 已知類別邊界樣本聚成的叢，操作員退回後續跑
-                    continue
-                res, found_at = outcome, tick
+            out = session.process(sampler.draw(), config)
+            yield {
+                "event": "tick",
+                "config": config,
+                "display": display_name(config),
+                "t": tick,
+                "score": out["score"],
+                "label": out["label"],
+                "verdict": _verdict(out["label"]),
+                "quarantine": out["quarantine"],
+                "known": len(session.monitor.known),
+            }
+            if session.candidate is None:
+                continue
+            if arm_confirm is not None:
+                arm_confirm()
+            yield {
+                "event": "candidate",
+                "config": config,
+                "candidate": session.state()["candidate"],
+            }
+            if wait_confirm() != "confirm":
+                stopped = True
                 break
+            outcome = session.confirm()
+            yield {
+                "event": "confirmed",
+                "config": config,
+                "outcome": outcome,
+                "known": list(session.monitor.known),
+            }
+            if outcome["action"] == "rejected_known":
+                rejected += 1  # 已知類別邊界樣本聚成的叢，操作員退回後續跑
+                continue
+            res, found_at = outcome, tick
+            break
+        if stopped:
+            yield {"event": "stopped"}
+            return
         row = {
             "config": config,
             "display": display_name(config),
             "discovered": res is not None,
             "rejected_known_clusters": rejected,
         }
-        if res is None:
-            stages.append(row)
-            continue
-        own = session.monitor.classify(session.monitor.holdout(res["config"]))
-        healthy = session.monitor.classify(session.monitor.holdout(HEALTHY))
-        row.update(
-            {
-                "learned": res["config"],
-                "samples_to_candidate": found_at,
-                "cluster_size": res["size"],
-                "cluster_purity": res["purity"],
-                "own_holdout_acc": float(np.mean([label == res["config"] for label in own])),
-                "healthy_holdout_acc": float(np.mean([label == HEALTHY for label in healthy])),
-                "known_after": len(session.monitor.known),
-            }
-        )
+        if res is not None:
+            own = session.monitor.classify(session.monitor.holdout(res["config"]))
+            healthy = session.monitor.classify(session.monitor.holdout(HEALTHY))
+            row.update(
+                {
+                    "learned": res["config"],
+                    "samples_to_candidate": found_at,
+                    "cluster_size": res["size"],
+                    "cluster_purity": res["purity"],
+                    "own_holdout_acc": float(np.mean([label == res["config"] for label in own])),
+                    "healthy_holdout_acc": float(np.mean([label == HEALTHY for label in healthy])),
+                    "known_after": len(session.monitor.known),
+                }
+            )
         stages.append(row)
 
-    return {
+    model = session.monitor.summary()
+    yield {"event": "result", "result": {
         "stages": stages,
         "final_known": list(session.monitor.known),
-        "model": session.monitor.summary(),
+        "model": model,
         "seed": seed,
         "confidence": confidence,
         "openset_method": openset_method,
         "method": method,
-        "score_type": session.monitor.summary()["score_type"],
+        "score_type": model["score_type"],
         "threshold": 1.0,
-        "threshold_strategy": session.monitor.summary()["threshold_strategy"],
+        "threshold_strategy": model["threshold_strategy"],
         "calibration_source": "known-only 20% calibration split",
         "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
-    }
+    }}
+
+
+def run(
+    pools: dict[str, np.ndarray],
+    sequence: list[str] | None = None,
+    seed: int = 42,
+    confidence: float = 0.95,
+    method: str = "ledoit_wolf",
+    openset_method: str = "mahalanobis",
+    knn_neighbors: int = 5,
+    max_ticks_per_stage: int = 600,
+) -> dict:
+    """依序注入各未知配置：量測發現延遲 → 自動確認 → 驗證擴張後的分類能力。"""
+    for event in iter_playback(
+        pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
+        openset_method=openset_method, knn_neighbors=knn_neighbors,
+        max_ticks_per_stage=max_ticks_per_stage,
+    ):
+        if event["event"] == "result":
+            return event["result"]
+    raise RuntimeError("量尺擴張沒有產生結果")
 
 
 def main() -> None:

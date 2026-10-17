@@ -1,4 +1,4 @@
-/* 實驗頁：頁首切換列 + 實驗一～八的參數表單、執行與結果呈現。
+/* 實驗頁：頁首切換列 + 實驗一～八、十～十二的參數表單、執行與結果呈現。
  * 只負責呈現；計算在伺服器端呼叫 experiments/ 的 run()（見 web/experiments.py）。 */
 "use strict";
 (() => {
@@ -221,6 +221,26 @@ function drawLines(root){
     data.forEach(([, s], i) => i ? ctx.lineTo(X(i), Y(s ?? 0)) : ctx.moveTo(X(i), Y(s ?? 0)));
     ctx.stroke();
   });
+  root.querySelectorAll("canvas.exp-tsne").forEach(cv => {
+    const pts = JSON.parse(cv.dataset.points || "[]");
+    const dpr = devicePixelRatio;
+    const ctx = cv.getContext("2d"), W = cv.width = cv.clientWidth * dpr, H = cv.height = 220 * dpr;
+    if (!W || !pts.length) return;
+    const pad = 16 * dpr;
+    const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    const X = x => pad + (maxX === minX ? 0.5 : (x - minX) / (maxX - minX)) * (W - pad * 2);
+    const Y = y => H - pad - (maxY === minY ? 0.5 : (y - minY) / (maxY - minY)) * (H - pad * 2);
+    const configs = [...new Set(pts.map(p => p[2]))];
+    const color = c => `hsl(${(configs.indexOf(c) * 360) / Math.max(1, configs.length)}, 70%, 55%)`;
+    pts.forEach(([x, y, c, v]) => {
+      ctx.fillStyle = ctx.strokeStyle = color(c);
+      ctx.beginPath();
+      if (v === "unknown"){ ctx.moveTo(X(x), Y(y) - 4 * dpr); ctx.lineTo(X(x) + 3.5 * dpr, Y(y) + 3 * dpr); ctx.lineTo(X(x) - 3.5 * dpr, Y(y) + 3 * dpr); ctx.fill(); }
+      else if (v === "known_wrong"){ ctx.strokeRect(X(x) - 2.5 * dpr, Y(y) - 2.5 * dpr, 5 * dpr, 5 * dpr); }
+      else { ctx.arc(X(x), Y(y), 2.4 * dpr, 0, 7); ctx.fill(); }
+    });
+  });
 }
 
 /* ---------- 邊跑邊畫 ---------- */
@@ -278,11 +298,57 @@ const LIVE = {
       }
     },
   },
+  exp2: {
+    init: () => ({pts: [], marks: [], config: null}),
+    html: () => `<canvas class="live-canvas" height="220"></canvas>
+      <div class="mini">每點一筆自動注入的樣本（綠 = 判健康、藍 = 判已知故障、紅 = 判未知）。直線分隔配置。候選出現時播放停住，按確認才納入並繼續；這不是「執行」的自動確認批次。</div>
+      <div class="live-known mini" style="margin-top:6px"></div>
+      <div class="live-q mini"></div>
+      <div class="live-cand panel" hidden style="margin-top:8px"></div>`,
+    on(st, f, el){
+      const known = el.querySelector(".live-known");
+      if (f.event === "fitted") known.textContent = "已知：" + (f.known || []).join("、");
+      if (f.event === "tick"){
+        if (st.config !== f.config){ st.config = f.config; st.marks.push({i: st.pts.length, label: f.display || f.config}); }
+        const color = f.verdict === "healthy" ? "#22c55e" : f.verdict === "known" ? "#60a5fa" : "#ef4444";
+        st.pts.push({s: f.score, color});
+        el.querySelector(".live-q").textContent = `隔離區 ${f.quarantine} 筆`;
+        scheduleDraw(() => drawScoreStrip(el.querySelector(".live-canvas"), st.pts, {marks: st.marks, n: Math.max(st.pts.length, 200)}));
+      } else if (f.event === "candidate"){
+        const c = f.candidate;
+        const box = el.querySelector(".live-cand");
+        box.hidden = false;
+        box.innerHTML = `<h2 style="color:var(--yellow)">⚠ 候選新故障（待確認）</h2>
+          <div class="mini">${esc(c.majority_display)}　叢集 ${esc(c.size)} 筆　純度 ${esc(Math.round(c.purity * 100))}%　蒐集區間 ${esc((c.t_range || []).join("–"))}</div>
+          <button type="button" class="confirm" style="margin-top:8px">${c.is_known ? "✋ 退回已知邊界樣本" : "✔ 確認納入並繼續"}</button>
+          <div class="live-cand-err mini err"></div>`;
+        box.querySelector("button").onclick = async () => {
+          const btn = box.querySelector("button");
+          btn.disabled = true;
+          try {
+            const res = await fetch("/api/experiments/exp2/confirm", {method: "POST"});
+            const payload = await res.json();
+            if (!res.ok) throw new Error(payload.error || res.statusText);
+          } catch (err) {
+            btn.disabled = false;
+            box.querySelector(".live-cand-err").textContent = err.message;
+          }
+        };
+      } else if (f.event === "confirmed"){
+        el.querySelector(".live-cand").hidden = true;
+        known.textContent = "已知：" + (f.known || []).join("、");
+      }
+    },
+  },
   exp3: {
     init: () => ({cur: {}, trials: []}),
-    html: () => ["A", "B"].map(k => `<h3>劇本 ${k}（第 1 次重複逐筆播放）</h3><canvas class="live-${k}" height="180"></canvas>`).join("")
+    html: (params = {}) => {
+      const keys = params.scenario ? [params.scenario] : ["A", "B"];
+      const names = {A: "劇本 A：漸進磨損", B: "劇本 B：突發外力"};
+      return keys.map(k => `<h3>${names[k]}（第 1 次重複逐筆播放）</h3><canvas class="live-${k}" height="180"></canvas>`).join("")
       + `<div class="mini">點 = 開集分數（紅 = 當下注入故障、綠 = 健康）；黃線 = EWMA 異常比例（右軸 0～1，虛線 0.5 觸發警報）；直線 = 故障開始、⚠ = 警報。其餘重複直接計算，只列結果。</div>
-         <div class="live-trials" style="margin-top:8px"></div>`,
+         <div class="live-trials" style="margin-top:8px"></div>`;
+    },
     on(st, f, el){
       if (f.event === "tick"){
         const c = st.cur[f.scenario] = st.cur[f.scenario] || {pts: [], line: [], marks: [{i: f.onset, label: "故障開始", color: "#a78bfa"}]};
@@ -325,35 +391,87 @@ const LIVE = {
     },
   },
 };
+RENDER.exp10 = function(r){
+  const rows = ["direct", "adapted", "scratch"].flatMap(strategy =>
+    (r.summary[strategy] || []).map(row => ({strategy, ...row})));
+  return `<div class="mini">${esc(r.n_datasets)} 組工況的有向配對，seed ${esc(r.seed)}，方法 ${esc(r.method)}。direct 的 N=0 用完整目標健康池。</div>`
+    + table([["strategy", "策略"], ["n", "目標健康筆數 N", int], ["auroc_mean", "AUROC", v => num(v, 4)],
+             ["healthy_accept_mean", "健康接受率", v => pct(v)], ["fault_detect_mean", "故障偵測率", v => pct(v)]], rows)
+    + details(`逐配對（${r.rows.length} 列）`, table([["src", "來源"], ["dst", "目標"], ["strategy", "策略"], ["n", "N", int],
+             ["auroc", "AUROC", v => num(v, 4)], ["healthy_accept", "健康接受率", v => pct(v)],
+             ["fault_detect", "故障偵測率", v => pct(v)]], r.rows));
+};
+RENDER.exp11 = function(r){
+  const summary = Object.entries(r.summary).flatMap(([protocol, methods]) =>
+    Object.entries(methods).map(([method, m]) => ({protocol, method, ...m})));
+  const paired = r.wilcoxon ? Object.entries(r.wilcoxon).map(([k, v]) => ({k, ...v})) : [];
+  return `<div class="mini">${esc(r.n_datasets)} 組工況，seed ${esc((r.seeds || []).join("、"))}。主指標 ${esc((r.primary_metrics || []).join("、"))}；網頁只跑這一個 seed。</div>`
+    + table([["protocol", "協定"], ["method", "方法"], ["accuracy_mean", "Accuracy", v => num(v, 4)],
+             ["balanced_accuracy_mean", "Balanced Accuracy", v => num(v, 4)], ["macro_f1_mean", "macro-F1", v => num(v, 4)],
+             ["unknown_f1_mean", "unknown F1", v => num(v, 4)]], summary)
+    + (paired.length ? `<h3>Ledoit–Wolf 減 legacy</h3>` + table([["k", "比較"], ["n_pairs", "配對數", int],
+             ["mean_diff_pp", "macro-F1 差（百分點）", v => num(v, 2)], ["p_value", "p", v => num(v, 4)]], paired) : "")
+    + details(`逐列（${r.rows.length}）`, table([["protocol", "協定"], ["dataset", "工況"], ["seed", "seed", int], ["method", "方法"],
+             ["n", "列數", int], ["accuracy", "Accuracy", v => num(v, 4)], ["balanced_accuracy", "Balanced Accuracy", v => num(v, 4)],
+             ["macro_f1", "macro-F1", v => num(v, 4)], ["unknown_f1", "unknown F1", v => num(v, 4)]], r.rows));
+};
+function countHeat(cm){
+  const labels = cm.labels;
+  const max = Math.max(1, ...cm.matrix.flat());
+  return heatmap(labels, labels, (a, b) => cm.matrix[labels.indexOf(a)][labels.indexOf(b)],
+    {lo: 0, hi: max, fmt: v => int(v), corner: "真值 → 預測"});
+}
+RENDER.exp12 = function(r){
+  const scatters = Object.entries(r._tsne_by_dataset || {}).map(([key, d]) => {
+    const pts = d.embedding.map((xy, i) => [Math.round(xy[0] * 10) / 10, Math.round(xy[1] * 10) / 10, d.config_labels[i], d.verdicts[i]]);
+    return `<h3>${esc(key)}</h3><canvas class="exp-tsne" height="220" data-points="${esc(JSON.stringify(pts))}"></canvas>`;
+  }).join("");
+  return `<div class="mini">${esc(r.n_datasets)} 組工況，seed ${esc(r.seed)}。t-SNE 含擬合列，只供看鄰近，不是嚴重度。</div>`
+    + `<h3>(a) 健康 vs 故障</h3>` + countHeat(r.binary_confusion)
+    + `<h3>(b) 開集多類：Ledoit–Wolf</h3>` + countHeat(r.openset_confusion.ledoit_wolf)
+    + `<h3>(b) 開集多類：legacy</h3>` + countHeat(r.openset_confusion.legacy)
+    + `<h3>(c) t-SNE</h3><div class="mini">顏色 = 配置；圓點 = 已知且判對，叉 = 判成別的已知類，三角 = 判未知。</div>`
+    + scatters;
+};
+
+function setScenarioButtons(disabled){
+  for (const id of ["scenario-A", "scenario-B"]){ const b = $(id); if (b) b.disabled = disabled; }
+}
 
 function stopStream(){
   if (ACTIVE){ ACTIVE.es.close(); const b = $(`stop-${ACTIVE.id}`); if (b) b.hidden = true;
-    const s = $(`stream-${ACTIVE.id}`); if (s) s.disabled = false; ACTIVE = null; }
+    const s = $(`stream-${ACTIVE.id}`); if (s) s.disabled = false; setScenarioButtons(false); ACTIVE = null; }
 }
 
-function streamExp(e){
+function streamExp(e, extra){
   stopStream();
   const params = collectParams(e);
+  if (extra) Object.assign(params, extra);
   const rate = $(`rate-${e.id}`).value;
   const live = $(`live-${e.id}`), st = $(`status-${e.id}`), view = LIVE[e.id];
-  live.innerHTML = view.html(); $(`out-${e.id}`).innerHTML = "";
+  live.innerHTML = view.html(params); $(`out-${e.id}`).innerHTML = "";
   const state = view.init();
   const url = `/api/experiments/${e.id}/stream?params=${encodeURIComponent(JSON.stringify(params))}&rate=${rate}`;
   const es = new EventSource(url);
   ACTIVE = {id: e.id, es};
-  $(`stream-${e.id}`).disabled = true; $(`stop-${e.id}`).hidden = false;
+  $(`stream-${e.id}`).disabled = true; $(`stop-${e.id}`).hidden = false; setScenarioButtons(true);
   st.className = "mini"; st.textContent = "⚙ 擬合模型中…";
   es.onmessage = msg => {
     if (!ACTIVE || ACTIVE.es !== es) return;
     const f = JSON.parse(msg.data);
     if (f.event === "fitted") st.textContent = "⏵ 播放中…";
-    else if (f.event === "error"){ st.className = "mini err"; st.textContent = "✗ " + f.error; stopStream(); }
+    else if (f.event === "candidate") st.textContent = "⏸ 候選待確認";
+    else if (f.event === "confirmed") st.textContent = "⏵ 播放中…";
+    else if (f.event === "stopped"){ st.textContent = "■ 已停止"; stopStream(); return; }
+    else if (f.event === "error"){ st.className = "mini err"; st.textContent = "✗ " + f.error; stopStream(); return; }
     else if (f.event === "done"){
       LAST[e.id] = f.payload; stopStream();
       st.textContent = `✔ 完成（${f.payload.seconds} 秒，含播放時間）`;
       if (e.id === "exp4") live.innerHTML = "";
       showResult(e, f.payload);
-    } else view.on(state, f, live);
+      return;
+    }
+    view.on(state, f, live);
   };
   es.onerror = () => { if (ACTIVE && ACTIVE.es === es){ st.className = "mini err"; st.textContent = "✗ 串流中斷"; stopStream(); } };
 }
@@ -396,6 +514,7 @@ function cardHtml(e){
         模型只在這次執行的記憶體裡，跑完即丟，不保存；只存結果 JSON 到 <code>output/web_server/{ts}/experiments/</code>。同來源、設定與 seed 才可核對重現。</div></div>
     <div class="form">${e.params.map(p => fieldHtml(e, p)).join("")}
       <button class="primary" id="run-${e.id}"${noData ? " disabled" : ""}>▶ 執行</button>
+      ${e.id === "exp3" ? `<button type="button" id="scenario-A"${noData ? " disabled" : ""}>劇本 A：漸進磨損</button><button type="button" id="scenario-B"${noData ? " disabled" : ""}>劇本 B：突發外力</button>` : ""}
       ${e.stream ? `<label>播放速度<select id="rate-${e.id}"><option value="20">慢（20 筆/秒）</option><option value="80" selected>中（80 筆/秒）</option><option value="400">快（400 筆/秒）</option></select></label>
       <button id="stream-${e.id}"${noData ? " disabled" : ""}>⏵ 邊跑邊畫</button><button id="stop-${e.id}" class="warn" hidden>■ 停止</button>` : ""}
       <span class="mini" id="status-${e.id}"></span></div>
@@ -487,6 +606,10 @@ function renderPage(key){
     $(`run-${e.id}`).onclick = () => runExp(e);
     if (e.stream){ $(`stream-${e.id}`).onclick = () => streamExp(e); $(`stop-${e.id}`).onclick = () => {
       stopStream(); $(`status-${e.id}`).textContent = "■ 已停止；未收到完成結果不算完整執行，待伺服器釋放鎖再重試。"; }; }
+    if (e.id === "exp3"){
+      $("scenario-A").onclick = () => streamExp(e, {scenario: "A"});
+      $("scenario-B").onclick = () => streamExp(e, {scenario: "B"});
+    }
     for (const p of e.params){
       $(`f-${e.id}-${p.name}`).oninput = () => refreshResultContext(e);
       $(`f-${e.id}-${p.name}`).onchange = () => refreshResultContext(e);

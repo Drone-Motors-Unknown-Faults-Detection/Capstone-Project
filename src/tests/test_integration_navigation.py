@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class IntegrationNavigationTests(unittest.TestCase):
     def test_main_catalog_keeps_all_original_entries(self):
         self.assertEqual([entry["id"] for entry in CATALOG],
-                         ["exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp6_formal", "exp7", "exp8", "exp8_monitor"])
+                         ["exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp6_formal", "exp7", "exp8", "exp8_monitor", "exp10", "exp11", "exp12"])
 
     def test_navigation_local_links_resolve_and_names_follow_main(self):
         for path in (ROOT / "docs/navigation").iterdir():
