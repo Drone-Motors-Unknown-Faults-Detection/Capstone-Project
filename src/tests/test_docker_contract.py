@@ -63,7 +63,10 @@ class DockerContractTests(unittest.TestCase):
 
     def test_web_mounts_data_read_only(self):
         volumes = self.web["volumes"]
-        self.assertIn("../data:/app/data:ro", volumes)
+        data = next(v for v in volumes if isinstance(v, dict) and v["target"] == "/app/data")
+        self.assertEqual(data["source"], "../data")
+        self.assertTrue(data["read_only"])
+        self.assertFalse(data["bind"]["create_host_path"])
         self.assertIn("../logs:/app/logs", volumes)
         self.assertIn("../output:/app/output", volumes)
 

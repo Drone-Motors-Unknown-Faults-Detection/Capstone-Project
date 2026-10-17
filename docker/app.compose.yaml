@@ -36,7 +36,13 @@ services:
       - --llm-model
       - ${LLM_MODEL:-qwen3}
     volumes:
-      - ../data:/app/data:ro
+      # 原始資料在 repo 根目錄 data/（太大不進版控）；不存在就讓 compose 直接報錯，不自動建空目錄
+      - type: bind
+        source: ../data
+        target: /app/data
+        read_only: true
+        bind:
+          create_host_path: false
       - ../logs:/app/logs
       - ../output:/app/output
     ports:
