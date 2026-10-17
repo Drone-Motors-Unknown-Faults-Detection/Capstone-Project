@@ -13,7 +13,7 @@ from tests.issue_delivery_evidence import local_links
 
 ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTS = ("docs/README.md", "docs/ci_contract.md", "docs/runtime_policy.md",
-             "docs/formal_materialization_contract.md", "docs/health_and_reports.md",
+             "docs/formal_materialization_contract.md", "docs/experiments/exp8_health.md",
              "docs/navigation/exp24_README.md")
 GUIDE_DOCUMENTS = ("exp24_README.md", "exp24_實驗總覽.md", "exp24_來源索引.md",
                    "exp24_結果白話解讀.md", "exp24_示範腳本.md")
@@ -47,7 +47,7 @@ class DocumentationContractTests(unittest.TestCase):
         documents.update(ROOT.glob("docs/navigation/*.md"))
         documents.update(ROOT / "docs/experiments" / name for name in (
             "README.md", "exp1_cold_start.md", "exp3_trend.md", "exp4_polar_map.md",
-            "exp8_health_monitor.md", "exp6_formal_benchmark.md"))
+            "exp8_health.md", "exp6_formal_benchmark.md"))
         documents.add(ROOT / "docs/formal_feature_schema_contract.md")
         documents.add(ROOT / "docs/content_provenance_contract.md")
         documents.update(ROOT.glob("reports/Andy_20261008_*/*.md"))
@@ -121,10 +121,6 @@ class DocumentationContractTests(unittest.TestCase):
                 self.assertFalse([row for row in rows if not row["exists"]])
 
     def test_operations_and_history_have_separate_contracts(self):
-        for name in DOCUMENTS[1:5]:
-            with self.subTest(document=name):
-                content = (ROOT / name).read_text(encoding="utf-8")
-                self.assertRegex(content, r"/blob/[0-9a-f]{40}/")
         runtime = (ROOT / "docs/runtime_policy.md").read_text(encoding="utf-8")
         self.assertIn("uv sync", runtime)
         self.assertIn("uv.lock", runtime)

@@ -68,7 +68,7 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 - `own_holdout_acc`、`healthy_holdout_acc`含拒絕造成的錯誤；屬更新後、可能已曝光的CSV測試。
 - `known_after`、`final_known`和model逐類數量記錄擴張狀態。
 
-預期在600tick內發現配置且保持健康辨識；未預定獨立部署通過線。低純度支持混叢問題，未發現也可能是隔離／密度或資料不足，不能單憑一列確定原因。完整歷史結果保留在[固定版本原紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp2_scale_growth.md#已記錄的實測)，不抄為現行分數。
+預期在600tick內發現配置且保持健康辨識；未預定獨立部署通過線。低純度支持混叢問題，未發現也可能是隔離／密度或資料不足，不能單憑一列確定原因。
 
 ## 來源與對應程式
 

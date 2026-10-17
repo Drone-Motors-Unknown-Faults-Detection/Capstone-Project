@@ -32,12 +32,12 @@ src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺�
                  exp6 OSR 基準＋正式矩陣＋彙整（exp6_osr_benchmark.py / exp6_formal_benchmark.py /
                  exp6_matrix.py / aggregate_exp6.py）、exp7 compare_openset.py、
                  exp8 health_index_* / health_monitor.py（邏輯在 src/experiments/health/：
-                 健康指數、校準、嚴重度、趨勢/告警、軌跡與診斷，見 docs/health_and_reports.md）、
+                 健康指數、校準、嚴重度、趨勢/告警、軌跡與診斷，見 docs/experiments/exp8_health.md）、
                  exp9 非線性 AutoEncoder 偵測器（程式在 src/core/detectors.py，複用 exp6_osr_benchmark.py）、
                  exp10 跨工況遷移學習 exp10_transfer.py、
                  exp11 Ancestor 協定對照 exp11_ancestor_comparison.py、
                  exp12 混淆矩陣與 t-SNE 視覺化 exp12_confusion_tsne.py）；
-                 總覽見 docs/Experiments_Guide.md 與 docs/experiments/README.md；技術報告在 docs/experiments/
+                 總覽見 docs/experiments/README.md；技術報告在 docs/experiments/
 src/web/         即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
                  server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js）
 src/tests/       pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）

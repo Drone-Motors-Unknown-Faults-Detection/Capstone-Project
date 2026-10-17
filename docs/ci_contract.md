@@ -1,6 +1,6 @@
-# CI 使用與輸出契約
+# CI 使用與輸出規則
 
-本頁說明 `.github/workflows/ci.yml` 與 `src/tests/ci_evidence.py` 的操作、輸出及限制。各次 Actions 的受測 SHA 與結果另外保存，本頁不維護單次驗收報告。
+`.github/workflows/ci.yml` 與 `src/tests/ci_evidence.py` 的操作、輸出及限制如下。
 
 ## 執行流程
 
@@ -26,4 +26,4 @@ Actions 成功或失敗都上傳白名單 public_summary.json，保存14天。ar
 
 現行 CI 只有 Ubuntu。安裝入口是 `scripts/opt/build_uv.sh`，沒有 Windows／macOS 腳本。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 任意 Origin 測試描述既有不安全行為，缺口仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤。
 
-預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。歷史紅燈／綠燈與整合紀錄見 [CI 驗證紀錄](../reports/Andy_20261009_CI驗證紀錄/ci_contract.md)，可對照 [搬遷前固定版本](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/791216cf5602c370091fa516264f1ce6aaad6ab1/docs/ci_contract.md)，相關 logs/output 保留。
+預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。

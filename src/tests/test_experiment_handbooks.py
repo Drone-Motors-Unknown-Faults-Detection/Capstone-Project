@@ -127,11 +127,11 @@ def test_existing_indexes_reach_all_current_handbooks():
         linked = {Path(row["target"]).name for row in targets}
         assert handbooks.issubset(linked), (index.name, handbooks - linked)
         assert "13個現行實驗編號" in text
-        assert "19份方法" in text
+        assert "16份方法" in text
 
 
 def test_main_lifecycle_and_report_links_survive_handbook_sync():
-    """手冊整合必須保留主線共用契約與交付附件入口。"""
+    """手冊整合必須保留主線共用規則與交付附件入口。"""
     index = (DOCS / "README.md").read_text(encoding="utf-8")
     assert {"共用模型生命週期", "web-串流生命週期"}.issubset(anchors(index))
     assert "uv run --locked python -m web.server" in index
@@ -140,10 +140,10 @@ def test_main_lifecycle_and_report_links_survive_handbook_sync():
         assert "README.md#web-串流生命週期" in text, name
         assert "README.md#共用模型生命週期" in text, name
     trend = (DOCS / "exp3_trend.md").read_text(encoding="utf-8")
-    assert "../health_and_reports.md#兩套趨勢" in trend
-    health = (DOCS / "exp8_health_monitor.md").read_text(encoding="utf-8")
-    for anchor in ("模組資料流", "reports與預期成果"):
-        assert f"../health_and_reports.md#{anchor}" in health
+    assert "exp8_health.md#兩套趨勢" in trend
+    health = (DOCS / "exp8_health.md").read_text(encoding="utf-8")
+    for anchor in ("模組資料流", "reports與預期成果", "兩套趨勢"):
+        assert anchor in anchors(health)
     navigation = (DOCS / "exp24_experiment_navigation.md").read_text(encoding="utf-8")
     assert "../../reports/Andy_20261008_分支整合/manifest.json" in navigation
     docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")

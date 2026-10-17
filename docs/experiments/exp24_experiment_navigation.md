@@ -28,7 +28,7 @@
 
 來源是現有105維clean CSV，loader／每列／單位／非有限列過濾與未去重限制見[實驗一](exp1_cold_start.md#資料與載入)。data_contract逐檔算位元組SHA，列各有限值池筆數；每池不足10筆拒絕。資料索引是concat後有限值列，不是raw-window ID；raw_session_independence=UNKNOWN、fresh_final=INCOMPLETE。九工況是motor×RPM，不是九種故障機制，三motor不能串成生命週期。
 
-「確認所選資料」只讀契約，**不fit**；「建立健康基準」才建立LiveDemo並再次比對來源契約，初始只有healthy列洗牌60/20/20，seed42。train fit RobustScaler、LW中心／共變異數（或k-NN train庫）與顯示PCA，cal定0.95距離線。CLI method可改，legacy仍有train定線例外。unknown不fit，CycleSampler重播不代表新採集。
+「確認所選資料」只讀規則，**不fit**；「建立健康基準」才建立LiveDemo並再次比對來源規則，初始只有healthy列洗牌60/20/20，seed42。train fit RobustScaler、LW中心／共變異數（或k-NN train庫）與顯示PCA，cal定0.95距離線。CLI method可改，legacy仍有train定線例外。unknown不fit，CycleSampler重播不代表新採集。
 
 分數>1拒絕、>2才進隔離區；HDBSCAN候選至少25筆，節流與密度階梯見[實驗二](exp2_scale_growth.md)。介面遮蔽未確認配置名，但後端候選已有truth／purity快取，不能稱後端完全無真值。按確認後模擬標註，new class使用**完整標記配置池**重新切分／fit，不是只學已到達群，也不是現場人工病因確認。PCA重新fit，切頁／研究模式切換不fit。
 
@@ -64,7 +64,7 @@ regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配�
 
 ## 輸出、讀法與限制
 
-各main經setup_run寫logs/navigation_data_contract、logs/navigation_regression、logs/web_guide及對應output/{program}/{ts}/environment.json。契約工具寫data_contract.json；回歸寫summary.json含paired_methods／ledger／fit_audits。Web在sessionNNN下保存data_contract、各fit_epoch與原LiveDemo紀錄。精確writer見下方程式；不能把未保存的raw距離／最近中心／confusion matrix說成已提供。
+各main經setup_run寫logs/navigation_data_contract、logs/navigation_regression、logs/web_guide及對應output/{program}/{ts}/environment.json。規則工具寫data_contract.json；回歸寫summary.json含paired_methods／ledger／fit_audits。Web在sessionNNN下保存data_contract、各fit_epoch與原LiveDemo紀錄。精確writer見下方程式；不能把未保存的raw距離／最近中心／confusion matrix說成已提供。
 
 score是無因次偏離，學會前拒絕率與學會後接受率分開；接受為任一known不等於自身配置分類正確，更不代表健康恢復。EWMA／CUSUM／latency單位按筆解讀，沒有秒級事件真值、損壞百分比或RUL。
 
@@ -72,7 +72,7 @@ score是無因次偏離，學會前拒絕率與學會後接受率分開；接受
 
 ## 來源與程式碼
 
-方法文獻沿[實驗一](exp1_cold_start.md#方法來源與程式定位)、[二](exp2_scale_growth.md)、[三](exp3_trend.md)。匿名介面、SHA契約與配對是Lineage工程約定，源研究快照[b3d68f1](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/b3d68f145cfa187e208e38cae74bf33f68d7c367)，不是新演算法。
+方法文獻沿[實驗一](exp1_cold_start.md#方法來源與程式定位)、[二](exp2_scale_growth.md)、[三](exp3_trend.md)。匿名介面、SHA規則與配對是Lineage工程約定，源研究快照[b3d68f1](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/b3d68f145cfa187e208e38cae74bf33f68d7c367)，不是新演算法。
 
 [web/guide](../../src/web/guide.py)管理狀態與遮蔽，[guide.html](../../src/web/static/guide.html)／[guide.js](../../src/web/static/guide.js)呈現；[web/live](../../src/web/live.py)共用演算；[data_contract](../../src/experiments/navigation_data_contract.py)寫來源；[regression](../../src/experiments/navigation_regression.py)寫配對；[test_navigation_guide](../../src/tests/test_navigation_guide.py)、[test_integration_navigation](../../src/tests/test_integration_navigation.py)核對工程行為。沒有實際瀏覽器操作證據時，HTTP／fixture測試不冒稱完整視覺驗收。
 

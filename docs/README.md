@@ -2,43 +2,25 @@
 
 組員學習與發表請先讀[畢業專題總手冊](畢業專題總手冊.md)：在同一份正文說明 Ancestor 基礎、資料角色、各方法與實驗、Web、工程、未解工作及有答案的發表練習；研究分支、歷史結果與現行功能分開標示。真人走讀與試講回饋尚待確認。
 
-先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全契約](formal_materialization_contract.md)、[健康監測模組](health_and_reports.md)、[導覽操作](navigation/exp24_README.md)。各頁說明程式用途、操作、預期輸出與限制。
+先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全規則](formal_materialization_contract.md)、[實驗八健康監測](experiments/exp8_health.md)、[導覽操作](navigation/exp24_README.md)。各頁說明程式用途、操作、預期輸出與限制。
 
 拆 `exp6_formal_benchmark._run_benchmark` 或 `exp6_matrix.run_matrix` 前，先讀[orchestration 回歸契約](refactoring_contract.md)。
 
 當前缺口與交付狀態請查 [GitHub issues](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues) 及各 PR 的受測 SHA，不把歷史測試次數當成最新 main 驗收。
 
-內容指紋、portable manifest 與本機 private sidecar 的操作見[內容來源契約](content_provenance_contract.md)；它只涵蓋正式入口，不代表所有 runner 都有完整來源紀錄。
+內容指紋、portable manifest 與本機 private sidecar 的操作見[內容來源規則](content_provenance_contract.md)；它只涵蓋正式入口，不代表所有 runner 都有完整來源紀錄。
 
-要改 `load_pools` 或 k-NN 評分的效能前，先依[效能量測契約](profiling_contract.md)量測，門檻已事先固定。
+匯入105維 CSV 前先讀[正式特徵載入規則](formal_feature_schema_contract.md)。欄名在 `src/core/feature_schema.py` 的 `SCHEMAS`。
 
-匯入105維 CSV 前先讀[正式特徵載入契約](formal_feature_schema_contract.md)與[完整欄名清冊](formal_feature_schema.json)；清冊供維護者與測試比對，runtime 規則在 `src/core/feature_schema.py`。
+老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp24_README.md)。
 
-## 歷史交付附件（不作現行操作手冊）
-
-以下連到 reports/ 的原交付與失敗紀錄，只適用其記載日期、來源及受測版本。
-
-- [整合來源與舊驗收](../reports/Andy_20261008_分支整合/integration_report.md)、[歷史manifest](../reports/Andy_20261008_分支整合/manifest.json)。
-- [當時引用核對](../reports/Andy_20261008_議題交付/citation_followup.md)、[導覽驗收](../reports/Andy_20261008_議題交付/guide_acceptance.md)、[未擬合舊回歸](../reports/Andy_20261008_議題交付/execution_log.md#未擬合防護的原驗收邊界)。現行操作見[共用模型生命週期](experiments/README.md#共用模型生命週期)。
-- [當時給老師的說明](../reports/Andy_20261009_主線交付/README.md)、[當時執行紀錄](../reports/Andy_20261009_主線交付/execution_log.md)。
-- [封存彙總重算的原交付說明](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp8_health_index_aggregate_delivery.md)保存該次差異與驗收；現行操作見下表重算手冊。
-- [正式入口來源的原交付與失敗紀錄](../reports/Andy_20261009_正式入口來源/交付紀錄.md)，只適用其中固定版本。
-
-老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp24_README.md)；歷史研究分數只在固定來源下解讀，不當成新增盲測結果。
-
-> 實驗的白話說明在 [實驗說明手冊](Experiments_Guide.md)。
-> 對程式的技術報告在 [experiments/](experiments/README.md)。
-> 下面的 Step 1–6、Tensorflow 與三份 Lineage 研究筆記是論文版管線的歷史快照。
-
-歷史快照對應本 repo git 歷史 `dda8910`（2026-09-17 放回）。那些文件裡的 Step 1–6
-程式、notebook 與 `scripts/` 現存於
-[Ancestor repo](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)，
-**不對應**目前的 `core/ experiments/ web/`；每份快照頂部都有歷史標記。
-新專案的說明見根目錄 [README.md](../README.md)。
+> 實驗總覽與名詞在 [experiments/README.md](experiments/README.md)。
+> Step 1–6、Tensorflow 與三份研究筆記描述 Ancestor 的論文版管線。程式在 [Ancestor](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)。
+> 新專案的說明見根目錄 [README.md](../README.md)。
 
 ## 現行實驗技術報告
 
-[experiments/README.md](experiments/README.md)列出13個現行實驗編號（1～12及24）、19份方法／操作手冊及程式位置。實驗六、八的矩陣與彙總共用原編號；實驗九共用實驗六runner。每份手冊說明資料與用途切分、模型建立、CLI／API／Web操作、輸出及限制。[Experiments_Guide.md](Experiments_Guide.md)提供總覽，實際參數與例外以對應手冊及程式為準。
+[experiments/README.md](experiments/README.md)列出13個現行實驗編號（1～12及24）、16份方法／操作手冊及程式位置。實驗六的基準、正式比較、矩陣與彙總各有手冊。實驗八在 [exp8_health](experiments/exp8_health.md)。實驗九用實驗六的 runner。每份手冊說明資料與用途切分、模型建立、CLI／API／Web操作、輸出及限制。實際參數與例外以對應手冊及程式為準。
 
 | 編號 | 文件 | 程式 |
 |---|---|---|
@@ -52,10 +34,7 @@
 | 實驗六 | [exp6_matrix](experiments/exp6_matrix.md) | `src/experiments/exp6_matrix.py` |
 | 實驗六 | [exp6_aggregate](experiments/exp6_aggregate.md) | `src/experiments/aggregate_exp6.py` |
 | 實驗七 | [exp7_compare_openset](experiments/exp7_compare_openset.md) | `src/experiments/compare_openset.py` |
-| 實驗八 | [exp8_health_index_benchmark](experiments/exp8_health_index_benchmark.md) | `src/experiments/health_index_benchmark.py` |
-| 實驗八 | [exp8_health_index_matrix](experiments/exp8_health_index_matrix.md) | `src/experiments/health_index_matrix.py` |
-| 實驗八 | [封存彙總重算](experiments/exp8_health_index_aggregate.md) | `src/experiments/health_index_aggregate.py`；來源完整性、54 列重算定義及差異輸出 |
-| 實驗八 | [exp8_health_monitor](experiments/exp8_health_monitor.md) | `src/experiments/health_monitor.py` |
+| 實驗八 | [exp8_health](experiments/exp8_health.md) | `src/experiments/health_index_benchmark.py`、`health_index_matrix.py`、`health_monitor.py`、`health_index_aggregate.py` |
 | 實驗九 | [exp9_autoencoder](experiments/exp9_autoencoder.md) | `src/core/detectors.py`（`MLPAutoencoderDet`，`src/experiments/exp6_osr_benchmark.py` 自動納入） |
 | 實驗十 | [exp10_transfer](experiments/exp10_transfer.md) | `src/experiments/exp10_transfer.py` |
 | 實驗十一 | [exp11_ancestor_comparison](experiments/exp11_ancestor_comparison.md) | `src/experiments/exp11_ancestor_comparison.py` |
@@ -64,12 +43,9 @@
 
 給老師的七問整理與示範順序：[exp24 導覽入口](navigation/exp24_README.md)。研究摘要連到固定研究提交，未將未合入主線的方法當成 main 功能。
 
-## 現行健康監測工作流程
+## 現行健康監測
 
-| 文件 | 內容 |
-|---|---|
-| [exp8_health_monitoring_workflow](exp8_health_monitoring_workflow.md) | 實驗八資料能力、Health Index、趨勢／告警、矩陣方法、限制與 CLI |
-| [health_and_reports](health_and_reports.md) | `src/experiments/health/` 各模組、兩套趨勢的差別、CLI輸出位置與封存結果讀法 |
+實驗八的資料能力、模組、兩套趨勢、矩陣、逐窗監測、封存重算與 Ubuntu 指令都在 [exp8_health.md](experiments/exp8_health.md)。
 
 ## 論文版管線文件（程式碼在 Ancestor）
 

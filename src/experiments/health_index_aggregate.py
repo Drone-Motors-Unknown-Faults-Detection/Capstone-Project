@@ -21,7 +21,7 @@ from core.logger import setup_run
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT / "reports/exp8_health_index_results"
-DEFAULT_CONTRACT = ROOT / "docs/experiments/exp8_health_index_aggregate_contract.json"
+DEFAULT_CONTRACT = Path(__file__).resolve().parent / "exp8_health_index_aggregate_contract.json"
 METRICS = (
     "health_gap_known_minus_unknown", "open_set_accuracy", "auroc",
     "unknown_recall", "unknown_f1", "known_health_mean", "unknown_health_mean",

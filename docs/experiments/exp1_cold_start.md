@@ -57,7 +57,7 @@
 
 模型學的是健康特徵的位置與散布。RobustScaler只在train學每欄中位數與四分位距；其餘集合只transform。預設Mahalanobis-Ledoit–Wolf從縮放後train估中心／收縮共變異數，距離除以calibration的0.95分位數。改k-NN則保存train近鄰索引，取平均歐氏距離；k預設5，樣本不足時取較小的有效k。多已知類時分數取各類正規化距離的最小值；本實驗初始只有健康一類。`score > 1`才判未知，等於1仍接受。
 
-**legacy例外**：[src/core/mahalanobis.py](../../src/core/mahalanobis.py)的`legacy`刻意用train本身的距離定門檻，而非獨立calibration；不能把它寫成與LW相同的校準契約。它的類別label為-1，不適合作為多類配置辨識的成功證據。本實驗只比較score。OAS、MCD是可選共變異數方法；MCD另fit train-only PCA。顯示用2維PCA固定random_state0，不是主要偵測特徵，分數仍走105維（MCD除外）。這些統計／近鄰方法沒有epoch、loss或optimizer。
+**legacy例外**：[src/core/mahalanobis.py](../../src/core/mahalanobis.py)的`legacy`刻意用train本身的距離定門檻，而非獨立calibration；不能把它寫成與LW相同的校準規則。它的類別label為-1，不適合作為多類配置辨識的成功證據。本實驗只比較score。OAS、MCD是可選共變異數方法；MCD另fit train-only PCA。顯示用2維PCA固定random_state0，不是主要偵測特徵，分數仍走105維（MCD除外）。這些統計／近鄰方法沒有epoch、loss或optimizer。
 
 ## 實驗怎麼跑與怎麼使用
 
@@ -75,7 +75,7 @@ uv run --locked python -m experiments.exp1_cold_start --data-root data --motor T
 
 Web實際入口為`uv run --locked python -m web.server --bind-address 127.0.0.1 --data-root data --port 8600`。開http://localhost:8600，切「實驗一」，選資料集、Open Set方法與seed，按「▶ 執行」。要逐筆看就選速度、按「⏵ 邊跑邊畫」；「■ 停止」關閉串流，不代表保存完整done結果，已在執行緒運算的一步可能仍在完成。待鎖釋放再重試。批次沒有中途取消按鈕；切頁不能當作運算取消。每次重跑重新fit，不載入長期模型。
 
-找不到資料集時核對`--data-root`及實際RPM目錄；缺健康或維度錯誤時查來源CSV，不改欄湊105。尚未擬合的API會丟RuntimeError，須先成功fit_initial。重跑同秒可能共用setup_run目錄；不要並行覆寫，這項來源／輸出契約限制由[#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46)追蹤，沒有虛構安全續跑選項。
+找不到資料集時核對`--data-root`及實際RPM目錄；缺健康或維度錯誤時查來源CSV，不改欄湊105。尚未擬合的API會丟RuntimeError，須先成功fit_initial。重跑同秒可能共用setup_run目錄；不要並行覆寫，這項來源／輸出規則限制由[#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46)追蹤，沒有虛構安全續跑選項。
 
 ## 輸出怎麼看
 
@@ -92,7 +92,7 @@ CLI writer是[main()](../../src/experiments/exp1_cold_start.py)：
 | macro_detect_rate／macro_auroc | 各unknown配置等權平均，不按資料列數加權 |
 | model | train／cal／holdout數、方法、閾值與seed；不是已保存的模型權重 |
 
-預期是未知召回／AUROC高且健康誤報低；程式沒有全域「可靠模型PASS」門檻。名義0.95分位數不保證test只有5%誤報。歷史結果只查[固定版本原說明](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp1_cold_start.md#已記錄的實測)及其來源，不能把早期同工況高分當成跨馬達已知故障分類成功。本次文件工作沒有重新執行正式研究。
+預期是未知召回／AUROC高且健康誤報低；程式沒有全域「可靠模型PASS」門檻。名義0.95分位數不保證test只有5%誤報。同工況的高分不是跨馬達已知故障分類。
 
 ## 方法來源與程式定位
 

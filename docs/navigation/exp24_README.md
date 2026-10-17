@@ -1,6 +1,6 @@
 # Lineage 導覽入口
 
-給老師先讀：[實驗總覽](exp24_實驗總覽.md) → [結果白話解讀](exp24_結果白話解讀.md) → [研究流程圖](exp24_研究流程圖.md) → [示範腳本](exp24_示範腳本.md)。逐項回覆老師問題的歷史證據見[固定版本回覆](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/teacher_reply_20261005/reply.md)，完整數值由[來源索引](exp24_來源索引.md)查閱。
+給老師先讀：[實驗總覽](exp24_實驗總覽.md) → [結果白話解讀](exp24_結果白話解讀.md) → [研究流程圖](exp24_研究流程圖.md) → [示範腳本](exp24_示範腳本.md)。數值由[來源索引](exp24_來源索引.md)查閱。
 
 ## 啟動與操作
 

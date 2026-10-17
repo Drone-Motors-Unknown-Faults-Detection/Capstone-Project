@@ -1,6 +1,6 @@
 # Experiment 8 (exp8): Formal health-index benchmark
 
-> 由 `experiments/health_index_matrix.py` 寫入（逐次呼叫 `experiments/health_index_benchmark.py` 的 `run()`）。技術報告 `docs/experiments/exp8_health_index_matrix.md`。2026-10-03 由 `reports/health_index_results/` 改名。
+> 由 `experiments/health_index_matrix.py` 寫入（逐次呼叫 `experiments/health_index_benchmark.py` 的 `run()`）。技術報告 `docs/experiments/exp8_health.md`。2026-10-03 由 `reports/health_index_results/` 改名。
 
 ## Protocol
 
@@ -41,7 +41,7 @@ healthy very strongly but does not provide enough labelled progression to rank
 unknown samples by physical severity. There are no motor IDs, session IDs,
 timestamps, failure endpoints or cause labels, so event delay, true trend,
 ordinal severity and RUL remain unavailable. See
-`docs/exp8_health_monitoring_workflow.md` and the removed audits
+`docs/experiments/exp8_health.md` and the removed audits
 [health_monitoring_data_capability.md](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/80bdf54fdf43d466ea19549fb7c0b4e391394799/reports/health_monitoring_data_capability.md) and
 [fault_type_data_requirements.md](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/80bdf54fdf43d466ea19549fb7c0b4e391394799/reports/fault_type_data_requirements.md) (commit `80bdf54`) before making those claims.
 

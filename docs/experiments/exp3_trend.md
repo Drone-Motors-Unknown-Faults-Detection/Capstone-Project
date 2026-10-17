@@ -73,6 +73,6 @@ Roberts（1959），*Control Chart Tests Based on Geometric Moving Averages*，T
 
 [exp3](../../src/experiments/exp3_trend.py)產生劇本、管理trial與writer；[core/trend](../../src/core/trend.py)實作旗標EWMA／CUSUM；[web/live](../../src/web/live.py)重用劇本；[test_stream_integration](../../src/tests/test_stream_integration.py)與[test_web_experiments](../../src/tests/test_web_experiments.py)檢查編排。實驗八另用SessionTrajectoryMonitor，不是同一趨勢演算法。
 
-兩套趨勢的輸入與用途見[兩套趨勢](../health_and_reports.md#兩套趨勢)；EWMA／CUSUM 的引用核對與未確認項見[來源附件](../../reports/Andy_20261008_議題交付/citation_followup.md)。
+兩套趨勢的輸入與用途見[兩套趨勢](exp8_health.md#兩套趨勢)；EWMA／CUSUM 的引用核對與未確認項見[來源附件](../../reports/Andy_20261008_議題交付/citation_followup.md)。
 
 串流停止、錯誤復原與模型有效狀態見[Web 串流生命週期](README.md#web-串流生命週期)及[共用模型生命週期](README.md#共用模型生命週期)。當次串流整合來源與配對證據見[固定交付紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/integration_20261008/integration_report.md)。

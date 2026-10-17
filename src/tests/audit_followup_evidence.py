@@ -27,7 +27,7 @@ def run() -> dict:
                                    for node in ast.walk(ast.parse(current.decode("utf-8")))
                                    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))]
         sources.append(record)
-    documents = [root / "docs/health_and_reports.md", root / "reports/Andy_20261009_主線交付/README.md",
+    documents = [root / "docs/experiments/exp8_health.md", root / "reports/Andy_20261009_主線交付/README.md",
                  root / "reports/Andy_20261008_議題交付/delivery.md"]
     links = [row for path in documents for row in local_links(path, root)]
     result = {"schema": "audit_followup_evidence_v1", "head": head, "baseline": baseline,
