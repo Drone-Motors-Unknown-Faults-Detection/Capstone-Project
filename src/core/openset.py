@@ -37,6 +37,14 @@ OPENSET_METHOD_ALIASES = {
 }
 
 
+RESOLVED_CONFIG_VERSION = "openset_config_v1"
+MAHALANOBIS_METHODS = ("legacy", "ledoit_wolf", "oas", "mcd")
+
+
+class OpenSetConfigError(ValueError):
+    """Open Set 參數不合法；訊息以參數名開頭。"""
+
+
 def canonical_openset_method(value: str) -> OpenSetMethod:
     """Normalize public method names to the two formal factory methods."""
     canonical = OPENSET_METHOD_ALIASES.get(str(value).strip().lower())
@@ -44,6 +52,52 @@ def canonical_openset_method(value: str) -> OpenSetMethod:
         supported = ", ".join(SUPPORTED_OPENSET_METHODS)
         raise ValueError(f"Unsupported Open Set method: {value!r}; choose from {supported}")
     return canonical  # type: ignore[return-value]
+
+
+def resolve_openset_config(
+    openset_method: str = "mahalanobis",
+    *,
+    confidence: float = 0.95,
+    mahalanobis_method: str = "ledoit_wolf",
+    knn_neighbors: int = 5,
+) -> dict:
+    """把 Open Set 參數解析成唯一的 resolved config；非法值丟 OpenSetConfigError。
+
+    CLI、程式 run() 與 Web 都經這裡，所以同一組參數得到同一份設定。
+    """
+    try:
+        canonical = canonical_openset_method(openset_method)
+    except ValueError as exc:
+        raise OpenSetConfigError(f"openset_method: {exc}") from None
+    if isinstance(confidence, bool) or not isinstance(confidence, (int, float, np.integer, np.floating)):
+        raise OpenSetConfigError(f"confidence: expected a number in (0, 1), got {confidence!r}")
+    if not np.isfinite(confidence) or not 0.0 < float(confidence) < 1.0:
+        raise OpenSetConfigError(f"confidence: expected a number in (0, 1), got {confidence!r}")
+    if isinstance(knn_neighbors, bool) or not isinstance(knn_neighbors, (int, np.integer)) or knn_neighbors < 1:
+        raise OpenSetConfigError(f"knn_neighbors: expected an integer >= 1, got {knn_neighbors!r}")
+    if mahalanobis_method not in MAHALANOBIS_METHODS:
+        raise OpenSetConfigError(
+            f"mahalanobis_method: expected one of {', '.join(MAHALANOBIS_METHODS)}, got {mahalanobis_method!r}")
+
+    effective: dict = {"confidence": float(confidence), "threshold": 1.0}
+    if canonical == "mahalanobis":
+        effective["mahalanobis_method"] = mahalanobis_method
+        method_id = f"mahalanobis/{mahalanobis_method}"
+        ignored = [{"parameter": "knn_neighbors", "value": int(knn_neighbors),
+                    "reason": "only used by openset_method=knn"}]
+    else:
+        effective["knn_neighbors"] = int(knn_neighbors)
+        method_id = f"knn/k{int(knn_neighbors)}"
+        ignored = [{"parameter": "mahalanobis_method", "value": mahalanobis_method,
+                    "reason": "covariance estimator is only used by openset_method=mahalanobis"}]
+    return {
+        "version": RESOLVED_CONFIG_VERSION,
+        "method_id": method_id,
+        "openset_method": canonical,
+        "requested_method": str(openset_method),
+        "effective": effective,
+        "ignored": ignored,
+    }
 
 
 @runtime_checkable
@@ -200,12 +254,20 @@ def create_openset_detector(
     knn_neighbors: int = 5,
 ) -> OpenSetDetector:
     """建立 detector；所有實作的正規化 unknown threshold 都固定為 1。"""
-    openset_method = canonical_openset_method(openset_method)
+    resolved = resolve_openset_config(openset_method, confidence=confidence,
+                                      mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
+    return create_detector_from_config(resolved)
+
+
+def create_detector_from_config(resolved: dict) -> OpenSetDetector:
+    """依 resolve_openset_config() 的結果建立 detector。"""
+    openset_method = resolved["openset_method"]
+    effective = resolved["effective"]
     if openset_method == "mahalanobis":
         return MahalanobisOpenSetDetector(
-            method=mahalanobis_method,
-            confidence=confidence,
+            method=effective["mahalanobis_method"],
+            confidence=effective["confidence"],
         )
     if openset_method == "knn":
-        return KNNOpenSetDetector(confidence=confidence, n_neighbors=knn_neighbors)
+        return KNNOpenSetDetector(confidence=effective["confidence"], n_neighbors=effective["knn_neighbors"])
     raise AssertionError(f"unhandled canonical Open Set method: {openset_method}")

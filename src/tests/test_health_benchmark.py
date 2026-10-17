@@ -48,6 +48,7 @@ class HealthBenchmarkTests(unittest.TestCase):
             result = run(root, seed=123, openset_method="knn", require_nine=False)
             self.assertEqual(result["method"], "knn")
             self.assertEqual(result["rows"][0]["method"], "knn")
+            self.assertEqual(result["resolved_config"]["method_id"], "knn/k5")
         finally:
             temporary.cleanup()
 
