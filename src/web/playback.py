@@ -1,9 +1,13 @@
-"""實驗頁「邊跑邊畫」目前／最近一次播放的狀態，給 AI 問答讀取。
+"""實驗頁的執行紀錄（「⏵ 邊跑邊畫」與「▶ 執行」），給 AI 問答讀取。
 
-server.py 的 StreamHandler 每送出一個 frame 就呼叫 ``PlaybackTracker.update()``；本模組只彙整，
-不做任何判定，數字全部取自各實驗 iter_run() 的既有輸出。
+每個實驗各留最近一次紀錄（records[exp_id]），latest 指向最近動過的實驗：
+    邊跑邊畫  StreamHandler 每送出一個 frame 呼叫 ``update()``，播完的結果一併摘要
+    ▶ 執行    RunHandler 完成後呼叫 ``record_run(exp_id, payload)``
+    存檔      記憶體沒有紀錄（例：伺服器重啟）時，``load_saved()`` 讀 results_root 下最新的
+              ``*/experiments/{exp_id}_*.json``（ExperimentRunner._save 寫的 payload）
+本模組只彙整，不做任何判定，數字全部取自各實驗既有輸出。
 
-狀態分三層：
+邊跑邊畫的狀態分三層：
     current    最近一筆的系統判定（分數、判定、EWMA、健康指數…），不含真值
     events     重點事件：候選群、自學、變化點警報、嚴重度改變（最多 MAX_EVENTS 筆）
     reference  事後對照：由注入配置（真值）算出的評估結果，只能當評估說明，不是系統當下的判定
@@ -15,14 +19,20 @@ server.py 的 StreamHandler 每送出一個 frame 就呼叫 ``PlaybackTracker.up
 from __future__ import annotations
 
 import copy
+import itertools
+import json
 import time
+from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
 from web.experiments import CATALOG
 
 MAX_EVENTS = 12
 MAX_REFERENCE = 40
+RESULT_BUDGET = 6000          # 結果摘要字數上限（模型 context 32k，另有手冊與對話）
+RESULTS_ROOT = Path("output/web_server")
 _SPEC = {e["id"]: e for e in CATALOG}
+_SEQ = itertools.count(1)     # 紀錄先後順序：同一編號有多張卡（6-1／6-2）時取最近的
 
 # 實驗八逐窗輸出中屬於系統判定的欄位（is_fault 是真值，不在此列）
 WINDOW_FIELDS = ("window_index", "health_index", "severity_stage", "trend", "degradation_rate",
@@ -38,32 +48,160 @@ def _now() -> str:
     return time.strftime("%H:%M:%S")
 
 
+# -- 結果摘要 ----------------------------------------------------------------------
+
+SKIP_KEYS = {"model", "resolved_config", "dataset_fingerprint", "fingerprint_version", "dataset_root",
+             "checkpoint_identifier"}
+
+
+def _fmt(v) -> str:
+    if isinstance(v, float):
+        return f"{v:.4g}"
+    return "—" if v is None else str(v)
+
+
+def _scalar(v) -> bool:
+    return v is None or isinstance(v, (int, float, str, bool))
+
+
+def _render(key: str, v, depth: int, out: list[str]) -> None:
+    pad = "  " * depth
+    label = f"{pad}{key}：" if key else pad
+    if isinstance(v, dict) and isinstance(v.get("labels"), list) and isinstance(v.get("matrix"), list):
+        labels = [str(x) for x in v["labels"]]   # 混淆矩陣：列 = 真值、欄 = 預測
+        out.append(f"{label}（列 = 真值、欄 = 預測）")
+        out.append(f"{pad}| 真值＼預測 | " + " | ".join(labels) + " |")
+        for name, row in zip(labels, v["matrix"]):
+            out.append(f"{pad}| {name} | " + " | ".join(_fmt(x) for x in row) + " |")
+        return
+    if isinstance(v, dict):
+        if depth >= 4:
+            out.append(f"{label}（{len(v)} 項，略）")
+            return
+        if key:
+            out.append(label)
+        for k, x in v.items():
+            if str(k).startswith("_") or k in SKIP_KEYS:   # _ 開頭是畫圖用座標等內部資料
+                continue
+            if _scalar(x):
+                out.append(f"{pad}{'  ' if key else ''}{k}：{_fmt(x)}")
+            else:
+                _render(str(k), x, depth + (1 if key else 0), out)
+        return
+    if isinstance(v, list):
+        if not v:
+            out.append(f"{label}（空）")
+        elif all(_scalar(x) for x in v):
+            nums = [x for x in v if isinstance(x, (int, float)) and not isinstance(x, bool)]
+            if len(v) <= 20:
+                out.append(f"{label}" + "、".join(_fmt(x) for x in v))
+            elif nums:
+                out.append(f"{label}{len(v)} 個數值，最小 {_fmt(min(nums))}、最大 {_fmt(max(nums))}、"
+                           f"平均 {_fmt(sum(nums) / len(nums))}")
+            else:
+                out.append(f"{label}{len(v)} 項")
+        elif all(isinstance(x, dict) for x in v):
+            cols = []
+            for row in v:
+                cols += [k for k, x in row.items() if _scalar(x) and k not in cols and not str(k).startswith("_")]
+            cols = cols[:14]
+            out.append(f"{label}（{len(v)} 列）")
+            out.append(f"{pad}| " + " | ".join(cols) + " |")
+            for row in v[:30]:
+                out.append(f"{pad}| " + " | ".join(_fmt(row.get(c)) for c in cols) + " |")
+            if len(v) > 30:
+                out.append(f"{pad}…另有 {len(v) - 30} 列")
+        else:
+            out.append(f"{label}{len(v)} 項（巢狀，略）")
+        return
+    out.append(f"{label}{_fmt(v)}")
+
+
+def summarize_result(result, budget: int = RESULT_BUDGET) -> str:
+    """實驗結果轉成模型讀得完的文字：去掉畫圖座標與模型細節，矩陣轉表格，長清單截斷。"""
+    out: list[str] = []
+    _render("", result, 0, out)
+    text = "\n".join(line for line in out if line.strip())
+    if len(text) > budget:
+        text = text[:budget] + "\n…（以下略，完整結果見存檔）"
+    return text
+
+
+def _base(exp_id: str, mode: str) -> dict:
+    spec = _SPEC.get(exp_id, {})
+    return {
+        "exp_id": exp_id, "no": spec.get("no", exp_id), "sub": spec.get("sub"), "title": spec.get("title", ""),
+        "mode": mode, "params": {}, "status": "running", "started_at": _now(), "updated_at": _now(),
+        "samples": 0, "known": None, "current": None, "events": [], "reference": [],
+        "result": None, "result_text": None, "error": None, "seq": next(_SEQ),
+    }
+
+
+def _split_params(st: dict, params: dict) -> None:
+    params = dict(params or {})
+    source = params.pop("config", None)   # 實驗八選的注入配置 = 真值
+    st["params"] = params
+    if source is not None:
+        st["source_config"] = source
+
+
+def _fill_result(st: dict, payload: dict) -> None:
+    st["status"] = "done"
+    st["result"] = {k: payload.get(k) for k in ("seconds", "saved", "finished_at") if payload.get(k) is not None}
+    st["result_text"] = summarize_result(payload.get("result"))
+
+
 class PlaybackTracker:
-    def __init__(self):
-        self.state: dict | None = None
+    def __init__(self, results_root: Path | str = RESULTS_ROOT):
+        self.results_root = Path(results_root)
+        self.records: dict[str, dict] = {}
+        self.latest: str | None = None
+
+    @property
+    def state(self) -> dict | None:
+        """最近動過的那筆紀錄（邊跑邊畫的 update 寫進這裡）。"""
+        return self.records.get(self.latest) if self.latest else None
 
     # -- 生命週期 ----------------------------------------------------------------
 
     def start(self, exp_id: str, params: dict) -> None:
-        spec = _SPEC.get(exp_id, {})
-        self.state = {
-            "exp_id": exp_id,
-            "no": spec.get("no", exp_id),
-            "sub": spec.get("sub"),
-            "title": spec.get("title", ""),
-            "params": {},
-            "status": "running",
-            "started_at": _now(),
-            "updated_at": _now(),
-            "samples": 0,
-            "known": None,
-            "current": None,
-            "events": [],
-            "reference": [],
-            "result": None,
-            "error": None,
-        }
-        self._set_params(params)
+        st = _base(exp_id, "stream")
+        _split_params(st, params)
+        self.records[exp_id] = st
+        self.latest = exp_id
+
+    def record_run(self, exp_id: str, payload: dict) -> None:
+        """「▶ 執行」完成：整份結果摘要後存成該實驗最近一次紀錄。"""
+        st = _base(exp_id, "run")
+        _split_params(st, payload.get("params") or {})
+        _fill_result(st, payload)
+        self._event(st, f"執行完成（{payload.get('seconds')} 秒）")
+        self.records[exp_id] = st
+        self.latest = exp_id
+
+    def record_run_error(self, exp_id: str, params: dict, error: str) -> None:
+        st = _base(exp_id, "run")
+        _split_params(st, params)
+        st.update(status="error", error=error)
+        self.records[exp_id] = st
+        self.latest = exp_id
+
+    def load_saved(self, exp_id: str | None = None) -> dict | None:
+        """記憶體沒有紀錄時讀存檔；exp_id=None 取所有實驗中最新的一份。"""
+        pattern = f"*/experiments/{exp_id}_2*.json" if exp_id else "*/experiments/*_2*.json"
+        files = sorted(self.results_root.glob(pattern), key=lambda p: p.name.rsplit("_", 1)[-1])
+        for path in reversed(files):
+            try:
+                payload = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            exp = payload.get("experiment") or path.name.rsplit("_", 1)[0]
+            st = _base(exp, "saved")
+            _split_params(st, payload.get("params") or {})
+            _fill_result(st, {**payload, "saved": payload.get("saved") or str(path)})
+            st["started_at"] = st["updated_at"] = payload.get("finished_at") or "—"
+            return st
+        return None
 
     def finish(self, status: str, error: str | None = None) -> None:
         """串流結束時呼叫；已經 done／error 的不覆蓋（被瀏覽器中斷才記 stopped）。"""
@@ -75,7 +213,10 @@ class PlaybackTracker:
         st["updated_at"] = _now()
 
     def snapshot(self) -> dict | None:
-        return copy.deepcopy(self.state)
+        """提問當下凍結全部紀錄；沒有任何紀錄回 None。"""
+        if not self.records:
+            return None
+        return {"latest": self.latest, "records": copy.deepcopy(self.records)}
 
     # -- frame 彙整 --------------------------------------------------------------
 
@@ -97,15 +238,8 @@ class PlaybackTracker:
         st["reference"].append(item)
         del st["reference"][:-MAX_REFERENCE]
 
-    def _set_params(self, params: dict) -> None:
-        params = dict(params or {})
-        source = params.pop("config", None)   # 實驗八選的注入配置 = 真值
-        self.state["params"] = params
-        if source is not None:
-            self.state["source_config"] = source
-
     def _on_start(self, st, f):
-        self._set_params(f.get("params") or {})
+        _split_params(st, f.get("params") or {})
 
     def _on_fitted(self, st, f):
         if f.get("known") is not None:
@@ -186,15 +320,11 @@ class PlaybackTracker:
 
     def _on_done(self, st, f):
         payload = f.get("payload") or {}
-        st["status"] = "done"
+        _fill_result(st, payload)
         result = payload.get("result")
-        summary = {"seconds": payload.get("seconds"), "saved": payload.get("saved")}
         if isinstance(result, dict):
-            for key, value in result.items():
-                if isinstance(value, (int, float, str, bool)) and key not in ("seed",):
-                    summary[key] = _round(value)
             if isinstance(result.get("final_known"), list):
-                summary["final_known"] = result["final_known"]
+                st["known"] = list(result["final_known"])
             # 以下由真值比對算出，放事後對照
             for name, row in (result.get("summary") or {}).items():   # 實驗三：每個劇本的警報率／正確率
                 if isinstance(row, dict):
@@ -207,9 +337,6 @@ class PlaybackTracker:
                         k: _round(stage.get(k)) for k in ("discovered", "learned_display", "matched_display",
                                                         "samples_to_candidate", "cluster_size", "cluster_purity",
                                                         "own_holdout_acc", "healthy_holdout_acc")}})
-        elif isinstance(result, list):
-            summary["windows"] = len(result)
-        st["result"] = summary
         self._event(st, f"播放完成（{payload.get('seconds')} 秒）")
 
     def _on_stopped(self, st, f):

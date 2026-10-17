@@ -14,12 +14,15 @@ import web.server as server
 from web.assistant import (
     Assistant,
     ThinkFilter,
-    describe_playback,
-    describe_playback_events,
+    NO_PLAYBACK,
+    describe_record,
+    describe_record_events,
     experiment_number,
     experiment_with_sources,
     load_knowledge,
-    playback_label,
+    latest_record,
+    pick_record,
+    record_label,
     search_knowledge,
     search_with_sources,
     to_messages,
@@ -66,7 +69,7 @@ def fake_model(*replies):
 
 
 TOOL_THEN_ANSWER = (
-    AIMessage(content="", tool_calls=[{"name": "get_playback_status", "args": {}, "id": "c1"}]),
+    AIMessage(content="", tool_calls=[{"name": "get_run_status", "args": {}, "id": "c1"}]),
     AIMessage(content="<think>先看狀態</think>目前 健康"),
 )
 
@@ -86,25 +89,40 @@ def exp2_tracker(ticks=3, candidate=True):
     return tracker
 
 
-class PlaybackDescribeTests(unittest.TestCase):
-    def test_nothing_played_tells_user_where_to_start(self):
-        self.assertIn("【查無資料】", describe_playback(None))
-        self.assertIn("⏵ 邊跑邊畫", describe_playback(None))
-        self.assertEqual(playback_label(None), "實驗頁播放：無紀錄")
+def exp12_saved(exp_id):
+    """假的存檔讀取：只有實驗十二有伺服器重啟前的結果。"""
+    if exp_id not in ("exp12", None):
+        return None
+    tracker = PlaybackTracker()
+    tracker.record_run("exp12", {"params": {"seed": 42}, "seconds": 56.71, "finished_at": "2026-10-17T14:17:08",
+                                 "saved": "output/web_server/2026-10-17-14-08-37/experiments/exp12_2026-10-17-14-17-08.json",
+                                 "result": {"binary_confusion": {"labels": ["healthy", "fault"],
+                                                                 "matrix": [[527, 0], [0, 2736]]}}})
+    rec = tracker.snapshot()["records"]["exp12"]
+    rec.update(mode="saved", updated_at="2026-10-17T14:17:08")
+    return rec
 
-    def test_status_shows_system_verdict_without_truth(self):
-        snap = exp2_tracker().snapshot()
-        text = describe_playback(snap)
+
+class RecordDescribeTests(unittest.TestCase):
+    def test_nothing_recorded_tells_user_where_to_start(self):
+        rec, missing = pick_record(None, "", load_saved=lambda _id: None)
+        self.assertIsNone(rec)
+        self.assertEqual(missing, NO_PLAYBACK)
+        self.assertIn("▶ 執行", NO_PLAYBACK)
+        self.assertEqual(record_label(None), "實驗頁紀錄：無")
+
+    def test_stream_status_shows_system_verdict_without_truth(self):
+        rec = latest_record(exp2_tracker().snapshot())
+        text = describe_record(rec)
         self.assertIn("實驗：實驗二 量尺擴張（exp2）", text)
-        self.assertIn("狀態：播放中", text)
+        self.assertIn("來源：⏵ 邊跑邊畫；狀態：播放中", text)
         self.assertIn("已播放：3 筆", text)
         self.assertIn("判定=未知", text)
-        self.assertIn("隔離區筆數=3", text)
         self.assertNotIn("5screws", text)
         self.assertNotIn("螺絲", text)
 
     def test_events_separate_reference_truth(self):
-        text = describe_playback_events(exp2_tracker().snapshot())
+        text = describe_record_events(latest_record(exp2_tracker().snapshot()))
         events, _, reference = text.partition("【事後對照")
         self.assertIn("隔離區聚出候選群：30 筆", events)
         self.assertNotIn("螺絲", events)
@@ -112,8 +130,40 @@ class PlaybackDescribeTests(unittest.TestCase):
         self.assertIn("5 螺絲（中度鬆動）", reference)
 
     def test_label_summarizes_progress(self):
-        label = playback_label(exp2_tracker().snapshot())
-        self.assertRegex(label, r"^實驗頁播放：實驗二 量尺擴張，播放中，已播 3 筆，更新於 \d\d:\d\d:\d\d$")
+        label = record_label(latest_record(exp2_tracker().snapshot()))
+        self.assertRegex(label, r"^實驗頁紀錄：實驗二 量尺擴張（⏵ 邊跑邊畫），播放中，已播 3 筆，時間 \d\d:\d\d:\d\d$")
+
+    def test_pick_by_number_prefers_memory_then_saved_file(self):
+        snap = exp2_tracker().snapshot()
+        for number in ("2", "二", "實驗二", "exp2"):
+            with self.subTest(number=number):
+                self.assertEqual(pick_record(snap, number, exp12_saved)[0]["exp_id"], "exp2")
+        # 截圖情境：實驗十二用「▶ 執行」跑的，記憶體沒有（伺服器重啟），改讀存檔
+        for number in ("12", "十二", "實驗12", "exp12_2026-10-17-14-17-08.json"):
+            with self.subTest(number=number):
+                rec, _ = pick_record(snap, number, exp12_saved)
+                self.assertEqual((rec["exp_id"], rec["mode"]), ("exp12", "saved"))
+        text = describe_record(pick_record(snap, "12", exp12_saved)[0])
+        self.assertIn("來源：存檔；狀態：已完成", text)
+        self.assertIn("先前執行留下的存檔", text)
+        self.assertIn("| healthy | 527 | 0 |", text)
+        self.assertIn("屬事後對照", text)
+
+    def test_missing_experiment_lists_what_exists(self):
+        rec, missing = pick_record(exp2_tracker().snapshot(), "7", exp12_saved)
+        self.assertIsNone(rec)
+        self.assertTrue(missing.startswith("【查無資料】實驗 7 在伺服器上沒有執行或播放紀錄"))
+        self.assertIn("目前有紀錄的實驗：實驗二 量尺擴張", missing)
+
+    def test_multi_card_number_takes_latest(self):
+        tracker = PlaybackTracker()
+        tracker.record_run("exp8", {"params": {}, "result": {}})
+        tracker.start("exp8_monitor", {"dataset": "T1/8000rpm", "config": "5screws"})
+        self.assertEqual(pick_record(tracker.snapshot(), "八")[0]["exp_id"], "exp8_monitor")
+
+    def test_no_number_falls_back_to_newest_saved(self):
+        rec, _ = pick_record(None, "", exp12_saved)
+        self.assertEqual(rec["exp_id"], "exp12")
 
 
 class KnowledgeTests(unittest.TestCase):
@@ -169,8 +219,8 @@ class AskTests(unittest.TestCase):
             return [f async for f in assistant.ask(snap, "目前狀況？")]
 
         frames = asyncio.run(collect())
-        self.assertEqual(frames[0], {"event": "tool", "name": "get_playback_status", "label": "讀取實驗播放狀態",
-                                     "sources": [playback_label(snap)]})
+        self.assertEqual(frames[0], {"event": "tool", "name": "get_run_status", "label": "讀取實驗執行紀錄",
+                                     "sources": [record_label(latest_record(snap))]})
         # 第一步強制查工具，查過之後才放開讓模型作答
         self.assertEqual(model.choices, ["required", "auto"])
         deltas = [f["text"] for f in frames if f["event"] == "delta"]
@@ -184,7 +234,7 @@ class AskTests(unittest.TestCase):
 class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
     def setUp(self):
         self.saved = (server.PLAYBACK, server.ASSISTANT)
-        server.PLAYBACK = PlaybackTracker()   # 尚未播放任何實驗
+        server.PLAYBACK = PlaybackTracker(results_root=Path("不存在的目錄"))   # 尚未執行，也沒有存檔
         super().setUp()
 
     def tearDown(self):
@@ -207,15 +257,15 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))
         frames = self.frames(json.dumps({"question": "目前狀況？", "history": []}))
         self.assertEqual([f["event"] for f in frames][0], "tool")
-        self.assertEqual(frames[-1], {"event": "done", "as_of": "實驗頁播放：無紀錄"})
+        self.assertEqual(frames[-1], {"event": "done", "as_of": "實驗頁紀錄：無"})
         self.assertIn("delta", {f["event"] for f in frames})
-        self.assertEqual(frames[0]["sources"], ["實驗頁播放：無紀錄"])
+        self.assertEqual(frames[0]["sources"], ["實驗頁紀錄：無"])
 
     def test_ask_reads_current_playback(self):
         server.PLAYBACK = exp2_tracker()
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))
         frames = self.frames(json.dumps({"question": "目前狀況？"}))
-        self.assertRegex(frames[-1]["as_of"], r"^實驗頁播放：實驗二 量尺擴張，播放中，已播 3 筆")
+        self.assertRegex(frames[-1]["as_of"], r"^實驗頁紀錄：實驗二 量尺擴張（⏵ 邊跑邊畫），播放中，已播 3 筆")
 
     def test_bad_request_returns_error_frame(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())

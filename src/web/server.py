@@ -19,7 +19,8 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
 AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
     GET  /api/assistant/status          模型端點是否可連、模型名稱
     POST /api/assistant/ask             {question, history} → SSE：tool / delta / done / error
-    AI 讀的「目前狀況」是實驗頁邊跑邊畫目前或最近一次的播放（PLAYBACK，web/playback.py），不是首頁即時展示。
+    AI 讀的「目前狀況」是實驗頁「▶ 執行」「⏵ 邊跑邊畫」的紀錄（PLAYBACK，web/playback.py），
+    記憶體沒有時讀 output/web_server/*/experiments/ 的存檔；不讀首頁即時展示。
 """
 
 from __future__ import annotations
@@ -42,7 +43,7 @@ from loguru import logger
 from core.data import discover_datasets
 from core.logger import setup_run
 from core.runner import add_openset_args
-from web.assistant import Assistant, playback_label
+from web.assistant import Assistant, latest_record, record_label
 from web.experiments import ExperimentRunner
 from web.live import LiveDemo
 from web.playback import PlaybackTracker
@@ -204,7 +205,7 @@ class ExperimentJobs:
 
 
 JOBS: ExperimentJobs | None = None
-PLAYBACK = PlaybackTracker()   # 實驗頁邊跑邊畫目前／最近一次播放，AI 問答讀這份
+PLAYBACK = PlaybackTracker()   # 實驗頁各實驗最近一次執行／播放紀錄，AI 問答讀這份
 
 
 class _JSONHandler(tornado.web.RequestHandler):
@@ -244,10 +245,12 @@ class RunHandler(_JSONHandler):
             return
         except Exception as exc:  # 展示現場永不讓伺服器死掉
             logger.exception(f"實驗 {exp_id} 失敗")
+            PLAYBACK.record_run_error(exp_id, params, f"{exp_id} 執行失敗：{exc!r}")
             self.reply({"error": f"{exp_id} 執行失敗：{exc!r}"}, 500)
             return
         finally:
             JOBS.current = None
+        PLAYBACK.record_run(exp_id, payload)
         logger.info(f"實驗頁完成 {exp_id}（{payload['seconds']} 秒）→ {payload['saved']}")
         self.reply(payload)
 
@@ -385,14 +388,14 @@ class AssistantAskHandler(tornado.web.RequestHandler):
             await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
             return
         snap = PLAYBACK.snapshot()
-        logger.info(f"AI 問答（{playback_label(snap)}）：{question.strip()[:80]}")
+        logger.info(f"AI 問答（{record_label(latest_record(snap))}）：{question.strip()[:80]}")
         try:
-            async for frame in ASSISTANT.ask(snap, question.strip(), history):
+            async for frame in ASSISTANT.ask(snap, question.strip(), history, load_saved=PLAYBACK.load_saved):
                 if self.closed:
                     logger.info("AI 問答被瀏覽器中斷")
                     return
                 await self.send(frame)
-            await self.send({"event": "done", "as_of": playback_label(snap)})
+            await self.send({"event": "done", "as_of": record_label(latest_record(snap))})
         except tornado.iostream.StreamClosedError:
             logger.info("AI 問答連線已關閉")
         except Exception as exc:  # 模型離線或回應異常時回報，不讓伺服器死掉
@@ -535,6 +538,7 @@ def main() -> None:
     args = parser.parse_args()
 
     log, paths = setup_run("web_server")
+    PLAYBACK.results_root = Path(paths.output_dir).parent   # output/web_server：各次啟動的實驗存檔
 
     datasets = discover_datasets(args.data_root)
     if not datasets:
