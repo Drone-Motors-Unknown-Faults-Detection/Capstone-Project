@@ -49,6 +49,8 @@ docs/            實驗技術報告在 docs/experiments/（每個 src/experiment
                  歷史快照見 docs/README.md；快照裡的程式路徑不對應現行架構，勿據以改碼
 data/            特徵資料（git 忽略；由論文版管線產出，本專案唯讀）
 logs/ output/    每次執行的日誌與結果（納入版控）。output/ 只能是程式碼寫出的檔案，見鐵則 9
+docker/          compose.yaml（include 下面兩個）、vllm.compose.yaml（NGC vLLM + Qwen3，AI 問答模型）、
+                 app.compose.yaml + Dockerfile（展示伺服器映像，data/ 唯讀掛入、logs/ output/ 可寫）、.env.example
 uv.lock          完整依賴樹的唯一鎖版來源（含間接依賴）；pyproject.toml 只宣告直接依賴的訂死版本
 scripts/quantity/ 提交前檢查：run_pytest.sh（鐵則 10）、run_ruff.sh（鐵則 12）；
                  CI 的獨立 Pytest／Ruff step 也呼叫這兩支
@@ -180,6 +182,11 @@ venv/bin/python -m experiments.compare_openset --openset-methods mahalanobis knn
 # 即時展示（http://localhost:8600）
 ./scripts/opt/run_web.sh
 ./scripts/opt/run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
+
+# Docker（docker/.env 由 .env.example 複製；需 NVIDIA Container Toolkit）
+cd docker && docker compose up -d --build      # vLLM（Qwen3）+ 展示，http://localhost:8600
+docker compose -f vllm.compose.yaml up -d       # 只開模型
+docker compose -f app.compose.yaml up -d --build  # 只開展示
 
 # AI 問答（先開模型，再開展示；即時展示頁左欄「AI 問答」）
 ./scripts/opt/run_llm.sh                       # vLLM，http://127.0.0.1:8000/v1
