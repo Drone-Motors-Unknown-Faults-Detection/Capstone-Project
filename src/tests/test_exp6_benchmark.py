@@ -12,7 +12,7 @@ import pandas as pd
 
 from core.openset import create_openset_detector
 from core.feature_schema import SCHEMAS
-from experiments.exp6_formal_benchmark import _fpr_at_tpr95, run
+from experiments.exp6_formal_benchmark import _fpr_at_tpr95, run, _condition_metrics
 
 
 def _fixture(root: Path) -> Path:
@@ -82,6 +82,34 @@ class Exp6BenchmarkTests(unittest.TestCase):
     def test_fpr_metric_is_separate_from_normalized_detector_threshold(self) -> None:
         fpr = _fpr_at_tpr95(np.array([0.2, 0.4]), np.array([2.0, 3.0, 4.0, 5.0]))
         self.assertEqual(fpr, 0.0)
+
+
+class ConditionMetricsTests(unittest.TestCase):
+    """#49 抽出的 _condition_metrics：純函數，unknown 為正類，分數 > 1 才判 unknown。"""
+
+    def test_threshold_tie_counts_as_known(self) -> None:
+        metrics = _condition_metrics(np.array([0.5, 1.0]), np.array([1.0, 2.0]))
+        self.assertEqual(metrics["known_accuracy"], 1.0)
+        self.assertEqual(metrics["unknown_recall"], 0.5)
+        self.assertEqual(metrics["unknown_precision"], 1.0)
+        self.assertEqual(metrics["open_set_accuracy"], 0.75)
+
+    def test_perfect_separation(self) -> None:
+        metrics = _condition_metrics(np.array([0.1, 0.2, 0.3]), np.array([3.0, 4.0]))
+        self.assertEqual((metrics["auroc"], metrics["aupr_unknown_positive"], metrics["unknown_f1"]), (1.0, 1.0, 1.0))
+        self.assertEqual(metrics["fpr_at_tpr95"], 0.0)
+        self.assertEqual((metrics["known_score_median"], metrics["unknown_score_median"]), (0.2, 3.5))
+
+    def test_all_scores_tied_gives_chance_auroc_and_zero_f1(self) -> None:
+        metrics = _condition_metrics(np.full(4, 0.5), np.full(3, 0.5))
+        self.assertEqual(metrics["auroc"], 0.5)
+        self.assertEqual((metrics["unknown_recall"], metrics["unknown_f1"]), (0.0, 0.0))
+
+    def test_empty_batches_are_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            _condition_metrics(np.array([0.5]), np.array([]))
+        with self.assertRaises(ValueError):
+            _condition_metrics(np.array([]), np.array([2.0]))
 
 
 if __name__ == "__main__":

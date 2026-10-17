@@ -130,6 +130,32 @@ def _validate_datasets(datasets: list[dict], data_root: Path, require_nine: bool
         )
 
 
+def _condition_metrics(known_scores: np.ndarray, unknown_scores: np.ndarray) -> dict:
+    """單一工況的八個指標與兩個分數中位數；unknown 為正類，分數 > 1 判 unknown。
+
+    兩組都不得為空：AUROC／AUPR 需要兩類都存在，空輸入直接拒絕，不回傳 NaN。
+    """
+    known_scores = np.asarray(known_scores, dtype=float)
+    unknown_scores = np.asarray(unknown_scores, dtype=float)
+    if known_scores.size == 0 or unknown_scores.size == 0:
+        raise ValueError("known and unknown score batches must both be non-empty")
+    scores = np.concatenate((known_scores, unknown_scores))
+    labels = np.concatenate((np.zeros(len(known_scores), dtype=int), np.ones(len(unknown_scores), dtype=int)))
+    predictions = (scores > 1.0).astype(int)
+    return {
+        "known_accuracy": round(float((predictions[: len(known_scores)] == 0).mean()), 6),
+        "open_set_accuracy": round(float(accuracy_score(labels, predictions)), 6),
+        "auroc": round(float(roc_auc_score(labels, scores)), 6),
+        "aupr_unknown_positive": round(float(average_precision_score(labels, scores)), 6),
+        "fpr_at_tpr95": round(float(_fpr_at_tpr95(known_scores, unknown_scores)), 6),
+        "unknown_precision": round(float(precision_score(labels, predictions, zero_division=0)), 6),
+        "unknown_recall": round(float(recall_score(labels, predictions, zero_division=0)), 6),
+        "unknown_f1": round(float(f1_score(labels, predictions, zero_division=0)), 6),
+        "known_score_median": round(float(np.median(known_scores)), 6),
+        "unknown_score_median": round(float(np.median(unknown_scores)), 6),
+    }
+
+
 def _detector_metadata(detector, confidence: float, openset_method: str, knn_neighbors: int) -> dict:
     summaries = detector.class_summaries()
     raw_thresholds = [float(item["threshold"]) for item in summaries]
@@ -220,9 +246,6 @@ def _run_benchmark(
         inference_seconds = time.perf_counter() - started
         if not np.isfinite(known_scores).all() or not np.isfinite(unknown_scores).all():
             raise ValueError(f"{dataset['motor']}/{dataset['rpm']} produced non-finite scores")
-        scores = np.concatenate((known_scores, unknown_scores))
-        labels = np.concatenate((np.zeros(len(known_scores), dtype=int), np.ones(len(unknown_scores), dtype=int)))
-        predictions = (scores > 1.0).astype(int)
         metadata = _detector_metadata(detector, confidence, openset_method, knn_neighbors)
         rows.append(
             {
@@ -239,16 +262,7 @@ def _run_benchmark(
                 "n_known_test": int(len(X_known)),
                 "n_unknown_test": int(len(X_unknown)),
                 "n_unknown_classes": int(len(unknown_configs)),
-                "known_accuracy": round(float((predictions[: len(known_scores)] == 0).mean()), 6),
-                "open_set_accuracy": round(float(accuracy_score(labels, predictions)), 6),
-                "auroc": round(float(roc_auc_score(labels, scores)), 6),
-                "aupr_unknown_positive": round(float(average_precision_score(labels, scores)), 6),
-                "fpr_at_tpr95": round(float(_fpr_at_tpr95(known_scores, unknown_scores)), 6),
-                "unknown_precision": round(float(precision_score(labels, predictions, zero_division=0)), 6),
-                "unknown_recall": round(float(recall_score(labels, predictions, zero_division=0)), 6),
-                "unknown_f1": round(float(f1_score(labels, predictions, zero_division=0)), 6),
-                "known_score_median": round(float(np.median(known_scores)), 6),
-                "unknown_score_median": round(float(np.median(unknown_scores)), 6),
+                **_condition_metrics(known_scores, unknown_scores),
                 "inference_seconds": round(float(inference_seconds), 6),
                 "peak_memory_mb": None,
                 "status": "completed",
