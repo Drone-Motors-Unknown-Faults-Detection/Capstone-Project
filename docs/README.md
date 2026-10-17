@@ -2,7 +2,7 @@
 
 組員學習與發表請先讀[畢業專題總手冊](畢業專題總手冊.md)：在同一份正文說明 Ancestor 基礎、資料角色、各方法與實驗、Web、工程、未解工作及有答案的發表練習；研究分支、歷史結果與現行功能分開標示。真人走讀與試講回饋尚待確認。
 
-先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全規則](formal_materialization_contract.md)、[實驗八健康監測](experiments/exp8_health.md)、[導覽操作](navigation/exp24_README.md)。各頁說明程式用途、操作、預期輸出與限制。
+先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全規則](formal_materialization_contract.md)、[實驗八健康監測](experiments/exp8_health.md)、[導覽操作](navigation/exp13_README.md)。各頁說明程式用途、操作、預期輸出與限制。
 
 拆 `exp6_formal_benchmark._run_benchmark` 或 `exp6_matrix.run_matrix` 前，先讀[orchestration 回歸契約](refactoring_contract.md)。
 
@@ -12,7 +12,7 @@
 
 匯入105維 CSV 前先讀[正式特徵載入規則](formal_feature_schema_contract.md)。欄名在 `src/core/feature_schema.py` 的 `SCHEMAS`。
 
-老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp24_README.md)。
+老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp13_README.md)。
 
 > 實驗總覽與名詞在 [experiments/README.md](experiments/README.md)。
 > Step 1–6、Tensorflow 與三份研究筆記描述 Ancestor 的論文版管線。程式在 [Ancestor](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)。
@@ -20,7 +20,7 @@
 
 ## 現行實驗技術報告
 
-[experiments/README.md](experiments/README.md)列出13個現行實驗編號（1～12及24）、16份方法／操作手冊及程式位置。實驗六的基準、正式比較、矩陣與彙總各有手冊。實驗八在 [exp8_health](experiments/exp8_health.md)。實驗九用實驗六的 runner。每份手冊說明資料與用途切分、模型建立、CLI／API／Web操作、輸出及限制。實際參數與例外以對應手冊及程式為準。
+[experiments/README.md](experiments/README.md)列出13個現行實驗編號（1～13）、16份方法／操作手冊及程式位置。實驗六的基準、正式比較、矩陣與彙總各有手冊。實驗八在 [exp8_health](experiments/exp8_health.md)。實驗九用實驗六的 runner。每份手冊說明資料與用途切分、模型建立、CLI／API／Web操作、輸出及限制。實際參數與例外以對應手冊及程式為準。
 
 | 編號 | 文件 | 程式 |
 |---|---|---|
@@ -39,9 +39,9 @@
 | 實驗十 | [exp10_transfer](experiments/exp10_transfer.md) | `src/experiments/exp10_transfer.py` |
 | 實驗十一 | [exp11_ancestor_comparison](experiments/exp11_ancestor_comparison.md) | `src/experiments/exp11_ancestor_comparison.py` |
 | 實驗十二 | [exp12_confusion_tsne](experiments/exp12_confusion_tsne.md) | `src/experiments/exp12_confusion_tsne.py` |
-| 實驗二十四 | [exp24_experiment_navigation](experiments/exp24_experiment_navigation.md) | `src/experiments/navigation_data_contract.py`、`src/experiments/navigation_regression.py`；獨立 `web.guide` |
+| 實驗十三 | [exp13_experiment_navigation](experiments/exp13_experiment_navigation.md) | `src/experiments/navigation_data_contract.py`、`src/experiments/navigation_regression.py`；獨立 `web.guide` |
 
-給老師的七問整理與示範順序：[exp24 導覽入口](navigation/exp24_README.md)。研究摘要連到固定研究提交，未將未合入主線的方法當成 main 功能。
+給老師的七問整理與示範順序：[exp13 導覽入口](navigation/exp13_README.md)。研究摘要連到固定研究提交，未將未合入主線的方法當成 main 功能。
 
 ## 現行健康監測
 

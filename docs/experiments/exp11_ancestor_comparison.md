@@ -49,7 +49,7 @@ uv run --locked python -m experiments.exp11_ancestor_comparison --help
 uv run --locked python -m experiments.exp11_ancestor_comparison --data-root data --seeds 42,123,2026 --methods legacy,ledoit_wolf --confidence 0.95
 ```
 
-seeds／methods是逗號字串。API run(data_root,seeds=(42,123,2026),confidence=0.95,methods=("legacy","ledoit_wolf"))回傳dict；build_ancestor_monitor(pools,seed,confidence,method)供[實驗十二](exp12_confusion_tsne.md)共用。沒有Web實驗十一執行卡、串流、續跑或取消；每次重建模型。非法method、缺healthy／未知、空holdout可能失敗，先核對來源與coverage，不補造類別。九工況齊全時9×3×2×2＝108列，不是108次獨立採集。
+seeds／methods是逗號字串。API run(data_root,seeds=(42,123,2026),confidence=0.95,methods=("legacy","ledoit_wolf"))回傳dict；build_ancestor_monitor(pools,seed,confidence,method)供[實驗十二](exp12_confusion_tsne.md)共用。Web「實驗十一」只用畫面上的一個 seed，兩種方法與協定 A／B 都跑；沒有逐筆串流、續跑或取消，每次重建模型。CLI 預設三個 seed。非法method、缺healthy／未知、空holdout可能失敗，先核對來源與coverage，不補造類別。九工況齊全且三 seed 時 9×3×2×2＝108列，不是108次獨立採集。
 
 ## 指標與輸出
 

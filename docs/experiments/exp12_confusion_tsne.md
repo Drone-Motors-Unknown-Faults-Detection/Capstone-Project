@@ -49,7 +49,7 @@ uv run --locked python -m experiments.exp12_confusion_tsne --help
 uv run --locked python -m experiments.exp12_confusion_tsne --data-root data --seed 42 --confidence 0.95 --perplexity 30 --tsne-max-per-class 200
 ```
 
-API run(data_root,seed=42,confidence=0.95,perplexity=30,tsne_max_per_class=200)回傳矩陣及內部_tsne_by_dataset。max_per_class只降低圖的成本，不改混淆矩陣樣本。沒有Web執行卡、逐筆串流、取消或續跑，重新執行會重fit；缺配置／105欄／資料太少先核對來源，不能調出最好看的seed作研究成績。
+API run(data_root,seed=42,confidence=0.95,perplexity=30,tsne_max_per_class=200)回傳矩陣及內部_tsne_by_dataset。max_per_class只降低圖的成本，不改混淆矩陣樣本。Web「實驗十二」選 seed 按「▶ 執行」，畫出混淆矩陣與各工況 t-SNE；沒有逐筆串流、取消或續跑，重新執行會重fit。缺配置／105欄／資料太少先核對來源，不能調出最好看的seed作研究成績。
 
 ## 看輸出
 

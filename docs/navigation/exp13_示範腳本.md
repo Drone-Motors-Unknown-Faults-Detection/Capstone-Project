@@ -1,6 +1,6 @@
 # 核心示範腳本
 
-條件：formal105，T1/8000rpm，seed42，Maha–LW、q95；研究對照kNN使用相同來源。先看[實驗總覽](exp24_實驗總覽.md)，實際案例與截圖在[交付報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/navigation_20261007/final_report.md)。
+條件：formal105，T1/8000rpm，seed42，Maha–LW、q95；研究對照kNN使用相同來源。先看[實驗總覽](exp13_實驗總覽.md)，實際案例與截圖在[交付報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/navigation_20261007/final_report.md)。
 
 可安排 5–8 分鐘講述。先確認資料版本、detector、seed 與筆數；示範時間是教學安排，播放速度只調 tick 間隔，不保證總牆鐘時間。實際數字以 session logs 為準，歷史案例不當作本次執行結果。
 

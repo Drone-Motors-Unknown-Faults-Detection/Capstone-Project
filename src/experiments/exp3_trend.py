@@ -91,12 +91,18 @@ def iter_run(
     method: str = "ledoit_wolf",
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
+    scenarios: tuple[str, ...] | None = None,
 ):
     """逐步產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
     事件依序為 fitted、每筆串流一個 tick（分數、EWMA、CUSUM、是否警報）、
     每次重複結束一個 trial，最後一個是 result（與 run() 回傳值相同）。
+    scenarios 省略時跑 A 與 B；指定時只跑那些劇本。run() 不傳這個參數。
     """
+    unknown = [key for key in (scenarios or ()) if key not in SCENARIOS]
+    if unknown:
+        raise ValueError(f"scenario: unknown {unknown[0]!r}; choose A or B")
+    selected = SCENARIOS if scenarios is None else {key: SCENARIOS[key] for key in scenarios}
     monitor = OpenSetMonitor(
         pools,
         seed=seed,
@@ -109,7 +115,7 @@ def iter_run(
     yield {"event": "fitted", "model": monitor.summary()}
 
     trials = []
-    for key, scen in SCENARIOS.items():
+    for key, scen in selected.items():
         onset = scen["phases"][0][2]  # 第一段健康 phase 的長度 = 故障開始時間
         for k in range(n_trials):
             rng = np.random.default_rng(seed + 1000 * (ord(key) - ord("A") + 1) + k)
@@ -139,7 +145,7 @@ def iter_run(
             yield {"event": "trial", "trial": trials[-1]}
 
     summary = {}
-    for key, scen in SCENARIOS.items():
+    for key, scen in selected.items():
         rows = [t for t in trials if t["scenario"] == key]
         alarmed = [t for t in rows if t["verdict"] is not None]
         summary[key] = {
