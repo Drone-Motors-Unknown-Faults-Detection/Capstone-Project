@@ -138,7 +138,8 @@ const tick = () => new Promise(r => setImmediate(r));
   const msg = aiRow.children[1];
   const [tools, body, sources] = msg.children;
   assert.match(tools.textContent, /🔧 讀取實驗手冊/);
-  assert.match(tools.textContent, /（實驗頁播放：實驗二 量尺擴張，播放中，已播 120 筆/);
+  // 「狀態取自」不顯示：伺服器只知道最近一筆紀錄，不知道 AI 實際查了哪份；以下方依據為準
+  assert.doesNotMatch(tools.textContent, /實驗頁/);
   assert.equal(body.className, 'ai-md');
   assert.equal(body.innerHTML,
     '<p><strong>結論</strong>：只用健康資料</p><ul><li>校準 62 筆</li><li>&lt;b&gt;不是&lt;/b&gt;分類器</li></ul>');

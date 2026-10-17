@@ -3,8 +3,8 @@
 server.py 在 IOLoop 執行緒取 ``PlaybackTracker.snapshot()``（web/playback.py），凍結提問當下
 實驗頁「邊跑邊畫」目前或最近一次的播放狀態，再交給 ``Assistant.ask()``；agent 只能透過四個工具讀資料：
 
-    get_playback_status  播放狀態：哪個實驗、參數、播到哪裡、最新一筆系統判定、模型已知類別、完成結果
-    get_playback_events  重點事件（候選群、自學、變化點警報、嚴重度改變）與事後對照（真值評估）
+    get_run_status       依編號取實驗頁紀錄（▶ 執行／⏵ 邊跑邊畫／存檔）：參數、進度、系統判定、結果摘要
+    get_run_events       重點事件（候選群、自學、變化點警報、嚴重度改變）與事後對照（真值評估）
     get_experiment       依編號取實驗：web/experiments.py 的 CATALOG + docs/experiments/expN_*.md 手冊
     lookup_knowledge     關鍵字查 src/web/knowledge/*.md 與 docs/experiments/*.md 的「## 」段落
 
@@ -41,8 +41,8 @@ MAX_TEXT = 2000          # 單則訊息字數上限
 RECURSION_LIMIT = 10     # agent ↔ tools 來回上限
 
 TOOL_DISPLAY = {
-    "get_playback_status": "讀取實驗播放狀態",
-    "get_playback_events": "讀取播放事件與事後對照",
+    "get_run_status": "讀取實驗執行紀錄",
+    "get_run_events": "讀取事件與事後對照",
     "get_experiment": "讀取實驗手冊",
     "lookup_knowledge": "查詢知識庫",
 }
@@ -50,10 +50,10 @@ TOOL_DISPLAY = {
 SYSTEM_PROMPT = """你是無人機馬達冷啟動 PHM 監測系統的值班助理，用繁體中文回答操作員。
 
 規則：
-1. 問到目前狀況、播放進度、分數、判定、警報、隔離區、候選群、健康指數或這次播放的結果，
-   先呼叫 get_playback_status；需要事件經過或事後對照再呼叫 get_playback_events。
-   資料來自實驗頁「⏵ 邊跑邊畫」目前或最近一次的播放，回答時說明是哪個實驗、播到哪裡、是否已播完；
-   沒有播放紀錄時，請使用者到實驗頁按「⏵ 邊跑邊畫」。
+1. 問到目前狀況、執行或播放的結果、數據代表什麼、分數、判定、警報、隔離區、候選群、健康指數，
+   先呼叫 get_run_status；使用者提到實驗編號（「實驗12」「exp12_….json」「我的實驗二結果」）就把編號填進
+   number，沒提就留空取最近一次。需要事件經過或事後對照再呼叫 get_run_events。
+   資料來自實驗頁「▶ 執行」「⏵ 邊跑邊畫」或其存檔，回答時說明是哪個實驗、哪種來源、是否已完成。
 2. 問到某個實驗（例如「實驗一」「實驗1」「exp3」）在做什麼、怎麼跑、結果怎麼看，呼叫
    get_experiment 並帶入編號；問「有哪些實驗」時 number 留空取總覽。
 3. 問到方法、參數、名詞意義或馬達規格，呼叫 lookup_knowledge。知識庫寫「待補」的欄位，
@@ -72,9 +72,10 @@ NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系�
 
 # -- 實驗頁播放狀態 -------------------------------------------------------------
 
-NO_PLAYBACK = NO_MATCH.format(what="目前沒有實驗在播放，伺服器啟動後也還沒有播放紀錄") + \
-    "可以請使用者到實驗頁按「⏵ 邊跑邊畫」。"
-STATUS_DISPLAY = {"running": "播放中", "done": "已播完", "stopped": "被停止（未播完）", "error": "播放失敗"}
+NO_PLAYBACK = NO_MATCH.format(what="伺服器上沒有任何實驗的執行或播放紀錄，也找不到存檔") + \
+    "可以請使用者到實驗頁按「▶ 執行」或「⏵ 邊跑邊畫」。"
+STATUS_DISPLAY = {"running": "播放中", "done": "已完成", "stopped": "被停止（未完成）", "error": "失敗"}
+MODE_DISPLAY = {"stream": "⏵ 邊跑邊畫", "run": "▶ 執行", "saved": "存檔"}
 VERDICT_DISPLAY = {"healthy": "健康", "known": "已知類別", "unknown": "未知"}
 FIELD_DISPLAY = {
     "t": "樣本序號 t", "score": "開集分數（> 1 為未知）", "verdict": "判定", "predicted": "模型判成的類別",
@@ -89,17 +90,45 @@ FIELD_DISPLAY = {
 }
 
 
-def playback_name(snap: dict) -> str:
-    sub = f" {snap['sub']}" if snap.get("sub") else ""
-    return f"{snap['no']}{sub} {snap['title']}".strip()
+def record_name(rec: dict) -> str:
+    sub = f" {rec['sub']}" if rec.get("sub") else ""
+    return f"{rec['no']}{sub} {rec['title']}".strip()
 
 
-def playback_label(snap: dict | None) -> str:
+def record_label(rec: dict | None) -> str:
     """一行摘要：依據清單與回答下方「狀態取自」共用。"""
-    if snap is None:
-        return "實驗頁播放：無紀錄"
-    return (f"實驗頁播放：{playback_name(snap)}，{STATUS_DISPLAY.get(snap['status'], snap['status'])}，"
-            f"已播 {snap['samples']} 筆，更新於 {snap['updated_at']}")
+    if rec is None:
+        return "實驗頁紀錄：無"
+    progress = f"，已播 {rec['samples']} 筆" if rec.get("mode") == "stream" else ""
+    return (f"實驗頁紀錄：{record_name(rec)}（{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}），"
+            f"{STATUS_DISPLAY.get(rec['status'], rec['status'])}{progress}，時間 {rec['updated_at']}")
+
+
+def latest_record(snap: dict | None) -> dict | None:
+    if not snap or not snap.get("latest"):
+        return None
+    return snap["records"].get(snap["latest"])
+
+
+def pick_record(snap: dict | None, number: str = "", load_saved=None) -> tuple[dict | None, str]:
+    """依實驗編號取紀錄：記憶體優先，沒有再讀存檔；編號留空取最近一次。回傳（紀錄, 查無時的說明）。"""
+    records = (snap or {}).get("records", {})
+    if not (number or "").strip():
+        rec = latest_record(snap) or (load_saved(None) if load_saved else None)
+        return rec, NO_PLAYBACK
+    n = experiment_number(number)
+    if n is None:
+        return None, NO_MATCH.format(what=f"看不懂實驗編號「{number}」")
+    ids = [e["id"] for e in CATALOG if e["id"] == f"exp{n}" or e["id"].startswith(f"exp{n}_")]
+    in_memory = [records[i] for i in ids if i in records]
+    if in_memory:
+        return max(in_memory, key=lambda r: r.get("seq", 0)), ""
+    saved = [r for r in (load_saved(i) for i in ids) if r] if load_saved else []
+    if saved:
+        return max(saved, key=lambda r: r.get("updated_at") or ""), ""
+    have = "、".join(record_name(r) for r in records.values()) or "無"
+    return None, (NO_MATCH.format(what=f"實驗 {n} 在伺服器上沒有執行或播放紀錄，也找不到存檔")
+                  + f"目前有紀錄的實驗：{have}。")
 
 
 def _value(key: str, value) -> str:
@@ -112,41 +141,45 @@ def _value(key: str, value) -> str:
     return "—" if value is None else str(value)
 
 
-def describe_playback(snap: dict | None) -> str:
-    if snap is None:
-        return NO_PLAYBACK
-    params = "、".join(f"{k}={v}" for k, v in snap.get("params", {}).items()) or "—"
+def describe_record(rec: dict) -> str:
+    params = "、".join(f"{k}={v}" for k, v in rec.get("params", {}).items()) or "—"
     lines = [
-        f"實驗：{playback_name(snap)}（{snap['exp_id']}）",
-        f"狀態：{STATUS_DISPLAY.get(snap['status'], snap['status'])}；開始 {snap['started_at']}，最後更新 {snap['updated_at']}",
+        f"實驗：{record_name(rec)}（{rec['exp_id']}）",
+        f"來源：{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}；狀態：{STATUS_DISPLAY.get(rec['status'], rec['status'])}；"
+        f"開始 {rec['started_at']}，最後更新 {rec['updated_at']}",
         f"參數：{params}",
-        f"已播放：{snap['samples']} 筆",
     ]
-    if snap.get("known"):
-        lines.append("模型目前的已知類別：" + "、".join(snap["known"]) + "（discovered-N 是模型自學的新類名稱）")
-    current = snap.get("current")
+    if rec.get("mode") == "stream":
+        lines.append(f"已播放：{rec['samples']} 筆")
+    if rec.get("mode") == "saved":
+        lines.append("這份是先前執行留下的存檔（例如伺服器重啟前），不是本次啟動後的執行")
+    if rec.get("known"):
+        lines.append("模型的已知類別：" + "、".join(rec["known"]) + "（discovered-N 是模型自學的新類名稱）")
+    current = rec.get("current")
     if current:
         lines.append("最新一筆的系統判定：" + "；".join(
             f"{FIELD_DISPLAY.get(k, k)}={_value(k, v)}" for k, v in current.items()))
-    if snap.get("result"):
-        lines.append("完成結果：" + "；".join(f"{k}={v}" for k, v in snap["result"].items()))
-    if snap.get("error"):
-        lines.append(f"錯誤：{snap['error']}")
-    return "\n".join(f"- {x}" for x in lines)
+    if rec.get("result"):
+        lines.append("完成資訊：" + "；".join(f"{k}={v}" for k, v in rec["result"].items()))
+    if rec.get("error"):
+        lines.append(f"錯誤：{rec['error']}")
+    text = "\n".join(f"- {x}" for x in lines)
+    if rec.get("result_text"):
+        text += ("\n\n【實驗結果（評估輸出；依注入配置比對的欄位，如混淆矩陣的真值列、偵測率、純度，屬事後對照）】\n"
+                 + rec["result_text"])
+    return text
 
 
-def describe_playback_events(snap: dict | None) -> str:
-    if snap is None:
-        return NO_PLAYBACK
-    events = snap.get("events") or []
-    out = [f"【{playback_name(snap)} 的重點事件】"]
+def describe_record_events(rec: dict) -> str:
+    events = rec.get("events") or []
+    out = [f"【{record_name(rec)} 的重點事件】"]
     out += [f"- {e}" for e in events] or ["- 尚無重點事件"]
-    reference = snap.get("reference") or []
+    reference = rec.get("reference") or []
     truth = []
-    if snap.get("source_config"):
-        truth.append(f"- 播放的資料來源（操作者選的注入配置）：{snap['source_config']}")
-    if "source_is_fault" in snap:
-        truth.append(f"- 這段資料是否來自故障配置：{'是' if snap['source_is_fault'] else '否'}")
+    if rec.get("source_config"):
+        truth.append(f"- 資料來源（操作者選的注入配置）：{rec['source_config']}")
+    if "source_is_fault" in rec:
+        truth.append(f"- 這段資料是否來自故障配置：{'是' if rec['source_is_fault'] else '否'}")
     truth += ["- " + "；".join(f"{k}={v}" for k, v in item.items()) for item in reference]
     if truth:
         out.append("【事後對照（由注入配置真值計算，只用於評估；不是系統當下的判定）】")
@@ -279,17 +312,24 @@ def experiment_with_sources(number: str, experiments_dir: Path = EXPERIMENTS_DIR
 
 # -- LangGraph agent -------------------------------------------------------------
 
-def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR) -> list:
+def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR,
+               load_saved=None) -> list:
     # artifact = 依據清單，由程式決定、不經模型轉述，前端顯示成「📎 依據」
     @tool(response_format="content_and_artifact")
-    def get_playback_status() -> tuple[str, list[str]]:
-        """讀取實驗頁「邊跑邊畫」目前或最近一次播放的狀態：哪個實驗、參數、播到哪裡、最新一筆的系統判定（分數、判定、EWMA、隔離區、健康指數）、模型已知類別、播完的結果。"""
-        return describe_playback(snap), [playback_label(snap)]
+    def get_run_status(number: str = "") -> tuple[str, list[str]]:
+        """讀取實驗頁的執行紀錄與結果（「▶ 執行」或「⏵ 邊跑邊畫」）：哪個實驗、參數、狀態、播放進度、最新一筆的系統判定、完整結果摘要（混淆矩陣、偵測率等）。number 填實驗編號，例如「12」「十二」「實驗二」；使用者沒指定實驗時留空，取最近一次。"""
+        rec, missing = pick_record(snap, number, load_saved)
+        if rec is None:
+            return missing, [record_label(None)]
+        return describe_record(rec), [record_label(rec)]
 
     @tool(response_format="content_and_artifact")
-    def get_playback_events() -> tuple[str, list[str]]:
-        """讀取這次播放的重點事件（候選群、模型自學、變化點警報、嚴重度改變）與事後對照（依注入配置真值算的評估結果）。"""
-        return describe_playback_events(snap), [playback_label(snap) + " › 事件與事後對照"]
+    def get_run_events(number: str = "") -> tuple[str, list[str]]:
+        """讀取某次執行或播放的重點事件（候選群、模型自學、變化點警報、嚴重度改變）與事後對照（依注入配置真值算的評估結果）。number 規則同 get_run_status。"""
+        rec, missing = pick_record(snap, number, load_saved)
+        if rec is None:
+            return missing, [record_label(None)]
+        return describe_record_events(rec), [record_label(rec) + " › 事件與事後對照"]
 
     @tool(response_format="content_and_artifact")
     def get_experiment(number: str = "") -> tuple[str, list[str]]:
@@ -301,7 +341,7 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
         """關鍵字查詢知識庫與各實驗手冊：偵測方法、參數、閾值、螺絲配置意義、處置原則、馬達規格。query 用關鍵字，例如「EWMA 警報」「T1 馬達規格」「實驗三 輸出」。"""
         return search_with_sources(sections, query)
 
-    return [get_playback_status, get_playback_events, get_experiment, lookup_knowledge]
+    return [get_run_status, get_run_events, get_experiment, lookup_knowledge]
 
 
 def _looked_up(messages: list) -> bool:
@@ -440,10 +480,11 @@ class Assistant:
             )
         return self._llm
 
-    async def ask(self, snap: dict | None, question: str, history: list | None = None) -> AsyncIterator[dict]:
+    async def ask(self, snap: dict | None, question: str, history: list | None = None,
+                  load_saved=None) -> AsyncIterator[dict]:
         """逐 frame 產出：{"event": "tool", "name", "label", "sources"}、{"event": "delta", "text"}。"""
         sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
-        graph = build_graph(await self.llm(), make_tools(snap, sections, self.experiments_dir))
+        graph = build_graph(await self.llm(), make_tools(snap, sections, self.experiments_dir, load_saved))
         think = ThinkFilter()
         async for chunk, meta in graph.astream(
             {"messages": to_messages(history or [], question)},

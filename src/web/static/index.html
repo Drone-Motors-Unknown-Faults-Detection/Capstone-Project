@@ -328,12 +328,12 @@ footer a:hover{color:var(--blue);}
     <button id="aiClose" class="ai-x" type="button" aria-label="關閉">✕</button>
   </div>
   <div id="aiLog" class="ai-log">
-    <div class="ai-row assistant"><div class="ai-avatar">AI</div><div class="ai-msg assistant">你好，我讀得到實驗頁「⏵ 邊跑邊畫」目前或最近一次的播放狀態，也查得到各實驗手冊與偵測方法。可以直接問，或點下面的問題。</div></div>
+    <div class="ai-row assistant"><div class="ai-avatar">AI</div><div class="ai-msg assistant">你好，我讀得到實驗頁「▶ 執行」與「⏵ 邊跑邊畫」的結果（含先前的存檔），也查得到各實驗手冊與偵測方法。問結果時說出實驗編號會更準，例如「實驗十二的結果代表什麼？」。</div></div>
   </div>
   <div class="ai-suggest" id="aiSuggest">
     <button type="button" data-q="目前播放的實驗狀況如何？">目前狀況如何？</button>
     <button type="button" data-q="這次播放有哪些重點事件或警報？">有哪些事件或警報？</button>
-    <button type="button" data-q="這次播放的結果如何？">播放結果如何？</button>
+    <button type="button" data-q="最近一次的實驗結果代表什麼？">最近結果代表什麼？</button>
     <button type="button" data-q="實驗一在做什麼？">實驗一在做什麼？</button>
     <button type="button" data-q="開集分數大於 1 代表什麼？">開集分數的意思</button>
   </div>
@@ -341,7 +341,7 @@ footer a:hover{color:var(--blue);}
     <textarea id="aiInput" rows="1" placeholder="輸入問題…" maxlength="500"></textarea>
     <button class="primary" id="aiSend" type="submit">送出</button>
   </form>
-  <div class="ai-note mini">Enter 送出，Shift+Enter 換行。「目前狀況」取自實驗頁邊跑邊畫的播放；真值只會標成事後對照，系統判定的未知故障身分一律是未知。</div>
+  <div class="ai-note mini">Enter 送出，Shift+Enter 換行。結果取自實驗頁的執行／播放紀錄與存檔；真值只會標成事後對照，系統判定的未知故障身分一律是未知。</div>
 </div>
 
 <footer>
