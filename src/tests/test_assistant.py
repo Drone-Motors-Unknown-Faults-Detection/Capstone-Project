@@ -320,6 +320,14 @@ class FrontendMarkupTests(unittest.TestCase):
         self.assertLess(md, chat)
         self.assertNotIn("async function aiAsk(", self.html)  # 只留一份實作在 ai_chat.js
 
+    def test_page_title_and_icon(self):
+        self.assertIn("<title>畢業專題 PHM 展示</title>", self.html)
+        self.assertIn("<h1>畢業專題 PHM 展示</h1>", self.html)
+        self.assertNotIn("冷啟動 PHM 展示", self.html)
+        self.assertIn('<link rel="icon" type="image/png" href="/static/icon.png">', self.html)
+        icon = (Path(server.STATIC_DIR) / "icon.png").read_bytes()
+        self.assertEqual(icon[:8], b"\x89PNG\r\n\x1a\n")
+
     def test_placeholder_fits_single_line(self):
         # 原本把操作說明塞進 placeholder，在 400px 視窗折成兩行被裁掉
         self.assertIn('placeholder="輸入問題…"', self.html)
