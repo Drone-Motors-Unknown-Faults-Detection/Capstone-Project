@@ -73,6 +73,7 @@ def run(
     knn_neighbors: int = 5,
     *,
     require_nine: bool = True,
+    pool_cache=None,
 ) -> dict:
     """Run one seed/method across all formal conditions.
 
@@ -93,7 +94,7 @@ def run(
     rng = np.random.default_rng(seed)
     rows: list[dict] = []
     for dataset in datasets:
-        pools = load_pools(dataset["path"])
+        pools = pool_cache.load(dataset["path"]) if pool_cache is not None else load_pools(dataset["path"])
         healthy_pool = pools[HEALTHY]
         split = make_split(len(healthy_pool), rng)
         X_train = healthy_pool[split.train]

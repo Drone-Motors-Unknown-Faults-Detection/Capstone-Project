@@ -28,7 +28,7 @@
 
 expected_run_matrix要求掃描九工況，預設seed為42／123／2026、方法為mahalanobis／knn，產生9×3×2＝54個run_id，格式T1_8000rpm_seed42_knn。這是54個工況×seed×方法記錄，不是54顆獨立馬達。資料列105維、healthy切60/20/20、train-only scaler與參考、known-only cal與unknown全池評估，全部沿用正式benchmark；原始時間／session／單位未知，不能靠seed建立獨立採集。
 
-實作有一個成本差異：**每個run_id都呼叫一次涵蓋全部九工況的benchmark，再只取目標工況那一列保存**。因此有重複計算，54列不是只fit54次的承諾。參數固定benchmark預設LW、confidence0.95、k=5；matrix CLI沒有改這三者的選項，不從fault結果調參。
+實作有一個成本差異：**每個run_id都呼叫一次涵蓋全部九工況的benchmark，再只取目標工況那一列保存**。因此有重複計算，54列不是只fit54次的承諾。同一次run_matrix內，CSV解析由[PoolCache](../profiling_contract.md#csv-cache依量測結果實作)以內容SHA快取，重複的只剩fit與評分；快取不改變split或分數。參數固定benchmark預設LW、confidence0.95、k=5；matrix CLI沒有改這三者的選項，不從fault結果調參。
 
 ## 操作與續跑風險
 

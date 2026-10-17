@@ -101,7 +101,7 @@ class RunMatrixResumeTests(unittest.TestCase):
         entry = {"run_id": "T1_6000rpm_seed42_knn", "condition": "T1/6000rpm", "motor": "T1", "rpm": "6000rpm",
                  "seed": 42, "method": "knn", "status": "pending", "log_path": "runs/T1_6000rpm_seed42_knn/run.log"}
 
-        def fake_run(data_path, *, seed, openset_method, require_nine):
+        def fake_run(data_path, *, seed, openset_method, require_nine, pool_cache=None):
             calls.append((seed, openset_method))
             return {"status": "completed", "method": openset_method, "seed": seed, "dataset_fingerprint": "fp",
                     "commit_sha": "fixture", "rows": [condition_row("T1", "6000rpm", seed, openset_method)]}

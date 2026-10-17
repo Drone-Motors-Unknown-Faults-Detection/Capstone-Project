@@ -14,7 +14,7 @@ from typing import Iterable, Sequence
 
 import pandas as pd
 
-from core.data import discover_datasets
+from core.data import PoolCache, discover_datasets
 from core.logger import setup_run
 from experiments.exp6_formal_benchmark import (
     FORMAL_CONDITION_COUNT,
@@ -228,6 +228,7 @@ def run_matrix(
     output_path.mkdir(parents=True, exist_ok=True)
     manifest_path = output_path / "matrix_manifest.json"
     _atomic_json(manifest_path, manifest)
+    pool_cache = PoolCache()
 
     for entry in manifest["runs"]:
         run_dir = output_path / "runs" / entry["run_id"]
@@ -263,6 +264,7 @@ def run_matrix(
                 seed=entry["seed"],
                 openset_method=entry["method"],
                 require_nine=True,
+                pool_cache=pool_cache,
             )
             result = _condition_result(result, entry)
             fingerprint = result["dataset_fingerprint"]
@@ -306,6 +308,8 @@ def run_matrix(
     completed = sum(entry["status"] == "completed" for entry in manifest["runs"])
     failed = sum(entry["status"] == "failed" for entry in manifest["runs"])
     missing = sum(entry["status"] not in {"completed", "failed"} for entry in manifest["runs"])
+    if log is not None:
+        log.info(f"CSV cache：命中 {pool_cache.hits}、未命中 {pool_cache.misses}")
     manifest.update(
         {
             "status": "completed" if completed == len(matrix) else "incomplete",

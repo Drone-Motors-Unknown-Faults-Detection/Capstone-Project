@@ -189,6 +189,7 @@ def _run_benchmark(
     knn_neighbors: int = 5,
     *,
     require_nine: bool = True,
+    pool_cache=None,
 ) -> dict:
     """Run one condition×seed×method benchmark over the formal data root."""
     resolved = resolve_openset_config(openset_method, confidence=confidence,
@@ -214,7 +215,8 @@ def _run_benchmark(
     rows: list[dict] = []
     for dataset in datasets:
         input_audit = {}
-        pools = load_pools(dataset["path"], require_complete=require_nine, audit=input_audit)
+        loader = pool_cache.load if pool_cache is not None else load_pools
+        pools = loader(dataset["path"], require_complete=require_nine, audit=input_audit)
         if HEALTHY not in pools:
             raise ValueError(f"{dataset['motor']}/{dataset['rpm']} lacks {HEALTHY}")
         split = make_split(len(pools[HEALTHY]), rng)
@@ -307,7 +309,7 @@ def _run_benchmark(
 
 def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95,
         openset_method: str = "mahalanobis", mahalanobis_method: str = "ledoit_wolf",
-        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None) -> dict:
+        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None, pool_cache=None) -> dict:
     """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。"""
     if evidence_paths is None:
         _, evidence_paths = setup_run("exp6_formal_api", unique=True)
@@ -329,7 +331,7 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         evidence["private_context_id"] = write_private_context(private)
         evidence["source"] = source
         result = _run_benchmark(data_root, seed, confidence, openset_method, mahalanobis_method,
-                                knn_neighbors, require_nine=require_nine)
+                                knn_neighbors, require_nine=require_nine, pool_cache=pool_cache)
         after = capture_source(data_root)[0]
         if source != after:
             raise ValueError("評估期間來源內容或manifest變動，拒絕完成")
