@@ -138,12 +138,45 @@ details summary{cursor:pointer; color:var(--muted); font-size:12.5px; margin-top
 .ai-suggest{display:flex; gap:6px; flex-wrap:wrap; padding:0 12px 8px;}
 .ai-suggest button{font-size:12px; padding:3px 10px; font-weight:500; border-radius:99px;}
 .ai-form{display:flex; gap:8px; align-items:flex-end; padding:8px 12px; border-top:1px solid var(--border);}
-.ai-form textarea{flex:1; min-width:0; resize:none; max-height:120px; background:var(--panel2); border:1px solid var(--border);
-  border-radius:12px; padding:8px 10px; color:var(--text); font:inherit; line-height:1.5;}
+.ai-form textarea{flex:1; min-width:0; resize:none; max-height:120px; overflow-y:hidden; background:var(--panel2);
+  border:1px solid var(--border); border-radius:12px; padding:8px 10px; color:var(--text); font:inherit; line-height:1.5;}
+.ai-form textarea::placeholder{color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ai-head .ai-max{padding:2px 9px; font-size:14px;}
+/* 拖曳改大小：視窗釘在右下，把手在左、上、左上 */
+.ai-resize{position:absolute; z-index:2;}
+.ai-resize.n{top:0; left:14px; right:0; height:6px; cursor:ns-resize;}
+.ai-resize.w{left:0; top:14px; bottom:0; width:6px; cursor:ew-resize;}
+.ai-resize.nw{left:0; top:0; width:16px; height:16px; cursor:nwse-resize;
+  background:linear-gradient(135deg, var(--muted) 0 2px, transparent 2px 5px, var(--muted) 5px 6px, transparent 6px);
+  opacity:.6; border-top-left-radius:16px;}
+.ai-resize.nw:hover{opacity:1;}
+/* 回答的 Markdown */
+.ai-msg .ai-md{white-space:normal;}
+.ai-md > :first-child{margin-top:0;}
+.ai-md > :last-child{margin-bottom:0;}
+.ai-md p{margin:0 0 .55em;}
+.ai-md h3,.ai-md h4,.ai-md h5{margin:.7em 0 .35em; line-height:1.4; color:var(--text);}
+.ai-md h3{font-size:15.5px;} .ai-md h4{font-size:14.5px;} .ai-md h5{font-size:13.5px;}
+.ai-md ul,.ai-md ol{margin:.2em 0 .55em; padding-left:1.4em;}
+.ai-md li{margin:.15em 0;}
+.ai-md li > ul,.ai-md li > ol{margin:.15em 0;}
+.ai-md strong{color:#f8fafc;}
+.ai-md a{color:var(--blue);}
+.ai-md code{font-family:ui-monospace,Consolas,monospace; font-size:12.5px; background:#0f172a; border:1px solid var(--border);
+  border-radius:4px; padding:0 4px;}
+.ai-md pre{background:#0f172a; border:1px solid var(--border); border-radius:8px; padding:8px 10px; overflow-x:auto; margin:.4em 0 .6em;}
+.ai-md pre code{background:none; border:0; padding:0; white-space:pre;}
+.ai-md blockquote{margin:.4em 0; padding-left:10px; border-left:3px solid var(--border); color:var(--muted);}
+.ai-md hr{border:0; border-top:1px solid var(--border); margin:.7em 0;}
+.ai-md .md-table{overflow-x:auto; margin:.4em 0 .6em;}
+.ai-md table{width:auto; font-size:12.5px;}
+.ai-md th,.ai-md td{text-align:left; padding:4px 8px; border:1px solid var(--border);}
+.ai-md th{background:#0f172a; color:var(--text);}
 .ai-form button{border-radius:12px;}
 .ai-note{padding:0 12px 10px;}
 @media (max-width:600px){
-  .ai-chat{right:8px; left:8px; bottom:84px; width:auto; height:calc(100vh - 100px);}
+  .ai-chat{right:8px; left:8px; bottom:84px; width:auto !important; height:calc(100vh - 100px) !important;}
+  .ai-resize,.ai-head .ai-max{display:none;}
   .ai-fab{right:16px; bottom:16px;}
 }
 footer{max-width:1500px; margin:0 auto; padding:8px 16px 20px; text-align:center;
@@ -283,9 +316,13 @@ footer a:hover{color:var(--blue);}
 
 <button id="aiFab" class="ai-fab" type="button" aria-label="開啟 AI 問答" title="AI 問答">💬<span id="aiLed" class="ai-led"></span><span id="aiUnread" class="ai-dot" hidden></span></button>
 <div id="aiChat" class="ai-chat" role="dialog" aria-label="AI 問答" hidden>
+  <div class="ai-resize n" data-dir="n"></div>
+  <div class="ai-resize w" data-dir="w"></div>
+  <div class="ai-resize nw" data-dir="nw" title="拖曳調整大小；雙擊還原"></div>
   <div class="ai-head">
     <div class="ai-avatar">AI</div>
     <div class="t"><b>AI 值班助理</b><span id="aiStatus" class="mini">—</span></div>
+    <button id="aiMax" class="ai-max" type="button" aria-label="放大" title="放大／還原">⤢</button>
     <button id="aiClose" class="ai-x" type="button" aria-label="關閉">✕</button>
   </div>
   <div id="aiLog" class="ai-log">
@@ -299,10 +336,10 @@ footer a:hover{color:var(--blue);}
     <button type="button" data-q="開集分數大於 1 代表什麼？">開集分數的意思</button>
   </div>
   <form class="ai-form" id="aiForm">
-    <textarea id="aiInput" rows="1" placeholder="問目前狀況、警報、實驗或參數…（Enter 送出，Shift+Enter 換行）" maxlength="500"></textarea>
+    <textarea id="aiInput" rows="1" placeholder="輸入問題…" maxlength="500"></textarea>
     <button class="primary" id="aiSend" type="submit">送出</button>
   </form>
-  <div class="ai-note mini">AI 只讀得到系統判定與統計，看不到注入來源；未經操作員確認的故障，身分一律是未知。</div>
+  <div class="ai-note mini">Enter 送出，Shift+Enter 換行。AI 只讀得到系統判定與統計，看不到注入來源；未經操作員確認的故障，身分一律是未知。</div>
 </div>
 
 <footer>
@@ -311,6 +348,8 @@ footer a:hover{color:var(--blue);}
      target="_blank" rel="noopener">GitHub：Drone-Motors-Unknown-Faults-Detection / Lineage</a>
 </footer>
 
+<script src="/static/markdown.js"></script>
+<script src="/static/ai_chat.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -323,135 +362,6 @@ let polarPts = [];         // {ray, cos, radius, verdict, t}
 let centroids = [], rays = [], healthyThr = 10;
 let knownCount = 0;
 const MAXPTS = 600, MAXSCATTER = 220;
-
-// -- AI 問答 -------------------------------------------------------------------
-const aiHistory = [];      // {role, content}，送給伺服器的對話歷史
-let aiBusy = false;
-
-function aiBubble(cls, text){
-  // 一列 = （AI 頭像）+ 泡泡；使用者靠右、AI 靠左
-  const row = document.createElement("div");
-  row.className = "ai-row " + cls;
-  if (cls !== "user") {
-    const avatar = document.createElement("div");
-    avatar.className = "ai-avatar"; avatar.textContent = "AI";
-    row.appendChild(avatar);
-  }
-  const div = document.createElement("div");
-  div.className = "ai-msg " + cls;
-  div.textContent = text;
-  row.appendChild(div);
-  $("aiLog").appendChild(row);
-  $("aiLog").scrollTop = $("aiLog").scrollHeight;
-  return div;
-}
-
-function aiOpen(open){
-  $("aiChat").hidden = !open;
-  $("aiFab").setAttribute("aria-label", open ? "關閉 AI 問答" : "開啟 AI 問答");
-  if (open) { $("aiUnread").hidden = true; $("aiInput").focus(); $("aiLog").scrollTop = $("aiLog").scrollHeight; }
-  try { localStorage.setItem("aiChatOpen", open ? "1" : "0"); } catch (e) {}
-}
-
-const AI_STATUS_MS = 15000;   // 模型狀態定時重新檢查（vLLM 啟動要數分鐘，好了不必重新整理頁面）
-let aiStatusPending = false;
-
-async function aiStatus(){
-  if (aiStatusPending) return;  // 上一次還沒回來就不疊加
-  aiStatusPending = true;
-  const checked = new Date().toLocaleTimeString();
-  try {
-    const r = await (await fetch("/api/assistant/status")).json();
-    $("aiStatus").textContent = r.reachable ? `● ${r.model || "已連線"}` : "○ 模型離線（啟動中或未開）";
-    $("aiStatus").style.color = r.reachable ? "var(--green)" : "#fca5a5";
-    $("aiLed").className = "ai-led " + (r.reachable ? "on" : "off");
-    $("aiStatus").title = `${r.reachable ? r.url : (r.error || r.url)}\n上次檢查 ${checked}，每 ${AI_STATUS_MS / 1000} 秒自動更新`;
-  } catch (e) {
-    $("aiStatus").textContent = "○ 狀態未知";
-    $("aiStatus").style.color = "var(--muted)";
-    $("aiLed").className = "ai-led";
-    $("aiStatus").title = `展示伺服器連不上：${e}\n上次檢查 ${checked}`;
-  } finally {
-    aiStatusPending = false;
-  }
-}
-
-async function aiAsk(question){
-  if (aiBusy || !question.trim()) return;
-  aiBusy = true; $("aiSend").disabled = true;
-  aiBubble("user", question);
-  const box = aiBubble("assistant", "");
-  const tools = document.createElement("div"); tools.className = "ai-tools";
-  const body = document.createElement("div");
-  body.innerHTML = '<span class="ai-typing"><span></span><span></span><span></span></span>';  // 等第一個字
-  box.append(tools, body);
-  let answer = "";
-  const sources = new Set();   // 工具回傳的依據（程式決定，不經模型轉述）
-  try {
-    const resp = await fetch("/api/assistant/ask", {
-      method: "POST", headers: {"Content-Type": "application/json"},
-      body: JSON.stringify({question, history: aiHistory.slice(-6)}),
-    });
-    const reader = resp.body.getReader(), dec = new TextDecoder();
-    let buf = "";
-    for (;;) {
-      const {value, done} = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, {stream: true});
-      let i;
-      while ((i = buf.indexOf("\n\n")) >= 0) {
-        const line = buf.slice(0, i); buf = buf.slice(i + 2);
-        if (!line.startsWith("data: ")) continue;
-        const f = JSON.parse(line.slice(6));
-        if (f.event === "tool") {
-          tools.textContent += (tools.textContent ? " → " : "🔧 ") + f.label;
-          (f.sources || []).forEach(x => sources.add(x));
-        }
-        else if (f.event === "delta") { answer += f.text; body.textContent = answer; }
-        else if (f.event === "done") tools.textContent += (tools.textContent ? "　" : "") + `（狀態取自 t=${f.t}）`;
-        else if (f.event === "error") { box.className = "ai-msg error"; body.textContent = f.error; }
-        else if (f.event === "done" && !answer) body.textContent = "（模型沒有回覆文字）";
-        if (f.event === "done") {
-          const src = document.createElement("div"); src.className = "ai-sources";
-          src.textContent = sources.size ? "📎 依據：" + [...sources].join("；") : "📎 依據：無（工具沒有找到相關資料）";
-          box.appendChild(src);
-        }
-        $("aiLog").scrollTop = $("aiLog").scrollHeight;
-      }
-    }
-    if (answer) aiHistory.push({role: "user", content: question}, {role: "assistant", content: answer});
-  } catch (e) {
-    box.className = "ai-msg error"; body.textContent = "連線失敗：" + e;
-  } finally {
-    aiBusy = false; $("aiSend").disabled = false;
-    if ($("aiChat").hidden) $("aiUnread").hidden = false;   // 關著視窗時回答完成 → 黃點提示
-    aiStatus();  // 回答成功或失敗後同步狀態燈
-  }
-}
-
-$("aiForm").addEventListener("submit", e => {
-  e.preventDefault();
-  const q = $("aiInput").value; $("aiInput").value = ""; $("aiInput").style.height = "";
-  aiAsk(q);
-});
-$("aiInput").addEventListener("keydown", e => {
-  // Enter 送出、Shift+Enter 換行；中文輸入法選字中（isComposing）的 Enter 不送出
-  if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) {
-    e.preventDefault();
-    $("aiForm").requestSubmit();
-  }
-});
-$("aiInput").addEventListener("input", () => {
-  $("aiInput").style.height = "";
-  $("aiInput").style.height = Math.min($("aiInput").scrollHeight, 120) + "px";
-});
-$("aiFab").addEventListener("click", () => aiOpen($("aiChat").hidden));
-$("aiClose").addEventListener("click", () => aiOpen(false));
-try { if (localStorage.getItem("aiChatOpen") === "1") aiOpen(true); } catch (e) {}
-document.querySelectorAll("#aiSuggest button").forEach(b => b.addEventListener("click", () => aiAsk(b.dataset.q)));
-aiStatus();
-setInterval(() => { if (!document.hidden) aiStatus(); }, AI_STATUS_MS);   // 背景分頁暫停
-document.addEventListener("visibilitychange", () => { if (!document.hidden) aiStatus(); });
 
 function connect(){
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");

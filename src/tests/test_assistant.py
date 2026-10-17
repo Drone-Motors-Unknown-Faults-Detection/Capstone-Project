@@ -296,39 +296,41 @@ class ExperimentKnowledgeTests(unittest.TestCase):
         self.assertIn("不要自行推測", text)
 
 
-class FrontendStatusPollingTests(unittest.TestCase):
-    """模型狀態燈定時重新檢查：vLLM 啟動數分鐘後不必重新整理頁面。"""
+class FrontendMarkupTests(unittest.TestCase):
+    """index.html 的聊天視窗骨架；行為由 ai_chat_frontend.cjs 以 Node 實際執行驗證。"""
 
     def setUp(self):
-        html = (Path(server.STATIC_DIR) / "index.html").read_text(encoding="utf-8")
-        self.js = html[html.index("<script>"):]
+        static = Path(server.STATIC_DIR)
+        self.html = (static / "index.html").read_text(encoding="utf-8")
+        self.js = (static / "ai_chat.js").read_text(encoding="utf-8")
 
-    def test_polls_status_on_interval_and_skips_hidden_tab(self):
-        self.assertIn("const AI_STATUS_MS = 15000;", self.js)
-        self.assertIn("setInterval(() => { if (!document.hidden) aiStatus(); }, AI_STATUS_MS);", self.js)
-        self.assertIn('addEventListener("visibilitychange", () => { if (!document.hidden) aiStatus(); })', self.js)
-
-    def test_status_checks_do_not_overlap(self):
-        body = self.js[self.js.index("async function aiStatus()"):self.js.index("async function aiAsk(")]
-        self.assertIn("if (aiStatusPending) return;", body)
-        self.assertIn("aiStatusPending = false;", body[body.index("finally"):])
-
-    def test_bubble_chat_widget(self):
-        html = (Path(server.STATIC_DIR) / "index.html").read_text(encoding="utf-8")
-        live = html[html.index('<section id="page-live">'):html.index("</section>")]
+    def test_widget_outside_live_page_with_all_controls(self):
+        live = self.html[self.html.index('<section id="page-live">'):self.html.index("</section>")]
         self.assertNotIn('id="aiChat"', live)  # 浮動視窗不放在即時頁裡，實驗頁也能開
-        for element in ('id="aiFab"', 'id="aiChat"', 'id="aiClose"', 'id="aiLed"', '<textarea id="aiInput"'):
-            self.assertIn(element, html)
-        self.assertIn("!e.isComposing", self.js)  # 中文輸入法選字的 Enter 不送出
-        self.assertIn('row.className = "ai-row " + cls;', self.js)
+        for element in ('id="aiFab"', 'id="aiChat"', 'id="aiClose"', 'id="aiMax"', 'id="aiLed"',
+                        'id="aiStatus"', 'id="aiLog"', 'id="aiForm"', '<textarea id="aiInput"',
+                        'class="ai-resize n" data-dir="n"', 'class="ai-resize w" data-dir="w"',
+                        'class="ai-resize nw" data-dir="nw"'):
+            self.assertIn(element, self.html)
 
-    def test_sources_rendered_from_tool_frames(self):
-        self.assertIn("(f.sources || []).forEach(x => sources.add(x));", self.js)
-        self.assertIn('"📎 依據："', self.js)
+    def test_scripts_loaded_after_widget_markup_in_order(self):
+        md = self.html.index('<script src="/static/markdown.js"></script>')
+        chat = self.html.index('<script src="/static/ai_chat.js"></script>')
+        self.assertLess(self.html.index('id="aiChat"'), md)
+        self.assertLess(md, chat)
+        self.assertNotIn("async function aiAsk(", self.html)  # 只留一份實作在 ai_chat.js
 
-    def test_status_refreshed_after_each_answer(self):
-        body = self.js[self.js.index("async function aiAsk("):self.js.index('$("aiForm")')]
-        self.assertIn("aiStatus();", body[body.rindex("finally"):])
+    def test_placeholder_fits_single_line(self):
+        # 原本把操作說明塞進 placeholder，在 400px 視窗折成兩行被裁掉
+        self.assertIn('placeholder="輸入問題…"', self.html)
+        self.assertIn("Enter 送出，Shift+Enter 換行。", self.html)
+
+    def test_status_checks_do_not_overlap_and_refresh_after_answer(self):
+        status = self.js[self.js.index("async function aiStatus()"):self.js.index("async function aiAsk(")]
+        self.assertIn("if (aiStatusPending) return;", status)
+        self.assertIn("aiStatusPending = false;", status[status.index("finally"):])
+        ask = self.js[self.js.index("async function aiAsk("):self.js.index('$("aiForm")')]
+        self.assertIn("aiStatus();", ask[ask.rindex("finally"):])
 
 
 if __name__ == "__main__":
