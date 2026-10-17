@@ -102,6 +102,17 @@ td.heat{text-align:center; color:#0f172a; font-weight:600;}
 .bar > div{height:100%; background:var(--blue);}
 .err{color:#fca5a5;}
 details summary{cursor:pointer; color:var(--muted); font-size:12.5px; margin-top:8px;}
+/* AI 問答 */
+#aiLog{max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; margin-bottom:8px;}
+.ai-msg{padding:8px 10px; border-radius:10px; line-height:1.6; white-space:pre-wrap; word-break:break-word; font-size:13px;}
+.ai-msg.user{background:#172554; border:1px solid #1d4ed8; align-self:flex-end; max-width:85%;}
+.ai-msg.assistant{background:var(--panel2); border:1px solid var(--border);}
+.ai-msg.error{background:#3f1d1d; border:1px solid #7f1d1d; color:#fca5a5;}
+.ai-tools{font-size:11.5px; color:var(--muted); margin-bottom:4px;}
+.ai-form{display:flex; gap:8px;}
+.ai-form input{flex:1; min-width:0; background:var(--panel2); border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); font:inherit;}
+.ai-suggest{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px;}
+.ai-suggest button{font-size:12px; padding:3px 10px; font-weight:500;}
 footer{max-width:1500px; margin:0 auto; padding:8px 16px 20px; text-align:center;
   color:var(--muted); font-size:12.5px; border-top:1px solid var(--border);}
 footer a{color:var(--muted); text-decoration:none; font-weight:600;}
@@ -162,6 +173,21 @@ footer a:hover{color:var(--blue);}
     <div class="panel">
       <h2>事件日誌</h2>
       <div id="log"></div>
+    </div>
+    <div class="panel">
+      <h2>AI 問答（本地模型，讀取提問當下的機台狀態）<span id="aiStatus" class="mini" style="float:right">—</span></h2>
+      <div class="ai-suggest" id="aiSuggest">
+        <button data-q="目前機台狀況如何？">目前機台狀況如何？</button>
+        <button data-q="最近有沒有警報？是漸進還是突發？">最近有沒有警報？</button>
+        <button data-q="隔離區和候選新故障現在是什麼情形？">隔離區情形</button>
+        <button data-q="開集分數大於 1 代表什麼？">開集分數的意思</button>
+      </div>
+      <div id="aiLog"></div>
+      <form class="ai-form" id="aiForm">
+        <input id="aiInput" placeholder="問目前狀況、警報、方法或參數…" autocomplete="off" maxlength="500">
+        <button class="primary" id="aiSend">送出</button>
+      </form>
+      <div class="mini" style="margin-top:6px">AI 只讀得到系統判定與統計，看不到注入來源；未經操作員確認的故障，身分一律是未知。</div>
     </div>
   </div>
 
@@ -255,6 +281,76 @@ let polarPts = [];         // {ray, cos, radius, verdict, t}
 let centroids = [], rays = [], healthyThr = 10;
 let knownCount = 0;
 const MAXPTS = 600, MAXSCATTER = 220;
+
+// -- AI 問答 -------------------------------------------------------------------
+const aiHistory = [];      // {role, content}，送給伺服器的對話歷史
+let aiBusy = false;
+
+function aiBubble(cls, text){
+  const div = document.createElement("div");
+  div.className = "ai-msg " + cls;
+  div.textContent = text;
+  $("aiLog").appendChild(div);
+  $("aiLog").scrollTop = $("aiLog").scrollHeight;
+  return div;
+}
+
+async function aiStatus(){
+  try {
+    const r = await (await fetch("/api/assistant/status")).json();
+    $("aiStatus").textContent = r.reachable ? `● ${r.model || "已連線"}` : "○ 模型離線";
+    $("aiStatus").style.color = r.reachable ? "var(--green)" : "#fca5a5";
+    $("aiStatus").title = r.reachable ? r.url : (r.error || r.url);
+  } catch (e) { $("aiStatus").textContent = "○ 狀態未知"; }
+}
+
+async function aiAsk(question){
+  if (aiBusy || !question.trim()) return;
+  aiBusy = true; $("aiSend").disabled = true;
+  aiBubble("user", question);
+  const box = aiBubble("assistant", "");
+  const tools = document.createElement("div"); tools.className = "ai-tools";
+  const body = document.createElement("div");
+  box.append(tools, body);
+  let answer = "";
+  try {
+    const resp = await fetch("/api/assistant/ask", {
+      method: "POST", headers: {"Content-Type": "application/json"},
+      body: JSON.stringify({question, history: aiHistory.slice(-6)}),
+    });
+    const reader = resp.body.getReader(), dec = new TextDecoder();
+    let buf = "";
+    for (;;) {
+      const {value, done} = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i;
+      while ((i = buf.indexOf("\n\n")) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 2);
+        if (!line.startsWith("data: ")) continue;
+        const f = JSON.parse(line.slice(6));
+        if (f.event === "tool") tools.textContent += (tools.textContent ? " → " : "🔧 ") + f.label;
+        else if (f.event === "delta") { answer += f.text; body.textContent = answer; }
+        else if (f.event === "done") tools.textContent += (tools.textContent ? "　" : "") + `（狀態取自 t=${f.t}）`;
+        else if (f.event === "error") { box.className = "ai-msg error"; body.textContent = f.error; }
+        $("aiLog").scrollTop = $("aiLog").scrollHeight;
+      }
+    }
+    if (answer) aiHistory.push({role: "user", content: question}, {role: "assistant", content: answer});
+  } catch (e) {
+    box.className = "ai-msg error"; body.textContent = "連線失敗：" + e;
+  } finally {
+    aiBusy = false; $("aiSend").disabled = false;
+  }
+}
+
+$("aiForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const q = $("aiInput").value; $("aiInput").value = "";
+  aiAsk(q);
+});
+document.querySelectorAll("#aiSuggest button").forEach(b => b.addEventListener("click", () => aiAsk(b.dataset.q)));
+aiStatus();
 
 function connect(){
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
