@@ -3,7 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>冷啟動 PHM 展示</title>
+<title>畢業專題 PHM 展示</title>
+<link rel="icon" type="image/png" href="/static/icon.png">
+<link rel="apple-touch-icon" href="/static/icon.png">
 <style>
 :root{
   --bg:#0f172a; --panel:#16213b; --panel2:#1e293b; --border:#2d3b55;
@@ -102,6 +104,83 @@ td.heat{text-align:center; color:#0f172a; font-weight:600;}
 .bar > div{height:100%; background:var(--blue);}
 .err{color:#fca5a5;}
 details summary{cursor:pointer; color:var(--muted); font-size:12.5px; margin-top:8px;}
+/* AI 問答：右下角浮動聊天視窗 */
+.ai-fab{position:fixed; right:20px; bottom:20px; z-index:50; width:56px; height:56px; border-radius:50%;
+  padding:0; font-size:24px; background:#1d4ed8; border:1px solid #3b82f6; box-shadow:0 6px 20px #0008;}
+.ai-fab:hover{border-color:#93c5fd;}
+.ai-fab .ai-led{position:absolute; right:3px; top:3px; width:12px; height:12px; border-radius:50%;
+  border:2px solid var(--bg); background:var(--muted);}
+.ai-fab .ai-led.on{background:var(--green);}
+.ai-fab .ai-led.off{background:var(--red);}
+.ai-fab .ai-dot{position:absolute; left:2px; top:2px; width:12px; height:12px; border-radius:50%; background:var(--yellow);}
+.ai-chat{position:fixed; right:20px; bottom:88px; z-index:50; width:400px; height:min(620px, calc(100vh - 120px));
+  display:flex; flex-direction:column; background:var(--panel); border:1px solid var(--border);
+  border-radius:16px; box-shadow:0 12px 40px #000a; overflow:hidden;}
+.ai-chat[hidden]{display:none;}
+.ai-head{display:flex; align-items:center; gap:10px; padding:10px 12px; background:var(--panel2); border-bottom:1px solid var(--border);}
+.ai-head .t{flex:1; min-width:0;}
+.ai-head b{display:block; font-size:14px;}
+.ai-head .ai-x{padding:2px 10px; font-size:14px;}
+.ai-log{flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:10px;}
+.ai-row{display:flex; gap:8px; align-items:flex-end;}
+.ai-row.user{justify-content:flex-end;}
+.ai-avatar{flex:none; width:28px; height:28px; border-radius:50%; background:#1e3a8a; color:#bfdbfe;
+  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;}
+.ai-msg{max-width:80%; padding:8px 12px; line-height:1.6; white-space:pre-wrap; word-break:break-word; font-size:13.5px;}
+.ai-msg.user{background:#1d4ed8; color:#fff; border-radius:16px 16px 4px 16px;}
+.ai-msg.assistant{background:var(--panel2); border:1px solid var(--border); border-radius:16px 16px 16px 4px;}
+.ai-msg.error{background:#3f1d1d; border:1px solid #7f1d1d; color:#fca5a5; border-radius:16px 16px 16px 4px;}
+.ai-tools{font-size:11.5px; color:var(--muted); margin-bottom:4px; white-space:normal;}
+.ai-sources{font-size:11.5px; color:var(--muted); margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); white-space:normal;}
+.ai-typing span{display:inline-block; width:6px; height:6px; margin-right:3px; border-radius:50%;
+  background:var(--muted); animation:aiblink 1.2s infinite;}
+.ai-typing span:nth-child(2){animation-delay:.2s;}
+.ai-typing span:nth-child(3){animation-delay:.4s;}
+@keyframes aiblink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+.ai-suggest{display:flex; gap:6px; flex-wrap:wrap; padding:0 12px 8px;}
+.ai-suggest button{font-size:12px; padding:3px 10px; font-weight:500; border-radius:99px;}
+.ai-form{display:flex; gap:8px; align-items:flex-end; padding:8px 12px; border-top:1px solid var(--border);}
+.ai-form textarea{flex:1; min-width:0; resize:none; max-height:120px; overflow-y:hidden; background:var(--panel2);
+  border:1px solid var(--border); border-radius:12px; padding:8px 10px; color:var(--text); font:inherit; line-height:1.5;}
+.ai-form textarea::placeholder{color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.ai-head .ai-max{padding:2px 9px; font-size:14px;}
+/* 拖曳改大小：視窗釘在右下，把手在左、上、左上 */
+.ai-resize{position:absolute; z-index:2;}
+.ai-resize.n{top:0; left:14px; right:0; height:6px; cursor:ns-resize;}
+.ai-resize.w{left:0; top:14px; bottom:0; width:6px; cursor:ew-resize;}
+.ai-resize.nw{left:0; top:0; width:16px; height:16px; cursor:nwse-resize;
+  background:linear-gradient(135deg, var(--muted) 0 2px, transparent 2px 5px, var(--muted) 5px 6px, transparent 6px);
+  opacity:.6; border-top-left-radius:16px;}
+.ai-resize.nw:hover{opacity:1;}
+/* 回答的 Markdown */
+.ai-msg .ai-md{white-space:normal;}
+.ai-md > :first-child{margin-top:0;}
+.ai-md > :last-child{margin-bottom:0;}
+.ai-md p{margin:0 0 .55em;}
+.ai-md h3,.ai-md h4,.ai-md h5{margin:.7em 0 .35em; line-height:1.4; color:var(--text);}
+.ai-md h3{font-size:15.5px;} .ai-md h4{font-size:14.5px;} .ai-md h5{font-size:13.5px;}
+.ai-md ul,.ai-md ol{margin:.2em 0 .55em; padding-left:1.4em;}
+.ai-md li{margin:.15em 0;}
+.ai-md li > ul,.ai-md li > ol{margin:.15em 0;}
+.ai-md strong{color:#f8fafc;}
+.ai-md a{color:var(--blue);}
+.ai-md code{font-family:ui-monospace,Consolas,monospace; font-size:12.5px; background:#0f172a; border:1px solid var(--border);
+  border-radius:4px; padding:0 4px;}
+.ai-md pre{background:#0f172a; border:1px solid var(--border); border-radius:8px; padding:8px 10px; overflow-x:auto; margin:.4em 0 .6em;}
+.ai-md pre code{background:none; border:0; padding:0; white-space:pre;}
+.ai-md blockquote{margin:.4em 0; padding-left:10px; border-left:3px solid var(--border); color:var(--muted);}
+.ai-md hr{border:0; border-top:1px solid var(--border); margin:.7em 0;}
+.ai-md .md-table{overflow-x:auto; margin:.4em 0 .6em;}
+.ai-md table{width:auto; font-size:12.5px;}
+.ai-md th,.ai-md td{text-align:left; padding:4px 8px; border:1px solid var(--border);}
+.ai-md th{background:#0f172a; color:var(--text);}
+.ai-form button{border-radius:12px;}
+.ai-note{padding:0 12px 10px;}
+@media (max-width:600px){
+  .ai-chat{right:8px; left:8px; bottom:84px; width:auto !important; height:calc(100vh - 100px) !important;}
+  .ai-resize,.ai-head .ai-max{display:none;}
+  .ai-fab{right:16px; bottom:16px;}
+}
 footer{max-width:1500px; margin:0 auto; padding:8px 16px 20px; text-align:center;
   color:var(--muted); font-size:12.5px; border-top:1px solid var(--border);}
 footer a{color:var(--muted); text-decoration:none; font-weight:600;}
@@ -110,7 +189,7 @@ footer a:hover{color:var(--blue);}
 </head>
 <body>
 <header>
-  <h1>冷啟動 PHM 展示</h1>
+  <h1>畢業專題 PHM 展示</h1>
   <nav class="tabs" id="tabs"><a href="#live" data-page="live" class="active">即時展示</a></nav>
 </header>
 <section id="page-live">
@@ -237,12 +316,42 @@ footer a:hover{color:var(--blue);}
   <div id="expRoot" style="display:flex; flex-direction:column; gap:12px"></div>
 </div></section>
 
+<button id="aiFab" class="ai-fab" type="button" aria-label="開啟 AI 問答" title="AI 問答">💬<span id="aiLed" class="ai-led"></span><span id="aiUnread" class="ai-dot" hidden></span></button>
+<div id="aiChat" class="ai-chat" role="dialog" aria-label="AI 問答" hidden>
+  <div class="ai-resize n" data-dir="n"></div>
+  <div class="ai-resize w" data-dir="w"></div>
+  <div class="ai-resize nw" data-dir="nw" title="拖曳調整大小；雙擊還原"></div>
+  <div class="ai-head">
+    <div class="ai-avatar">AI</div>
+    <div class="t"><b>AI 值班助理</b><span id="aiStatus" class="mini">—</span></div>
+    <button id="aiMax" class="ai-max" type="button" aria-label="放大" title="放大／還原">⤢</button>
+    <button id="aiClose" class="ai-x" type="button" aria-label="關閉">✕</button>
+  </div>
+  <div id="aiLog" class="ai-log">
+    <div class="ai-row assistant"><div class="ai-avatar">AI</div><div class="ai-msg assistant">你好，我讀得到提問當下的機台狀態、變化點警報、各實驗手冊與偵測方法。可以直接問，或點下面的問題。</div></div>
+  </div>
+  <div class="ai-suggest" id="aiSuggest">
+    <button type="button" data-q="目前機台狀況如何？">目前機台狀況如何？</button>
+    <button type="button" data-q="最近有沒有警報？是漸進還是突發？">最近有沒有警報？</button>
+    <button type="button" data-q="隔離區和候選新故障現在是什麼情形？">隔離區情形</button>
+    <button type="button" data-q="實驗一在做什麼？">實驗一在做什麼？</button>
+    <button type="button" data-q="開集分數大於 1 代表什麼？">開集分數的意思</button>
+  </div>
+  <form class="ai-form" id="aiForm">
+    <textarea id="aiInput" rows="1" placeholder="輸入問題…" maxlength="500"></textarea>
+    <button class="primary" id="aiSend" type="submit">送出</button>
+  </form>
+  <div class="ai-note mini">Enter 送出，Shift+Enter 換行。AI 只讀得到系統判定與統計，看不到注入來源；未經操作員確認的故障，身分一律是未知。</div>
+</div>
+
 <footer>
   冷啟動 PHM 畢業專題 ·
   <a href="https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage"
      target="_blank" rel="noopener">GitHub：Drone-Motors-Unknown-Faults-Detection / Lineage</a>
 </footer>
 
+<script src="/static/markdown.js"></script>
+<script src="/static/ai_chat.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);

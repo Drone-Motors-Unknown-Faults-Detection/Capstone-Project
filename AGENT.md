@@ -40,7 +40,8 @@ src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺�
                  exp13 導覽一致性 navigation_data_contract.py／navigation_regression.py）；
                  總覽見 docs/experiments/README.md；技術報告在 docs/experiments/
 src/web/         即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
-                 server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js）
+                 server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js、
+                 assistant.py AI 問答（LangGraph agent 連本地模型，知識庫在 web/knowledge/*.md））
 src/tests/       pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）
                  一樣經 core.logger.setup_run() 寫 logs/ 與 output/，不得改成手寫報告
 docs/            實驗技術報告在 docs/experiments/（每個 src/experiments/*.py 一份 .md）
@@ -49,10 +50,13 @@ docs/            實驗技術報告在 docs/experiments/（每個 src/experiment
                  歷史快照見 docs/README.md；快照裡的程式路徑不對應現行架構，勿據以改碼
 data/            特徵資料（git 忽略；由論文版管線產出，本專案唯讀）
 logs/ output/    每次執行的日誌與結果（納入版控）。output/ 只能是程式碼寫出的檔案，見鐵則 9
+docker/          compose.yaml（include 下面兩個）、vllm.compose.yaml（NGC vLLM + Qwen3，AI 問答模型）、
+                 app.compose.yaml + Dockerfile（展示伺服器映像，data/ 唯讀掛入、logs/ output/ 可寫）、.env.example
 uv.lock          完整依賴樹的唯一鎖版來源（含間接依賴）；pyproject.toml 只宣告直接依賴的訂死版本
 scripts/quantity/ 提交前檢查：run_pytest.sh（鐵則 10）、run_ruff.sh（鐵則 12）；
                  CI 的獨立 Pytest／Ruff step 也呼叫這兩支
-scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；build_uv.sh 以 uv sync --locked
+scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh 啟動 AI 問答用本地模型（vLLM／llama.cpp）；
+                 restart_docker.sh 先 compose down 再 up -d --build（all／app／vllm）；build_uv.sh 以 uv sync --locked
                  建立新環境，版本訂死在 pyproject.toml，完整依賴樹鎖在 uv.lock，不刪除既有目錄
 ```
 
@@ -181,6 +185,17 @@ venv/bin/python -m experiments.compare_openset --openset-methods mahalanobis knn
 ./scripts/opt/run_web.sh
 ./scripts/opt/run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
 
+# Docker（docker/.env 由 .env.example 複製；需 NVIDIA Container Toolkit）
+./scripts/opt/restart_docker.sh               # 移除舊容器後重建重啟（all；app／vllm 只動單一服務）
+cd docker && docker compose up -d --build      # vLLM（Qwen3）+ 展示，http://localhost:8600
+docker compose -f vllm.compose.yaml up -d       # 只開模型
+docker compose -f app.compose.yaml up -d --build  # 只開展示
+
+# AI 問答（先開模型，再開展示；即時展示頁左欄「AI 問答」）
+./scripts/opt/run_llm.sh                       # vLLM，http://127.0.0.1:8000/v1
+./scripts/opt/run_llm.sh --engine llamacpp     # llama-server（GGUF）
+./scripts/opt/run_web.sh --llm-url http://127.0.0.1:8000/v1 --llm-model ""   # 留空自動取 /models 第一個
+
 # 環境
 ./scripts/opt/build_uv.sh --python python3.10 --venv venv  # 只建立新目錄；正式支援 3.10.x
 ./scripts/opt/build_uv.sh --legacy --venv venv-legacy     # legacy extras 非本輪正式鎖版驗證範圍
@@ -226,6 +241,13 @@ WebSocket `/ws`，JSON 訊息：
   `event`（info/warn/success/error）、`metrics`
 - client → server：`{cmd: start|pause|reset|rate|set_source|scenario|confirm|dataset, ...}`
 - 重任務（confirm/reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
+
+AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{question, history}` → SSE
+`tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_live_status`、`get_recent_alarms`、
+`get_experiment`（CATALOG + docs/experiments 手冊，實驗一／1／exp1 視為同一編號）、`lookup_knowledge`。
+每輪第一步 `tool_choice="required"` 強制先查工具；temperature 0；查無資料時工具回【查無資料】要求模型不得推測。
+前端是右下角浮動泡泡聊天視窗，答案下方「📎 依據」由工具回傳的 sources 產生，不經模型轉述。快照由 `web.assistant.machine_snapshot()` 在 IOLoop 執行緒取，
+不含注入來源、劇本、逐筆 truth 與候選叢集的 majority／purity／is_known（鐵則 6）。
 
 ---
 
