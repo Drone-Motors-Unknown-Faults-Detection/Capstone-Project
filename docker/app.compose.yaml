@@ -1,0 +1,46 @@
+# 冷啟動 PHM 即時展示（web.server，含 AI 問答）。
+#
+#   cd docker && cp .env.example .env      # APP_UID/APP_GID 改成 `id -u` / `id -g`
+#   docker compose -f app.compose.yaml up -d --build
+#   瀏覽 http://localhost:8600
+#
+# 掛載：../data 唯讀（特徵資料，git 忽略，需先由 Ancestor 管線產出）；
+#       ../logs、../output 可寫（setup_run() 的執行紀錄，納入版控）。
+# 以主機使用者 uid/gid 執行，寫進 logs/、output/ 的檔案權限與本機執行相同。
+# AI 問答預設連同一 compose 專案的 vllm 服務；模型離線時頁面顯示「模型離線」，展示照常運作。
+# 只跑這個檔、模型在主機上時：LLM_URL=http://host.docker.internal:8000/v1
+name: lineage
+
+services:
+  web:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: lineage-web:local
+    user: "${APP_UID:-1000}:${APP_GID:-1000}"
+    command:
+      - --data-root
+      - /app/data
+      - --bind-address
+      - 0.0.0.0
+      - --port
+      - "8600"
+      - --motor
+      - ${MOTOR:-T1}
+      - --rpm
+      - ${RPM:-8000rpm}
+      - --rate
+      - ${RATE:-4}
+      - --llm-url
+      - ${LLM_URL:-http://vllm:8000/v1}
+      - --llm-model
+      - ${LLM_MODEL:-qwen3}
+    volumes:
+      - ../data:/app/data:ro
+      - ../logs:/app/logs
+      - ../output:/app/output
+    ports:
+      - "${WEB_PORT:-8600}:8600"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped

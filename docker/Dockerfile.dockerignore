@@ -1,0 +1,7 @@
+# BuildKit 讀 <Dockerfile>.dockerignore；context 是 repo 根目錄，只放 build 需要的檔案。
+*
+!pyproject.toml
+!uv.lock
+!src/
+src/tests/
+**/__pycache__/

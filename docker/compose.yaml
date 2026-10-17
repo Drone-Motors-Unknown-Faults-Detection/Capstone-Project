@@ -1,0 +1,11 @@
+# 一次啟動模型與展示：
+#   cd docker && cp .env.example .env
+#   docker compose up -d --build
+#   docker compose logs -f vllm            # 等權重下載與載入完成
+#   瀏覽 http://localhost:8600 → 左欄「AI 問答」
+# 個別啟動用 vllm.compose.yaml / app.compose.yaml；三個檔共用專案名 lineage 與同一個網路。
+name: lineage
+
+include:
+  - vllm.compose.yaml
+  - app.compose.yaml
