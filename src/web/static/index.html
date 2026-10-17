@@ -295,13 +295,25 @@ function aiBubble(cls, text){
   return div;
 }
 
+const AI_STATUS_MS = 15000;   // 模型狀態定時重新檢查（vLLM 啟動要數分鐘，好了不必重新整理頁面）
+let aiStatusPending = false;
+
 async function aiStatus(){
+  if (aiStatusPending) return;  // 上一次還沒回來就不疊加
+  aiStatusPending = true;
+  const checked = new Date().toLocaleTimeString();
   try {
     const r = await (await fetch("/api/assistant/status")).json();
-    $("aiStatus").textContent = r.reachable ? `● ${r.model || "已連線"}` : "○ 模型離線";
+    $("aiStatus").textContent = r.reachable ? `● ${r.model || "已連線"}` : "○ 模型離線（啟動中或未開）";
     $("aiStatus").style.color = r.reachable ? "var(--green)" : "#fca5a5";
-    $("aiStatus").title = r.reachable ? r.url : (r.error || r.url);
-  } catch (e) { $("aiStatus").textContent = "○ 狀態未知"; }
+    $("aiStatus").title = `${r.reachable ? r.url : (r.error || r.url)}\n上次檢查 ${checked}，每 ${AI_STATUS_MS / 1000} 秒自動更新`;
+  } catch (e) {
+    $("aiStatus").textContent = "○ 狀態未知";
+    $("aiStatus").style.color = "var(--muted)";
+    $("aiStatus").title = `展示伺服器連不上：${e}\n上次檢查 ${checked}`;
+  } finally {
+    aiStatusPending = false;
+  }
 }
 
 async function aiAsk(question){
@@ -341,6 +353,7 @@ async function aiAsk(question){
     box.className = "ai-msg error"; body.textContent = "連線失敗：" + e;
   } finally {
     aiBusy = false; $("aiSend").disabled = false;
+    aiStatus();  // 回答成功或失敗後同步狀態燈
   }
 }
 
@@ -351,6 +364,8 @@ $("aiForm").addEventListener("submit", e => {
 });
 document.querySelectorAll("#aiSuggest button").forEach(b => b.addEventListener("click", () => aiAsk(b.dataset.q)));
 aiStatus();
+setInterval(() => { if (!document.hidden) aiStatus(); }, AI_STATUS_MS);   // 背景分頁暫停
+document.addEventListener("visibilitychange", () => { if (!document.hidden) aiStatus(); });
 
 function connect(){
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");

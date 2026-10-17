@@ -241,5 +241,27 @@ class AssistantHTTPTests(DemoMixin, tornado.testing.AsyncHTTPTestCase):
         self.assertIn("本地模型呼叫失敗", frames[-1]["error"])
 
 
+class FrontendStatusPollingTests(unittest.TestCase):
+    """模型狀態燈定時重新檢查：vLLM 啟動數分鐘後不必重新整理頁面。"""
+
+    def setUp(self):
+        html = (Path(server.STATIC_DIR) / "index.html").read_text(encoding="utf-8")
+        self.js = html[html.index("<script>"):]
+
+    def test_polls_status_on_interval_and_skips_hidden_tab(self):
+        self.assertIn("const AI_STATUS_MS = 15000;", self.js)
+        self.assertIn("setInterval(() => { if (!document.hidden) aiStatus(); }, AI_STATUS_MS);", self.js)
+        self.assertIn('addEventListener("visibilitychange", () => { if (!document.hidden) aiStatus(); })', self.js)
+
+    def test_status_checks_do_not_overlap(self):
+        body = self.js[self.js.index("async function aiStatus()"):self.js.index("async function aiAsk(")]
+        self.assertIn("if (aiStatusPending) return;", body)
+        self.assertIn("aiStatusPending = false;", body[body.index("finally"):])
+
+    def test_status_refreshed_after_each_answer(self):
+        body = self.js[self.js.index("async function aiAsk("):self.js.index('$("aiForm")')]
+        self.assertIn("aiStatus();", body[body.rindex("finally"):])
+
+
 if __name__ == "__main__":
     unittest.main()
