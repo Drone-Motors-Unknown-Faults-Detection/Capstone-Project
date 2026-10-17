@@ -1,0 +1,56 @@
+# AI 問答用本地模型：vLLM + Qwen3，提供 OpenAI 相容 API（web/assistant.py 連 /v1）。
+#
+#   cd docker && cp .env.example .env      # 視需要改模型、記憶體比例、HF_TOKEN
+#   docker compose -f vllm.compose.yaml up -d
+#   curl http://127.0.0.1:8000/v1/models   # 第一次啟動要下載權重（FP8 約 31 GB），健康檢查最多等 30 分鐘
+#
+# 映像用 NVIDIA NGC 的 vLLM（支援 GB10 / DGX Spark 的 aarch64 + Blackwell）；
+# 主機需裝 NVIDIA Container Toolkit。LangGraph agent 靠 tool calling 讀機台狀態，
+# 所以必開 --enable-auto-tool-choice，Qwen3 用 hermes 解析器。
+# 對外名稱固定為 qwen3（--served-model-name），換權重不必改 web 端設定。
+name: lineage
+
+services:
+  vllm:
+    image: nvcr.io/nvidia/vllm:${VLLM_IMAGE_TAG:-26.09-py3}
+    command:
+      - vllm
+      - serve
+      - ${QWEN3_MODEL:-Qwen/Qwen3-30B-A3B-Instruct-2507-FP8}
+      - --served-model-name
+      - qwen3
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --max-model-len
+      - ${VLLM_MAX_MODEL_LEN:-32768}
+      - --gpu-memory-utilization
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.5}
+      - --enable-auto-tool-choice
+      - --tool-call-parser
+      - hermes
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ${HF_CACHE_DIR:-~/.cache/huggingface}:/root/.cache/huggingface
+    ports:
+      - "127.0.0.1:${VLLM_PORT:-8000}:8000"
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 1800s
+    restart: unless-stopped
