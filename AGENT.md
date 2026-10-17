@@ -242,7 +242,10 @@ WebSocket `/ws`，JSON 訊息：
 - 重任務（confirm/reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
 
 AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{question, history}` → SSE
-`tool`／`delta`／`done`／`error`）。快照由 `web.assistant.machine_snapshot()` 在 IOLoop 執行緒取，
+`tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_live_status`、`get_recent_alarms`、
+`get_experiment`（CATALOG + docs/experiments 手冊，實驗一／1／exp1 視為同一編號）、`lookup_knowledge`。
+每輪第一步 `tool_choice="required"` 強制先查工具；temperature 0；查無資料時工具回【查無資料】要求模型不得推測。
+前端是右下角浮動泡泡聊天視窗，答案下方「📎 依據」由工具回傳的 sources 產生，不經模型轉述。快照由 `web.assistant.machine_snapshot()` 在 IOLoop 執行緒取，
 不含注入來源、劇本、逐筆 truth 與候選叢集的 majority／purity／is_known（鐵則 6）。
 
 ---

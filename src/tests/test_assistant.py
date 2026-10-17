@@ -18,25 +18,34 @@ from web.assistant import (
     ThinkFilter,
     describe_alarms,
     describe_status,
+    experiment_number,
+    experiment_with_sources,
     load_knowledge,
     machine_snapshot,
     search_knowledge,
+    search_with_sources,
     to_messages,
+    EXPERIMENTS_DIR,
+    KNOWLEDGE_DIR,
 )
 from web.live import LiveDemo
 from web.server import Hub
 
 
 class FakeToolModel(GenericFakeChatModel):
-    """依序回放訊息；bind_tools 回傳自己，並記錄每次收到的對話。"""
+    """依序回放訊息；記錄每次收到的對話與當次綁定的 tool_choice。"""
 
     seen: list = []
+    choices: list = []
+    choice: str = "auto"
 
     def bind_tools(self, tools, **kwargs):
-        return self
+        # 淺複製：回放序列與紀錄清單共用，只換 tool_choice
+        return self.model_copy(update={"choice": kwargs.get("tool_choice", "auto")})
 
     def _generate(self, messages, *args, **kwargs):
         self.seen.append(list(messages))
+        self.choices.append(self.choice)
         return super()._generate(messages, *args, **kwargs)
 
     def _stream(self, messages, *args, **kwargs):
@@ -55,6 +64,7 @@ class FakeToolModel(GenericFakeChatModel):
 def fake_model(*replies):
     model = FakeToolModel(messages=iter(replies))
     model.seen = []
+    model.choices = []
     return model
 
 
@@ -183,7 +193,10 @@ class AskTests(DemoMixin, unittest.TestCase):
             return [f async for f in assistant.ask(machine_snapshot(self.hub), "目前狀況？")]
 
         frames = asyncio.run(collect())
-        self.assertEqual(frames[0], {"event": "tool", "name": "get_live_status", "label": "讀取即時狀態"})
+        self.assertEqual(frames[0], {"event": "tool", "name": "get_live_status", "label": "讀取即時狀態",
+                                     "sources": ["即時狀態（t=3）"]})
+        # 第一步強制查工具，查過之後才放開讓模型作答
+        self.assertEqual(model.choices, ["required", "auto"])
         deltas = [f["text"] for f in frames if f["event"] == "delta"]
         self.assertEqual("".join(deltas).replace(" ", ""), "目前健康")
         # 逐 token 串流：Python 3.10 下 agent 節點必須明傳 config，否則只會收到整則訊息
@@ -241,6 +254,48 @@ class AssistantHTTPTests(DemoMixin, tornado.testing.AsyncHTTPTestCase):
         self.assertIn("本地模型呼叫失敗", frames[-1]["error"])
 
 
+class ExperimentKnowledgeTests(unittest.TestCase):
+    def test_experiment_number_forms(self):
+        cases = {"實驗一": 1, "實驗1": 1, "exp1": 1, "可以告訴我實驗1在做甚麼嗎": 1, "實驗 6": 6,
+                 "實驗十二": 12, "十一": 11, "exp12": 12, "3": 3, "abc": None, "": None}
+        for text, n in cases.items():
+            with self.subTest(text=text):
+                self.assertEqual(experiment_number(text), n)
+
+    def test_experiment_one_has_catalog_and_handbook(self):
+        text, sources = experiment_with_sources("一")
+        self.assertIn("只用 8screws 建健康基準", text)
+        self.assertIn("【手冊 exp1_cold_start.md】", text)
+        self.assertNotIn("exp10", "".join(sources))
+        self.assertEqual(sources, ["web/experiments.py › 實驗一", "exp1_cold_start.md"])
+
+    def test_multi_handbook_experiment_truncated(self):
+        text, sources = experiment_with_sources("實驗六")
+        self.assertGreaterEqual(sum(s.startswith("exp6_") for s in sources), 4)
+        self.assertLess(len(text), 12000)
+        self.assertIn("以下截斷", text)
+
+    def test_overview_and_missing(self):
+        overview, _ = experiment_with_sources("")
+        self.assertIn("實驗八", overview)
+        self.assertIn("exp12_confusion_tsne.md", overview)
+        missing, _ = experiment_with_sources("99")
+        self.assertTrue(missing.startswith("【查無資料】沒有實驗 99"))
+
+    def test_search_normalizes_experiment_numbers(self):
+        sections = load_knowledge(KNOWLEDGE_DIR) + load_knowledge(EXPERIMENTS_DIR)
+        for query in ("實驗三 輸出怎麼看", "實驗3 輸出怎麼看", "exp3 輸出怎麼看"):
+            with self.subTest(query=query):
+                _, sources = search_with_sources(sections, query)
+                self.assertEqual(sources[0], "exp3_trend.md › 輸出怎麼看")
+
+    def test_no_match_has_no_sources_and_tells_model_to_refuse(self):
+        text, sources = search_with_sources(load_knowledge(), "zzz")
+        self.assertEqual(sources, [])
+        self.assertTrue(text.startswith("【查無資料】"))
+        self.assertIn("不要自行推測", text)
+
+
 class FrontendStatusPollingTests(unittest.TestCase):
     """模型狀態燈定時重新檢查：vLLM 啟動數分鐘後不必重新整理頁面。"""
 
@@ -257,6 +312,19 @@ class FrontendStatusPollingTests(unittest.TestCase):
         body = self.js[self.js.index("async function aiStatus()"):self.js.index("async function aiAsk(")]
         self.assertIn("if (aiStatusPending) return;", body)
         self.assertIn("aiStatusPending = false;", body[body.index("finally"):])
+
+    def test_bubble_chat_widget(self):
+        html = (Path(server.STATIC_DIR) / "index.html").read_text(encoding="utf-8")
+        live = html[html.index('<section id="page-live">'):html.index("</section>")]
+        self.assertNotIn('id="aiChat"', live)  # 浮動視窗不放在即時頁裡，實驗頁也能開
+        for element in ('id="aiFab"', 'id="aiChat"', 'id="aiClose"', 'id="aiLed"', '<textarea id="aiInput"'):
+            self.assertIn(element, html)
+        self.assertIn("!e.isComposing", self.js)  # 中文輸入法選字的 Enter 不送出
+        self.assertIn('row.className = "ai-row " + cls;', self.js)
+
+    def test_sources_rendered_from_tool_frames(self):
+        self.assertIn("(f.sources || []).forEach(x => sources.add(x));", self.js)
+        self.assertIn('"📎 依據："', self.js)
 
     def test_status_refreshed_after_each_answer(self):
         body = self.js[self.js.index("async function aiAsk("):self.js.index('$("aiForm")')]
