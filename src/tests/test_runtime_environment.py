@@ -137,7 +137,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
 
     def test_build_scripts_do_not_delete_existing_environments(self):
         quantity = ("run_pytest.sh", "run_ruff.sh")
-        opt = ("build_uv.sh", "run_web.sh")
+        opt = ("build_uv.sh", "run_llm.sh", "run_web.sh")
         self.assertEqual(sorted(path.name for path in (ROOT / "scripts/quantity").glob("*.sh")), sorted(quantity))
         self.assertEqual(sorted(path.name for path in (ROOT / "scripts/opt").glob("*.sh")), sorted(opt))
         for name in (*quantity, *opt, "build_uv.ps1", "build_uv_mac.sh"):
