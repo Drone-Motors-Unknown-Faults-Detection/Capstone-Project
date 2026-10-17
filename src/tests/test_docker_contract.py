@@ -1,5 +1,9 @@
 """docker/ 的 compose 與 Dockerfile 契約：版本訂死、模型名稱與 tool calling 對得上 web 端、資料唯讀。"""
+import os
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -77,6 +81,79 @@ class DockerContractTests(unittest.TestCase):
         for name in ("vllm.compose.yaml", "app.compose.yaml"):
             used |= set(re.findall(r"\$\{([A-Z0-9_]+)", (DOCKER / name).read_text(encoding="utf-8")))
         self.assertEqual(used - keys, set())
+
+
+class RestartScriptTests(unittest.TestCase):
+    """以假 docker 記錄 scripts/opt/restart_docker.sh 的呼叫順序；不需要 Docker daemon。"""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        (self.root / "scripts/opt").mkdir(parents=True)
+        shutil.copy(ROOT / "scripts/opt/restart_docker.sh", self.root / "scripts/opt/")
+        (self.root / "docker").mkdir()
+        shutil.copy(DOCKER / ".env.example", self.root / "docker/.env.example")
+        (self.root / "data").mkdir()
+        bin_dir = self.root / "bin"
+        bin_dir.mkdir()
+        self.calls = self.root / "calls.txt"
+        fake = bin_dir / "docker"
+        fake.write_text(f'#!/bin/bash\necho "$*" >> "{self.calls}"\n', encoding="utf-8")
+        fake.chmod(0o755)
+        self.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def run_script(self, *args):
+        return subprocess.run(["bash", str(self.root / "scripts/opt/restart_docker.sh"), *args],
+                              env=self.env, capture_output=True, text=True)
+
+    def lines(self):
+        return self.calls.read_text(encoding="utf-8").splitlines() if self.calls.exists() else []
+
+    def test_all_downs_then_rebuilds(self):
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.lines(), [
+            "info",
+            "compose -f compose.yaml down --remove-orphans",
+            "compose -f compose.yaml up -d --build",
+            "compose -f compose.yaml ps",
+        ])
+        env = (self.root / "docker/.env").read_text(encoding="utf-8")
+        self.assertIn(f"APP_UID={os.getuid()}", env)
+        self.assertIn(f"APP_GID={os.getgid()}", env)
+
+    def test_partial_restart_keeps_other_service(self):
+        for target, expected in (("app", "compose -f app.compose.yaml up -d --build"),
+                                 ("vllm", "compose -f vllm.compose.yaml up -d")):
+            with self.subTest(target=target):
+                self.calls.unlink(missing_ok=True)
+                self.assertEqual(self.run_script(target).returncode, 0)
+                lines = self.lines()
+                self.assertEqual(lines[1], f"compose -f {target}.compose.yaml down")
+                self.assertEqual(lines[2], expected)
+                self.assertFalse(any("-v" in line.split() or "--rmi" in line for line in lines))
+
+    def test_existing_env_untouched_and_no_build(self):
+        (self.root / "docker/.env").write_text("WEB_PORT=9000\n", encoding="utf-8")
+        result = self.run_script("all", "--no-build")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("compose -f compose.yaml up -d", self.lines())
+        self.assertEqual((self.root / "docker/.env").read_text(encoding="utf-8"), "WEB_PORT=9000\n")
+        self.assertIn("http://localhost:9000", result.stdout)
+
+    def test_missing_data_stops_before_down(self):
+        (self.root / "data").rmdir()
+        result = self.run_script("app")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("data/", result.stderr)
+        self.assertEqual(self.lines(), ["info"])
+
+    def test_bad_target(self):
+        self.assertEqual(self.run_script("nope").returncode, 2)
+        self.assertEqual(self.lines(), [])
 
 
 if __name__ == "__main__":

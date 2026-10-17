@@ -54,7 +54,8 @@ docker/          compose.yaml（include 下面兩個）、vllm.compose.yaml（NG
 uv.lock          完整依賴樹的唯一鎖版來源（含間接依賴）；pyproject.toml 只宣告直接依賴的訂死版本
 scripts/quantity/ 提交前檢查：run_pytest.sh（鐵則 10）、run_ruff.sh（鐵則 12）；
                  CI 的獨立 Pytest／Ruff step 也呼叫這兩支
-scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh 啟動 AI 問答用本地模型（vLLM／llama.cpp）；build_uv.sh 以 uv sync --locked
+scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh 啟動 AI 問答用本地模型（vLLM／llama.cpp）；
+                 restart_docker.sh 先 compose down 再 up -d --build（all／app／vllm）；build_uv.sh 以 uv sync --locked
                  建立新環境，版本訂死在 pyproject.toml，完整依賴樹鎖在 uv.lock，不刪除既有目錄
 ```
 
@@ -184,6 +185,7 @@ venv/bin/python -m experiments.compare_openset --openset-methods mahalanobis knn
 ./scripts/opt/run_web.sh --port 8600 --motor T1 --rpm 8000rpm --rate 4
 
 # Docker（docker/.env 由 .env.example 複製；需 NVIDIA Container Toolkit）
+./scripts/opt/restart_docker.sh               # 移除舊容器後重建重啟（all；app／vllm 只動單一服務）
 cd docker && docker compose up -d --build      # vLLM（Qwen3）+ 展示，http://localhost:8600
 docker compose -f vllm.compose.yaml up -d       # 只開模型
 docker compose -f app.compose.yaml up -d --build  # 只開展示
