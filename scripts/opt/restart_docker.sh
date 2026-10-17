@@ -43,8 +43,15 @@ NVIDIA_HOOK="${NVIDIA_HOOK:-nvidia-container-runtime-hook}"
 if [ "$TARGET" != "app" ] && ! command -v "$NVIDIA_HOOK" >/dev/null 2>&1 \
     && ! docker info --format '{{json .Runtimes}}' 2>/dev/null | grep -q nvidia; then
     cat >&2 <<'EOF'
-Docker 無法使用 NVIDIA GPU（找不到 NVIDIA Container Toolkit）。在這台主機執行：
-  sudo apt-get install -y nvidia-container-toolkit   # 套件來源見 https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html
+Docker 無法使用 NVIDIA GPU（找不到 NVIDIA Container Toolkit）。在這台主機執行（Ubuntu／Debian）：
+  # 1. 加入 NVIDIA 套件來源（Ubuntu 預設來源沒有這個套件）
+  curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey \
+    | sudo gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+  curl -fsSL https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list \
+    | sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' \
+    | sudo tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
+  # 2. 安裝並讓 Docker 使用
+  sudo apt-get update && sudo apt-get install -y nvidia-container-toolkit
   sudo nvidia-ctk runtime configure --runtime=docker
   sudo systemctl restart docker
   docker run --rm --gpus all ubuntu nvidia-smi       # 看得到 GPU 即完成
