@@ -36,7 +36,8 @@ src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺�
                  exp9 非線性 AutoEncoder 偵測器（程式在 src/core/detectors.py，複用 exp6_osr_benchmark.py）、
                  exp10 跨工況遷移學習 exp10_transfer.py、
                  exp11 Ancestor 協定對照 exp11_ancestor_comparison.py、
-                 exp12 混淆矩陣與 t-SNE 視覺化 exp12_confusion_tsne.py）；
+                 exp12 混淆矩陣與 t-SNE 視覺化 exp12_confusion_tsne.py、
+                 exp13 導覽一致性 navigation_data_contract.py／navigation_regression.py）；
                  總覽見 docs/experiments/README.md；技術報告在 docs/experiments/
 src/web/         即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
                  server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js）
@@ -118,7 +119,7 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；build_uv.sh �
 
 ## 實驗手冊
 
-任何實驗都要在 `docs/experiments/` 放一份 Markdown 技術報告，再改程式。範圍包含新的 `src/experiments/` 模組，以及既有實驗改了方法、資料切分或指標。每個實驗都有編號 `expN`（實驗N），新實驗取下一個未用的編號（目前已用到 exp12，下一個新實驗編號為 exp13）。報告檔名以 `expN_` 開頭，例如 `docs/experiments/exp13_foo.md`；程式檔名不必帶編號，但報告的「程式碼與輸出」節要列出這個實驗用到的所有路徑：`src/experiments/` 入口、`src/core/` 與 `src/experiments/health/` 的邏輯、`src/web/` 的展示、`src/tests/`、`logs/` 與 `output/` 的紀錄與結果。同一實驗在 `docs/` 下的其他文件檔名也以 `expN_` 開頭。完成後在 `docs/experiments/README.md` 的實驗表與「各實驗的檔案位置」表、`docs/README.md` 的現行文件表各加一列。
+任何實驗都要在 `docs/experiments/` 放一份 Markdown 技術報告，再改程式。範圍包含新的 `src/experiments/` 模組，以及既有實驗改了方法、資料切分或指標。每個實驗都有編號 `expN`（實驗N），新實驗取下一個未用的編號（目前已用到 exp13，下一個新實驗編號為 exp14）。報告檔名以 `expN_` 開頭，例如 `docs/experiments/exp14_foo.md`；程式檔名不必帶編號，但報告的「程式碼與輸出」節要列出這個實驗用到的所有路徑：`src/experiments/` 入口、`src/core/` 與 `src/experiments/health/` 的邏輯、`src/web/` 的展示、`src/tests/`、`logs/` 與 `output/` 的紀錄與結果。同一實驗在 `docs/` 下的其他文件檔名也以 `expN_` 開頭。完成後在 `docs/experiments/README.md` 的實驗表與「各實驗的檔案位置」表、`docs/README.md` 的現行文件表各加一列。
 
 手冊至少寫這四項：
 

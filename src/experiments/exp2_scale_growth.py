@@ -1,11 +1,10 @@
-"""實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 操作員確認 → 擴張重訓。
+"""實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 自行納入。
 
-ScaleGrowthSession 是核心狀態機（Web 即時展示直接驅動它）：
+ScaleGrowthSession 是核心狀態機（Web 即時展示仍可另外呼叫 confirm()）：
     1. 每筆樣本以 OpenSetMonitor 打分；判為未知者進隔離區
-    2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生「候選新故障」
-    3. confirm() 模擬操作員確認：以叢集多數真實配置為標註（此時才揭示 ground truth），
-       納入已知類別並重新擬合 → 量尺擴張
-    偵測與分群過程從未使用標籤；標籤只在確認步驟扮演「操作員」。
+    2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
+    3. adopt() 不請操作員指出故障程度：只用這一群已到達樣本切分並重擬合，
+       類名是 discovered-N。真實配置只留在事後對照，不進模型。
 
 兩段閾值設計：
     - 偵測線 1.0：正規化分數 > 1 即判「未知」（逐樣本判定與警報用）
@@ -188,6 +187,41 @@ class ScaleGrowthSession:
         self._since_cluster = self.recluster_every
         return result
 
+    def adopt(self) -> dict:
+        """候選一成形就用該群樣本自學。不讀完整配置池，也不等操作員命名。"""
+        if self.candidate is None:
+            raise RuntimeError("目前沒有可納入的候選叢集")
+        indices = list(self.candidate["indices"])
+        matched = self.candidate["majority"]
+        serial = sum(name.startswith("discovered-") for name in self.monitor.known) + 1
+        name = f"discovered-{serial}"
+        result = {
+            "config": name,
+            "display": f"模型新類 {serial}",
+            "matched": matched,
+            "matched_display": self.candidate["majority_display"],
+            "size": self.candidate["size"],
+            "purity": self.candidate["purity"],
+            "source": "cluster_only",
+        }
+        if len(indices) < 5:
+            result["action"] = "insufficient"
+            self.candidate = None
+            self._since_cluster = self.recluster_every
+            return result
+        samples = np.vstack([self.quarantine_X[i] for i in indices])
+        result["action"] = "learned"
+        result["label"] = self.monitor.add_observed(name, samples)
+        self.polar = PolarMap(self.monitor)
+        drop = set(indices)
+        keep = [i for i in range(len(self.quarantine_X)) if i not in drop]
+        self.quarantine_X = [self.quarantine_X[i] for i in keep]
+        self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
+        self.quarantine_t = [self.quarantine_t[i] for i in keep]
+        self.candidate = None
+        self._since_cluster = self.recluster_every
+        return result
+
     def state(self) -> dict:
         return {
             "known": [
@@ -203,7 +237,15 @@ class ScaleGrowthSession:
 # -- 批次重播（論文數據） -----------------------------------------------------
 
 
-def run(
+def _verdict(label: str | None) -> str:
+    if label is None:
+        return "unknown"
+    if label == HEALTHY:
+        return "healthy"
+    return "known"
+
+
+def iter_playback(
     pools: dict[str, np.ndarray],
     sequence: list[str] | None = None,
     seed: int = 42,
@@ -212,8 +254,8 @@ def run(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
-) -> dict:
-    """依序注入各未知配置：量測發現延遲 → 自動確認 → 驗證擴張後的分類能力。"""
+):
+    """依序注入未知配置。候選出現時立刻用該群樣本自學，不等操作員確認。"""
     if sequence is None:
         sequence = sorted((c for c in pools if c != HEALTHY), key=config_sort_key)
     session = ScaleGrowthSession(
@@ -225,59 +267,109 @@ def run(
         knn_neighbors=knn_neighbors,
     )
     rng = np.random.default_rng(seed + 1)
+    yield {
+        "event": "fitted",
+        "model": session.monitor.summary(),
+        "known": list(session.monitor.known),
+    }
 
     stages = []
     for config in sequence:
         sampler = CycleSampler(pools[config], np.arange(len(pools[config])), rng)
         res, found_at, rejected = None, None, 0
         for tick in range(1, max_ticks_per_stage + 1):
-            session.process(sampler.draw(), config)
-            if session.candidate is not None:
-                outcome = session.confirm()
-                if outcome["action"] == "rejected_known":
-                    rejected += 1  # 已知類別邊界樣本聚成的叢，操作員退回後續跑
-                    continue
-                res, found_at = outcome, tick
-                break
+            out = session.process(sampler.draw(), config)
+            yield {
+                "event": "tick",
+                "config": config,
+                "display": display_name(config),
+                "t": tick,
+                "score": out["score"],
+                "label": out["label"],
+                "verdict": _verdict(out["label"]),
+                "quarantine": out["quarantine"],
+                "known": len(session.monitor.known),
+            }
+            if session.candidate is None:
+                continue
+            yield {
+                "event": "candidate",
+                "config": config,
+                "candidate": session.state()["candidate"],
+            }
+            outcome = session.adopt()
+            yield {
+                "event": "adopted",
+                "config": config,
+                "outcome": outcome,
+                "known": list(session.monitor.known),
+            }
+            if outcome["action"] != "learned":
+                continue
+            res, found_at = outcome, tick
+            break
         row = {
             "config": config,
             "display": display_name(config),
             "discovered": res is not None,
             "rejected_known_clusters": rejected,
         }
-        if res is None:
-            stages.append(row)
-            continue
-        own = session.monitor.classify(session.monitor.holdout(res["config"]))
-        healthy = session.monitor.classify(session.monitor.holdout(HEALTHY))
-        row.update(
-            {
-                "learned": res["config"],
-                "samples_to_candidate": found_at,
-                "cluster_size": res["size"],
-                "cluster_purity": res["purity"],
-                "own_holdout_acc": float(np.mean([label == res["config"] for label in own])),
-                "healthy_holdout_acc": float(np.mean([label == HEALTHY for label in healthy])),
-                "known_after": len(session.monitor.known),
-            }
-        )
+        if res is not None:
+            own = session.monitor.classify(session.monitor.holdout(res["config"]))
+            healthy = session.monitor.classify(session.monitor.holdout(HEALTHY))
+            row.update(
+                {
+                    "learned": res["config"],
+                    "learned_display": res["display"],
+                    "matched": res["matched"],
+                    "matched_display": res["matched_display"],
+                    "samples_to_candidate": found_at,
+                    "cluster_size": res["size"],
+                    "cluster_purity": res["purity"],
+                    "own_holdout_acc": float(np.mean([label == res["config"] for label in own])),
+                    "healthy_holdout_acc": float(np.mean([label == HEALTHY for label in healthy])),
+                    "known_after": len(session.monitor.known),
+                }
+            )
         stages.append(row)
 
-    return {
+    model = session.monitor.summary()
+    yield {"event": "result", "result": {
         "stages": stages,
         "final_known": list(session.monitor.known),
-        "model": session.monitor.summary(),
+        "model": model,
         "seed": seed,
         "confidence": confidence,
         "openset_method": openset_method,
         "method": method,
-        "score_type": session.monitor.summary()["score_type"],
+        "score_type": model["score_type"],
         "threshold": 1.0,
-        "threshold_strategy": session.monitor.summary()["threshold_strategy"],
+        "threshold_strategy": model["threshold_strategy"],
         "calibration_source": "known-only 20% calibration split",
         "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
-    }
+    }}
+
+
+def run(
+    pools: dict[str, np.ndarray],
+    sequence: list[str] | None = None,
+    seed: int = 42,
+    confidence: float = 0.95,
+    method: str = "ledoit_wolf",
+    openset_method: str = "mahalanobis",
+    knn_neighbors: int = 5,
+    max_ticks_per_stage: int = 600,
+) -> dict:
+    """依序注入各未知配置：量測發現延遲 → 用候選群自學 → 檢查新類與健康是否還認得。"""
+    for event in iter_playback(
+        pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
+        openset_method=openset_method, knn_neighbors=knn_neighbors,
+        max_ticks_per_stage=max_ticks_per_stage,
+    ):
+        if event["event"] == "result":
+            return event["result"]
+    raise RuntimeError("量尺擴張沒有產生結果")
 
 
 def main() -> None:

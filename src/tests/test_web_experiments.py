@@ -26,7 +26,10 @@ class CatalogTests(unittest.TestCase):
             with self.subTest(entry=entry["id"]):
                 self.assertTrue(entry["fits"].strip())
                 self.assertIsInstance(entry["seconds"], (int, float))
-                self.assertGreater(entry["seconds"], 0)
+                if entry.get("executable", True):
+                    self.assertGreater(entry["seconds"], 0)
+                else:
+                    self.assertEqual(entry["seconds"], 0)
 
     def test_sub_labels_are_unique_within_experiment(self):
         labels = [entry["sub"] for entry in CATALOG if "sub" in entry]

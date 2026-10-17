@@ -132,7 +132,7 @@ el("inject").onclick=()=>send("source",{id:el("source").value});
 el("confirm").onclick=()=>send("confirm",{candidate_id:state.candidate?.id});
 el("scenarioA").onclick=()=>send("scenario",{name:"A"});
 el("scenarioB").onclick=()=>send("scenario",{name:"B"});
-fetch("/docs/exp24_實驗總覽.md").then(r=>r.text()).then(text=>{
+fetch("/docs/exp13_實驗總覽.md").then(r=>r.text()).then(text=>{
  const rows=text.split("\n").filter(x=>x.startsWith("|")).filter((_,i)=>i!==1),table=document.createElement("table");
  rows.forEach((line,i)=>{const tr=document.createElement("tr");line.replace(/^\||\|$/g,"").split("|").forEach(cell=>{const td=document.createElement(i?"td":"th");td.textContent=cell.trim();tr.append(td);});table.append(tr);});el("overview").append(table);
 }).catch(()=>el("overview").textContent="總覽載入失敗；請使用 Markdown 來源連結");

@@ -22,7 +22,7 @@
 - #19 尚未核實全部原文引用；#30 已 completed，追蹤已發布 [#43–#49 與去重補充](#已發布追蹤與去重補充)，各缺陷仍 open；#26 依賴政策已合 main，每支入口覆蓋未完成；#27 CI 尚未完成。#13–16 須另核完整協定與驗收。
 - #24/#28/#35/#37 原首頁入口與 Albert PR #36 有同檔重疊，本輪未修改 health_monitor.py、server.py、index.html、experiments.js，未合併 PR #36。
 
-七問背景與示範操作在 [exp24 導覽](../../docs/navigation/exp24_README.md)；[實驗八完整重算說明](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp8_health_index_aggregate_delivery.md) 保存手冊、SHA、舊值／新值與限制。本輪證據僅支持工程交付與現有資料比較，不支持部署可靠度、RUL 或 fresh final。
+七問背景與示範操作在 [實驗十三導覽](../../docs/navigation/exp13_README.md)；[實驗八完整重算說明](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp8_health_index_aggregate_delivery.md) 保存手冊、SHA、舊值／新值與限制。本輪證據僅支持工程交付與現有資料比較，不支持部署可靠度、RUL 或 fresh final。
 
 ## 文件驗證入口
 

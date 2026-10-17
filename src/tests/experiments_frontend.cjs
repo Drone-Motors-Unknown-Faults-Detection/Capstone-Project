@@ -47,6 +47,14 @@ const paired = sandbox.COMMITTED_RENDER.exp6_formal_matrix({paired_differences:[
 assert.match(paired, /差值&gt;0/);
 assert.match(paired, /FPR 越低越好/);
 assert.doesNotMatch(paired, /k-NN 較好/);
+const transfer = sandbox.RENDER.exp10({n_datasets:2, seed:42, method:'ledoit_wolf', rows:[], summary:{direct:[{n:0, auroc_mean:0.5, healthy_accept_mean:0.4, fault_detect_mean:0.6}], adapted:[], scratch:[]}});
+assert.match(transfer, /direct/);
+assert.match(transfer, /目標健康筆數/);
+const ancestor = sandbox.RENDER.exp11({n_datasets:1, seeds:[42], primary_metrics:['macro_f1'], rows:[], summary:{A:{ledoit_wolf:{accuracy_mean:0.5, balanced_accuracy_mean:0.5, macro_f1_mean:0.5, unknown_f1_mean:0.5}}}, wilcoxon:null});
+assert.match(ancestor, /Balanced Accuracy/);
+const picture = sandbox.RENDER.exp12({n_datasets:1, seed:42, _tsne_by_dataset:{}, binary_confusion:{labels:['healthy','fault'], matrix:[[1,0],[0,1]]}, openset_confusion:{ledoit_wolf:{labels:['unknown'], matrix:[[1]]}, legacy:{labels:['unknown'], matrix:[[1]]}}});
+assert.match(picture, /健康 vs 故障/);
+assert.match(picture, /t-SNE/);
 const formal = sandbox.RENDER.exp6_formal({rows:[], method:'mahalanobis', seed:42});
 assert.match(formal, /健康訓練/);
 assert.match(formal, /健康校準/);

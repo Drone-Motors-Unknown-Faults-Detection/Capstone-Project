@@ -36,6 +36,7 @@ class OpenSetMonitor:
         self.rng = np.random.default_rng(seed)
         self.known: dict[str, int] = {}
         self.splits: dict[str, Split] = {}
+        self.observed: dict[str, np.ndarray] = {}
         self.scaler: RobustScaler | None = None
         self.detector: OpenSetDetector | None = None
         self.pca: PCA | None = None
@@ -50,6 +51,7 @@ class OpenSetMonitor:
         self._fitted = False
         self.known = {}
         self.splits = {}
+        self.observed = {}
         self._register(healthy)
         self._refit()
 
@@ -58,6 +60,25 @@ class OpenSetMonitor:
         label = self._register(config)
         self._refit()
         return label
+
+    def add_observed(self, name: str, samples: np.ndarray) -> int:
+        """只用這批已到達樣本註冊新類並重擬合，不讀該配置的完整資料池。"""
+        rows = np.atleast_2d(np.asarray(samples, dtype=float))
+        if len(rows) < 5:
+            raise ValueError("發現樣本少於 5 筆，無法切出訓練與校準")
+        if name in self.known:
+            raise ValueError(f"{name} 已是已知類別")
+        label = len(self.known)
+        self.known[name] = label
+        self.observed[name] = rows
+        self.splits[name] = make_split(len(rows), self.rng)
+        self._refit()
+        return label
+
+    def _pool(self, config: str) -> np.ndarray:
+        if config in self.observed:
+            return self.observed[config]
+        return self.pools[config]
 
     def _register(self, config: str) -> int:
         if config not in self.pools:
@@ -73,7 +94,7 @@ class OpenSetMonitor:
         self._fitted = False
         X_tr, y_tr, X_ca, y_ca = [], [], [], []
         for config, label in self.known.items():
-            pool, sp = self.pools[config], self.splits[config]
+            pool, sp = self._pool(config), self.splits[config]
             X_tr.append(pool[sp.train])
             y_tr.append(np.full(len(sp.train), label))
             X_ca.append(pool[sp.cal])
@@ -128,7 +149,7 @@ class OpenSetMonitor:
 
     def holdout(self, config: str) -> np.ndarray:
         """已知配置的保留集（未參與擬合與校準）。"""
-        return self.pools[config][self.splits[config].holdout]
+        return self._pool(config)[self.splits[config].holdout]
 
     def summary(self) -> dict:
         """目前擬合狀態的可序列化摘要（保存用：逐類閾值與樣本數）。"""

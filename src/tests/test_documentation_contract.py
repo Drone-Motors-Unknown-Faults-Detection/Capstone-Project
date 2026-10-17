@@ -14,9 +14,9 @@ from tests.issue_delivery_evidence import local_links
 ROOT = Path(__file__).resolve().parents[2]
 DOCUMENTS = ("docs/README.md", "docs/ci_contract.md", "docs/runtime_policy.md",
              "docs/formal_materialization_contract.md", "docs/experiments/exp8_health.md",
-             "docs/navigation/exp24_README.md")
-GUIDE_DOCUMENTS = ("exp24_README.md", "exp24_實驗總覽.md", "exp24_來源索引.md",
-                   "exp24_結果白話解讀.md", "exp24_示範腳本.md")
+             "docs/navigation/exp13_README.md")
+GUIDE_DOCUMENTS = ("exp13_README.md", "exp13_實驗總覽.md", "exp13_來源索引.md",
+                   "exp13_結果白話解讀.md", "exp13_示範腳本.md")
 
 
 def heading_anchors(text):
@@ -69,12 +69,12 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertNotIn("不存在", anchors)
 
     def test_overview_keeps_frontend_eight_column_contract(self):
-        text = (ROOT / "docs/navigation/exp24_實驗總覽.md").read_text(encoding="utf-8")
+        text = (ROOT / "docs/navigation/exp13_實驗總覽.md").read_text(encoding="utf-8")
         rows = [line for line in text.splitlines() if line.startswith("|")]
         self.assertEqual(len(rows), 26)
         self.assertTrue(all(len(line.strip("|").split("|")) == 8 for line in rows))
         self.assertIn("| 實驗名稱 |", rows[0])
-        self.assertIn('fetch("/docs/exp24_實驗總覽.md")',
+        self.assertIn('fetch("/docs/exp13_實驗總覽.md")',
                       (ROOT / "src/web/static/guide.js").read_text(encoding="utf-8"))
 
     def test_report_attachments_and_readers_resolve(self):

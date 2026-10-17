@@ -1,8 +1,8 @@
 # 研究流程圖
 
-![健康基準到新配置學習](exp24_研究流程圖.svg)
+![健康基準到新配置學習](exp13_研究流程圖.svg)
 
-原稿：[Mermaid](exp24_研究流程圖.mmd)。SVG可直接放進報告；圖形代表既有程式，不代表新演算法。來源：src/core/monitor.py、src/core/openset.py、src/experiments/exp2_scale_growth.py、src/experiments/exp3_trend.py、src/web/live.py。
+原稿：[Mermaid](exp13_研究流程圖.mmd)。SVG可直接放進報告；圖形代表既有程式，不代表新演算法。來源：src/core/monitor.py、src/core/openset.py、src/experiments/exp2_scale_growth.py、src/experiments/exp3_trend.py、src/web/live.py。
 
 從健康配置切出train/cal/holdout；未知配置未參與健康模型擬合。新視窗超過偵測線1稱為未知，超過隔離線2才累積到隔離區。HDBSCAN找的是特徵群，不是物理病因；資料不足、雜訊或無候選都繼續等待。操作員確認可退回已知邊界群，也可揭示模擬新配置。現有confirm使用完整配置池重新切分與擬合，不能說只學了剛到達的25筆。
 
@@ -20,4 +20,4 @@
 | 全流程來源 | provenance／exposure guards | raw/session仍UNKNOWN；fresh INCOMPLETE |
 
 
-圖只說明現行操作流程；歷史成績與來源限制由[來源索引](exp24_來源索引.md)查閱。Mermaid與SVG各保留原稿及展示用途。
+圖只說明現行操作流程；歷史成績與來源限制由[來源索引](exp13_來源索引.md)查閱。Mermaid與SVG各保留原稿及展示用途。

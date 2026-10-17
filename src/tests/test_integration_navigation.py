@@ -12,11 +12,11 @@ ROOT = Path(__file__).resolve().parents[2]
 class IntegrationNavigationTests(unittest.TestCase):
     def test_main_catalog_keeps_all_original_entries(self):
         self.assertEqual([entry["id"] for entry in CATALOG],
-                         ["exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp6_formal", "exp7", "exp8", "exp8_monitor"])
+                         ["exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp6_formal", "exp7", "exp8", "exp8_monitor", "exp9", "exp10", "exp11", "exp12"])
 
     def test_navigation_local_links_resolve_and_names_follow_main(self):
         for path in (ROOT / "docs/navigation").iterdir():
-            self.assertTrue(path.name.startswith("exp24_"), path.name)
+            self.assertTrue(path.name.startswith("exp13_"), path.name)
             if path.suffix != ".md":
                 continue
             for target in re.findall(r"\]\(([^)]+)\)", path.read_text(encoding="utf-8")):
@@ -42,6 +42,6 @@ class IntegrationNavigationTests(unittest.TestCase):
         self.assertIn("research=!research", body)
 
     def test_source_references_are_fixed_not_moving_research_branch(self):
-        text = (ROOT / "docs/navigation/exp24_來源索引.md").read_text(encoding="utf-8")
+        text = (ROOT / "docs/navigation/exp13_來源索引.md").read_text(encoding="utf-8")
         self.assertIn("b3d68f145cfa187e208e38cae74bf33f68d7c367", text)
         self.assertNotIn("/blob/research-improvements-20260920/", text)

@@ -10,7 +10,7 @@
 
 - [遠端備份](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/backup/main-before-integration-20261008-131410)：`64cb71d84663e1745ec54db74abad68def67e8e6`，等於 MAIN_BEFORE；不使用落後的本機 main 當備份來源。
 - [全部分支矩陣](#原分支來源快照)、[執行紀錄](execution_log.md)、[機器索引](manifest.json)、[現行串流操作](../../docs/experiments/README.md#web-串流生命週期)。
-- 給老師先讀 [exp24 導覽入口](../../docs/navigation/exp24_README.md)，再看實驗總覽、白話解讀及示範腳本。老師問題的原逐項說明仍保留在[固定研究版本 teacher reply](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/teacher_reply_20261005/reply.md)。
+- 給老師先讀 [實驗十三導覽入口](../../docs/navigation/exp13_README.md)，再看實驗總覽、白話解讀及示範腳本。老師問題的原逐項說明仍保留在[固定研究版本 teacher reply](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/teacher_reply_20261005/reply.md)。
 
 ## 分支最終處理決策
 
