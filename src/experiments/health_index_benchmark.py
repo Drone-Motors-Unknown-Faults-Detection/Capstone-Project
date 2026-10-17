@@ -15,7 +15,7 @@ import pandas as pd
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
 from core.logger import setup_run
-from core.openset import canonical_openset_method
+from core.openset import resolve_openset_config
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
 
@@ -81,10 +81,12 @@ def run(
     evaluation only; they never alter the health scale.
     """
 
+    resolved = resolve_openset_config(openset_method, confidence=confidence,
+                                      mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
+    canonical_method = resolved["openset_method"]
     data_path = Path(data_root).expanduser().resolve()
     datasets = sorted(discover_datasets(data_path), key=lambda row: (row["motor"], row["rpm"]))
     _validate_datasets(datasets, data_path, require_nine)
-    canonical_method = canonical_openset_method(openset_method)
     if canonical_method == "mahalanobis" and mahalanobis_method == "legacy":
         raise ValueError("formal health benchmark rejects legacy training-distance calibration")
     random.seed(seed)
@@ -164,6 +166,7 @@ def run(
         "status": "completed",
         "experiment": "health_index_benchmark",
         "method": canonical_method,
+        "resolved_config": resolved,
         "seed": int(seed),
         "confidence": float(confidence),
         "formal_condition_count": len(rows),

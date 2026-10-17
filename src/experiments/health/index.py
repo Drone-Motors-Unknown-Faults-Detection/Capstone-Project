@@ -16,7 +16,7 @@ from typing import Mapping
 import numpy as np
 from sklearn.preprocessing import RobustScaler
 
-from core.openset import OpenSetDetector, canonical_openset_method, create_openset_detector
+from core.openset import OpenSetDetector, canonical_openset_method, create_detector_from_config, resolve_openset_config
 from experiments.health.calibration import HealthIndexCalibrator
 from experiments.health.diagnosis import DiagnosisResolver
 from experiments.health.schema import HealthMonitoringResult
@@ -79,6 +79,9 @@ class CalibratedHealthIndex:
         self.mahalanobis_method = str(mahalanobis_method)
         self.confidence = float(confidence)
         self.knn_neighbors = int(knn_neighbors)
+        self.resolved_config = resolve_openset_config(
+            self.openset_method, confidence=self.confidence,
+            mahalanobis_method=self.mahalanobis_method, knn_neighbors=self.knn_neighbors)
         self.label_to_fault_type = {int(k): str(v) for k, v in (label_to_fault_type or {}).items()}
         self.diagnosis = DiagnosisResolver(self.label_to_fault_type)
 
@@ -118,16 +121,13 @@ class CalibratedHealthIndex:
         calibration_labels = set(np.unique(y_calibration).tolist())
         if not calibration_labels.issubset(known_labels):
             raise ValueError("calibration labels must be a subset of known training labels")
-        canonical_method = canonical_openset_method(openset_method)
+        resolved = resolve_openset_config(openset_method, confidence=confidence,
+                                          mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
+        canonical_method = resolved["openset_method"]
         scaler = RobustScaler().fit(X_train)
         X_train_scaled = scaler.transform(X_train)
         X_calibration_scaled = scaler.transform(X_calibration)
-        detector = create_openset_detector(
-            canonical_method,
-            confidence=confidence,
-            mahalanobis_method=mahalanobis_method,  # type: ignore[arg-type]
-            knn_neighbors=knn_neighbors,
-        ).fit(X_train_scaled, y_train, X_calibration_scaled, y_calibration)
+        detector = create_detector_from_config(resolved).fit(X_train_scaled, y_train, X_calibration_scaled, y_calibration)
         calibration_scores = np.asarray(detector.score_samples(X_calibration_scaled), dtype=float)
         calibrator = HealthIndexCalibrator.fit(
             calibration_scores,
@@ -216,6 +216,7 @@ class CalibratedHealthIndex:
         """Return portable provenance without serialising fitted model objects."""
 
         return {
+            "resolved_config": self.resolved_config,
             "openset_method": self.openset_method,
             "mahalanobis_method": self.mahalanobis_method
             if self.openset_method == "mahalanobis"

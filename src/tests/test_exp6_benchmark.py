@@ -61,6 +61,8 @@ class Exp6BenchmarkTests(unittest.TestCase):
                 result = run(root, seed=42, openset_method="k-nn", require_nine=False)
             self.assertTrue(factory.called)
             self.assertEqual(factory.call_args.args[0], "knn")
+            self.assertEqual(result["resolved_config"]["method_id"], "knn/k5")
+            self.assertEqual(result["resolved_config"]["requested_method"], "k-nn")
             self.assertEqual(result["method"], "knn")
             self.assertEqual(result["requested_method"], "k-nn")
             self.assertEqual(result["rows"][0]["requested_method"], "k-nn")

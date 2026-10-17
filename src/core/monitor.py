@@ -12,7 +12,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import RobustScaler
 
 from core.data import HEALTHY, Split, make_split
-from core.openset import OpenSetDetector, create_openset_detector
+from core.openset import OpenSetDetector, create_openset_detector, resolve_openset_config
 
 
 class OpenSetMonitor:
@@ -25,9 +25,11 @@ class OpenSetMonitor:
         openset_method: str = "mahalanobis",
         knn_neighbors: int = 5,
     ) -> None:
+        self.resolved_config = resolve_openset_config(
+            openset_method, confidence=confidence, mahalanobis_method=method, knn_neighbors=knn_neighbors)
         self.pools = pools
         self.confidence = confidence
-        self.openset_method = openset_method
+        self.openset_method = self.resolved_config["openset_method"]
         self.method = method
         self.knn_neighbors = knn_neighbors
         self.seed = seed
@@ -83,9 +85,10 @@ class OpenSetMonitor:
 
         self.scaler = RobustScaler().fit(X_tr)
         X_tr_s = self.scaler.transform(X_tr)
+        effective = self.resolved_config["effective"]
         self.detector = create_openset_detector(
             self.openset_method,
-            confidence=self.confidence,
+            confidence=effective["confidence"],
             mahalanobis_method=self.method,
             knn_neighbors=self.knn_neighbors,
         ).fit(X_tr_s, y_tr, self.scaler.transform(X_ca), y_ca)
@@ -147,6 +150,7 @@ class OpenSetMonitor:
             row.update({k: v for k, v in item.items() if k not in {"label", "threshold"}})
             classes.append(row)
         return {
+            "resolved_config": self.resolved_config,
             "openset_method": self.openset_method,
             "method": self.method,
             "score_type": "normalized_class_mahalanobis"

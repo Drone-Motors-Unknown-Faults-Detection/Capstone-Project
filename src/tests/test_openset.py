@@ -7,9 +7,11 @@ import numpy as np
 
 from core.monitor import OpenSetMonitor
 from core.mahalanobis import MahalanobisOpenSetDetector
-from core.openset import KNNOpenSetDetector, canonical_openset_method, create_openset_detector
+from core.openset import (KNNOpenSetDetector, OpenSetConfigError, canonical_openset_method, create_openset_detector,
+                          resolve_openset_config)
 from core.runner import add_openset_args
 from experiments.compare_openset import run as run_comparison
+from experiments.exp1_cold_start import run as run_exp1
 
 
 def detector_data():
@@ -154,6 +156,99 @@ class IntegrationTests(unittest.TestCase):
         for row in result["results"]:
             self.assertTrue(required.issubset(row))
             self.assertEqual(row["threshold"], 1.0)
+
+
+class ResolvedConfigTests(unittest.TestCase):
+    """#47：CLI、run() 與 detector 共用同一份 resolved config。"""
+
+    def test_default_is_mahalanobis_ledoit_wolf(self):
+        resolved = resolve_openset_config()
+        self.assertEqual(resolved["version"], "openset_config_v1")
+        self.assertEqual(resolved["method_id"], "mahalanobis/ledoit_wolf")
+        self.assertEqual(resolved["effective"], {"confidence": 0.95, "threshold": 1.0, "mahalanobis_method": "ledoit_wolf"})
+        self.assertEqual([item["parameter"] for item in resolved["ignored"]], ["knn_neighbors"])
+
+    def test_knn_records_covariance_option_as_ignored(self):
+        resolved = resolve_openset_config("k-nn", mahalanobis_method="oas", knn_neighbors=3)
+        self.assertEqual((resolved["method_id"], resolved["openset_method"], resolved["requested_method"]),
+                         ("knn/k3", "knn", "k-nn"))
+        self.assertEqual(resolved["effective"], {"confidence": 0.95, "threshold": 1.0, "knn_neighbors": 3})
+        self.assertEqual(resolved["ignored"][0]["parameter"], "mahalanobis_method")
+        self.assertEqual(resolved["ignored"][0]["value"], "oas")
+
+    def test_covariance_option_does_not_change_knn_scores(self):
+        X_train, y_train, X_cal, y_cal = detector_data()
+        query = np.array([[0.1, 0.1], [2.0, 2.0], [10.0, 10.0]])
+        scores = [
+            create_openset_detector("knn", mahalanobis_method=method, knn_neighbors=2)
+            .fit(X_train, y_train, X_cal, y_cal).score_samples(query)
+            for method in ("ledoit_wolf", "oas", "mcd")
+        ]
+        np.testing.assert_array_equal(scores[0], scores[1])
+        np.testing.assert_array_equal(scores[0], scores[2])
+
+    def test_invalid_values_have_fixed_errors(self):
+        cases = (
+            ({"openset_method": "energy"}, "^openset_method: "),
+            ({"confidence": 1.0}, "^confidence: "),
+            ({"confidence": float("nan")}, "^confidence: "),
+            ({"confidence": True}, "^confidence: "),
+            ({"confidence": "0.9"}, "^confidence: "),
+            ({"knn_neighbors": 0}, "^knn_neighbors: "),
+            ({"knn_neighbors": 5.7}, "^knn_neighbors: "),
+            ({"knn_neighbors": True}, "^knn_neighbors: "),
+            ({"mahalanobis_method": "shrunk"}, "^mahalanobis_method: "),
+        )
+        for kwargs, pattern in cases:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesRegex(OpenSetConfigError, pattern):
+                    resolve_openset_config(**kwargs)
+                with self.assertRaisesRegex(OpenSetConfigError, pattern):
+                    create_openset_detector(**kwargs)
+                monitor_kwargs = {"method" if k == "mahalanobis_method" else k: v for k, v in kwargs.items()}
+                with self.assertRaisesRegex(OpenSetConfigError, pattern):
+                    OpenSetMonitor(synthetic_pools(), **monitor_kwargs)
+
+    def test_dimension_mismatch_has_fixed_error_for_both_detectors(self):
+        X_train, y_train, X_cal, y_cal = detector_data()
+        for method in ("mahalanobis", "knn"):
+            with self.subTest(method=method):
+                detector = create_openset_detector(method, knn_neighbors=2).fit(X_train, y_train, X_cal, y_cal)
+                with self.assertRaisesRegex(ValueError, "X has 3 features; expected 2"):
+                    detector.score_samples(np.zeros((1, 3)))
+
+    def test_alias_no_longer_mislabels_monitor_score_type(self):
+        monitor = OpenSetMonitor(synthetic_pools(), seed=3, openset_method="maha")
+        monitor.fit_initial()
+        summary = monitor.summary()
+        self.assertEqual(summary["openset_method"], "mahalanobis")
+        self.assertEqual(summary["score_type"], "normalized_class_mahalanobis")
+        self.assertEqual(summary["resolved_config"]["requested_method"], "maha")
+
+    def test_cli_and_run_record_the_same_resolved_config(self):
+        parser = argparse.ArgumentParser()
+        add_openset_args(parser)
+        pools = synthetic_pools()
+        for argv in ([], ["--openset-method", "knn", "--knn-neighbors", "3", "--confidence", "0.9"],
+                     ["--method", "oas"]):
+            with self.subTest(argv=argv):
+                args = parser.parse_args(argv)
+                expected = resolve_openset_config(args.openset_method, confidence=args.confidence,
+                                                  mahalanobis_method=args.method, knn_neighbors=args.knn_neighbors)
+                result = run_exp1(pools, seed=42, confidence=args.confidence, method=args.method,
+                                  openset_method=args.openset_method, knn_neighbors=args.knn_neighbors)
+                self.assertEqual(result["model"]["resolved_config"], expected)
+
+    def test_resolved_config_does_not_change_scores(self):
+        pools = synthetic_pools()
+        monitor = OpenSetMonitor(pools, seed=11)
+        monitor.fit_initial()
+        scaled = monitor.scaler.transform(pools["7screws"])
+        direct = MahalanobisOpenSetDetector(method="ledoit_wolf", confidence=0.95)
+        split = monitor.splits["8screws"]
+        direct.fit(monitor.scaler.transform(pools["8screws"][split.train]), np.zeros(len(split.train)),
+                   monitor.scaler.transform(pools["8screws"][split.cal]), np.zeros(len(split.cal)))
+        np.testing.assert_array_equal(monitor.detector.score_samples(scaled), direct.score_samples(scaled))
 
 
 if __name__ == "__main__":
