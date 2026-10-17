@@ -1,4 +1,5 @@
 """展示文案對上實際方法及資料角色，不變更演算法。"""
+import re
 from pathlib import Path
 
 from core.detectors import ALL_DETECTORS
@@ -22,3 +23,14 @@ def test_home_scale_is_not_physical_health():
     assert "相對偏離量尺（展示）" in text
     assert "不是損壞百分比" in text
     assert 'id="healthPct"' in text
+
+
+def test_every_streaming_experiment_has_live_view():
+    """CATALOG 標 stream 的實驗，experiments.js 的 LIVE 一定要有對應畫面，否則按「邊跑邊畫」會拋例外。"""
+    js = (Path(__file__).resolve().parents[2] / "src/web/static/experiments.js").read_text(encoding="utf-8")
+    block = js[js.index("const LIVE = {"):]
+    block = block[:block.index("\n};\n")]
+    views = set(re.findall(r"^  (exp\w+): \{", block, re.M))
+    streaming = {entry["id"] for entry in CATALOG if entry.get("stream")}
+    assert streaming, "至少要有一個實驗支援邊跑邊畫"
+    assert streaming <= views, f"缺少 LIVE 畫面：{sorted(streaming - views)}"

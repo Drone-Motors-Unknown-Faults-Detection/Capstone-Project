@@ -27,6 +27,7 @@ import argparse
 import asyncio
 import json
 import math
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -166,11 +167,29 @@ class Hub:
 HUB: Hub | None = None
 
 
+STATIC_REF = re.compile(r'(src|href)="/static/([^"?#]+)"')
+
+
 class IndexHandler(tornado.web.RequestHandler):
+    """首頁不快取；其中每個 /static/ 引用都補上內容雜湊 ?v=，檔案一改網址就變。
+
+    Cloudflare 會把沒有版本的 .js 快取 4 小時（cf-cache-status: HIT），部署後新伺服器
+    搭配舊前端（例：實驗二「邊跑邊畫」在舊 experiments.js 沒有對應畫面，按下去拋例外）。
+    """
+
     def get(self) -> None:
         self.set_header("Content-Type", "text/html; charset=utf-8")
         self.set_header("Cache-Control", "no-store")
-        self.write((STATIC_DIR / "index.html").read_bytes())
+        html = (Path(self.settings["static_path"]) / "index.html").read_text(encoding="utf-8")
+        self.write(STATIC_REF.sub(lambda m: f'{m.group(1)}="{self.static_url(m.group(2))}"', html))
+
+
+class StaticHandler(tornado.web.StaticFileHandler):
+    """帶 ?v= 的網址由 Tornado 給長快取；沒帶版本的一律要求重新驗證，不讓 CDN／瀏覽器拿舊檔。"""
+
+    def set_extra_headers(self, path: str) -> None:
+        if not self.get_argument("v", None):
+            self.set_header("Cache-Control", "no-cache")
 
 
 class ExperimentJobs:
@@ -540,7 +559,16 @@ def main() -> None:
     ASSISTANT = Assistant(args.llm_url, args.llm_model, args.llm_api_key)
     log.info(f"AI 問答模型端點 {args.llm_url}（model={args.llm_model or '自動偵測'}）")
 
-    app = tornado.web.Application([
+    app = make_app()
+    app.listen(args.port, address=args.bind_address)
+    HUB.set_rate(args.rate)
+    log.info(f"就緒 → http://localhost:{args.port}  （Ctrl+C 結束）")
+    serve(tornado.ioloop.IOLoop.current(), HUB, JOBS)
+
+
+def make_app(static_dir: Path = STATIC_DIR) -> tornado.web.Application:
+    """路由與靜態檔設定；static_path 讓 IndexHandler 能用 static_url() 產生 ?v= 版本網址。"""
+    return tornado.web.Application([
         (r"/", IndexHandler),
         (r"/ws", WSHandler),
         (r"/api/experiments", CatalogHandler),
@@ -550,12 +578,7 @@ def main() -> None:
         (r"/api/committed/([a-z0-9_]+)", CommittedHandler),
         (r"/api/assistant/status", AssistantStatusHandler),
         (r"/api/assistant/ask", AssistantAskHandler),
-        (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": str(STATIC_DIR)}),
-    ])
-    app.listen(args.port, address=args.bind_address)
-    HUB.set_rate(args.rate)
-    log.info(f"就緒 → http://localhost:{args.port}  （Ctrl+C 結束）")
-    serve(tornado.ioloop.IOLoop.current(), HUB, JOBS)
+    ], static_path=str(static_dir), static_handler_class=StaticHandler)
 
 
 def serve(loop, hub, jobs=None) -> None:
