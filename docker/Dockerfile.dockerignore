@@ -3,5 +3,6 @@
 !pyproject.toml
 !uv.lock
 !src/
+!docs/experiments/
 src/tests/
 **/__pycache__/

@@ -64,6 +64,10 @@ class DockerContractTests(unittest.TestCase):
         self.assertEqual(rules[0], "*")
         self.assertNotIn("!data/", rules)
         self.assertIn("src/tests/", rules)
+        # AI 問答讀實驗手冊：映像要帶 docs/experiments，Dockerfile 也要 COPY
+        self.assertIn("!docs/experiments/", rules)
+        self.assertIn("COPY docs/experiments ./docs/experiments",
+                      (DOCKER / "Dockerfile").read_text(encoding="utf-8"))
 
     def test_web_mounts_data_read_only(self):
         volumes = self.web["volumes"]
