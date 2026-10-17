@@ -8,6 +8,8 @@
 
 內容指紋、portable manifest 與本機 private sidecar 的操作見[內容來源契約](content_provenance_contract.md)；它只涵蓋正式入口，不代表所有 runner 都有完整來源紀錄。
 
+要改 `load_pools` 或 k-NN 評分的效能前，先依[效能量測契約](profiling_contract.md)量測，門檻已事先固定。
+
 匯入105維 CSV 前先讀[正式特徵載入契約](formal_feature_schema_contract.md)與[完整欄名清冊](formal_feature_schema.json)；清冊供維護者與測試比對，runtime 規則在 `src/core/feature_schema.py`。
 
 ## 歷史交付附件（不作現行操作手冊）
