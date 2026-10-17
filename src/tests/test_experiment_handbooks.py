@@ -107,7 +107,7 @@ def test_exp1_fit_roles_and_legacy_exception_are_explicit():
 def test_web_catalog_documents_and_guide_parser_unchanged():
     for entry in CATALOG:
         assert (ROOT / entry["doc"]).is_file(), entry["id"]
-    overview = (ROOT / "docs/navigation/exp24_實驗總覽.md").read_text(encoding="utf-8")
+    overview = (ROOT / "docs/navigation/exp13_實驗總覽.md").read_text(encoding="utf-8")
     table = [line for line in overview.splitlines() if line.startswith("|")]
     assert len(table) == 26
     assert all(len(line.split("|")[1:-1]) == 8 for line in table)
@@ -144,7 +144,7 @@ def test_main_lifecycle_and_report_links_survive_handbook_sync():
     health = (DOCS / "exp8_health.md").read_text(encoding="utf-8")
     for anchor in ("模組資料流", "reports與預期成果", "兩套趨勢"):
         assert anchor in anchors(health)
-    navigation = (DOCS / "exp24_experiment_navigation.md").read_text(encoding="utf-8")
+    navigation = (DOCS / "exp13_experiment_navigation.md").read_text(encoding="utf-8")
     assert "../../reports/Andy_20261008_分支整合/manifest.json" in navigation
     docs_index = (ROOT / "docs/README.md").read_text(encoding="utf-8")
     assert "../../reports/" not in docs_index

@@ -1,6 +1,6 @@
 # UI操作腳本
 
-獨立入口 web.guide 重用 LiveDemo／Hub；原 web.server 展示仍可使用。啟動方式見[導覽入口](exp24_README.md#啟動與操作)。
+獨立入口 web.guide 重用 LiveDemo／Hub；原 web.server 展示仍可使用。啟動方式見[導覽入口](exp13_README.md#啟動與操作)。
 
 首頁只有三個主要操作：冷啟動、未知學習、漸進／突發比較。三條流程共用一session；切頁不新增worker。展示／研究切換只改畫面，不送重設或擬合指令。研究頁另連實驗總覽、來源及原研究入口。
 

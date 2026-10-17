@@ -55,7 +55,7 @@ class PolarMap:
 
         X_train, y_train, X_calibration, y_calibration = [], [], [], []
         for config, label in monitor.known.items():
-            pool = monitor.pools[config]
+            pool = monitor._pool(config)
             split = monitor.splits[config]
             X_train.append(pool[split.train])
             y_train.append(np.full(len(split.train), label, dtype=int))

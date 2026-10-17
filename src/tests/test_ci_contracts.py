@@ -87,17 +87,30 @@ class ExperimentContracts(unittest.TestCase):
         for score, row in zip(scores, events[-1]["result"]["rows"]):
             self.assertEqual(row["flagged"], int((np.asarray(score["scores"]) > 1).sum()))
 
-    def test_exp2_requires_explicit_confirmation_before_growth(self):
+    def test_exp2_learns_cluster_without_operator_or_full_pool(self):
         session = exp2.ScaleGrowthSession(pools(), seed=42, recluster_every=10000)
         self.assertEqual(list(session.monitor.known), ["8screws"])
         with self.assertRaises(RuntimeError):
-            session.confirm()
+            session.adopt()
         session.process(session.monitor.pools["7screws"][0], "7screws")
         self.assertEqual(list(session.monitor.known), ["8screws"])
-        session.candidate = {"majority": "7screws", "size": 1, "purity": 1.0, "indices": []}
-        result = session.confirm()
+        rows = np.repeat(session.monitor.pools["7screws"][:1], 25, axis=0)
+        session.quarantine_X = [row.copy() for row in rows]
+        session.quarantine_truth = ["7screws"] * 25
+        session.quarantine_t = list(range(1, 26))
+        session.candidate = {
+            "indices": list(range(25)), "size": 25, "majority": "7screws",
+            "majority_display": "7screws", "purity": 1.0, "t_range": [1, 25],
+            "is_known": False, "cluster_params": [25, 3],
+        }
+        result = session.adopt()
         self.assertEqual(result["action"], "learned")
-        self.assertEqual(list(session.monitor.known), ["8screws", "7screws"])
+        self.assertEqual(result["config"], "discovered-1")
+        self.assertEqual(result["matched"], "7screws")
+        self.assertEqual(list(session.monitor.known), ["8screws", "discovered-1"])
+        self.assertNotIn("7screws", session.monitor.known)
+        summary = next(row for row in session.monitor.summary()["classes"] if row["config"] == "discovered-1")
+        self.assertEqual(summary["n_train"] + summary["n_cal"] + summary["n_holdout"], 25)
         self.assertIsNone(session.candidate)
 
     def test_exp2_bounded_run_repeats_and_preserves_roles(self):

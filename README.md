@@ -498,7 +498,7 @@ repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也�
 
 ## 限制與未來工作
 
-給老師的實驗七問、負面結果與操作流程另見 [exp24 導覽入口](docs/navigation/exp24_README.md)。獨立導覽用 `python -m web.guide --data-root data --port 8601 --seed 42` 啟動；原實驗頁與即時展示仍由 `python -m web.server` 提供。模式切換不改模型；確認後是既有完整配置池重擬合。歷史跨馬達弱結果、來源 UNKNOWN 與 fresh INCOMPLETE 不因整合而消失。
+給老師的實驗七問、負面結果與操作流程另見 [exp13 導覽入口](docs/navigation/exp13_README.md)。獨立導覽用 `python -m web.guide --data-root data --port 8601 --seed 42` 啟動；原實驗頁與即時展示仍由 `python -m web.server` 提供。模式切換不改模型；確認後是既有完整配置池重擬合。歷史跨馬達弱結果、來源 UNKNOWN 與 fresh INCOMPLETE 不因整合而消失。
 
 1. **螺絲數是離散的故障代理**：真實磨損是連續過程，量尺結論外推需保留。
 2. **「前期資料保證健康」的實務前提**：需要 burn-in 期；不同轉速的健康基準需分開建

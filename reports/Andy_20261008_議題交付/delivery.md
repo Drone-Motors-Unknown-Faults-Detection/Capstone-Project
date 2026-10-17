@@ -49,7 +49,7 @@ PR36仍open，head544d4ed；沒有修改`web/server.py`、`web/static/index.html
 
 下一個可獨立安排的小任務是#25：先固定已存健康評估資料、指紋與指標定義，再重算aggregate並核對逐run一致；本輪只建議，不宣稱已接手，也不與R1的formal exp6完整性問題混同。#26環境決策另排，#27依賴該決策。
 
-給老師的入口：[七問導覽](../../docs/navigation/exp24_README.md)，原始逐題回覆仍在[固定研究提交](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/teacher_reply_20261005/reply.md)。本輪是工程交付，不代表已取得可靠跨馬達fault-type模型或RUL。
+給老師的入口：[七問導覽](../../docs/navigation/exp13_README.md)，原始逐題回覆仍在[固定研究提交](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/teacher_reply_20261005/reply.md)。本輪是工程交付，不代表已取得可靠跨馬達fault-type模型或RUL。
 
 Co-authored-by: Codex <noreply@openai.com>
 

@@ -1,11 +1,10 @@
-"""實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 操作員確認 → 擴張重訓。
+"""實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 自行納入。
 
-ScaleGrowthSession 是核心狀態機（Web 即時展示直接驅動它）：
+ScaleGrowthSession 是核心狀態機（Web 即時展示仍可另外呼叫 confirm()）：
     1. 每筆樣本以 OpenSetMonitor 打分；判為未知者進隔離區
-    2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生「候選新故障」
-    3. confirm() 模擬操作員確認：以叢集多數真實配置為標註（此時才揭示 ground truth），
-       納入已知類別並重新擬合 → 量尺擴張
-    偵測與分群過程從未使用標籤；標籤只在確認步驟扮演「操作員」。
+    2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
+    3. adopt() 不請操作員指出故障程度：只用這一群已到達樣本切分並重擬合，
+       類名是 discovered-N。真實配置只留在事後對照，不進模型。
 
 兩段閾值設計：
     - 偵測線 1.0：正規化分數 > 1 即判「未知」（逐樣本判定與警報用）
@@ -21,7 +20,6 @@ ScaleGrowthSession 是核心狀態機（Web 即時展示直接驅動它）：
 from __future__ import annotations
 
 import argparse
-from collections.abc import Callable
 
 import hdbscan
 import numpy as np
@@ -189,6 +187,41 @@ class ScaleGrowthSession:
         self._since_cluster = self.recluster_every
         return result
 
+    def adopt(self) -> dict:
+        """候選一成形就用該群樣本自學。不讀完整配置池，也不等操作員命名。"""
+        if self.candidate is None:
+            raise RuntimeError("目前沒有可納入的候選叢集")
+        indices = list(self.candidate["indices"])
+        matched = self.candidate["majority"]
+        serial = sum(name.startswith("discovered-") for name in self.monitor.known) + 1
+        name = f"discovered-{serial}"
+        result = {
+            "config": name,
+            "display": f"模型新類 {serial}",
+            "matched": matched,
+            "matched_display": self.candidate["majority_display"],
+            "size": self.candidate["size"],
+            "purity": self.candidate["purity"],
+            "source": "cluster_only",
+        }
+        if len(indices) < 5:
+            result["action"] = "insufficient"
+            self.candidate = None
+            self._since_cluster = self.recluster_every
+            return result
+        samples = np.vstack([self.quarantine_X[i] for i in indices])
+        result["action"] = "learned"
+        result["label"] = self.monitor.add_observed(name, samples)
+        self.polar = PolarMap(self.monitor)
+        drop = set(indices)
+        keep = [i for i in range(len(self.quarantine_X)) if i not in drop]
+        self.quarantine_X = [self.quarantine_X[i] for i in keep]
+        self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
+        self.quarantine_t = [self.quarantine_t[i] for i in keep]
+        self.candidate = None
+        self._since_cluster = self.recluster_every
+        return result
+
     def state(self) -> dict:
         return {
             "known": [
@@ -221,16 +254,8 @@ def iter_playback(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
-    wait_confirm: Callable[[], str] | None = None,
-    arm_confirm: Callable[[], None] | None = None,
 ):
-    """依序注入未知配置。候選出現時呼叫 wait_confirm，回傳 confirm 才納入。
-
-    wait_confirm 回傳 confirm 以外的值會停掉後續配置，不產生 result。
-    預設立即確認，與批次 run() 相同。
-    """
-    if wait_confirm is None:
-        wait_confirm = lambda: "confirm"
+    """依序注入未知配置。候選出現時立刻用該群樣本自學，不等操作員確認。"""
     if sequence is None:
         sequence = sorted((c for c in pools if c != HEALTHY), key=config_sort_key)
     session = ScaleGrowthSession(
@@ -252,7 +277,6 @@ def iter_playback(
     for config in sequence:
         sampler = CycleSampler(pools[config], np.arange(len(pools[config])), rng)
         res, found_at, rejected = None, None, 0
-        stopped = False
         for tick in range(1, max_ticks_per_stage + 1):
             out = session.process(sampler.draw(), config)
             yield {
@@ -268,31 +292,22 @@ def iter_playback(
             }
             if session.candidate is None:
                 continue
-            if arm_confirm is not None:
-                arm_confirm()
             yield {
                 "event": "candidate",
                 "config": config,
                 "candidate": session.state()["candidate"],
             }
-            if wait_confirm() != "confirm":
-                stopped = True
-                break
-            outcome = session.confirm()
+            outcome = session.adopt()
             yield {
-                "event": "confirmed",
+                "event": "adopted",
                 "config": config,
                 "outcome": outcome,
                 "known": list(session.monitor.known),
             }
-            if outcome["action"] == "rejected_known":
-                rejected += 1  # 已知類別邊界樣本聚成的叢，操作員退回後續跑
+            if outcome["action"] != "learned":
                 continue
             res, found_at = outcome, tick
             break
-        if stopped:
-            yield {"event": "stopped"}
-            return
         row = {
             "config": config,
             "display": display_name(config),
@@ -305,6 +320,9 @@ def iter_playback(
             row.update(
                 {
                     "learned": res["config"],
+                    "learned_display": res["display"],
+                    "matched": res["matched"],
+                    "matched_display": res["matched_display"],
                     "samples_to_candidate": found_at,
                     "cluster_size": res["size"],
                     "cluster_purity": res["purity"],
@@ -343,7 +361,7 @@ def run(
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
 ) -> dict:
-    """依序注入各未知配置：量測發現延遲 → 自動確認 → 驗證擴張後的分類能力。"""
+    """依序注入各未知配置：量測發現延遲 → 用候選群自學 → 檢查新類與健康是否還認得。"""
     for event in iter_playback(
         pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
         openset_method=openset_method, knn_neighbors=knn_neighbors,

@@ -1,4 +1,4 @@
-/* 實驗頁：頁首切換列 + 實驗一～八、十～十二的參數表單、執行與結果呈現。
+/* 實驗頁：頁首切換列 + 實驗一～十二的參數表單、執行與結果呈現。
  * 只負責呈現；計算在伺服器端呼叫 experiments/ 的 run()（見 web/experiments.py）。 */
 "use strict";
 (() => {
@@ -63,7 +63,7 @@ const RENDER = {
     const found = r.stages.filter(s => s.discovered).length;
     return kpis([["發現的新故障", `${found} / ${r.stages.length}`], ["最終已知類別", r.final_known.length]])
       + modelLine(r.model)
-      + table([["display", "依序注入"], ["discovered", "發現", bool], ["learned", "學會為"], ["samples_to_candidate", "到候選所需筆數", int],
+      + table([["display", "依序注入"], ["discovered", "發現", bool], ["learned_display", "模型新類"], ["matched_display", "事後對照"], ["samples_to_candidate", "到候選所需筆數", int],
                ["cluster_size", "叢大小", int], ["cluster_purity", "純度", v => pct(v, 0)], ["rejected_known_clusters", "退回次數", int],
                ["own_holdout_acc", "本類 holdout 認出率", v => pct(v)], ["healthy_holdout_acc", "健康 holdout 認出率", v => pct(v)],
                ["known_after", "之後已知類別數", int]], r.stages);
@@ -301,7 +301,7 @@ const LIVE = {
   exp2: {
     init: () => ({pts: [], marks: [], config: null}),
     html: () => `<canvas class="live-canvas" height="220"></canvas>
-      <div class="mini">每點一筆自動注入的樣本（綠 = 判健康、藍 = 判已知故障、紅 = 判未知）。直線分隔配置。候選出現時播放停住，按確認才納入並繼續；這不是「執行」的自動確認批次。</div>
+      <div class="mini">每點一筆自動注入的樣本（綠 = 判健康、藍 = 判已知故障、紅 = 判未知）。直線分隔配置。形成群就只用這一群樣本自學，不等操作員指出故障程度。</div>
       <div class="live-known mini" style="margin-top:6px"></div>
       <div class="live-q mini"></div>
       <div class="live-cand panel" hidden style="margin-top:8px"></div>`,
@@ -318,24 +318,14 @@ const LIVE = {
         const c = f.candidate;
         const box = el.querySelector(".live-cand");
         box.hidden = false;
-        box.innerHTML = `<h2 style="color:var(--yellow)">⚠ 候選新故障（待確認）</h2>
-          <div class="mini">${esc(c.majority_display)}　叢集 ${esc(c.size)} 筆　純度 ${esc(Math.round(c.purity * 100))}%　蒐集區間 ${esc((c.t_range || []).join("–"))}</div>
-          <button type="button" class="confirm" style="margin-top:8px">${c.is_known ? "✋ 退回已知邊界樣本" : "✔ 確認納入並繼續"}</button>
-          <div class="live-cand-err mini err"></div>`;
-        box.querySelector("button").onclick = async () => {
-          const btn = box.querySelector("button");
-          btn.disabled = true;
-          try {
-            const res = await fetch("/api/experiments/exp2/confirm", {method: "POST"});
-            const payload = await res.json();
-            if (!res.ok) throw new Error(payload.error || res.statusText);
-          } catch (err) {
-            btn.disabled = false;
-            box.querySelector(".live-cand-err").textContent = err.message;
-          }
-        };
-      } else if (f.event === "confirmed"){
-        el.querySelector(".live-cand").hidden = true;
+        box.innerHTML = `<h2 style="color:var(--yellow)">模型發現一群，正在用這群樣本自學</h2>
+          <div class="mini">叢集 ${esc(c.size)} 筆　蒐集區間 ${esc((c.t_range || []).join("–"))}。類名由模型編，不向操作員詢問故障程度。</div>`;
+      } else if (f.event === "adopted"){
+        const box = el.querySelector(".live-cand");
+        const outcome = f.outcome || {};
+        box.hidden = false;
+        box.innerHTML = `<h2>已自學為 ${esc(outcome.display || "")}</h2>
+          <div class="mini">只用這一群 ${esc(outcome.size)} 筆。事後對照多數為 ${esc(outcome.matched_display)}，純度 ${esc(Math.round((outcome.purity || 0) * 100))}%。</div>`;
         known.textContent = "已知：" + (f.known || []).join("、");
       }
     },
@@ -460,8 +450,8 @@ function streamExp(e, extra){
     if (!ACTIVE || ACTIVE.es !== es) return;
     const f = JSON.parse(msg.data);
     if (f.event === "fitted") st.textContent = "⏵ 播放中…";
-    else if (f.event === "candidate") st.textContent = "⏸ 候選待確認";
-    else if (f.event === "confirmed") st.textContent = "⏵ 播放中…";
+    else if (f.event === "candidate") st.textContent = "⚙ 模型自學中…";
+    else if (f.event === "adopted") st.textContent = "⏵ 播放中…";
     else if (f.event === "stopped"){ st.textContent = "■ 已停止"; stopStream(); return; }
     else if (f.event === "error"){ st.className = "mini err"; st.textContent = "✗ " + f.error; stopStream(); return; }
     else if (f.event === "done"){
@@ -502,7 +492,8 @@ function fieldHtml(e, p){
 
 function cardHtml(e){
   const noData = !CATALOG.datasets.length;
-  const coverage = e.params.some(p => p.type === "dataset") ? "本卡只使用所選工況。"
+  const coverage = e.executable === false ? "本卡不掃描工況、不擬合。"
+    : e.params.some(p => p.type === "dataset") ? "本卡只使用所選工況。"
     : `本卡處理掃描到的 ${CATALOG.datasets.length} 工況：${CATALOG.datasets.join("、")}。`;
   return `<div class="panel" id="card-${e.id}">
     <div class="exp-head"><h2>${esc(e.no)}${e.sub ? " " + esc(e.sub) : ""}：${esc(e.title)}</h2>
@@ -510,10 +501,12 @@ function cardHtml(e){
       <div class="mini">程式 <code>${esc(e.code)}</code>　技術報告 <code>${esc(e.doc)}</code></div>
       <div class="mini">資料角色：${esc(e.data_roles)} ${esc(coverage)}</div>
       <div class="mini">解讀限制：${esc(e.limitations)}</div>
-      <div class="mini" style="margin-top:4px">⚙ 每次按「執行」都會從頭擬合：${esc(e.fits)}。耗時隨方法、資料與硬體而變。
-        模型只在這次執行的記憶體裡，跑完即丟，不保存；只存結果 JSON 到 <code>output/web_server/{ts}/experiments/</code>。同來源、設定與 seed 才可核對重現。</div></div>
-    <div class="form">${e.params.map(p => fieldHtml(e, p)).join("")}
-      <button class="primary" id="run-${e.id}"${noData ? " disabled" : ""}>▶ 執行</button>
+      <div class="mini" style="margin-top:4px">${e.executable === false
+        ? `⚙ ${esc(e.fits)}。請到實驗六執行八方法比較。`
+        : `⚙ 每次按「執行」都會從頭擬合：${esc(e.fits)}。耗時隨方法、資料與硬體而變。
+        模型只在這次執行的記憶體裡，跑完即丟，不保存；只存結果 JSON 到 <code>output/web_server/{ts}/experiments/</code>。同來源、設定與 seed 才可核對重現。`}</div></div>
+    <div class="form">${e.executable === false ? "" : e.params.map(p => fieldHtml(e, p)).join("")}
+      ${e.executable === false ? "" : `<button class="primary" id="run-${e.id}"${noData ? " disabled" : ""}>▶ 執行</button>`}
       ${e.id === "exp3" ? `<button type="button" id="scenario-A"${noData ? " disabled" : ""}>劇本 A：漸進磨損</button><button type="button" id="scenario-B"${noData ? " disabled" : ""}>劇本 B：突發外力</button>` : ""}
       ${e.stream ? `<label>播放速度<select id="rate-${e.id}"><option value="20">慢（20 筆/秒）</option><option value="80" selected>中（80 筆/秒）</option><option value="400">快（400 筆/秒）</option></select></label>
       <button id="stream-${e.id}"${noData ? " disabled" : ""}>⏵ 邊跑邊畫</button><button id="stop-${e.id}" class="warn" hidden>■ 停止</button>` : ""}
@@ -603,6 +596,7 @@ function renderPage(key){
   $("expRoot").innerHTML = grp.items.map(cardHtml).join("");
   stopStream();
   for (const e of grp.items){
+    if (e.executable === false) continue;
     $(`run-${e.id}`).onclick = () => runExp(e);
     if (e.stream){ $(`stream-${e.id}`).onclick = () => streamExp(e); $(`stop-${e.id}`).onclick = () => {
       stopStream(); $(`status-${e.id}`).textContent = "■ 已停止；未收到完成結果不算完整執行，待伺服器釋放鎖再重試。"; }; }

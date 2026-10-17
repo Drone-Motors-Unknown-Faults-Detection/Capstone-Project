@@ -49,10 +49,10 @@ CATALOG: list[dict] = [
     },
     {
         "id": "exp2", "no": "實驗二", "title": "量尺擴張",
-        "question": "未知樣本能否由 HDBSCAN 分群、經確認後擴張量尺？",
+        "question": "陌生樣本形成群之後，模型能不能只用這一群自己學會新類？",
         "code": "src/experiments/exp2_scale_growth.py",
         "doc": "docs/experiments/exp2_scale_growth.md",
-        "fits": "8screws 的 RobustScaler 與開集偵測器（Mahalanobis 為逐類 Ledoit–Wolf 共變異數、k-NN 為參考樣本近鄰索引），再用校準集定閾值；之後每種新故障都跑 HDBSCAN 分群，確認後重新擬合監測器",
+        "fits": "8screws 的 RobustScaler 與開集偵測器；候選群出現後只用該群已到達樣本切分並重擬合，類名是模型新類，不使用完整配置池",
         "seconds": 11,
         "stream": True,
         "params": [_DATASET, _OPENSET, _SEED],
@@ -148,6 +148,16 @@ CATALOG: list[dict] = [
                     "default": 120, "min": 5, "max": 1000}],
     },
     {
+        "id": "exp9", "no": "實驗九", "title": "非線性重建誤差",
+        "question": "AutoEncoder 重建誤差比線性 PCA 重建更分得開嗎？",
+        "code": "src/core/detectors.py",
+        "doc": "docs/experiments/exp9_autoencoder.md",
+        "fits": "沒有獨立執行器。權重只在實驗六的 mlp_autoencoder 裡，由健康 train 建立",
+        "seconds": 0,
+        "executable": False,
+        "params": [],
+    },
+    {
         "id": "exp10", "no": "實驗十", "title": "少量目標健康資料的跨工況遷移",
         "question": "目標端少量健康資料時，中心平移比從零冷啟動划算嗎？",
         "code": "src/experiments/exp10_transfer.py",
@@ -178,7 +188,7 @@ CATALOG: list[dict] = [
 
 _EXPLANATIONS = {
     "exp1": ("健康 train 建基準、cal 定線；健康 holdout 與故障全池只評估。", "只學健康，不是九故障分類器；列級切分不證明錄製獨立。"),
-    "exp2": ("初始只 fit 健康；未知全池循環重播。「執行」自動確認；「邊跑邊畫」逐筆注入，候選出現後按確認才更新。", "發現資料可能進後續 fit／test。邊跑邊畫的筆數含人工等待前的注入，與自動確認批次不一定相同。"),
+    "exp2": ("初始只 fit 健康；未知全池循環重播。候選群出現後只用該群樣本自學。", "真實配置只做事後對照，不進類名，也不用完整配置池重擬合。首頁即時展示仍是另一個手動確認 session。"),
     "exp3": ("一份健康基準供所有 trial；健康從 holdout、故障從全池循環抽樣。", "劇本順序不是實際退化；延遲單位為筆，不能當秒或 RUL。"),
     "exp4": ("已確認配置 train 建射線；fault holdout 另校準方向，排序圖含錨點。", "固定 LW 幾何；方向、半徑沒有物理損傷標定，也非獨立方向測試。"),
     "exp5": ("source 健康建立基準；跨 target 用完整健康及 fault 池。", "策略 b 的 per_condition 與共同外層測試有用途重疊；T1/T2/T3 是不同個體，不是生命週期。"),
@@ -187,6 +197,7 @@ _EXPLANATIONS = {
     "exp7": ("兩方法在同一資料、seed 與健康切分下比較；unknown 不進 fit／cal。", "只支持同條件健康／未知比較，不是跨馬達 fault-type 準確率。"),
     "exp8": ("健康 train 建模型；同一 cal 設距離線及健康錨點；其餘只評估。", "指數可能飽和；0～1 不等於損壞百分比、故障機率或剩餘壽命。"),
     "exp8_monitor": ("健康 train／cal 建基準；healthy 用 holdout，fault 用全池前段。", "window_index 是重播索引，時間戳缺失；告警政策與實體事件真值不同。"),
+    "exp9": ("健康 train 建 RobustScaler 與 MLP；內部 validation 只用於提早停止。", "沒有獨立執行。比較結果在實驗六的 mlp_autoencoder 列，權重不保存。"),
     "exp10": ("來源健康建基準；目標健康抽 support 做平移或從零擬合，其餘目標健康與故障全池只評估。", "direct 用完整目標健康池，與 adapted／scratch 的測試列不完全相同。沒有逐筆播放。"),
     "exp11": ("協定 A 的已知類用各自 train／cal；未知配置全池只分類。協定 B 只註冊健康。", "網頁只跑所選 seed。legacy 的分類標籤固定，分差不能全歸因於共變異數。"),
     "exp12": ("混淆矩陣用既有基準的預測計數；t-SNE 從各配置抽樣嵌入。", "t-SNE 含擬合用列，只供診斷。沒有逐筆播放，嵌入距離不是嚴重度。"),
@@ -321,7 +332,7 @@ class ExperimentRunner:
         return payload
 
     def _dispatch(self, exp_id: str, p: dict, entry: str = "run", *,
-                  scenario: str | None = None, confirm_gate: ConfirmGate | None = None) -> Any:
+                  scenario: str | None = None) -> Any:
         """呼叫實驗模組的 run()；entry="iter_run" 時改呼叫逐步產生事件的版本。"""
         opts = dict(self.detector_options)
         mahal = opts.get("mahalanobis_method", "ledoit_wolf")
@@ -336,12 +347,9 @@ class ExperimentRunner:
         if exp_id == "exp2":
             module = importlib.import_module("experiments.exp2_scale_growth")
             if entry == "iter_run":
-                if confirm_gate is None:
-                    raise RuntimeError("實驗二逐筆播放需要確認閘")
                 return module.iter_playback(
                     self._pools(p["dataset"]), seed=seed, confidence=conf, method=mahal,
                     openset_method=method, knn_neighbors=k,
-                    wait_confirm=confirm_gate.wait, arm_confirm=confirm_gate.arm,
                 )
             return module.run(self._pools(p["dataset"]), seed=seed, confidence=conf, method=mahal,
                               openset_method=method, knn_neighbors=k)
@@ -385,6 +393,8 @@ class ExperimentRunner:
                        openset_method=method, mahalanobis_method=mahal, knn_neighbors=k,
                        motor_id="web-demo", session_id=f"{p['dataset']}-{p['config']}",
                        max_windows=p["max_windows"], require_identity=True)
+        if exp_id == "exp9":
+            raise ValueError("實驗九沒有獨立執行器，請改執行實驗六")
         if exp_id == "exp10":
             run = getattr(importlib.import_module("experiments.exp10_transfer"), entry)
             return run(self.data_root, seed=seed, confidence=conf, method=mahal)
@@ -413,17 +423,13 @@ class ExperimentRunner:
         params = self._clean(spec, raw_params)
         if scenario:
             params = {**params, "scenario": scenario}
-        gate = ConfirmGate() if exp_id == "exp2" else None
-        if gate is not None:
-            self.pending_confirm = gate
         t0 = time.time()
         try:
             yield {"event": "start", "params": params}, 0
             result: Any = None
             windows: list[dict] = []
             stopped = False
-            for event in self._dispatch(exp_id, params, entry="iter_run",
-                                        scenario=scenario, confirm_gate=gate):
+            for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
                 event = jsonable(event)
                 kind = event["event"]
                 if kind == "stopped":
@@ -464,8 +470,7 @@ class ExperimentRunner:
             payload["saved"] = self._save(exp_id, payload)
             yield {"event": "done", "payload": payload}, 0
         finally:
-            if gate is not None and self.pending_confirm is gate:
-                self.pending_confirm = None
+            self.pending_confirm = None
 
     def _save(self, exp_id: str, payload: dict) -> str | None:
         if self.out_dir is None:

@@ -77,33 +77,31 @@ class PairedStreamTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             list(ExperimentRunner([], "unused").stream("exp5", {}))
 
-    def test_exp2_playback_learns_only_after_confirm(self):
+    def test_exp2_playback_learns_cluster_without_confirm(self):
         from experiments.exp2_scale_growth import ScaleGrowthSession, iter_playback
 
         original = ScaleGrowthSession.process
 
         def process(session, sample, truth):
             out = original(session, sample, truth)
+            rows = np.repeat(session.monitor.pools[truth][:1], 25, axis=0)
+            session.quarantine_X = [row.copy() for row in rows]
+            session.quarantine_truth = [truth] * 25
+            session.quarantine_t = list(range(1, 26))
             session.candidate = {
-                "indices": [], "size": 1, "majority": truth, "majority_display": truth,
-                "purity": 1.0, "t_range": [1, 1], "is_known": truth in session.monitor.known,
-                "cluster_params": [25, 3],
+                "indices": list(range(25)), "size": 25, "majority": truth,
+                "majority_display": truth, "purity": 1.0, "t_range": [1, 25],
+                "is_known": False, "cluster_params": [25, 3],
             }
             return out
 
         with patch.object(ScaleGrowthSession, "process", process):
-            stopped = list(iter_playback(
-                self.data, sequence=["7screws"], seed=42, max_ticks_per_stage=2,
-                wait_confirm=lambda: "stop",
-            ))
             learned = list(iter_playback(
                 self.data, sequence=["7screws"], seed=42, max_ticks_per_stage=2,
-                wait_confirm=lambda: "confirm",
             ))
-        self.assertEqual(stopped[-1]["event"], "stopped")
-        self.assertNotIn("result", [event["event"] for event in stopped])
         self.assertEqual(learned[-1]["event"], "result")
-        self.assertEqual(learned[-1]["result"]["final_known"], ["8screws", "7screws"])
+        self.assertEqual(learned[-1]["result"]["final_known"], ["8screws", "discovered-1"])
+        self.assertEqual(learned[-1]["result"]["stages"][0]["matched"], "7screws")
         self.assertEqual(learned[-1]["result"]["stages"][0]["samples_to_candidate"], 1)
 
     def test_exp3_page_can_stream_one_scenario(self):

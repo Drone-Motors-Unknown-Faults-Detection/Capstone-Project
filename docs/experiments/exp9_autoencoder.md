@@ -56,7 +56,7 @@ uv run --locked python -m experiments.exp6_osr_benchmark --data-root data --seed
 
 CLI會跑全部八方法，不只AE；沒有experiments.exp9_autoencoder模組、獨立--epochs或--detector參數。API可用MLPAutoencoderDet(confidence=0.95,seed=42).fit(X_train,X_cal).score(X_test)，請自行維持資料用途；完整比較用exp6.run(data_root,seed,confidence)。
 
-Web選實驗六多方法、seed後按「▶ 執行」可看AE列；沒有獨立實驗九執行卡、續訓、串流或中途停止。依[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)啟動伺服器。健康樣本少可能使early-stopping R²不可估或ConvergenceWarning；警告不是已收斂證明，不增加test資料幫它訓練。缺fault／工況／105欄先查來源。
+網頁有實驗九頁籤，只說明角色，不能在該頁執行。選實驗六多方法、seed後按「▶ 執行」可看AE列；沒有續訓、串流或中途停止。依[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)啟動伺服器。健康樣本少可能使early-stopping R²不可估或ConvergenceWarning；警告不是已收斂證明，不增加test資料幫它訓練。缺fault／工況／105欄先查來源。
 
 ## 輸出、預期與限制
 
