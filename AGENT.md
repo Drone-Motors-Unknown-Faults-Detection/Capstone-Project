@@ -243,11 +243,11 @@ WebSocket `/ws`，JSON 訊息：
 - 重任務（confirm/reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
 
 AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{question, history}` → SSE
-`tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_live_status`、`get_recent_alarms`、
+`tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_playback_status`、`get_playback_events`、
 `get_experiment`（CATALOG + docs/experiments 手冊，實驗一／1／exp1 視為同一編號）、`lookup_knowledge`。
 每輪第一步 `tool_choice="required"` 強制先查工具；temperature 0；查無資料時工具回【查無資料】要求模型不得推測。
-前端是右下角浮動泡泡聊天視窗，答案下方「📎 依據」由工具回傳的 sources 產生，不經模型轉述。快照由 `web.assistant.machine_snapshot()` 在 IOLoop 執行緒取，
-不含注入來源、劇本、逐筆 truth 與候選叢集的 majority／purity／is_known（鐵則 6）。
+前端是右下角浮動泡泡聊天視窗，答案下方「📎 依據」由工具回傳的 sources 產生，不經模型轉述。「目前狀況」讀實驗頁邊跑邊畫目前或最近一次的播放（`web/playback.py` 的 `PlaybackTracker`，由 `StreamHandler` 逐 frame 更新），不讀首頁即時展示；快照由 `server.PLAYBACK.snapshot()` 在 IOLoop 執行緒取，
+current／events 不含真值；注入配置、expected、is_fault、候選群 majority／purity 只放「事後對照」並標明不是系統判定（鐵則 6）。首頁即時展示仍保留（issue #94）。
 
 ---
 

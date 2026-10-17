@@ -1,7 +1,6 @@
 """web/assistant.py 與 /api/assistant/* 的契約：快照不帶真值、工具內容、串流 frame。"""
 import asyncio
 import json
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -12,24 +11,22 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, Sys
 from langchain_core.outputs import ChatGenerationChunk
 
 import web.server as server
-from tests.test_navigation_guide import fixture
 from web.assistant import (
     Assistant,
     ThinkFilter,
-    describe_alarms,
-    describe_status,
+    describe_playback,
+    describe_playback_events,
     experiment_number,
     experiment_with_sources,
     load_knowledge,
-    machine_snapshot,
+    playback_label,
     search_knowledge,
     search_with_sources,
     to_messages,
     EXPERIMENTS_DIR,
     KNOWLEDGE_DIR,
 )
-from web.live import LiveDemo
-from web.server import Hub
+from web.playback import PlaybackTracker
 
 
 class FakeToolModel(GenericFakeChatModel):
@@ -69,69 +66,54 @@ def fake_model(*replies):
 
 
 TOOL_THEN_ANSWER = (
-    AIMessage(content="", tool_calls=[{"name": "get_live_status", "args": {}, "id": "c1"}]),
+    AIMessage(content="", tool_calls=[{"name": "get_playback_status", "args": {}, "id": "c1"}]),
     AIMessage(content="<think>先看狀態</think>目前 健康"),
 )
 
 
-class DemoMixin:
-    def make_hub(self):
-        self.temp = tempfile.TemporaryDirectory()
-        self.ds = fixture(Path(self.temp.name))
-        self.demo = LiveDemo(self.ds)
-        self.hub = Hub(self.demo, [self.ds], 4, 42)
-
-    def close_hub(self):
-        self.hub.executor.shutdown(wait=True)
-        self.demo.close()
-        self.temp.cleanup()
-
-    def ticks(self, n):
-        self.hub.running = True
-        for _ in range(n):
-            self.hub.tick()
+def exp2_tracker(ticks=3, candidate=True):
+    """模擬實驗二邊跑邊畫播放到一半的狀態（frame 格式同 iter_run）。"""
+    tracker = PlaybackTracker()
+    tracker.start("exp2", {"dataset": "T1/8000rpm", "openset_method": "mahalanobis", "seed": 42})
+    tracker.update({"event": "fitted", "known": ["8screws"]})
+    for t in range(1, ticks + 1):
+        tracker.update({"event": "tick", "config": "5screws", "display": "5 螺絲（中度鬆動）", "t": t,
+                        "score": 2.5, "label": None, "verdict": "unknown", "quarantine": t, "known": 1})
+    if candidate:
+        tracker.update({"event": "candidate", "config": "5screws", "candidate": {
+            "size": 30, "majority": "5screws", "majority_display": "5 螺絲（中度鬆動）", "purity": 0.9,
+            "t_range": [1, 30], "is_known": False, "cluster_params": [25, 3]}})
+    return tracker
 
 
-class SnapshotTests(DemoMixin, unittest.TestCase):
-    def setUp(self):
-        self.make_hub()
+class PlaybackDescribeTests(unittest.TestCase):
+    def test_nothing_played_tells_user_where_to_start(self):
+        self.assertIn("【查無資料】", describe_playback(None))
+        self.assertIn("⏵ 邊跑邊畫", describe_playback(None))
+        self.assertEqual(playback_label(None), "實驗頁播放：無紀錄")
 
-    def tearDown(self):
-        self.close_hub()
-
-    def test_snapshot_before_stream(self):
-        snap = machine_snapshot(self.hub)
-        self.assertIsNone(snap["last_sample"])
-        self.assertEqual(snap["t"], 0)
-        self.assertIn("尚無（串流未開始）", describe_status(snap))
-        self.assertEqual(describe_alarms(snap), "本 session 尚未發生變化點警報。")
-
-    def test_snapshot_hides_injected_source(self):
-        self.demo.set_source("5screws")
-        self.ticks(5)
-        snap = machine_snapshot(self.hub)
-        self.assertEqual(snap["last_sample"]["t"], 5)
-        self.assertEqual(snap["last_sample"]["score"], self.demo.last_sample["score"])
-        text = json.dumps(snap, ensure_ascii=False) + describe_status(snap)
+    def test_status_shows_system_verdict_without_truth(self):
+        snap = exp2_tracker().snapshot()
+        text = describe_playback(snap)
+        self.assertIn("實驗：實驗二 量尺擴張（exp2）", text)
+        self.assertIn("狀態：播放中", text)
+        self.assertIn("已播放：3 筆", text)
+        self.assertIn("判定=未知", text)
+        self.assertIn("隔離區筆數=3", text)
         self.assertNotIn("5screws", text)
-        self.assertNotIn("5 螺絲", text)
-        self.assertIn("已處理 5 筆", describe_status(snap))
+        self.assertNotIn("螺絲", text)
 
-    def test_candidate_drops_truth_fields(self):
-        self.demo.session.candidate = {
-            "indices": [1], "size": 30, "majority": "5screws", "majority_display": "5 螺絲",
-            "purity": 0.9, "t_range": [3, 40], "is_known": False, "cluster_params": [25, 3],
-        }
-        snap = machine_snapshot(self.hub)
-        self.assertEqual(snap["candidate"], {"size": 30, "t_range": [3, 40], "cluster_params": [25, 3]})
-        self.assertIn("候選新故障：30 筆", describe_status(snap))
+    def test_events_separate_reference_truth(self):
+        text = describe_playback_events(exp2_tracker().snapshot())
+        events, _, reference = text.partition("【事後對照")
+        self.assertIn("隔離區聚出候選群：30 筆", events)
+        self.assertNotIn("螺絲", events)
+        self.assertIn("不是系統當下的判定", reference)
+        self.assertIn("5 螺絲（中度鬆動）", reference)
 
-    def test_alarms_drop_source(self):
-        self.demo.alarms.append({"t": 9, "source": "5screws", "kind": "sudden",
-                                 "kind_display": "突發事件（跳變）", "transition": 3, "latency": 4})
-        snap = machine_snapshot(self.hub)
-        self.assertEqual(snap["alarms"], [{"t": 9, "kind": "突發事件（跳變）", "transition": 3}])
-        self.assertIn("t=9：突發事件", describe_alarms(snap))
+    def test_label_summarizes_progress(self):
+        label = playback_label(exp2_tracker().snapshot())
+        self.assertRegex(label, r"^實驗頁播放：實驗二 量尺擴張，播放中，已播 3 筆，更新於 \d\d:\d\d:\d\d$")
 
 
 class KnowledgeTests(unittest.TestCase):
@@ -177,24 +159,18 @@ class MessageTests(unittest.TestCase):
         self.assertLessEqual(len(msgs), 2 + 6)
 
 
-class AskTests(DemoMixin, unittest.TestCase):
-    def setUp(self):
-        self.make_hub()
-
-    def tearDown(self):
-        self.close_hub()
-
+class AskTests(unittest.TestCase):
     def test_agent_calls_tool_and_streams_answer(self):
-        self.ticks(3)
+        snap = exp2_tracker(candidate=False).snapshot()
         model = fake_model(*TOOL_THEN_ANSWER)
         assistant = Assistant("http://unused/v1", llm=model)
 
         async def collect():
-            return [f async for f in assistant.ask(machine_snapshot(self.hub), "目前狀況？")]
+            return [f async for f in assistant.ask(snap, "目前狀況？")]
 
         frames = asyncio.run(collect())
-        self.assertEqual(frames[0], {"event": "tool", "name": "get_live_status", "label": "讀取即時狀態",
-                                     "sources": ["即時狀態（t=3）"]})
+        self.assertEqual(frames[0], {"event": "tool", "name": "get_playback_status", "label": "讀取實驗播放狀態",
+                                     "sources": [playback_label(snap)]})
         # 第一步強制查工具，查過之後才放開讓模型作答
         self.assertEqual(model.choices, ["required", "auto"])
         deltas = [f["text"] for f in frames if f["event"] == "delta"]
@@ -202,20 +178,18 @@ class AskTests(DemoMixin, unittest.TestCase):
         # 逐 token 串流：Python 3.10 下 agent 節點必須明傳 config，否則只會收到整則訊息
         self.assertGreater(len(deltas), 1)
         tool_msgs = [m for m in model.seen[1] if isinstance(m, ToolMessage)]
-        self.assertIn("已處理 3 筆", tool_msgs[0].content)
+        self.assertIn("已播放：3 筆", tool_msgs[0].content)
 
 
-class AssistantHTTPTests(DemoMixin, tornado.testing.AsyncHTTPTestCase):
+class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
     def setUp(self):
-        self.make_hub()
-        self.saved = (server.HUB, server.ASSISTANT)
-        server.HUB = self.hub
+        self.saved = (server.PLAYBACK, server.ASSISTANT)
+        server.PLAYBACK = PlaybackTracker()   # 尚未播放任何實驗
         super().setUp()
 
     def tearDown(self):
         super().tearDown()
-        server.HUB, server.ASSISTANT = self.saved
-        self.close_hub()
+        server.PLAYBACK, server.ASSISTANT = self.saved
 
     def get_app(self):
         return tornado.web.Application([
@@ -233,8 +207,15 @@ class AssistantHTTPTests(DemoMixin, tornado.testing.AsyncHTTPTestCase):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))
         frames = self.frames(json.dumps({"question": "目前狀況？", "history": []}))
         self.assertEqual([f["event"] for f in frames][0], "tool")
-        self.assertEqual(frames[-1], {"event": "done", "t": 0})
+        self.assertEqual(frames[-1], {"event": "done", "as_of": "實驗頁播放：無紀錄"})
         self.assertIn("delta", {f["event"] for f in frames})
+        self.assertEqual(frames[0]["sources"], ["實驗頁播放：無紀錄"])
+
+    def test_ask_reads_current_playback(self):
+        server.PLAYBACK = exp2_tracker()
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))
+        frames = self.frames(json.dumps({"question": "目前狀況？"}))
+        self.assertRegex(frames[-1]["as_of"], r"^實驗頁播放：實驗二 量尺擴張，播放中，已播 3 筆")
 
     def test_bad_request_returns_error_frame(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())

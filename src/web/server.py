@@ -19,6 +19,7 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
 AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
     GET  /api/assistant/status          模型端點是否可連、模型名稱
     POST /api/assistant/ask             {question, history} → SSE：tool / delta / done / error
+    AI 讀的「目前狀況」是實驗頁邊跑邊畫目前或最近一次的播放（PLAYBACK，web/playback.py），不是首頁即時展示。
 """
 
 from __future__ import annotations
@@ -41,9 +42,10 @@ from loguru import logger
 from core.data import discover_datasets
 from core.logger import setup_run
 from core.runner import add_openset_args
-from web.assistant import Assistant, machine_snapshot
+from web.assistant import Assistant, playback_label
 from web.experiments import ExperimentRunner
 from web.live import LiveDemo
+from web.playback import PlaybackTracker
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -202,6 +204,7 @@ class ExperimentJobs:
 
 
 JOBS: ExperimentJobs | None = None
+PLAYBACK = PlaybackTracker()   # 實驗頁邊跑邊畫目前／最近一次播放，AI 問答讀這份
 
 
 class _JSONHandler(tornado.web.RequestHandler):
@@ -254,6 +257,7 @@ class StreamHandler(tornado.web.RequestHandler):
 
     def initialize(self) -> None:
         self.closed = False
+        self.tracking = False   # 開始播放後才記進 PLAYBACK；參數錯誤或忙碌不覆蓋上一次播放
 
     def on_connection_close(self) -> None:
         self.closed = True
@@ -263,6 +267,8 @@ class StreamHandler(tornado.web.RequestHandler):
             gate.release("stop")
 
     async def send(self, frame: dict) -> None:
+        if self.tracking:
+            PLAYBACK.update(frame)
         self.write(f"data: {json.dumps(frame, ensure_ascii=False, allow_nan=False)}\n\n")
         await self.flush()
 
@@ -282,6 +288,8 @@ class StreamHandler(tornado.web.RequestHandler):
             await self.send({"event": "error", "error": f"{JOBS.current} 執行中，請稍候"})
             return
         JOBS.current = exp_id
+        PLAYBACK.start(exp_id, params)
+        self.tracking = True
         logger.info(f"實驗頁串流 {exp_id} {params} rate={rate}")
         loop = tornado.ioloop.IOLoop.current()
         gen = None
@@ -320,6 +328,7 @@ class StreamHandler(tornado.web.RequestHandler):
                 logger.exception("串流產生器關閉失敗；仍釋放執行鎖")
             finally:
                 JOBS.current = None
+                PLAYBACK.finish("stopped")   # 沒收到 done／error 就結束 = 被中斷
 
 
 class Exp2ConfirmHandler(_JSONHandler):
@@ -375,15 +384,15 @@ class AssistantAskHandler(tornado.web.RequestHandler):
         except (json.JSONDecodeError, ValueError):
             await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
             return
-        snap = machine_snapshot(HUB)
-        logger.info(f"AI 問答（t={snap['t']}）：{question.strip()[:80]}")
+        snap = PLAYBACK.snapshot()
+        logger.info(f"AI 問答（{playback_label(snap)}）：{question.strip()[:80]}")
         try:
             async for frame in ASSISTANT.ask(snap, question.strip(), history):
                 if self.closed:
                     logger.info("AI 問答被瀏覽器中斷")
                     return
                 await self.send(frame)
-            await self.send({"event": "done", "t": snap["t"]})
+            await self.send({"event": "done", "as_of": playback_label(snap)})
         except tornado.iostream.StreamClosedError:
             logger.info("AI 問答連線已關閉")
         except Exception as exc:  # 模型離線或回應異常時回報，不讓伺服器死掉
