@@ -87,6 +87,7 @@ class LiveDemo:
             for c in self.pools
         }
         self.alarms: list[dict] = []
+        self.last_sample: dict | None = None  # 最近一筆 sample 訊息（AI 問答讀取）
         self.samplers: dict[str, CycleSampler] = {}
         self._refresh_samplers()
         self._open_sample_log()
@@ -294,6 +295,7 @@ class LiveDemo:
             "attempts": r["cluster_attempts"],
             "phase": self.phase(),
         }] + msgs
+        self.last_sample = out[0]
 
         if r["cluster_attempts"] > prev_attempts and r["cluster_attempts"] % 5 == 0:
             out.append(_event(

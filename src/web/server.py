@@ -14,6 +14,10 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
     POST /api/experiments/{id}/run      以 JSON 參數執行一次，回傳結果並存檔
     GET  /api/experiments/{id}/stream   邊跑邊畫（Server-Sent Events）：?params=<JSON>&rate=<筆/秒>
     GET  /api/committed/{name}          已提交的矩陣結果（唯讀）
+
+AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
+    GET  /api/assistant/status          模型端點是否可連、模型名稱
+    POST /api/assistant/ask             {question, history} → SSE：tool / delta / done / error
 """
 
 from __future__ import annotations
@@ -35,6 +39,7 @@ from loguru import logger
 from core.data import discover_datasets
 from core.logger import setup_run
 from core.runner import add_openset_args
+from web.assistant import Assistant, machine_snapshot
 from web.experiments import ExperimentRunner
 from web.live import LiveDemo
 
@@ -301,6 +306,59 @@ class CommittedHandler(_JSONHandler):
             self.reply({"error": str(exc)}, 404)
 
 
+ASSISTANT: Assistant | None = None
+
+
+class AssistantStatusHandler(_JSONHandler):
+    async def get(self) -> None:
+        self.reply(await ASSISTANT.status())
+
+
+class AssistantAskHandler(tornado.web.RequestHandler):
+    """以 SSE 串流回答；快照在 IOLoop 執行緒取，模型只讀提問當下的狀態。"""
+
+    def initialize(self) -> None:
+        self.closed = False
+
+    def on_connection_close(self) -> None:
+        self.closed = True
+
+    async def send(self, frame: dict) -> None:
+        self.write(f"data: {json.dumps(frame, ensure_ascii=False)}\n\n")
+        await self.flush()
+
+    async def post(self) -> None:
+        self.set_header("Content-Type", "text/event-stream; charset=utf-8")
+        self.set_header("Cache-Control", "no-store")
+        try:
+            body = json.loads(self.request.body or b"{}")
+            question = body.get("question") if isinstance(body, dict) else None
+            history = body.get("history", []) if isinstance(body, dict) else []
+            if not isinstance(question, str) or not question.strip() or not isinstance(history, list):
+                raise ValueError
+        except (json.JSONDecodeError, ValueError):
+            await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
+            return
+        snap = machine_snapshot(HUB)
+        logger.info(f"AI 問答（t={snap['t']}）：{question.strip()[:80]}")
+        try:
+            async for frame in ASSISTANT.ask(snap, question.strip(), history):
+                if self.closed:
+                    logger.info("AI 問答被瀏覽器中斷")
+                    return
+                await self.send(frame)
+            await self.send({"event": "done", "t": snap["t"]})
+        except tornado.iostream.StreamClosedError:
+            logger.info("AI 問答連線已關閉")
+        except Exception as exc:  # 模型離線或回應異常時回報，不讓伺服器死掉
+            logger.exception("AI 問答失敗")
+            try:
+                await self.send({"event": "error",
+                                 "error": f"本地模型呼叫失敗（{ASSISTANT.base_url}）：{exc!r}"})
+            except tornado.iostream.StreamClosedError:
+                pass
+
+
 class WSHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin: str) -> bool:  # 區網展示用
         return True
@@ -425,6 +483,10 @@ def main() -> None:
     parser.add_argument("--rate", type=int, default=4, help="每秒樣本數（1-10）")
     parser.add_argument("--seed", type=int, default=42)
     add_openset_args(parser)
+    parser.add_argument("--llm-url", default="http://127.0.0.1:8000/v1",
+                        help="本地模型 OpenAI 相容端點（vLLM 預設 :8000；見 scripts/opt/run_llm.sh）")
+    parser.add_argument("--llm-model", default="", help="模型名稱；留空取端點 /models 的第一個")
+    parser.add_argument("--llm-api-key", default="EMPTY")
     args = parser.parse_args()
 
     log, paths = setup_run("web_server")
@@ -438,7 +500,7 @@ def main() -> None:
         datasets[0],
     )
 
-    global HUB, JOBS
+    global HUB, JOBS, ASSISTANT
     detector_options = {
         "openset_method": args.openset_method,
         "mahalanobis_method": args.method,
@@ -458,6 +520,9 @@ def main() -> None:
         datasets, args.data_root, out_dir=paths.output_dir, detector_options=detector_options,
     ))
 
+    ASSISTANT = Assistant(args.llm_url, args.llm_model, args.llm_api_key)
+    log.info(f"AI 問答模型端點 {args.llm_url}（model={args.llm_model or '自動偵測'}）")
+
     app = tornado.web.Application([
         (r"/", IndexHandler),
         (r"/ws", WSHandler),
@@ -465,6 +530,8 @@ def main() -> None:
         (r"/api/experiments/([a-z0-9_]+)/run", RunHandler),
         (r"/api/experiments/([a-z0-9_]+)/stream", StreamHandler),
         (r"/api/committed/([a-z0-9_]+)", CommittedHandler),
+        (r"/api/assistant/status", AssistantStatusHandler),
+        (r"/api/assistant/ask", AssistantAskHandler),
         (r"/static/(.*)", tornado.web.StaticFileHandler, {"path": str(STATIC_DIR)}),
     ])
     app.listen(args.port, address=args.bind_address)
