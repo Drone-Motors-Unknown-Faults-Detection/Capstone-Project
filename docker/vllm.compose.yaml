@@ -4,9 +4,10 @@
 #   docker compose -f vllm.compose.yaml up -d
 #   curl http://127.0.0.1:8000/v1/models   # 第一次啟動要下載權重（FP8 約 31 GB），健康檢查最多等 30 分鐘
 #
-# 映像用 NVIDIA NGC 的 vLLM（支援 GB10 / DGX Spark 的 aarch64 + Blackwell）；
-# 主機需裝 NVIDIA Container Toolkit。LangGraph agent 靠 tool calling 讀機台狀態，
-# 所以必開 --enable-auto-tool-choice，Qwen3 用 hermes 解析器。
+# 映像用 NVIDIA NGC 的 vLLM，x86_64 與 aarch64 皆有（L40S 等獨立顯示卡、GB10 / DGX Spark 都可用）；
+# 主機需裝 NVIDIA Container Toolkit，否則報 could not select device driver "nvidia"。
+# 記憶體比例：獨立顯示卡 0.9、GB10 統一記憶體 0.5（restart_docker.sh 會自動偵測）。
+# LangGraph agent 靠 tool calling 讀機台狀態，所以必開 --enable-auto-tool-choice，Qwen3 用 hermes 解析器。
 # 對外名稱固定為 qwen3（--served-model-name），換權重不必改 web 端設定。
 name: lineage
 
@@ -26,7 +27,7 @@ services:
       - --max-model-len
       - ${VLLM_MAX_MODEL_LEN:-32768}
       - --gpu-memory-utilization
-      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.5}
+      - ${VLLM_GPU_MEMORY_UTILIZATION:-0.9}
       - --enable-auto-tool-choice
       - --tool-call-parser
       - hermes

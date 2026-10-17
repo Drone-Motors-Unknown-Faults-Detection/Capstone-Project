@@ -97,17 +97,29 @@ class RestartScriptTests(unittest.TestCase):
         bin_dir = self.root / "bin"
         bin_dir.mkdir()
         self.calls = self.root / "calls.txt"
-        fake = bin_dir / "docker"
-        fake.write_text(f'#!/bin/bash\necho "$*" >> "{self.calls}"\n', encoding="utf-8")
-        fake.chmod(0o755)
-        self.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+        fakes = {
+            "docker": f'echo "$*" >> "{self.calls}"\n'
+                      '[ "$1 $2" = "info --format" ] && echo "$FAKE_RUNTIMES"\nexit 0\n',
+            "nvidia-smi": '[ -n "$FAKE_GPU_MEM" ] || exit 1\necho "$FAKE_GPU_MEM"\n',
+            "fake-hook": "exit 0\n",
+        }
+        for name, body in fakes.items():
+            (bin_dir / name).write_text("#!/bin/bash\n" + body, encoding="utf-8")
+            (bin_dir / name).chmod(0o755)
+        # 預設模擬裝好 toolkit 的 L40S（48 GB 獨立顯存）
+        self.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}",
+                    "NVIDIA_HOOK": "fake-hook", "FAKE_GPU_MEM": "46068", "FAKE_RUNTIMES": '{"runc":{}}'}
 
     def tearDown(self):
         self.temp.cleanup()
 
-    def run_script(self, *args):
+    def run_script(self, *args, **env):
         return subprocess.run(["bash", str(self.root / "scripts/opt/restart_docker.sh"), *args],
-                              env=self.env, capture_output=True, text=True)
+                              env={**self.env, **env}, capture_output=True, text=True)
+
+    def env_value(self, key):
+        text = (self.root / "docker/.env").read_text(encoding="utf-8")
+        return re.search(rf"^{key}=(.*)$", text, re.M).group(1)
 
     def lines(self):
         return self.calls.read_text(encoding="utf-8").splitlines() if self.calls.exists() else []
@@ -150,6 +162,38 @@ class RestartScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("data/", result.stderr)
         self.assertEqual(self.lines(), ["info"])
+
+    def test_no_container_toolkit_stops_before_down(self):
+        for target in ("all", "vllm"):
+            with self.subTest(target=target):
+                self.calls.unlink(missing_ok=True)
+                result = self.run_script(target, NVIDIA_HOOK="missing-hook")
+                self.assertEqual(result.returncode, 2)
+                self.assertIn("nvidia-ctk runtime configure", result.stderr)
+                self.assertEqual(self.lines(), ["info", "info --format {{json .Runtimes}}"])
+
+    def test_app_only_does_not_need_gpu(self):
+        result = self.run_script("app", NVIDIA_HOOK="missing-hook")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_nvidia_runtime_registered_is_enough(self):
+        result = self.run_script("vllm", NVIDIA_HOOK="missing-hook",
+                                 FAKE_RUNTIMES='{"nvidia":{"path":"nvidia-container-runtime"}}')
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_memory_utilization_follows_gpu_kind(self):
+        for gpu_mem, expected in (("46068", "0.9"), ("[N/A]", "0.5"), ("", "0.9")):
+            with self.subTest(gpu_mem=gpu_mem):
+                (self.root / "docker/.env").unlink(missing_ok=True)
+                self.assertEqual(self.run_script(FAKE_GPU_MEM=gpu_mem).returncode, 0)
+                self.assertEqual(self.env_value("VLLM_GPU_MEMORY_UTILIZATION"), expected)
+
+    def test_existing_env_mismatch_warns_without_rewriting(self):
+        (self.root / "docker/.env").write_text("VLLM_GPU_MEMORY_UTILIZATION=0.5\n", encoding="utf-8")
+        result = self.run_script()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("建議 0.9", result.stderr)
+        self.assertEqual(self.env_value("VLLM_GPU_MEMORY_UTILIZATION"), "0.5")
 
     def test_bad_target(self):
         self.assertEqual(self.run_script("nope").returncode, 2)
