@@ -17,6 +17,10 @@ dependencies = [
     "hdbscan==0.8.44",
     "loguru==0.7.3",
     "tornado==6.5.10",
+    # AI 問答（src/web/assistant.py）：LangGraph 工具呼叫 agent，經 OpenAI 相容 API 連本地 vLLM／llama.cpp
+    "langgraph==1.2.12",
+    "langchain-core==1.6.6",
+    "langchain-openai==1.6.7",
 ]
 
 [project.optional-dependencies]
