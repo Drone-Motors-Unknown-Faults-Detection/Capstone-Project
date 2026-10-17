@@ -122,7 +122,7 @@ const tick = () => new Promise(r => setImmediate(r));
     {event: 'tool', name: 'get_experiment', label: '讀取實驗手冊', sources: ['web/experiments.py › 實驗一', 'exp1_cold_start.md']},
     {event: 'delta', text: '**結論**：只用健康資料\n'},
     {event: 'delta', text: '- 校準 62 筆\n- <b>不是</b>分類器'},
-    {event: 'done', t: 477},
+    {event: 'done', as_of: '實驗頁播放：實驗二 量尺擴張，播放中，已播 120 筆，更新於 21:30:00'},
   ]));
   assert.equal(el('aiInput').fire('keydown', {key: 'Enter'}).prevented, true);
   for (let k = 0; k < 10; k++) await tick();
@@ -138,14 +138,14 @@ const tick = () => new Promise(r => setImmediate(r));
   const msg = aiRow.children[1];
   const [tools, body, sources] = msg.children;
   assert.match(tools.textContent, /🔧 讀取實驗手冊/);
-  assert.match(tools.textContent, /狀態取自 t=477/);
+  assert.match(tools.textContent, /（實驗頁播放：實驗二 量尺擴張，播放中，已播 120 筆/);
   assert.equal(body.className, 'ai-md');
   assert.equal(body.innerHTML,
     '<p><strong>結論</strong>：只用健康資料</p><ul><li>校準 62 筆</li><li>&lt;b&gt;不是&lt;/b&gt;分類器</li></ul>');
   assert.equal(sources.textContent, '📎 依據：web/experiments.py › 實驗一；exp1_cold_start.md');
 
   // 第二問帶上一輪歷史；錯誤顯示為錯誤泡泡
-  replies.push(sse([{event: 'error', error: '本地模型呼叫失敗'}, {event: 'done', t: 478}]));
+  replies.push(sse([{event: 'error', error: '本地模型呼叫失敗'}, {event: 'done', as_of: '實驗頁播放：無紀錄'}]));
   suggest.fire('click');
   for (let k = 0; k < 10; k++) await tick();
   const second = requests.filter(r => r[0] === '/api/assistant/ask')[1];

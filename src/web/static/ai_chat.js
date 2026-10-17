@@ -87,7 +87,7 @@
             (f.sources || []).forEach(x => sources.add(x));
           }
           else if (f.event === "delta") { answer += f.text; body.className = "ai-md"; body.innerHTML = renderMarkdown(answer); }
-          else if (f.event === "done") tools.textContent += (tools.textContent ? "　" : "") + `（狀態取自 t=${f.t}）`;
+          else if (f.event === "done") tools.textContent += (tools.textContent ? "　" : "") + `（${f.as_of || "無播放紀錄"}）`;
           else if (f.event === "error") { box.className = "ai-msg error"; body.textContent = f.error; }
           else if (f.event === "done" && !answer) body.textContent = "（模型沒有回覆文字）";
           if (f.event === "done") {

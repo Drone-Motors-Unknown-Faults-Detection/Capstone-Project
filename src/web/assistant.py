@@ -1,19 +1,19 @@
 """AI 問答：LangGraph 工具呼叫 agent，經 OpenAI 相容 API 連本地模型（vLLM／llama.cpp）。
 
-server.py 在 IOLoop 執行緒呼叫 ``machine_snapshot(hub)`` 凍結提問當下的機台狀態，
-再交給 ``Assistant.ask()``；agent 只能透過四個工具讀資料：
+server.py 在 IOLoop 執行緒取 ``PlaybackTracker.snapshot()``（web/playback.py），凍結提問當下
+實驗頁「邊跑邊畫」目前或最近一次的播放狀態，再交給 ``Assistant.ask()``；agent 只能透過四個工具讀資料：
 
-    get_live_status      即時狀態：資料集、階段、最近一筆分數／判定、EWMA、隔離區、候選叢集
-    get_recent_alarms    最近的變化點警報（漸進／突發）
+    get_playback_status  播放狀態：哪個實驗、參數、播到哪裡、最新一筆系統判定、模型已知類別、完成結果
+    get_playback_events  重點事件（候選群、自學、變化點警報、嚴重度改變）與事後對照（真值評估）
     get_experiment       依編號取實驗：web/experiments.py 的 CATALOG + docs/experiments/expN_*.md 手冊
     lookup_knowledge     關鍵字查 src/web/knowledge/*.md 與 docs/experiments/*.md 的「## 」段落
 
 知識量小且有編號結構，用編號直取 + 關鍵字檢索，不另建向量資料庫：
 「實驗一／實驗1／exp1」一律正規化成 exp1 再比對。
 
-本模組不做任何判定：數字全部來自 LiveDemo／core 的既有輸出，模型只負責解讀。
-注入來源、劇本、逐筆 truth、候選叢集的 majority／purity／is_known 都由真值算出，
-屬於「操作員確認」才揭示的資訊（AGENT.md 鐵則 6），不放進快照。
+本模組不做任何判定：數字全部來自各實驗 iter_run() 的既有輸出，模型只負責解讀。
+注入配置、expected、is_fault、候選群 majority／purity 等真值只放在「事後對照」，
+並標明是評估用、不是系統當下的判定（AGENT.md 鐵則 6）。
 """
 
 from __future__ import annotations
@@ -30,6 +30,7 @@ from langchain_core.tools import tool
 from langgraph.graph import START, MessagesState, StateGraph
 from langgraph.prebuilt import ToolNode, tools_condition
 
+from experiments.exp3_trend import KIND_DISPLAY
 from web.experiments import CATALOG
 
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
@@ -40,8 +41,8 @@ MAX_TEXT = 2000          # 單則訊息字數上限
 RECURSION_LIMIT = 10     # agent ↔ tools 來回上限
 
 TOOL_DISPLAY = {
-    "get_live_status": "讀取即時狀態",
-    "get_recent_alarms": "讀取變化點警報",
+    "get_playback_status": "讀取實驗播放狀態",
+    "get_playback_events": "讀取播放事件與事後對照",
     "get_experiment": "讀取實驗手冊",
     "lookup_knowledge": "查詢知識庫",
 }
@@ -49,124 +50,108 @@ TOOL_DISPLAY = {
 SYSTEM_PROMPT = """你是無人機馬達冷啟動 PHM 監測系統的值班助理，用繁體中文回答操作員。
 
 規則：
-1. 問到機台現況（分數、判定、警報、隔離區、候選故障、已知類別）一律先呼叫 get_live_status，
-   需要警報歷史再呼叫 get_recent_alarms；不要憑印象回答數字。
+1. 問到目前狀況、播放進度、分數、判定、警報、隔離區、候選群、健康指數或這次播放的結果，
+   先呼叫 get_playback_status；需要事件經過或事後對照再呼叫 get_playback_events。
+   資料來自實驗頁「⏵ 邊跑邊畫」目前或最近一次的播放，回答時說明是哪個實驗、播到哪裡、是否已播完；
+   沒有播放紀錄時，請使用者到實驗頁按「⏵ 邊跑邊畫」。
 2. 問到某個實驗（例如「實驗一」「實驗1」「exp3」）在做什麼、怎麼跑、結果怎麼看，呼叫
    get_experiment 並帶入編號；問「有哪些實驗」時 number 留空取總覽。
 3. 問到方法、參數、名詞意義或馬達規格，呼叫 lookup_knowledge。知識庫寫「待補」的欄位，
    回答「規格尚未提供」，不要推測。
 4. 只能根據本輪工具回傳的內容回答，不要用一般常識、馬達或機器學習的通用知識補充或推測。
    工具結果沒有寫到的事，直接回答「文件與系統狀態裡沒有這項資訊」，並說明查了哪些來源。
-5. 引用文件時標出檔名（例如 exp1_cold_start.md）；引用即時數字時標出樣本序號 t。
-6. 系統只知道「已知／未知」與「漸進／突發」；未經操作員確認的未知故障，身分就是未知，
-   不要猜是哪種螺絲鬆動。
+5. 引用文件時標出檔名（例如 exp1_cold_start.md）；引用播放數字時標出實驗與樣本序號 t 或窗序號。
+6. 系統當下的判定只有「健康／已知／未知」「漸進／突發」與健康指數；未知故障的身分就是未知，
+   不要猜是哪種螺絲鬆動。「事後對照」裡的配置名稱是評估用真值，引用時必須明說是事後對照，
+   不能說成系統判定。
 7. 單筆偶發未知可能是健康誤報（約 10.9%）；判斷是否異常要一起看 EWMA 與隔離區。
 8. 回答先講結論，再列支撐的內容。"""
 
 NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系統狀態裡沒有這項資訊；不要自行推測或用一般知識補充。"
 
 
-# -- 機台狀態快照 ---------------------------------------------------------------
+# -- 實驗頁播放狀態 -------------------------------------------------------------
 
-def machine_snapshot(hub) -> dict:
-    """在 IOLoop 執行緒呼叫：凍結提問當下的狀態，移除所有真值欄位。"""
-    state = hub.full_state()
-    demo = hub.demo
-    openset = state.get("openset") or {}
-    candidate = state.get("candidate")
-    last = getattr(demo, "last_sample", None)
-    return {
-        "dataset": state.get("meta"),
-        "openset_method": openset.get("openset_method"),
-        "class_thresholds": [
-            {"config": c.get("config"), "threshold": round(float(c["threshold"]), 3)}
-            for c in openset.get("classes", []) if "threshold" in c
-        ],
-        "t": state.get("t"),
-        "streaming": bool(state.get("running")),
-        "busy": bool(state.get("busy")),
-        "error": state.get("error"),
-        "phase": state.get("phase"),
-        "known_classes": [k["display"] for k in state.get("known", [])],
-        "quarantine": state.get("quarantine"),
-        "min_cluster_size": state.get("min_cluster_size"),
-        "candidate": None if candidate is None else {
-            k: candidate[k] for k in ("size", "t_range", "cluster_params") if k in candidate
-        },
-        "last_sample": None if last is None else {
-            "t": last["t"],
-            "score": last["score"],
-            "verdict": last["verdict"],
-            "predicted": last["cls"],
-            "ewma": last["ewma"],
-            "cusum": last["cusum"],
-            "nearest_fault_ray": last["direction"]["ray_display"],
-            "ray_cos": last["direction"]["cos"],
-            "radius": last["direction"]["radius"],
-            "cluster_attempts": last["attempts"],
-        },
-        "alarms": [
-            {"t": a["t"], "kind": a["kind_display"], "transition": a["transition"]}
-            for a in getattr(demo, "alarms", [])[-5:]
-        ],
-    }
-
-
-PHASE_DISPLAY = {
-    "monitoring": "監測中（隔離區空）",
-    "accumulating": "異常樣本累積中（隔離區有樣本，等待成叢）",
-    "pending": "候選新故障待操作員確認",
+NO_PLAYBACK = NO_MATCH.format(what="目前沒有實驗在播放，伺服器啟動後也還沒有播放紀錄") + \
+    "可以請使用者到實驗頁按「⏵ 邊跑邊畫」。"
+STATUS_DISPLAY = {"running": "播放中", "done": "已播完", "stopped": "被停止（未播完）", "error": "播放失敗"}
+VERDICT_DISPLAY = {"healthy": "健康", "known": "已知類別", "unknown": "未知"}
+FIELD_DISPLAY = {
+    "t": "樣本序號 t", "score": "開集分數（> 1 為未知）", "verdict": "判定", "predicted": "模型判成的類別",
+    "quarantine": "隔離區筆數", "n_known": "已知類別數", "scenario": "劇本", "trial": "第幾次重複（0 起算）",
+    "ewma": "EWMA 異常比例（≥ 0.5 警報）", "cusum": "CUSUM", "alarm_kind": "警報判別",
+    "segment": "第幾段", "segment_kind": "段落類型", "last_scores": "最近分數", "flagged_in_chunk": "本批判未知筆數",
+    "chunk_size": "本批筆數", "window_index": "窗序號", "health_index": "相對健康指數（1 健康、0 最差）",
+    "severity_stage": "嚴重度", "trend": "趨勢", "degradation_rate": "退化速率", "openset_score": "開集分數",
+    "is_unknown_fault": "判為未知故障", "fault_type": "故障類型", "prediction_confidence": "信心",
+    "uncertainty": "不確定度", "alarm_state": "告警狀態", "alarm_reason": "告警原因",
+    "change_point_state": "變化點狀態", "data_quality": "資料品質", "part": "子實驗", "state": "狀態",
 }
-VERDICT_DISPLAY = {"healthy": "健康", "known": "已知故障", "unknown": "未知"}
 
 
-def describe_status(snap: dict) -> str:
-    """把快照整理成給模型讀的條列文字。"""
-    ds = snap.get("dataset") or {}
+def playback_name(snap: dict) -> str:
+    sub = f" {snap['sub']}" if snap.get("sub") else ""
+    return f"{snap['no']}{sub} {snap['title']}".strip()
+
+
+def playback_label(snap: dict | None) -> str:
+    """一行摘要：依據清單與回答下方「狀態取自」共用。"""
+    if snap is None:
+        return "實驗頁播放：無紀錄"
+    return (f"實驗頁播放：{playback_name(snap)}，{STATUS_DISPLAY.get(snap['status'], snap['status'])}，"
+            f"已播 {snap['samples']} 筆，更新於 {snap['updated_at']}")
+
+
+def _value(key: str, value) -> str:
+    if key == "verdict":
+        return VERDICT_DISPLAY.get(value, str(value))
+    if key == "alarm_kind" and value:
+        return KIND_DISPLAY.get(value, value)
+    if isinstance(value, bool):
+        return "是" if value else "否"
+    return "—" if value is None else str(value)
+
+
+def describe_playback(snap: dict | None) -> str:
+    if snap is None:
+        return NO_PLAYBACK
+    params = "、".join(f"{k}={v}" for k, v in snap.get("params", {}).items()) or "—"
     lines = [
-        f"資料集：{ds.get('motor', '?')} / {ds.get('rpm', '?')}；開集方法：{snap.get('openset_method')}",
-        f"串流：{'進行中' if snap['streaming'] else '暫停'}；已處理 {snap['t']} 筆"
-        + ("；重任務執行中" if snap["busy"] else ""),
-        f"階段：{PHASE_DISPLAY.get(snap['phase'], snap['phase'])}",
-        f"已知類別（健康量尺）：{'、'.join(snap['known_classes']) or '無'}",
-        f"隔離區：{snap['quarantine']} 筆（候選叢集需 ≥ {snap['min_cluster_size']} 筆）",
+        f"實驗：{playback_name(snap)}（{snap['exp_id']}）",
+        f"狀態：{STATUS_DISPLAY.get(snap['status'], snap['status'])}；開始 {snap['started_at']}，最後更新 {snap['updated_at']}",
+        f"參數：{params}",
+        f"已播放：{snap['samples']} 筆",
     ]
+    if snap.get("known"):
+        lines.append("模型目前的已知類別：" + "、".join(snap["known"]) + "（discovered-N 是模型自學的新類名稱）")
+    current = snap.get("current")
+    if current:
+        lines.append("最新一筆的系統判定：" + "；".join(
+            f"{FIELD_DISPLAY.get(k, k)}={_value(k, v)}" for k, v in current.items()))
+    if snap.get("result"):
+        lines.append("完成結果：" + "；".join(f"{k}={v}" for k, v in snap["result"].items()))
     if snap.get("error"):
         lines.append(f"錯誤：{snap['error']}")
-    cand = snap.get("candidate")
-    if cand:
-        rng = cand.get("t_range") or ["?", "?"]
-        lines.append(
-            f"候選新故障：{cand['size']} 筆，樣本蒐集區間 t={rng[0]}~{rng[1]}，"
-            f"HDBSCAN 參數 {cand.get('cluster_params')}；身分待操作員確認"
-        )
-    last = snap.get("last_sample")
-    if last is None:
-        lines.append("最近一筆樣本：尚無（串流未開始）")
-    else:
-        ray = last["nearest_fault_ray"]
-        lines += [
-            f"最近一筆樣本 t={last['t']}：開集分數 {last['score']}（> 1 為未知），"
-            f"判定 {VERDICT_DISPLAY.get(last['verdict'], last['verdict'])}"
-            + (f"（{last['predicted']}）" if last["verdict"] != "unknown" else ""),
-            f"EWMA 異常比例 {last['ewma']}（≥ 0.5 警報，[0.2, 0.5) 中間帶）；CUSUM {last['cusum']}",
-            "方向：" + (f"最接近已知故障射線「{ray}」，cos={last['ray_cos']}" if ray else "尚無已知故障射線")
-            + f"；半徑 {last['radius']}",
-            f"HDBSCAN 已嘗試分群 {last['cluster_attempts']} 次",
-        ]
-    thr = "、".join(f"{c['config']}={c['threshold']}" for c in snap.get("class_thresholds", []))
-    if thr:
-        lines.append(f"各類校準閾值（原始距離）：{thr}")
     return "\n".join(f"- {x}" for x in lines)
 
 
-def describe_alarms(snap: dict) -> str:
-    alarms = snap.get("alarms") or []
-    if not alarms:
-        return "本 session 尚未發生變化點警報。"
-    return "\n".join(
-        f"- t={a['t']}：{a['kind']}（中間帶停留 {a['transition']} 筆）" for a in alarms
-    )
+def describe_playback_events(snap: dict | None) -> str:
+    if snap is None:
+        return NO_PLAYBACK
+    events = snap.get("events") or []
+    out = [f"【{playback_name(snap)} 的重點事件】"]
+    out += [f"- {e}" for e in events] or ["- 尚無重點事件"]
+    reference = snap.get("reference") or []
+    truth = []
+    if snap.get("source_config"):
+        truth.append(f"- 播放的資料來源（操作者選的注入配置）：{snap['source_config']}")
+    if "source_is_fault" in snap:
+        truth.append(f"- 這段資料是否來自故障配置：{'是' if snap['source_is_fault'] else '否'}")
+    truth += ["- " + "；".join(f"{k}={v}" for k, v in item.items()) for item in reference]
+    if truth:
+        out.append("【事後對照（由注入配置真值計算，只用於評估；不是系統當下的判定）】")
+        out += truth
+    return "\n".join(out)
 
 
 # -- 知識庫 ---------------------------------------------------------------------
@@ -294,17 +279,17 @@ def experiment_with_sources(number: str, experiments_dir: Path = EXPERIMENTS_DIR
 
 # -- LangGraph agent -------------------------------------------------------------
 
-def make_tools(snap: dict, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR) -> list:
+def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR) -> list:
     # artifact = 依據清單，由程式決定、不經模型轉述，前端顯示成「📎 依據」
     @tool(response_format="content_and_artifact")
-    def get_live_status() -> tuple[str, list[str]]:
-        """讀取提問當下的機台即時狀態：資料集、監測階段、最近一筆開集分數與判定、EWMA、隔離區、候選新故障、已知類別。"""
-        return describe_status(snap), [f"即時狀態（t={snap.get('t')}）"]
+    def get_playback_status() -> tuple[str, list[str]]:
+        """讀取實驗頁「邊跑邊畫」目前或最近一次播放的狀態：哪個實驗、參數、播到哪裡、最新一筆的系統判定（分數、判定、EWMA、隔離區、健康指數）、模型已知類別、播完的結果。"""
+        return describe_playback(snap), [playback_label(snap)]
 
     @tool(response_format="content_and_artifact")
-    def get_recent_alarms() -> tuple[str, list[str]]:
-        """讀取最近 5 次變化點警報（漸進退化或突發事件）與發生的樣本序號。"""
-        return describe_alarms(snap), [f"變化點警報（t={snap.get('t')}）"]
+    def get_playback_events() -> tuple[str, list[str]]:
+        """讀取這次播放的重點事件（候選群、模型自學、變化點警報、嚴重度改變）與事後對照（依注入配置真值算的評估結果）。"""
+        return describe_playback_events(snap), [playback_label(snap) + " › 事件與事後對照"]
 
     @tool(response_format="content_and_artifact")
     def get_experiment(number: str = "") -> tuple[str, list[str]]:
@@ -316,7 +301,7 @@ def make_tools(snap: dict, sections: list[dict], experiments_dir: Path = EXPERIM
         """關鍵字查詢知識庫與各實驗手冊：偵測方法、參數、閾值、螺絲配置意義、處置原則、馬達規格。query 用關鍵字，例如「EWMA 警報」「T1 馬達規格」「實驗三 輸出」。"""
         return search_with_sources(sections, query)
 
-    return [get_live_status, get_recent_alarms, get_experiment, lookup_knowledge]
+    return [get_playback_status, get_playback_events, get_experiment, lookup_knowledge]
 
 
 def _looked_up(messages: list) -> bool:
@@ -455,7 +440,7 @@ class Assistant:
             )
         return self._llm
 
-    async def ask(self, snap: dict, question: str, history: list | None = None) -> AsyncIterator[dict]:
+    async def ask(self, snap: dict | None, question: str, history: list | None = None) -> AsyncIterator[dict]:
         """逐 frame 產出：{"event": "tool", "name", "label", "sources"}、{"event": "delta", "text"}。"""
         sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
         graph = build_graph(await self.llm(), make_tools(snap, sections, self.experiments_dir))
