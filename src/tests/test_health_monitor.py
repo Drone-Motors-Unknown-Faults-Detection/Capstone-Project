@@ -25,7 +25,7 @@ SIZES = {"8screws": 300, "5screws": 40}  # 5screws 比健康 holdout 最大索�
 
 @lru_cache(None)
 def baseline_run():
-    source = subprocess.check_output(["git", "show", f"{BASE}:experiments/health_monitor.py"])
+    source = subprocess.check_output(["git", "show", f"{BASE}:experiments/health_monitor.py"], cwd=Path(__file__).resolve().parents[2])
     namespace = {"__name__": "experiments._baseline_health_monitor"}
     exec(compile(source, f"{BASE}/health_monitor", "exec"), namespace)
     return namespace["run"]

@@ -1,6 +1,7 @@
 """未擬合防護，與固定基準 commit（BASE）逐欄回歸。"""
 import hashlib
 import subprocess
+from pathlib import Path
 import unittest
 from unittest.mock import patch
 
@@ -20,7 +21,7 @@ def pools():
 
 
 def paired_baseline():
-    source = subprocess.check_output(["git", "show", f"{BASE}:core/monitor.py"])
+    source = subprocess.check_output(["git", "show", f"{BASE}:core/monitor.py"], cwd=Path(__file__).resolve().parents[2])
     namespace = {"__name__": "fixed_baseline_monitor"}
     exec(compile(source, f"{BASE}:core/monitor.py", "exec"), namespace)
     old_class = namespace["OpenSetMonitor"]
