@@ -4,7 +4,8 @@
     邊跑邊畫  StreamHandler 每送出一個 frame 呼叫 ``update()``，播完的結果一併摘要
     ▶ 執行    RunHandler 完成後呼叫 ``record_run(exp_id, payload)``
     存檔      記憶體沒有紀錄（例：伺服器重啟）時，``load_saved()`` 讀 results_root 下最新的
-              ``*/experiments/{exp_id}_*.json``（ExperimentRunner._save 寫的 payload）
+              ``*/experiments/{exp_id}_2*.json``（ExperimentRunner._save 寫的 payload；
+              `_2` 對上時間戳開頭，exp6 不會誤抓 exp6_formal_* 檔）
 本模組只彙整，不做任何判定，數字全部取自各實驗既有輸出。
 
 邊跑邊畫的狀態分三層：

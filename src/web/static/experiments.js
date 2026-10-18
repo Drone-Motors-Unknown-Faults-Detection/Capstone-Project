@@ -1,5 +1,5 @@
 /* 實驗頁：頁首切換列 + 實驗一～十二的參數表單、執行與結果呈現。
- * 只負責呈現；計算在伺服器端呼叫 experiments/ 的 run()（見 web/experiments.py）。 */
+ * 只負責呈現；▶ 執行呼叫 run()，⏵ 邊跑邊畫呼叫 iter_run()／iter_playback()（見 web/experiments.py）。 */
 "use strict";
 (() => {
 const $ = id => document.getElementById(id);
