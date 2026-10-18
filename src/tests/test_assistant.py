@@ -352,7 +352,7 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
         status = json.loads(self.fetch("/api/assistant/status").body)
         self.assertEqual(set(status["app"]), {"git_head", "tracked_dirty", "answer_schema"})
-        self.assertEqual(status["app"]["answer_schema"], "exp12_standard_answer_v1")
+        self.assertEqual(status["app"]["answer_schema"], "exp12_standard_answer_v2")
         self.assertNotIn("packages", status["app"])
 
     def test_http_result_works_with_real_offline_model_endpoint(self):

@@ -18,7 +18,7 @@ import argparse
 import numpy as np
 
 from core.confusion_summary import summarize_confusion
-from core.data import HEALTHY, config_sort_key, discover_datasets, load_pools
+from core.data import HEALTHY, config_sort_key, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import save_json
@@ -51,6 +51,33 @@ def summarize_matrices(result: dict) -> dict:
     if "binary" not in facts and not facts["openset"]:
         raise ValueError("exp12 缺少可核算的原始矩陣")
     return facts
+
+
+def data_role_counts(pool_size: int, seed: int = 42) -> dict:
+    """以現行切分器核算示例角色；不讀正式資料、不擬合模型。"""
+    if isinstance(pool_size, bool) or not isinstance(pool_size, int) or pool_size < 0:
+        raise ValueError("資料池數量須為非負整數")
+    split = make_split(pool_size, np.random.default_rng(seed))
+    return {"pool": pool_size, "train": len(split.train), "cal": len(split.cal), "holdout": len(split.holdout)}
+
+
+def visualization_counts(result: dict) -> dict:
+    """唯讀核對當次嵌入列數；方法上限不代替缺少的實際數量。"""
+    data = result.get("_tsne_by_dataset")
+    if not isinstance(data, dict) or not data:
+        return {"status": "UNKNOWN", "datasets": {}, "total": None}
+    counts = {}
+    for key, entry in data.items():
+        if not isinstance(entry, dict):
+            return {"status": "INVALID", "datasets": {}, "total": None}
+        labels, verdicts, embedding = (entry.get(k) for k in ("config_labels", "verdicts", "embedding"))
+        if (not isinstance(labels, list) or not isinstance(verdicts, list)
+                or not isinstance(embedding, (list, np.ndarray))
+                or len(labels) != len(verdicts) or len(labels) != len(embedding)
+                or any(v not in ("known_correct", "known_wrong", "unknown") for v in verdicts)):
+            return {"status": "INVALID", "datasets": {}, "total": None}
+        counts[str(key)] = len(labels)
+    return {"status": "VERIFIED", "datasets": counts, "total": sum(counts.values())}
 
 
 def _canon(config: str) -> str:

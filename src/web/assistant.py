@@ -243,7 +243,7 @@ def experiment_number(text: str) -> int | None:
 
 _SAVED_REFERENCE = re.compile(r"[^\s`\"'<>「」（）()，；]*exp\d+_\d{4}(?:-\d{2}){5}(?:_\d+)?\.json")
 _METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.*意思")
-_RESULT_QUESTION = re.compile(r"結果|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|可靠|未知|unknown|legacy|狀況|換馬達", re.I)
+_RESULT_QUESTION = re.compile(r"結果|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d+(?:\.\d+)?%", re.I)
 
 
 def _reference_number(reference: str) -> int | None:

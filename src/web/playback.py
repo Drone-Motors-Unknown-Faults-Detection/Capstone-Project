@@ -28,13 +28,13 @@ import time
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
-from experiments.exp12_confusion_tsne import summarize_matrices
+from experiments.exp12_confusion_tsne import data_role_counts, summarize_matrices, visualization_counts
 from web.experiments import CATALOG
 
 MAX_EVENTS = 12
 MAX_REFERENCE = 40
 RESULT_BUDGET = 6000          # 結果摘要字數上限（模型 context 32k，另有手冊與對話）
-ANSWER_SCHEMA = "exp12_standard_answer_v1"
+ANSWER_SCHEMA = "exp12_standard_answer_v2"
 RESULTS_ROOT = Path("output/web_server")
 _SPEC = {e["id"]: e for e in CATALOG}
 _SEQ = itertools.count(1)     # 紀錄先後順序：同一編號有多張卡（6-1／6-2）時取最近的
@@ -182,11 +182,22 @@ def _exp12_answer(result, budget: int, source: dict | None) -> dict:
                              f"錯分其他已知 {v['misclassified']}；判對率 {_rate_text(v['recall'])}。")
             if not o["unknown_present"]:
                 lines.append("缺 unknown 標籤；未知與誤拒指標不適用，不能推定未知完全判對。")
-        lines += ["二元只學健康；多類 A 協定的目標是健康＋四種已知故障配置，實際標籤如上；缺類不代表完整coverage，兩者分母不可互換。",
+        lines += ["二元只學健康；多類 A 協定的目標是健康＋四種已知故障配置，實際標籤如上；已知判對率包含健康，不是純故障正確率。缺類不代表完整coverage，兩者分母不可互換。",
                   "unknown→unknown 是正確拒絕，沒有辨識具體未知配置身分；已知總數不等於誤拒數。",
                   "故障漏判為健康、健康誤報、已知誤拒與未知未拒是不同指標；未知全拒不代表整個系統沒有誤報。",
                   "此批按工況評估不證明未見馬達泛化或部署可靠；t-SNE 可含擬合資料，只供事後觀察。"
                   "誤拒率不能單獨證明邊界過嚴，不使用同一 test 調門檻。"]
+        lines += ["本次為批次實驗：模型產生預測，再以事後真值計算指標；不是沒有模型判斷。",
+                  "t-SNE 現行預設每工況每配置最多抽200筆，十配置完整時每工況最多2000筆，並非全部工況合計2000筆；上限不等於當次實際數量。",
+                  "顏色表示真實配置；三角形表示模型判為unknown，包含已知誤拒及未知正確拒絕；圓點為已知判對；叉為錯誤接受，包含未知被判為已知。各工況分別fit，群距無物理損傷意義。"]
+        vis = visualization_counts(result)
+        lines.append("當次t-SNE抽樣：" + ("；".join(f"{k}={n}筆" for k, n in vis["datasets"].items())
+                     + f"；合計{vis['total']}筆。" if vis["status"] == "VERIFIED" else
+                     "實際數量未知／無法核對，未用2000或矩陣樣本數代替。"))
+        roles = data_role_counts(313)
+        lines.append(f"資料角色示例（T1／8000rpm，非全工況固定量）：健康池{roles['pool']}筆，"
+                     f"train擬合{roles['train']}／cal校準{roles['cal']}／holdout測試{roles['holdout']}，"
+                     "不是整池皆用來訓練；其他工況須另查來源。")
         if "legacy" in facts["openset"]:
             lines.append("legacy 的 -1 標籤介面限制須核對來源程式版本，本紀錄未提供可核驗版本，不能僅憑全 unknown 確認原因；"
                          "unknown 對角仍是判對，不支持原方法完全失效。")
