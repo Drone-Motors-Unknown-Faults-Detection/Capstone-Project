@@ -63,7 +63,6 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 | schema.py | binary／health／full 欄位與合法值 |
 | trajectory.py | 按 motor_id 與 session_id 分開保存平滑、斜率、告警與變化點 |
 | evaluation.py | 開集及軌跡／群組／順序檢查；函數存在不等於每個 runner 都使用 |
-| config.py、interfaces.py | 設定及 Protocol 介面 |
 
 `prediction_confidence=abs(score-1)/(1+abs(score-1))` 是判定線距離代理。`estimated_rul=None`、`rul_available=False`。health=0 不表示壽命用盡。
 

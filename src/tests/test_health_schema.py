@@ -1,6 +1,5 @@
 import unittest
 
-from experiments.health.config import HealthMonitorConfig
 from experiments.health.schema import HealthMonitoringResult
 
 
@@ -51,10 +50,3 @@ class HealthSchemaTests(unittest.TestCase):
     def test_health_and_degradation_must_be_complements(self):
         with self.assertRaises(ValueError):
             _result(degradation_score=0.5)
-
-    def test_config_preserves_mahalanobis_default_and_disables_rul(self):
-        config = HealthMonitorConfig(output_mode="full")
-        self.assertEqual(config.openset_method, "mahalanobis")
-        self.assertEqual(config.mahalanobis_method, "ledoit_wolf")
-        with self.assertRaises(ValueError):
-            HealthMonitorConfig(rul_enabled=True)
