@@ -6,9 +6,11 @@
 
 ## 專案定位
 
-本 repo 目前的主線是**冷啟動 PHM 畢業專題**：只用健康資料（8screws）建立基準，
-即時偵測未知故障、以 HDBSCAN 發現新故障類型、經操作員確認後擴張「健康量尺」
+本 repo 目前的主線是 **冷啟動 PHM 畢業專題**：只用健康資料（8screws）建立基準，
+即時偵測未知故障、以 HDBSCAN 發現新故障類型、成群後只用該群樣本自學一個新類、擴張「健康量尺」
 （開放集 + 持續學習），並以變化點分析判別故障是漸進磨損還是突發事件。
+實驗二（批次與實驗頁）走 `ScaleGrowthSession.adopt()` 自學；首頁即時展示與獨立導覽保留
+`confirm()` 手動確認，兩條路徑見「已知行為與陷阱」第 1 條。
 完整說明、實驗結果與引用文獻見 [README.md](README.md)。
 
 原論文版程式碼（Step 1–6 管線、128 個 notebook 與論文全文）已整批移回
@@ -21,8 +23,8 @@
 ## 目錄結構
 
 ```
-src/core/        共用零件：data / mahalanobis / monitor / openset / geometry / detectors / formal_data /
-                 trend / logger / runner / runtime_environment
+src/core/        共用零件：data / feature_schema / mahalanobis / monitor / openset / geometry / detectors /
+                 formal_data / provenance / trend / logger / runner / runtime_environment
 reports/         單次實驗結果／單次說明／更新紀錄，每篇一個資料夾，命名
                  `<Author Name>_<YYYYMMDD>_<Report Subject>`；見「docs／reports／note 分工」
 note/            個人記事，非專案全局變動；每人一個資料夾（例如 note/JW-Albert/）
@@ -40,7 +42,9 @@ src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺�
                  exp13 導覽一致性 navigation_data_contract.py／navigation_regression.py）；
                  總覽見 docs/experiments/README.md；技術報告在 docs/experiments/
 src/web/         即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
-                 server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js、
+                 server.py Tornado+WS+HTTP API、playback.py 實驗頁執行紀錄、
+                 guide.py 獨立導覽（static/guide.html + guide.js + guide.css）、
+                 static/index.html + experiments.js + ai_chat.js + markdown.js、
                  assistant.py AI 問答（LangGraph agent 連本地模型，知識庫在 web/knowledge/*.md））
 src/tests/       pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）
                  一樣經 core.logger.setup_run() 寫 logs/ 與 output/，不得改成手寫報告
@@ -77,8 +81,10 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
 5. **資料唯讀**：本專案只讀 `data/Step-*/myfeature/**/*_Group_feature_data_clean.csv`
    （105 維，最後過濾版）。不重新產生、不修改 data/ 內容；缺資料時提示以論文版管線
    （原始論文）產出。
-6. **未知資料絕不參與擬合**：訓練／校準／閾值只用已知類別；ground-truth 標籤只在
-   「操作員確認」步驟揭示（`ScaleGrowthSession.confirm()`）。動到這條就毀了實驗效度。
+6. **未知資料絕不參與擬合**：訓練／校準／閾值只用已知類別與候選群本身的樣本，
+   ground-truth 標籤不進模型。實驗二的 `adopt()` 以 `discovered-N` 命名新類，候選的真值多數
+   （`matched`）與純度只放在事後對照；首頁與導覽的 `confirm()` 是展示用的手動路徑，
+   在這一步才揭示真值。動到這條就毀了實驗效度。
 7. **決定論**：所有隨機性走 `numpy.random.default_rng(seed)`，seed 從 CLI/建構子傳入，
    預設 42。修改後同 seed 應重現同數字。
 8. **只信任程式碼**：所有的文件、註解都應當視為過時的內容，程式碼才是唯一的輸出者。
@@ -86,8 +92,7 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
    （通常是 `core.logger.setup_run()` 配 `output/{program}/{ts}/`，或實驗程式自己的 `Path("output")/...`）；
    不得手動把問答記錄、測試心得、交付說明等報告丟進 `output/`。需要留存文字說明時寫進
    `docs/experiments/` 或對應的技術報告。新增檔案前先確認有對應的寫入程式碼，找不到就不要放進
-   `output/`（已發現的反例：`output/integration_browser/guide_qa.md`、`stream_qa.md`，
-   repo 內沒有任何程式碼寫這兩個檔案，應移除或改放 `docs/`）。
+   `output/`。
 10. **新增或修改程式碼一律要有對應的 pytest 測試，且測試要能通過。** 測試放在 `src/tests/`，
     檔名 `test_<module>.py`，對應 `src/core/`、`src/experiments/`、`src/experiments/health/` 或 `src/web/` 裡被改動的
     模組；提交前跑 `./scripts/quantity/run_pytest.sh`（或 `venv/bin/python -m pytest src/tests/`，或至少跑到相關檔案）
@@ -103,6 +108,15 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
     `[tool.ruff.lint] select`（`E4`／`E7`／`E9`／`F`），不依賴 ruff 版本的預設集合。
     CI 用 `.github/workflows/ci.yml` 的獨立 `Ruff` step 跑這關；提交前本機先跑
     `./scripts/quantity/run_ruff.sh`，有錯就地修掉，不要用 `# noqa` 繞過真正的問題。
+
+---
+
+# 程式碼註解
+
+1. 說明目的：寫下程式背後的設計意圖、特殊業務邏輯或極端情況（Edge cases），讓未來維護的人快速理解。
+2. 保持精簡：避免過度註解，良好的變數與函式命名本身就應該具備「自我說明（Self-documenting）」的能力。
+3. 與程式碼同步：修改程式碼時必須同步更新註解，過時的註解比沒有註解更具誤導性。
+4. 避免雜訊：不要把版本變更歷史、已經註解掉的廢棄程式碼或冗長的規格抄錄放在註解中。
 
 ---
 
@@ -213,23 +227,29 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    不是 bug；EWMA 警報線與中間帶下緣（0.5 / 0.2）就是據此拉開的，調整前先看
    `src/experiments/exp3_trend.py` 的分布數據。**衍生設計**：誤報分數僅些微超線
    （實測 1.01–1.08），而真實故障最低分 ≥ 10——因此隔離區設「隔離線」
-   `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現；若仍有已知類別
-   邊界樣本聚成叢，`confirm()` 回傳 `action="rejected_known"`（操作員退回、
-   清叢、量尺不變）作為第二道保險。web 偵測統計拆「學會前偵測率／學會後
-   認出率」兩組，認出率天生 ≈ 90–95%。
+   `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現。新類納入分兩條路徑：
+   - 實驗二批次 `run()` 與實驗頁「⏵ 邊跑邊畫」：候選一成群就呼叫 `adopt()`，群至少 5 筆
+     就 `learned`，否則 `insufficient`。不讀真值，也不因真值多數是已知類而退回，
+     所以批次結果的 `rejected_known_clusters` 恆為 0。
+   - 首頁即時展示（`web/live.py`）與獨立導覽（`web/guide.py`）：按確認才呼叫 `confirm()`，
+     讀完整配置池重擬合；若叢集是已知類別邊界樣本，回傳 `action="rejected_known"`
+     （退回、清叢、量尺不變）。
+   web 偵測統計拆「學會前偵測率／學會後認出率」兩組，認出率天生 ≈ 90–95%。
 2. **發散故障（嚴重鬆動、複合配置）成叢較慢**：固定 (25,3) 下 2screws 要 225 筆、
    3_14 在 600 筆內失敗——自適應密度階梯（見參數表）已把發現延遲壓到 65~265 筆，
    但這類故障仍天生比輕度鬆動需要更多累積；web 會顯示「已試分群 N 次」而非卡死。
-3. **exp2 的 stage 列「learned」欄可能不等於注入配置**：候選叢集取自整個隔離區，
-   多數決可能是前一階段的殘餘（CSV 中有 `learned` 欄，判讀時以它為準）。
+3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名。事後對照看
+   `matched`／`matched_display`（候選群的真值多數）；它可能不等於該段注入配置，
+   因為候選叢集取自整個隔離區，多數可能是前一階段的殘餘。
 4. **量尺擴張後 PCA 投影會變**：web 前端在已知類別數改變時清空散佈圖，這是刻意行為。
 5. **目錄名陷阱**：螺絲配置目錄可能是 `1screw` 或 `1screws`（既有資料兩種都出現過），
    `core.data` 以掃描目錄迴避硬編碼——不要寫死配置清單去讀資料。
 6. **資料集以掃描為準**：目前 9 組（T1/T2/T3 × 3 轉速）皆有完整 10 配置、各約
    3000 筆（早期「T2 不全」的狀況已補齊）；`discover_datasets` 動態列出，
    勿硬編碼組合清單。
-7. **venv 相容性**：現有 venv 是舊依賴集（含 TF）建的超集，可直接跑新專案；
-   重建才會套用新 `pyproject.toml`。伺服器用的 Tornado 由 Jupyter 附帶或新依賴提供。
+7. **環境以 `uv.lock` 為準**：`./scripts/opt/build_uv.sh` 建出的 `venv/` 不含 TensorFlow；
+   Tornado 是 `pyproject.toml` 的直接依賴。舊的含 TF 環境不在鎖版範圍，跑出問題先用
+   `build_uv.sh` 重建新目錄再比對（見鐵則 11）。
 
 ---
 
@@ -241,6 +261,8 @@ WebSocket `/ws`，JSON 訊息：
   `event`（info/warn/success/error）、`metrics`
 - client → server：`{cmd: start|pause|reset|rate|set_source|scenario|confirm|dataset, ...}`
 - 重任務（confirm/reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
+- WebSocket 的 `confirm` 只服務首頁即時展示。實驗頁的實驗二不等確認；
+  `POST /api/experiments/exp2/confirm` 仍在路由表，但沒有呼叫端建立 `ConfirmGate`，一律回 409（清理見 #184）。
 
 AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{question, history}` → SSE
 `tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_run_status`、`get_run_events`（`number` 指定實驗，留空取最近一次）、
