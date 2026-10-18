@@ -1,4 +1,0 @@
-2026-10-14 19:36:34 | INFO    | Logger initialized: experiment_data_usage_evidence
-2026-10-14 19:36:34 | INFO    | log_file=logs\experiment_data_usage_evidence\2026-10-14-19-36-34.log
-2026-10-14 19:36:34 | INFO    | output_dir=output\experiment_data_usage_evidence\2026-10-14-19-36-34
-2026-10-14 19:36:41 | INFO    | 唯讀 6 工況、19053 有效列；模型擬合 0 次

@@ -1,5 +1,0 @@
-2026-10-09 11:29:45 | INFO    | Logger initialized: exp8_aggregate_validation_related
-2026-10-09 11:29:45 | INFO    | log_file=logs\exp8_aggregate_validation_related\2026-10-09-11-29-45.log
-2026-10-09 11:29:45 | INFO    | output_dir=output\exp8_aggregate_validation_related\2026-10-09-11-29-45
-2026-10-09 11:29:49 | INFO    | 檢查 0：exit=0，測試數=57
-2026-10-09 11:29:50 | INFO    | 檢查 1：exit=0，測試數=None

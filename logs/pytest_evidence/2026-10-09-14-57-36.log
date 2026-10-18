@@ -1,4 +1,0 @@
-2026-10-09 14:57:36 | INFO    | Logger initialized: pytest_evidence
-2026-10-09 14:57:36 | INFO    | log_file=logs\pytest_evidence\2026-10-09-14-57-36.log
-2026-10-09 14:57:36 | INFO    | output_dir=output\pytest_evidence\2026-10-09-14-57-36
-2026-10-09 14:58:03 | INFO    | pytest INCOMPLETE：{'tests': 214, 'failures': 0, 'errors': 0, 'skipped': 3}

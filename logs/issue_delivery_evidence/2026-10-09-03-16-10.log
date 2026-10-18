@@ -1,4 +1,0 @@
-2026-10-09 03:16:10 | INFO    | Logger initialized: issue_delivery_evidence
-2026-10-09 03:16:10 | INFO    | log_file=logs\issue_delivery_evidence\2026-10-09-03-16-10.log
-2026-10-09 03:16:10 | INFO    | output_dir=output\issue_delivery_evidence\2026-10-09-03-16-10
-2026-10-09 03:16:11 | INFO    | 16檔來源、6個工況、80個相對目標，0個失效

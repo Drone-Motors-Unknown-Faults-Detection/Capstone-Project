@@ -1,4 +1,0 @@
-2026-10-08 13:21:54 | INFO    | Logger initialized: branch_integration
-2026-10-08 13:21:54 | INFO    | log_file=logs\branch_integration\2026-10-08-13-21-54.log
-2026-10-08 13:21:54 | INFO    | output_dir=output\branch_integration\2026-10-08-13-21-54
-2026-10-08 13:22:07 | INFO    | baseline：76 passed／0 failed／0 errors／0 skipped；output\branch_integration\2026-10-08-13-21-54
