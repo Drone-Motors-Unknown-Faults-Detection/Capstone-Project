@@ -20,18 +20,18 @@
   - [x] 對照：直接搬移（AUROC 0.893）vs 中心平移（AUROC 0.999+，健康接受僅 9.3%）vs 從零冷啟動（AUROC 1.0，健康接受 87.9%）
   - 結論：中心平移修好排序、沒修好校準；目標端有 10 筆以上健康資料時，從零冷啟動全面優於遷移，支持逐工況冷啟動架構
 
-## 2. 性能指標：相對 Ancestor 提升 5%~10%
+## 2. 性能指標：相對原始論文提升 5%~10%
 
-已有：`docs/Mahalanobis_Improvement.md`（歷史文件，腳本在 Ancestor）開集 Accuracy 0.9509 → 0.9864（+3.55 pp，未達標）、Balanced Accuracy +6.51 pp、F1 未記錄。
+已有：`docs/Mahalanobis_Improvement.md`（歷史文件，腳本在原始論文）開集 Accuracy 0.9509 → 0.9864（+3.55 pp，未達標）、Balanced Accuracy +6.51 pp、F1 未記錄。
 
-- [x] [#15](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/15) 實驗十一：Ancestor 對照實驗
+- [x] [#15](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/15) 實驗十一：原始論文對照實驗
   - [x] 手冊 `docs/experiments/exp11_ancestor_comparison.md`，先寫定主指標與達標門檻（Balanced Accuracy、macro-F1；絕對提升 ≥5 pp）
   - [x] legacy 邏輯沿用既有 `src/core/mahalanobis.py`（已依鐵則 1 複製並註記來源，未新增）
-  - [x] Ancestor 協定（已知 8/1/2/3/4screws、未知 5/6/7/3_14/4_146screws）＋冷啟動協定
+  - [x] 原始論文協定（已知 8/1/2/3/4screws、未知 5/6/7/3_14/4_146screws）＋冷啟動協定
   - [x] 9 工況 × 3 seed（42/123/2026），輸出 Accuracy、Balanced Accuracy、macro-F1、unknown F1、Wilcoxon 配對檢定
   - [x] 手冊「注意」段落寫明切分方式，不和 [#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9) 的 campaign-group 結果混用
   - [x] 結果寫進 README「原創貢獻總覽」
-  - 實測：Protocol A（Ancestor 協定）Balanced Accuracy 0.1667→0.9505（+78.38pp）、macro-F1 0.1512→0.9730（+82.18pp），Wilcoxon 27 對配對 p≈0，遠超 5pp 門檻。根因：legacy 用單一全域共變異數，`predict_known_class` 幾乎找不到已知類別，結構性無法做多類判別，不只是校準鬆緊的差異
+  - 實測：Protocol A（原始論文協定）Balanced Accuracy 0.1667→0.9505（+78.38pp）、macro-F1 0.1512→0.9730（+82.18pp），Wilcoxon 27 對配對 p≈0，遠超 5pp 門檻。根因：legacy 用單一全域共變異數，`predict_known_class` 幾乎找不到已知類別，結構性無法做多類判別，不只是校準鬆緊的差異
 
 ## 3. 視覺化：混淆矩陣與 t-SNE
 
@@ -39,7 +39,7 @@
 
 - [x] [#16](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/16) 實驗十二：混淆矩陣與 t-SNE
   - [x] 手冊 `docs/experiments/exp12_confusion_tsne.md`
-  - [x] 混淆矩陣：健康 vs 故障（exp1 邏輯重做）、開集多類（Ancestor 協定 5 已知 + unknown）
+  - [x] 混淆矩陣：健康 vs 故障（exp1 邏輯重做）、開集多類（原始論文協定 5 已知 + unknown）
   - [x] t-SNE：`monitor.scaler` 縮放空間、顏色 = 螺絲配置、標記 = 系統判定，9 工況 3×3 網格
   - [x] 經 `core.logger.setup_run` / `save_plot()` 輸出；README「原創貢獻總覽」引用
   - [x] #15 完成後加 legacy vs LW 混淆矩陣並排圖

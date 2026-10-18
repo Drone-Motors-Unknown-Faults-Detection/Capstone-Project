@@ -70,4 +70,4 @@ AUROC、健康誤報、fault_detect、事後FPR@TPR95與等工況mean／ddof0的
 
 Sakurada與Yairi（2014），*Anomaly Detection Using Autoencoders with Nonlinear Dimensionality Reduction*，MLSDA,4–11，[DOI](https://doi.org/10.1145/2689746.2689747)提供重建異常偵測方法背景。網路大小、ReLU與cal分位數是Lineage設定，非逐項重現該論文。
 
-[core/detectors](../../src/core/detectors.py)建網路與分數；[exp6 runner](../../src/experiments/exp6_osr_benchmark.py)做比較／writer；[test_exp9_autoencoder](../../src/tests/test_exp9_autoencoder.py)檢查成員、重現與校準邊界；[web/experiments](../../src/web/experiments.py)編排。未另新增Ancestor神經網路依賴。
+[core/detectors](../../src/core/detectors.py)建網路與分數；[exp6 runner](../../src/experiments/exp6_osr_benchmark.py)做比較／writer；[test_exp9_autoencoder](../../src/tests/test_exp9_autoencoder.py)檢查成員、重現與校準邊界；[web/experiments](../../src/web/experiments.py)編排。未另新增原始論文神經網路依賴。

@@ -4,7 +4,7 @@
 #   docker compose -f app.compose.yaml up -d --build
 #   瀏覽 http://localhost:8600
 #
-# 掛載：../data 唯讀（特徵資料，git 忽略，需先由 Ancestor 管線產出）；
+# 掛載：../data 唯讀（特徵資料，git 忽略，需先由原始論文管線產出）；
 #       ../logs、../output 可寫（setup_run() 的執行紀錄，納入版控）。
 # 以主機使用者 uid/gid 執行，寫進 logs/、output/ 的檔案權限與本機執行相同。
 # AI 問答預設連同一 compose 專案的 vllm 服務；模型離線時頁面顯示「模型離線」，展示照常運作。

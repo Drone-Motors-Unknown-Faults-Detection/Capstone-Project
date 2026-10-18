@@ -1,6 +1,6 @@
 """資料池載入、切分與串流抽樣。
 
-本專案只讀取論文版（Ancestor）管線已產出的 105 維 clean 特徵檔：
+本專案只讀取論文版（原始論文）管線已產出的 105 維 clean 特徵檔：
     data/Step-*/myfeature/{Motor}/{RPM}/{Screws}/*_Group_feature_data_clean.csv
 （clean = 逐列 IQR scale=1.5 過濾後的版本，與論文 Step 4/5 的輸入相同），
 不依賴論文版程式碼。

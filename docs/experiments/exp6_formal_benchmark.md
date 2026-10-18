@@ -75,6 +75,6 @@ dataset_fingerprint 預設為 `source_content_v2`，對排序的相對檔案ID�
 
 ## 方法來源與程式碼
 
-馬氏距離、LW與近鄰來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)；平均k距離／分位數正規化是Lineage操作約定。Ancestor提供馬氏核心來源，Lineage整合factory與正式比較。
+馬氏距離、LW與近鄰來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)；平均k距離／分位數正規化是Lineage操作約定。原始論文提供馬氏核心來源，Lineage整合factory與正式比較。
 
 [runner](../../src/experiments/exp6_formal_benchmark.py)負責流程／指標／writer；[factory](../../src/core/openset.py)建立兩法；[test_exp6_benchmark](../../src/tests/test_exp6_benchmark.py)檢查known-only與指標；[test_openset](../../src/tests/test_openset.py)驗證參考與校準分離；[web/experiments](../../src/web/experiments.py)編排。這些測試不證明raw來源鏈完整。

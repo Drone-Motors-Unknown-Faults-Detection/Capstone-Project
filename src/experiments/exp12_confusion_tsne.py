@@ -5,7 +5,7 @@ repo 既有的圖只有分數折線與 PCA 2D 投影，沒有混淆矩陣，也�
 
 三張圖：
     (a) 二元混淆矩陣     健康 vs 故障，呼應 exp1
-    (b) 開集多類混淆矩陣  Ancestor 協定（5 已知 + unknown），legacy vs ledoit_wolf 並排
+    (b) 開集多類混淆矩陣  原始論文協定（5 已知 + unknown），legacy vs ledoit_wolf 並排
     (c) t-SNE 9 工況網格  顏色=螺絲配置，標記=系統判定
 
 批次執行：

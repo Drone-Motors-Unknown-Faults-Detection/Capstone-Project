@@ -31,7 +31,7 @@ logs/output由core.logger.setup_run；手寫文件只放docs。效能差異本�
 
 提交c003e63a2506c5d89f991c33158a80f55d9558a9，push及遠端同SHA。
 
-9條新／繼承來源逐條對照；另列Ye & Xie與Ancestor原稿參考表缺口，不重建117條目錄。Roberts原文局部、Cover原文局部與Wang候選原文局部可讀；Page／Gebraeel全文未取得，其他只取得作者或出版社摘要者明列限制。README消除完整池重擬合防遺忘保證及三馬達run-to-failure錯誤。21-49-46連結工具69相對目標存在、0失效，資料指紋不變；git diff --check通過。沒有重訓或效能改動，issue草稿尚未發布。
+9條新／繼承來源逐條對照；另列Ye & Xie與原始論文原稿參考表缺口，不重建117條目錄。Roberts原文局部、Cover原文局部與Wang候選原文局部可讀；Page／Gebraeel全文未取得，其他只取得作者或出版社摘要者明列限制。README消除完整池重擬合防遺忘保證及三馬達run-to-failure錯誤。21-49-46連結工具69相對目標存在、0失效，資料指紋不變；git diff --check通過。沒有重訓或效能改動，issue草稿尚未發布。
 
 ## #37 本輪驗收
 

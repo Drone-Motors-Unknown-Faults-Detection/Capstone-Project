@@ -12,7 +12,7 @@
 完整說明、實驗結果與引用文獻見 [README.md](README.md)。
 
 原論文版程式碼（Step 1–6 管線、128 個 notebook 與論文全文）已整批移回
-[Ancestor](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) repo
+[原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) repo
 （本機路徑 `~/Ancestor`）保存；本 repo 的 git 歷史仍保留搬移前的所有版本。
 技術文件快照（含三份 Lineage 時期研究文件）於 2026-09-17 放回本 repo 的 `docs/`。
 
@@ -35,7 +35,7 @@ src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺�
                  健康指數、校準、嚴重度、趨勢/告警、軌跡與診斷，見 docs/experiments/exp8_health.md）、
                  exp9 非線性 AutoEncoder 偵測器（程式在 src/core/detectors.py，複用 exp6_osr_benchmark.py）、
                  exp10 跨工況遷移學習 exp10_transfer.py、
-                 exp11 Ancestor 協定對照 exp11_ancestor_comparison.py、
+                 exp11 原始論文協定對照 exp11_ancestor_comparison.py、
                  exp12 混淆矩陣與 t-SNE 視覺化 exp12_confusion_tsne.py、
                  exp13 導覽一致性 navigation_data_contract.py／navigation_regression.py）；
                  總覽見 docs/experiments/README.md；技術報告在 docs/experiments/
@@ -65,7 +65,7 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
 ## 鐵則（違反會破壞專案架構）
 
 1. **不依賴論文版程式碼。** 需要其零件時，以「複製 + 檔頭註記來源」帶入
-   （範例：`src/core/mahalanobis.py`）。論文版程式碼在 Ancestor repo，視為唯讀封存。
+   （範例：`src/core/mahalanobis.py`）。論文版程式碼在原始論文 repo，視為唯讀封存。
 2. **實驗邏輯只住在 `src/experiments/` 與 `src/core/`。** `src/web/` 只做編排與視覺化——
    任何判定、分群、統計邏輯若出現在 web 層就是放錯位置。這是為了讓論文批次執行
    與即時展示共用同一份邏輯、數字一致。
@@ -76,7 +76,7 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
    不要自創輸出位置。
 5. **資料唯讀**：本專案只讀 `data/Step-*/myfeature/**/*_Group_feature_data_clean.csv`
    （105 維，最後過濾版）。不重新產生、不修改 data/ 內容；缺資料時提示以論文版管線
-   （Ancestor）產出。
+   （原始論文）產出。
 6. **未知資料絕不參與擬合**：訓練／校準／閾值只用已知類別；ground-truth 標籤只在
    「操作員確認」步驟揭示（`ScaleGrowthSession.confirm()`）。動到這條就毀了實驗效度。
 7. **決定論**：所有隨機性走 `numpy.random.default_rng(seed)`，seed 從 CLI/建構子傳入，
@@ -257,7 +257,7 @@ current／events 不含真值；注入配置、expected、is_fault、候選群 m
 2. 一個 commit 只做一件事。
 3. `logs/` 與 `output/` 納入版控，不需要加入 .gitignore；`data/` 維持忽略。
 4. Agent 進行 GitHub 相關操作時，將自己加入 Co-Authors。
-5. legacy 的 issue 討論串在 [Ancestor](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)，查缺陷成因時到該處。
+5. legacy 的 issue 討論串在 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)，查缺陷成因時到該處。
 6. 每個 PR 都要指定 reviewer：JW-Albert <ru04jo30801@gmail.com>。
 
 

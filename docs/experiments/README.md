@@ -50,13 +50,13 @@
 | 實驗八 | [exp8_health](exp8_health.md) | `src/experiments/health_index_benchmark.py`、`health_index_matrix.py`、`health_monitor.py`、`health_index_aggregate.py` | 相對健康指數、54 列矩陣、逐窗告警、封存重算 |
 | 實驗九 | [exp9_autoencoder](exp9_autoencoder.md) | `src/core/detectors.py`（`MLPAutoencoderDet`） | 非線性 AutoEncoder 重建誤差，能不能比線性 PCA 重建更分得開健康與故障 |
 | 實驗十 | [exp10_transfer](exp10_transfer.md) | `src/experiments/exp10_transfer.py` | 目標工況少量健康資料，中心平移遷移划不划算、還是從零冷啟動就好 |
-| 實驗十一 | [exp11_ancestor_comparison](exp11_ancestor_comparison.md) | `src/experiments/exp11_ancestor_comparison.py` | Ancestor 協定下 legacy vs Ledoit–Wolf 的 Accuracy/Balanced Accuracy/macro-F1 對照 |
+| 實驗十一 | [exp11_ancestor_comparison](exp11_ancestor_comparison.md) | `src/experiments/exp11_ancestor_comparison.py` | 原始論文協定下 legacy vs Ledoit–Wolf 的 Accuracy/Balanced Accuracy/macro-F1 對照 |
 | 實驗十二 | [exp12_confusion_tsne](exp12_confusion_tsne.md) | `src/experiments/exp12_confusion_tsne.py` | 開集混淆矩陣與 t-SNE 視覺化，模型區分正常與故障的效果看不看得出來 |
 | 實驗十三 | [exp13_experiment_navigation](exp13_experiment_navigation.md) | `src/experiments/navigation_data_contract.py`、`navigation_regression.py` | 獨立導覽與原主線計算是否一致；整理歷史七問，不新增研究成績 |
 
 實驗七比較同條件開集方法；實驗八提供健康量尺與趨勢。
 
-實驗九～十二依序檢查非線性重建、跨工況平移、Ancestor協定對照及可視化。實驗十的direct與adapted／scratch不完全共用測試健康列；實驗十一的legacy分類label固定為-1，與逐類LW的分差混合了分類API差異，不能直接解讀成共變異數估計帶來的改善。實驗十二的t-SNE使用包含known fit列的完整資料池，只作圖像診斷。各手冊列出實際流程與固定產物；入口存在不等於獨立驗收通過。
+實驗九～十二依序檢查非線性重建、跨工況平移、原始論文協定對照及可視化。實驗十的direct與adapted／scratch不完全共用測試健康列；實驗十一的legacy分類label固定為-1，與逐類LW的分差混合了分類API差異，不能直接解讀成共變異數估計帶來的改善。實驗十二的t-SNE使用包含known fit列的完整資料池，只作圖像診斷。各手冊列出實際流程與固定產物；入口存在不等於獨立驗收通過。
 
 ## 先分清頁面與研究問題
 
@@ -79,7 +79,7 @@
 | `/#exp8`，ID `exp8_monitor` | `health_monitor.run/iter_run`；[逐窗監測](exp8_health.md#逐窗監測) | 選定配置的相對指數與告警怎麼走？ | unknown 取其全池再截 max_windows；順序未證實為原始時間 |
 | `/#exp9`，ID `exp9` | 無獨立 runner；[實驗九](exp9_autoencoder.md) | 非線性重建是否比線性重建分得開？ | 頁籤只說明。權重在實驗六的 mlp_autoencoder，由健康 train 建立 |
 | `/#exp10`，ID `exp10` | `exp10_transfer.run`；[實驗十](exp10_transfer.md) | 少量目標健康資料的中心平移有沒有用？ | 網頁用所選 seed 跑全部掃描工況。direct、adapted、scratch 的資料角色要逐項看 |
-| `/#exp11`，ID `exp11` | `exp11_ancestor_comparison.run`；[實驗十一](exp11_ancestor_comparison.md) | 同一 Ancestor-style 協定的分類 API 有何差別？ | 網頁只跑所選的一個 seed。legacy 的 -1 label 會影響分類分數，不能全歸因於 LW |
+| `/#exp11`，ID `exp11` | `exp11_ancestor_comparison.run`；[實驗十一](exp11_ancestor_comparison.md) | 同一原始論文-style 協定的分類 API 有何差別？ | 網頁只跑所選的一個 seed。legacy 的 -1 label 會影響分類分數，不能全歸因於 LW |
 | `/#exp12`，ID `exp12` | `exp12_confusion_tsne.run`；[實驗十二](exp12_confusion_tsne.md) | 混淆矩陣與投影能看出哪些錯誤？ | 網頁畫出混淆矩陣與 t-SNE。t-SNE 混入 fit 列只作診斷，不是獨立測試 |
 | 獨立導覽 `/assets/guide.html` | `web.guide`，另啟服務；[實驗十三](exp13_experiment_navigation.md) | 帶操作員走過同一串流流程，並顯示研究細節 | 展示／研究模式共用 session，不新增實驗。主首頁沒有直連這個獨立服務的入口 |
 
@@ -102,7 +102,7 @@
 
 H的三個角色互斥、合計H；U另列，不把未知全池混進「20%測試」。例如T1／8000rpm是健康池187+62+64=313，再加2736未知列；不是全部3049列的60/20/20。三個seeds為42／123／2026，數量相同但索引摘要不同，不能累加成三倍獨立資料。
 
-工具只呼叫既有loader與`make_split`，沒有fit、選參或算新分數；這些是實際可用列的配置量，不代表某次串流已消耗幾列。輸出另含多類Ancestor A、逐配置數量、監測截取上限、遷移support與exp5策略重疊。查其他資料版本時重新計數，不複製本表：
+工具只呼叫既有loader與`make_split`，沒有fit、選參或算新分數；這些是實際可用列的配置量，不代表某次串流已消耗幾列。輸出另含多類原始論文 A、逐配置數量、監測截取上限、遷移support與exp5策略重疊。查其他資料版本時重新計數，不複製本表：
 
 ```bash
 uv run --locked python -m tests.experiment_data_usage_evidence --data-root data --seeds 42,123,2026

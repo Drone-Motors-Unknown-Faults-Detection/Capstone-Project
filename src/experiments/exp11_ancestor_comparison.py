@@ -1,10 +1,10 @@
-"""實驗十一：與 Ancestor 的 Accuracy / F1 對照（Protocol A）＋冷啟動對照（Protocol B）。
+"""實驗十一：與原始論文的 Accuracy / F1 對照（Protocol A）＋冷啟動對照（Protocol B）。
 
-問題：專題指標要求相對 Ancestor 提升 Accuracy/F1 5%~10%。主指標先寫定為
+問題：專題指標要求相對原始論文提升 Accuracy/F1 5%~10%。主指標先寫定為
 Balanced Accuracy 與 macro-F1（Accuracy 照列不作達標依據），達標門檻是
 兩者相對 legacy 絕對提升 ≥ 5 個百分點（pp）。
 
-Protocol A（Ancestor 協定）：已知 = 8/1/2/3/4screws，未知 = 5/6/7/3_14/4_146screws。
+Protocol A（原始論文協定）：已知 = 8/1/2/3/4screws，未知 = 5/6/7/3_14/4_146screws。
 Protocol B（冷啟動協定）：已知只有 8screws，其餘全部未知，呼應 exp1。
 
 批次執行：
@@ -27,7 +27,7 @@ _ANCESTOR_UNKNOWN_CANDIDATES = ["5screws", "6screws", "7screws", "3_14screws", "
 
 
 def _ancestor_known_configs(pools: dict[str, np.ndarray]) -> list[str]:
-    """Ancestor 協定的已知類別：8/1/2/3/4screws，交集判斷 1screw/1screws 目錄名陷阱。"""
+    """原始論文協定的已知類別：8/1/2/3/4screws，交集判斷 1screw/1screws 目錄名陷阱。"""
     seen_one = False
     result = []
     for name in _ANCESTOR_KNOWN_CANDIDATES:
@@ -43,7 +43,7 @@ def _ancestor_known_configs(pools: dict[str, np.ndarray]) -> list[str]:
 
 def build_ancestor_monitor(pools: dict[str, np.ndarray], seed: int = 42,
                             confidence: float = 0.95, method: str = "ledoit_wolf") -> OpenSetMonitor:
-    """建立 Ancestor 協定（8/1/2/3/4screws 已知）的 OpenSetMonitor，供本實驗與 exp12 共用。"""
+    """建立原始論文協定（8/1/2/3/4screws 已知）的 OpenSetMonitor，供本實驗與 exp12 共用。"""
     known = _ancestor_known_configs(pools)
     monitor = OpenSetMonitor(pools, seed=seed, confidence=confidence, method=method)
     monitor.fit_initial(healthy=HEALTHY)
@@ -195,7 +195,7 @@ def main() -> None:
     methods = tuple(args.methods.split(","))
 
     log, paths = setup_run("exp11_ancestor_comparison")
-    log.info(f"實驗十一：Ancestor 對照（seeds={seeds}, methods={methods}）")
+    log.info(f"實驗十一：原始論文對照（seeds={seeds}, methods={methods}）")
     result = run(args.data_root, seeds, args.confidence, methods)
     save_json(paths.output_dir / "summary.json", result)
 
