@@ -28,12 +28,13 @@ import time
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
-from experiments.exp12_confusion_tsne import summarize_matrices
+from experiments.exp12_confusion_tsne import data_role_counts, summarize_matrices, visualization_counts
 from web.experiments import CATALOG
 
 MAX_EVENTS = 12
 MAX_REFERENCE = 40
 RESULT_BUDGET = 6000          # 結果摘要字數上限（模型 context 32k，另有手冊與對話）
+ANSWER_SCHEMA = "exp12_standard_answer_v2"
 RESULTS_ROOT = Path("output/web_server")
 _SPEC = {e["id"]: e for e in CATALOG}
 _SEQ = itertools.count(1)     # 紀錄先後順序：同一編號有多張卡（6-1／6-2）時取最近的
@@ -129,15 +130,16 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
 
 def _rate_text(rate: dict) -> str:
     n, d, p = rate["numerator"], rate["denominator"], rate["percent"]
-    return f"{n}／{d}＝{p:.2f}%" if p is not None else f"不適用（分子={n}，分母={d}）"
+    return f"{n}／{d}＝{p:.2f}%" if p is not None else f"不適用（分子={_fmt(n)}，分母={_fmt(d)}）"
 
 
-def _exp12_summary(result, budget: int, source: dict | None) -> str:
+def _exp12_answer(result, budget: int, source: dict | None) -> dict:
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
         raise ValueError("摘要預算必須為正整數")
     identity = "來源識別：" + json.dumps(source or {"exp_id": "exp12", "source": "未提供，不能當完整執行證據"},
                                      ensure_ascii=False, sort_keys=True)
-    lines = ["【程式核算：exp12 原始計數，事後評估；非模型生成】", identity]
+    lines = ["【結果摘要由程式依矩陣產生】", "【程式核算：exp12 原始計數，事後評估；非模型生成】", identity]
+    status = "complete"
     try:
         params = (source or {}).get("params") or {}
         if isinstance(result, dict) and any(k in params and k in result and params[k] != result[k]
@@ -145,10 +147,19 @@ def _exp12_summary(result, budget: int, source: dict | None) -> str:
             raise ValueError("執行參數與結果設定不一致，需核對來源")
         facts = summarize_matrices(result)
     except ValueError as exc:
+        status = "invalid"
         lines.append(f"【矩陣核算失敗】{exc}；不提供推測數字。")
     else:
         settings = {k: result[k] for k in ("seed", "confidence", "perplexity", "n_datasets") if k in result}
         lines.append("結果設定：" + json.dumps(settings, ensure_ascii=False, sort_keys=True))
+        missing = []
+        if "binary" not in facts:
+            missing.append("缺少二元矩陣，無法核算健康誤報與故障漏判")
+        if not facts["openset"]:
+            missing.append("缺少多類開集矩陣，無法核算已知分類與未知拒絕")
+        if missing:
+            status = "incomplete"
+            lines.append("【資料不完整】" + "；".join(missing) + "。以下僅呈現已有矩陣，不代表完整實驗結果。")
         if "binary" in facts:
             f = facts["binary"]
             b = f["binary"]
@@ -164,12 +175,29 @@ def _exp12_summary(result, budget: int, source: dict | None) -> str:
                       f"unknown→known 未拒 {o['unknown_accepted']}；未知召回 {_rate_text(o['unknown_recall'])}。",
                       "逐真值類支持／對角正確：" + "；".join(
                           f"{label}={v['support']}／{v['correct']}" for label, v in f["per_class"].items())]
+            for label in o["known_labels"]:
+                v = f["per_class"][label]
+                name = label + ("（健康）" if label == "8screws" else "")
+                lines.append(f"{name}：支持 {v['support']}、判對 {v['correct']}、誤拒 {v['rejected']}、"
+                             f"錯分其他已知 {v['misclassified']}；判對率 {_rate_text(v['recall'])}。")
             if not o["unknown_present"]:
                 lines.append("缺 unknown 標籤；未知與誤拒指標不適用，不能推定未知完全判對。")
-        lines += ["二元只學健康；多類 A 協定是健康＋四種已知故障配置，兩者分母不可互換。",
+        lines += ["二元只學健康；多類 A 協定的目標是健康＋四種已知故障配置，實際標籤如上；已知判對率包含健康，不是純故障正確率。缺類不代表完整coverage，兩者分母不可互換。",
                   "unknown→unknown 是正確拒絕，沒有辨識具體未知配置身分；已知總數不等於誤拒數。",
+                  "故障漏判為健康、健康誤報、已知誤拒與未知未拒是不同指標；未知全拒不代表整個系統沒有誤報。",
                   "此批按工況評估不證明未見馬達泛化或部署可靠；t-SNE 可含擬合資料，只供事後觀察。"
                   "誤拒率不能單獨證明邊界過嚴，不使用同一 test 調門檻。"]
+        lines += ["本次為批次實驗：模型產生預測，再以事後真值計算指標；不是沒有模型判斷。",
+                  "t-SNE 現行預設每工況每配置最多抽200筆，十配置完整時每工況最多2000筆，並非全部工況合計2000筆；上限不等於當次實際數量。",
+                  "顏色表示真實配置；三角形表示模型判為unknown，包含已知誤拒及未知正確拒絕；圓點為已知判對；叉為錯誤接受，包含未知被判為已知。各工況分別fit，群距無物理損傷意義。"]
+        vis = visualization_counts(result)
+        lines.append("當次t-SNE抽樣：" + ("；".join(f"{k}={n}筆" for k, n in vis["datasets"].items())
+                     + f"；合計{vis['total']}筆。" if vis["status"] == "VERIFIED" else
+                     "實際數量未知／無法核對，未用2000或矩陣樣本數代替。"))
+        roles = data_role_counts(313)
+        lines.append(f"資料角色示例（T1／8000rpm，非全工況固定量）：健康池{roles['pool']}筆，"
+                     f"train擬合{roles['train']}／cal校準{roles['cal']}／holdout測試{roles['holdout']}，"
+                     "不是整池皆用來訓練；其他工況須另查來源。")
         if "legacy" in facts["openset"]:
             lines.append("legacy 的 -1 標籤介面限制須核對來源程式版本，本紀錄未提供可核驗版本，不能僅憑全 unknown 確認原因；"
                          "unknown 對角仍是判對，不支持原方法完全失效。")
@@ -178,26 +206,28 @@ def _exp12_summary(result, budget: int, source: dict | None) -> str:
         fallback = "【摘要不完整】exp12 的來源、分母與限制無法完整容納；請讀原存檔，不據此推算。"
         with_source = identity + "\n" + fallback
         if len(with_source) <= budget:
-            return with_source
-        return fallback if len(fallback) <= budget else ("不完整" if budget >= 3 else "略")
-    if any("【矩陣核算失敗】" in line for line in lines):
-        return protected
+            return {"schema_version": ANSWER_SCHEMA, "status": "incomplete", "text": with_source}
+        text = fallback if len(fallback) <= budget else ("不完整" if budget >= 3 else "略")
+        return {"schema_version": ANSWER_SCHEMA, "status": "incomplete", "text": text}
+    if status == "invalid":
+        return {"schema_version": ANSWER_SCHEMA, "status": status, "text": protected}
     tables = []
     for key in ("binary_confusion", "openset_confusion"):
         if key in result:
             _render(key, result[key], 0, tables)
     suffix = "\n\n原始矩陣（每一橫列 row＝真值，每一直欄 column＝預測）：\n" + "\n".join(tables)
     if len(protected + suffix) <= budget:
-        return protected + suffix
+        return {"schema_version": ANSWER_SCHEMA, "status": status, "text": protected + suffix}
     omitted = "\n原始矩陣表因預算略去；上述來源、核算與限制完整保留。"
-    return protected + omitted if len(protected + omitted) <= budget else protected
+    text = protected + omitted if len(protected + omitted) <= budget else protected
+    return {"schema_version": ANSWER_SCHEMA, "status": status, "text": text}
 
 
 def summarize_result(result, budget: int = RESULT_BUDGET, *, exp_id: str | None = None,
                      source: dict | None = None) -> str:
     """實驗結果轉成模型讀得完的文字：去掉畫圖座標與模型細節，矩陣轉表格，長清單截斷。"""
     if exp_id == "exp12":
-        return _exp12_summary(result, budget, source)
+        return _exp12_answer(result, budget, source)["text"]
     out: list[str] = []
     _render("", result, 0, out)
     text = "\n".join(line for line in out if line.strip())
@@ -230,9 +260,12 @@ def _fill_result(st: dict, payload: dict) -> None:
                     if payload.get(k) is not None}
     source = {"exp_id": st["exp_id"], "mode": st["mode"], "status": st["status"],
               "started_at": st["started_at"], "params": st["params"], **st["result"]}
-    st["result_text"] = summarize_result(payload.get("result"), exp_id=st["exp_id"], source=source)
     if st["exp_id"] == "exp12":
+        st["matrix_answer"] = _exp12_answer(payload.get("result"), RESULT_BUDGET, source)
+        st["result_text"] = st["matrix_answer"]["text"]
         st["fact_text"] = st["result_text"]
+    else:
+        st["result_text"] = summarize_result(payload.get("result"))
 
 
 class PlaybackTracker:
@@ -275,23 +308,67 @@ class PlaybackTracker:
         pattern = f"*/experiments/{exp_id}_2*.json" if exp_id else "*/experiments/*_2*.json"
         files = sorted(self.results_root.glob(pattern), key=_saved_order)
         for path in reversed(files):
-            try:
-                raw = path.read_bytes()
-                payload = json.loads(raw)
-            except (OSError, ValueError):
-                continue
-            match = _SAVED_NAME.fullmatch(path.name)
-            if not match or not isinstance(payload, dict) or not isinstance(payload.get("params", {}), dict):
-                continue
-            exp = match[1]
-            if (exp_id and exp != exp_id) or payload.get("experiment", exp) != exp:
-                continue
-            st = _base(exp, "saved")
-            _split_params(st, payload.get("params") or {})
-            st["started_at"] = st["updated_at"] = payload.get("finished_at") or "—"
-            _fill_result(st, {**payload, "saved": str(path), "saved_sha256": hashlib.sha256(raw).hexdigest()})
-            return st
+            rec = self._read_saved(path, exp_id)
+            if rec is not None:
+                return rec
         return None
+
+    def _read_saved(self, path: Path, exp_id: str | None) -> dict | None:
+        try:
+            relative = path.absolute().relative_to(self.results_root.absolute())
+            if len(relative.parts) != 3 or relative.parts[1] != "experiments":
+                return None
+            for parent in (path, *path.parents):
+                if parent == self.results_root.absolute() or parent == self.results_root:
+                    break
+                if parent.is_symlink():
+                    return None
+            path.resolve().relative_to(self.results_root.resolve())
+            match = _SAVED_NAME.fullmatch(path.name)
+            if not match or (exp_id and match[1] != exp_id):
+                return None
+            raw = path.read_bytes()
+            payload = json.loads(raw)
+            if not isinstance(payload, dict) or not isinstance(payload.get("params", {}), dict):
+                return None
+            exp = match[1]
+            if payload.get("experiment", exp) != exp:
+                return None
+        except (OSError, ValueError):
+            return None
+        st = _base(exp, "saved")
+        _split_params(st, payload.get("params") or {})
+        st["started_at"] = st["updated_at"] = payload.get("finished_at") or "—"
+        _fill_result(st, {**payload, "saved": str(path), "saved_sha256": hashlib.sha256(raw).hexdigest()})
+        return st
+
+    def load_saved_record(self, reference: str, exp_id: str = "exp12") -> dict:
+        """只定位指定原檔；不得以較新的另一筆取代，也不讀允許根目錄外的檔案。"""
+        if not isinstance(reference, str) or not reference or len(reference) > 600:
+            raise ValueError("存檔識別必須為有效字串")
+        ref = reference.replace("\\", "/")
+        if any(c in ref for c in ("\x00", "%", "?", "#")) or ".." in ref.split("/"):
+            raise ValueError("拒絕不合法的存檔路徑")
+        if ref.startswith("output/web_server/"):
+            ref = ref[len("output/web_server/"):]
+        candidate = Path(ref)
+        if len(candidate.parts) == 1:
+            match = _SAVED_NAME.fullmatch(candidate.name)
+            if not match or match[1] != exp_id:
+                raise ValueError("存檔名稱與實驗不一致")
+            candidates = list(self.results_root.glob(f"*/experiments/{candidate.name}"))
+            if len(candidates) != 1:
+                raise ValueError("指定存檔不存在或同名多筆；請提供完整保存路徑")
+            candidate = candidates[0]
+        elif not candidate.is_absolute():
+            if re.match(r"^[A-Za-z]:", ref):
+                raise ValueError("拒絕非本機允許根目錄的路徑")
+            if self.results_root.is_absolute() or not candidate.is_relative_to(self.results_root):
+                candidate = self.results_root / candidate
+        rec = self._read_saved(candidate, exp_id)
+        if rec is None:
+            raise ValueError("無法核驗指定存檔的路徑、內容或實驗身分；未改取最新紀錄")
+        return rec
 
     def finish(self, status: str, error: str | None = None) -> None:
         """串流結束時呼叫；已經 done／error 的不覆蓋（被瀏覽器中斷才記 stopped）。"""

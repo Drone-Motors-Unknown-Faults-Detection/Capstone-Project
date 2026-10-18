@@ -62,6 +62,13 @@ def summarize_confusion(labels, matrix, *, task: str, value_kind: str,
     wrong = sum(counts[i][j] for i in known for j in known if i != j)
     unknown_total = support[u] if u is not None else None
     unknown_correct = counts[u][u] if u is not None else None
+    for i in known:
+        rejected_i = counts[i][u] if u is not None else None
+        result["per_class"][labels[i]].update(
+            rejected=rejected_i,
+            misclassified=sum(counts[i][j] for j in known if j != i),
+            rejection_rate=_ratio(rejected_i, support[i]),
+        )
     result["openset"] = {
         "unknown_label": unknown_label, "unknown_present": u is not None,
         "known_labels": [labels[i] for i in known], "known_total": known_total,

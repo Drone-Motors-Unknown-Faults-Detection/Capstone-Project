@@ -42,10 +42,11 @@ from loguru import logger
 from core.data import discover_datasets
 from core.logger import setup_run
 from core.runner import add_openset_args
+from core.runtime_environment import collect_environment
 from web.assistant import Assistant, latest_record, record_label
 from web.experiments import ExperimentRunner
 from web.live import LiveDemo
-from web.playback import PlaybackTracker
+from web.playback import ANSWER_SCHEMA, PlaybackTracker
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -342,7 +343,9 @@ ASSISTANT: Assistant | None = None
 
 class AssistantStatusHandler(_JSONHandler):
     async def get(self) -> None:
-        self.reply(await ASSISTANT.status())
+        git = collect_environment(Path(__file__).resolve().parents[2])["git"]
+        self.reply({**await ASSISTANT.status(), "app": {
+            "git_head": git["head"], "tracked_dirty": git["tracked_dirty"], "answer_schema": ANSWER_SCHEMA}})
 
 
 class AssistantAskHandler(tornado.web.RequestHandler):
@@ -350,9 +353,12 @@ class AssistantAskHandler(tornado.web.RequestHandler):
 
     def initialize(self) -> None:
         self.closed = False
+        self.assistant_task = None
 
     def on_connection_close(self) -> None:
         self.closed = True
+        if self.assistant_task is not None and not self.assistant_task.done():
+            self.assistant_task.cancel()
 
     async def send(self, frame: dict) -> None:
         self.write(f"data: {json.dumps(frame, ensure_ascii=False)}\n\n")
@@ -365,20 +371,31 @@ class AssistantAskHandler(tornado.web.RequestHandler):
             body = json.loads(self.request.body or b"{}")
             question = body.get("question") if isinstance(body, dict) else None
             history = body.get("history", []) if isinstance(body, dict) else []
-            if not isinstance(question, str) or not question.strip() or not isinstance(history, list):
+            context = body.get("context") if isinstance(body, dict) else None
+            if (not isinstance(question, str) or not question.strip() or not isinstance(history, list)
+                    or (context is not None and not isinstance(context, dict))):
                 raise ValueError
         except (json.JSONDecodeError, ValueError):
             await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
             return
         snap = PLAYBACK.snapshot()
         logger.info(f"AI 問答（{record_label(latest_record(snap))}）：{question.strip()[:80]}")
+        self.assistant_task = asyncio.current_task()
         try:
-            async for frame in ASSISTANT.ask(snap, question.strip(), history, load_saved=PLAYBACK.load_saved):
+            as_of = record_label(latest_record(snap))
+            async for frame in ASSISTANT.ask(snap, question.strip(), history, load_saved=PLAYBACK.load_saved,
+                                             context=context, load_selected=PLAYBACK.load_saved_record):
                 if self.closed:
                     logger.info("AI 問答被瀏覽器中斷")
                     return
+                if frame.get("event") == "mode" and frame.get("sources"):
+                    as_of = frame["sources"][0]
                 await self.send(frame)
-            await self.send({"event": "done", "as_of": record_label(latest_record(snap))})
+                if frame.get("event") == "error":
+                    return
+            await self.send({"event": "done", "as_of": as_of})
+        except asyncio.CancelledError:
+            logger.info("AI 問答已取消，停止本輪模型與工具查詢")
         except tornado.iostream.StreamClosedError:
             logger.info("AI 問答連線已關閉")
         except Exception as exc:  # 模型離線或回應異常時回報，不讓伺服器死掉
@@ -388,6 +405,8 @@ class AssistantAskHandler(tornado.web.RequestHandler):
                                  "error": f"本地模型呼叫失敗（{ASSISTANT.base_url}）：{exc!r}"})
             except tornado.iostream.StreamClosedError:
                 pass
+        finally:
+            self.assistant_task = None
 
 
 class WSHandler(tornado.websocket.WebSocketHandler):

@@ -6,6 +6,12 @@ SOURCE = ("https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Pro
           "3aa554f73932de3545ae6a69ac37113575477e11/"
           "output/exp12_confusion_tsne/2026-10-09-14-27-55/summary.json")
 
+# 錯答片段與網站原檔識別；此fixture的矩陣取自上列歷史版本，原檔須另核對SHA。
+REPORTED_RECORD = "output/web_server/2026-10-18-07-06-40/experiments/exp12_2026-10-18-07-44-24.json"
+REPORTED_WRONG_ANSWER = ("legacy 模型完全失效 各已知配置正確率接近100% 每類46～47筆被誤判unknown "
+                         "unknown無誤報 圖和數字支持可靠故障分類 "
+                         "output/exp12_confusion_tsne/2026-10-18-07-44-24")
+
 
 def historical_result() -> dict:
     labels = ["8screws", "1screw", "2screws", "3screws", "4screws", "unknown"]

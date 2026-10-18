@@ -3,9 +3,12 @@ const vm = require('node:vm'), fs = require('node:fs'), assert = require('node:a
 
 class El {
   constructor(tag = 'div') {
+    this.htmlWrites = [];
     Object.assign(this, {tag, children: [], style: {}, dataset: {}, listeners: {}, attrs: {}, hidden: false,
       textContent: '', innerHTML: '', className: '', value: '', disabled: false, scrollHeight: 40, scrollTop: 0});
   }
+  set innerHTML(value) { this._html = value; this.htmlWrites.push(value); }
+  get innerHTML() { return this._html; }
   addEventListener(t, f) { (this.listeners[t] = this.listeners[t] || []).push(f); }
   removeEventListener(t, f) { this.listeners[t] = (this.listeners[t] || []).filter(x => x !== f); }
   fire(t, ev = {}) {
@@ -34,6 +37,7 @@ const requests = [], intervals = [];
 const enc = new TextEncoder();
 const sse = frames => frames.map(f => enc.encode(`data: ${JSON.stringify(f)}\n\n`));
 let replies = [];
+const acceptedFrames = process.argv[4] === '--frames' ? JSON.parse(fs.readFileSync(0, 'utf8')) : null;
 
 const document = {
   hidden: false, body: {style: {}}, listeners: {},
@@ -180,5 +184,70 @@ const tick = () => new Promise(r => setImmediate(r));
   const nextHistory = JSON.parse(next[1].body).history;
   assert.equal(nextHistory.at(-1).content, '模型文字不取代程式核算');
   assert.ok(!JSON.stringify(nextHistory).includes('【程式核算】'));
+
+  // 結果模式只顯示具matrix來源的正文；錯誤自由delta在任何中間畫面都不能閃出。
+  const matrixContext = {experiment: 'exp12', mode: 'result', saved: 'output/web_server/session/experiments/exp12_2026-01-01-00-00-00.json'};
+  replies.push(sse([
+    {event: 'mode', mode: 'matrix_summary', context: matrixContext, sources: ['指定結果來源']},
+    {event: 'delta', text: 'legacy模型完全失效，接近100%，每類46～47，unknown無誤報'},
+    {event: 'facts', text: '不應重複顯示的核算框'},
+    {event: 'delta', origin: 'matrix', text: '結果摘要由程式依矩陣產生：2736／2938＝93.12% <script>不執行</script>'},
+    {event: 'done'},
+  ]));
+  el('aiInput').value = '總結實驗十二';
+  el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  const primary = el('aiLog').children.at(-1).children[1];
+  assert.equal(primary.attrs['data-response-mode'], 'matrix_summary');
+  assert.ok(primary.children[1].innerHTML.includes('2736／2938＝93.12%'));
+  assert.ok(primary.children[1].innerHTML.includes('&lt;script&gt;'));
+  assert.ok(primary.children[1].htmlWrites.every(value => !/完全失效|接近100%|46～47|unknown無誤報/.test(value)));
+  assert.ok(!primary.children.some(c => c.className === 'ai-facts'));
+  assert.equal(primary.children.at(-1).textContent, '📎 依據：指定結果來源');
+  replies.push(sse([
+    {event: 'mode', mode: 'matrix_summary', context: matrixContext, sources: ['指定結果來源']},
+    {event: 'done'},
+  ]));
+  el('aiInput').value = '那是不是都誤拒';
+  el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  const follow = JSON.parse(requests.filter(r => r[0] === '/api/assistant/ask').at(-1)[1].body);
+  assert.deepEqual(follow.context, matrixContext);
+  assert.ok(!JSON.stringify(follow.history).includes('2736／2938'));
+  assert.ok(!JSON.stringify(follow.history).includes('完全失效'));
+  assert.equal(el('aiLog').children.at(-1).children[1].children[1].textContent, '（程式未提供可用摘要）');
+  // 有限降級不冒充模型文字，按鈕恢復後仍能繼續提問。
+  replies.push(sse([
+    {event: 'mode', mode: 'verified_fallback', status: 'incomplete', sources: ['已確認來源']},
+    {event: 'delta', text: '不應顯示的自由文字'},
+    {event: 'delta', text: '查詢已達上限，以下只保留已確認資料。', origin: 'fallback'},
+    {event: 'done'}
+  ]));
+  el('aiInput').value = '綜合方法問題'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 8; k++) await tick();
+  const limited = el('aiLog').children.at(-1).children[1];
+  assert.equal(limited.attrs['data-response-mode'], 'verified_fallback');
+  assert.ok(limited.children[1].innerHTML.includes('查詢已達上限'));
+  assert.ok(limited.children[1].htmlWrites.every(x => !x.includes('不應顯示的自由文字')));
+  assert.equal(el('aiSend').disabled, false);
+  replies.push(sse([{event: 'delta', text: '下一輪可用'}, {event: 'done'}]));
+  el('aiInput').value = '下一輪'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 8; k++) await tick();
+  assert.ok(!JSON.stringify(JSON.parse(requests.filter(r => r[0] === '/api/assistant/ask').at(-1)[1].body).history).includes('查詢已達上限'));
+  if (acceptedFrames) {
+    // 直接消費正式HTTP handler產生的SSE，不以手寫正確答案替代資料鏈。
+    replies.push(sse(acceptedFrames));
+    el('aiInput').value = '實驗十二結果';
+    el('aiForm').requestSubmit();
+    for (let k = 0; k < 10; k++) await tick();
+    const actual = el('aiLog').children.at(-1).children[1];
+    assert.equal(actual.attrs['data-response-mode'], 'matrix_summary');
+    assert.ok(actual.children[1].innerHTML.includes('2736／2938＝93.12%'));
+    assert.ok(actual.children[1].innerHTML.includes('202／2938＝6.88%'));
+    assert.ok(actual.children[1].htmlWrites.every(value => !/legacy 模型完全失效|接近100%|46～47|unknown無誤報/.test(value)));
+    assert.ok(!actual.children.some(c => c.className === 'ai-facts'));
+    assert.ok(actual.children.at(-1).textContent.includes(acceptedFrames[0].sources[0]));
+    console.log('HTTP to frontend primary OK');
+  }
   console.log('ai chat frontend OK');
 })().catch(err => { console.error(err); process.exit(1); });
