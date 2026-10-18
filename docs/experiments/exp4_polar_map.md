@@ -26,7 +26,7 @@
 
 ## 資料與建立順序
 
-使用一個馬達／RPM的105維clean特徵。每列意義、非有限值移除、未去重、單位與raw視窗來源限制見[實驗一](exp1_cold_start.md#資料與載入)。T1／T2／T3是不同個體，不能串成生命週期。
+使用一個馬達／RPM的105維clean特徵。只接受已登錄 ordered 105 欄；非有限值整檔拒絕，不刪列。未去重、單位與 raw window 來源限制見[實驗一](exp1_cold_start.md#資料與載入)。T1／T2／T3是不同個體，不能串成生命週期。
 
 [exp4](../../src/experiments/exp4_polar_map.py)依各部分的known清單建立OpenSetMonitor：healthy先列洗牌60/20/20，再逐一加入known配置並重新fit。seed預設42；RobustScaler只fit當次所有known train；所有known的cal用來校準LW距離。unknown不參與這些fit。顯示PCA不取代105維判定。
 
