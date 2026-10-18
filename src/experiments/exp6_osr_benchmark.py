@@ -3,12 +3,13 @@
 問題：主線採用的「逐類 Ledoit–Wolf 馬氏距離」在健康-only 冷啟動設定下，
 相對其他常見單類/異常偵測方法是不是合理選擇？
 
-方法（core/detectors.py，全部 sklearn、統一校準哲學）：
+方法（core/detectors.py，全部 sklearn；除 maha_legacy 外皆在校準集定閾值）：
     maha_ledoit_wolf（主線）、maha_legacy（論文版對照）、ocsvm、
     iforest、lof、knn_dist、pca_recon、mlp_autoencoder
 
-流程：對 9 組資料集各自——健康池 60/20/20 切訓練/校準/保留 →
-各方法在訓練集擬合、校準集定閾值（第 95 百分位 = 正規化 1.0）→
+流程：對 discover_datasets 找到的所有工況各自——健康池 60/20/20 切訓練/校準/保留 →
+各方法在訓練集擬合、校準集定閾值（--confidence 分位，預設 0.95 = 正規化 1.0；
+maha_legacy 依論文版改在訓練集自身定閾值）→
 以健康保留集（誤報）與全部故障池（偵測）評估 → 跨資料集平均 ± 標準差。
 
 指標：AUROC、FPR@TPR95、健康誤報率、故障偵測率。

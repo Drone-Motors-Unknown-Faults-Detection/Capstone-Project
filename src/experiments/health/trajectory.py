@@ -184,10 +184,10 @@ class SessionTrajectoryMonitor:
             "warning" if smoothed < self.config.warning_enter else "normal"
         )
         if state.alarm_state == "critical":
-            # Critical alarms clear in two stages: persistent recovery above
-            # critical_clear first downgrades to warning, then warning_clear
-            # clears the warning.  This prevents a single healthy spike from
-            # hiding an active critical episode.
+            # A critical alarm clears only after clear_persistence consecutive
+            # windows at or above critical_clear; it then drops to normal if the
+            # smoothed index is also at or above warning_clear, otherwise to
+            # warning.  A single healthy spike cannot hide a critical episode.
             if smoothed >= self.config.critical_clear:
                 state.clear_streak += 1
                 if state.clear_streak >= self.config.clear_persistence:

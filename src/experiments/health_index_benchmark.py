@@ -185,7 +185,6 @@ def run(
 
 
 def _dataset_fingerprint(data_path: Path) -> str:
-    # Import lazily so this module can still be used with a small smoke root.
     from experiments.exp6_formal_benchmark import dataset_fingerprint
 
     return dataset_fingerprint(data_path)

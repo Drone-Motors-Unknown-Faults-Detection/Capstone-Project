@@ -1,7 +1,7 @@
 """實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 自行納入。
 
 ScaleGrowthSession 是核心狀態機（首頁即時展示由操作員呼叫 confirm()）：
-    1. 每筆樣本以 OpenSetMonitor 打分；判為未知者進隔離區
+    1. 每筆樣本以 OpenSetMonitor 打分；判為未知且分數 > quarantine_margin 者進隔離區
     2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
     3. adopt() 不請操作員指出故障程度：只用這一群已到達樣本切分並重擬合，
        類名是 discovered-N。真實配置只留在事後對照，不進模型。

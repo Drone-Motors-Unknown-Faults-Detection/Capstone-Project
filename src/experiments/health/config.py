@@ -1,4 +1,8 @@
-"""Explicit configuration for health output and future stream monitoring."""
+"""Validated configuration contract for health output and stream monitoring.
+
+Only re-exported by ``experiments.health`` and exercised by tests; no runtime
+path reads ``HealthMonitorConfig`` yet.
+"""
 
 from __future__ import annotations
 

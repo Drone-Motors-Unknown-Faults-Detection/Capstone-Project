@@ -101,7 +101,12 @@ def _same_value(left: object, right: object) -> bool:
 
 
 def validate_run(run_dir: Path, expected: dict, fingerprint: str | None = None) -> list[str]:
-    """依完成判定規範核對單格，回傳全部不符原因；空清單代表完成。
+    """核對單格產物，回傳全部不符原因；空清單代表完成。
+
+    檢查項目：summary.json 可讀、status=completed、method/seed 相符、有
+    dataset_fingerprint 且（給定時）相同、恰一列且該列 status/motor/rpm/method/seed
+    相符；results.csv 恰一列、含全部身分與指標欄且與 summary 列一致；run.log
+    含 status=completed、seed=、method= 與（給定時）condition= 行。
 
     ``expected`` 需含 method、seed，可含 motor、rpm、condition。
     ``fingerprint`` 給定時 summary 的 dataset_fingerprint 必須相同。

@@ -1,13 +1,14 @@
 """實驗一：冷啟動偵測能力（Cold-start Unknown Detection）。
 
-只用 8screws（Healthy）建立健康基準——Mahalanobis–Taguchi 式的單類監測
-（逐類 Ledoit–Wolf 收縮共變異數，校準集第 95 百分位當閾值）——
+只用 8screws（Healthy）建立健康基準——預設為 Mahalanobis–Taguchi 式的單類監測
+（逐類 Ledoit–Wolf 收縮共變異數，校準集 --confidence 分位（預設 0.95）當閾值；
+--openset-method / --method 可改用其他 detector 或共變異數估計）——
 然後量測：每種故障配置被偵測為未知的比例、健康保留集的誤報率、AUROC。
 
 批次執行（產出論文數據）：
     venv/bin/python -m experiments.exp1_cold_start --motor T1 --rpm 8000rpm
 
-Web 介面經由同一個 OpenSetMonitor（階段 0）呼叫相同邏輯。
+Web 實驗頁（web/experiments.py）直接呼叫本模組的 run() / iter_run()。
 """
 
 from __future__ import annotations

@@ -37,8 +37,8 @@ def _bounded(value: float, name: str) -> float:
 class HealthMonitoringResult:
     """One-window or one-update health result.
 
-    ``is_fault`` is intentionally retained as a boolean so callers can emit
-    the historical ``0/1`` representation without losing the richer fields.
+    ``is_fault`` is a boolean; ``to_dict(mode="binary")`` outputs only
+    ``{"is_fault": 0|1}`` while the other modes keep the richer fields.
     ``estimated_rul`` stays ``None`` by default because the current formal data
     has no motor-level run-to-failure endpoint.
     """
@@ -109,9 +109,9 @@ class HealthMonitoringResult:
     def to_dict(self, mode: str = "full") -> dict:
         """Serialize as ``binary``, ``health`` or ``full`` output.
 
-        ``binary`` intentionally contains exactly the backwards-compatible
-        field.  ``health`` contains the monitoring contract but not optional
-        diagnosis/RUL detail; ``full`` contains every schema field.
+        ``binary`` outputs only ``{"is_fault": 0|1}``.  ``health`` contains the
+        monitoring contract but not optional diagnosis/RUL detail; ``full``
+        contains every schema field.
         """
         if mode not in {"binary", "health", "full"}:
             raise ValueError("mode must be binary, health or full")
