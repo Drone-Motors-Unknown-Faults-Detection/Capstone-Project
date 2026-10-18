@@ -26,7 +26,7 @@
 
 ## 資料與模型何時建立
 
-來源是現有105維clean CSV，loader／每列／單位／非有限列過濾與未去重限制見[實驗一](exp1_cold_start.md#資料與載入)。data_contract逐檔算位元組SHA，列各有限值池筆數；每池不足10筆拒絕。資料索引是concat後有限值列，不是raw-window ID；raw_session_independence=UNKNOWN、fresh_final=INCOMPLETE。九工況是motor×RPM，不是九種故障機制，三motor不能串成生命週期。
+來源是現有105維clean CSV。非有限值整批拒絕、不刪列；單位與未去重見[實驗一](exp1_cold_start.md#資料與載入)。data_contract逐檔算位元組SHA，列各有限值池筆數；每池不足10筆拒絕。資料索引是concat後有限值列，不是raw-window ID；raw_session_independence=UNKNOWN、fresh_final=INCOMPLETE。九工況是motor×RPM，不是九種故障機制，三motor不能串成生命週期。
 
 「確認所選資料」只讀規則，**不fit**；「建立健康基準」才建立LiveDemo並再次比對來源規則，初始只有healthy列洗牌60/20/20，seed42。train fit RobustScaler、LW中心／共變異數（或k-NN train庫）與顯示PCA，cal定0.95距離線。CLI method可改，legacy仍有train定線例外。unknown不fit，CycleSampler重播不代表新採集。
 
