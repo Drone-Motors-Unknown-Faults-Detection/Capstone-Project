@@ -3,7 +3,7 @@
 目前支援兩個原理不同的方法：
 
 ``mahalanobis``
-    保留既有 :class:`core.mahalanobis.MahalanobisOpenSetDetector`。逐類估計
+    使用 :class:`core.mahalanobis.MahalanobisOpenSetDetector`。逐類估計
     共變異數，以校準距離分位數正規化；分數大於 1 判為未知。
 
 ``knn``

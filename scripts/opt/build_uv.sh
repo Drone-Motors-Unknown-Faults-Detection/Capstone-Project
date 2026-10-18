@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# 保留歷史入口名稱；環境管理工具固定為 uv，完整依賴樹由 uv.lock 鎖定，不刪除既有環境。
+# 環境管理工具固定為 uv，完整依賴樹由 uv.lock 鎖定，不刪除既有環境。
 cd -- "$(dirname -- "$0")/../.."
 PYTHON_BIN="python3.10"
 VENV_DIR="venv"
