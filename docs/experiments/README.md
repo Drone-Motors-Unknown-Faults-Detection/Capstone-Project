@@ -155,6 +155,8 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 可信結果的mode／origin與來源識別必須一致，才可使用可選presentation。舊客戶端仍讀可讀Markdown；無presentation或資料非法不換來源。前端以DOM建立details／summary與表格，模型HTML不經這條路徑。完整回覆後一次呈現詳情，工具進度不串長箭頭，依據逐項列出。HTTP環境複製失敗時顯示可選取的完整文字，不假稱已複製。這些是排版與操作契約，不新增實驗編號、改模型或改資料。
 
+`python -m tests.assistant_presentation_evidence --help`為8787專用呈現驗收入口，唯讀指定新／舊JSON，核對OCI版本、實際程式／前端雜湊、六次決定論問答與實際SSE→JS；不重跑t-SNE或其他研究。另加`--method-probe`才執行一次有界一般方法問答。經`setup_run()`寫入`logs/assistant_presentation_evidence/`及`output/assistant_presentation_evidence/`，保留失敗，不把HTTP／Node結果當作瀏覽器畫面驗收。
+
 ### 執行紀錄的起訖與耗時
 
 `src/web/experiments.py`在參數驗證完成、worker進入實驗執行邊界時擷取一次`started_at`；完成結果轉換後擷取`finished_at`。新時間為UTC、ISO 8601毫秒格式，含`+00:00`。`seconds`由`time.perf_counter()`量測並四捨五入至兩位，不以系統時鐘相減；排除參數驗證、worker排隊、存檔及HTTP傳輸。批次包含資料載入、實驗與JSON可序列化轉換；串流從generator首次執行開始，包含frame轉換、消費端播放節流及等待，屬該次串流經過時間，不是純模型計算時間。`timing_scope`分別為`batch_execution`與`stream_elapsed_including_playback`，`timing_version`為`web_run_timing_v1`。
