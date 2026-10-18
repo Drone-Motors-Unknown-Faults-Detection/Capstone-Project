@@ -65,6 +65,7 @@
     body.innerHTML = '<span class="ai-typing"><span></span><span></span><span></span></span>';  // 等第一個字
     box.append(tools, body);
     let answer = "";
+    let factsBox = null;
     const sources = new Set();   // 工具回傳的依據（程式決定，不經模型轉述）
     try {
       const resp = await fetch("/api/assistant/ask", {
@@ -84,6 +85,16 @@
           const f = JSON.parse(line.slice(6));
           if (f.event === "tool") {
             tools.textContent += (tools.textContent ? " → " : "🔧 ") + f.label;
+            (f.sources || []).forEach(x => sources.add(x));
+          }
+          else if (f.event === "facts") {
+            if (!factsBox) {
+              factsBox = document.createElement("div");
+              factsBox.className = "ai-facts";
+              factsBox.style.whiteSpace = "pre-wrap";
+              box.appendChild(factsBox);
+            }
+            factsBox.textContent = f.text;  // 程式核算獨立顯示，不混入模型文字或下一輪對話歷史
             (f.sources || []).forEach(x => sources.add(x));
           }
           else if (f.event === "delta") { answer += f.text; body.className = "ai-md"; body.innerHTML = renderMarkdown(answer); }

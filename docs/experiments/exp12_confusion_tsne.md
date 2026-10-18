@@ -55,7 +55,29 @@ API run(data_root,seed=42,confidence=0.95,perplexity=30,tsne_max_per_class=200)�
 
 main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_tsne/{ts}/environment.json、summary.json、confusion_matrices.png及tsne_grid.png。summary含labels／matrix原始數字；t-SNE座標**不落地**，只留圖。網格固定3×3，超過九工況時圖片只呈前九格，不能以圖確認完整coverage。
 
-混淆矩陣行是真值、列是預測。healthy→fault是健康誤報；fault→healthy是漏報；known→unknown是過度拒絕；unknown→known是未拒絕。要算每類recall須除該行總數，空行為不適用，不假填100%。全域筆數不能當各motor等權平均。
+每一橫列（row）是真值，每一直欄（column）是預測。healthy→fault是健康誤報；fault→healthy是漏報；known→unknown是誤拒；unknown→known是未拒絕；unknown→unknown是正確拒絕，但沒有辨識具體未知配置身分。全域筆數不能當各motor等權平均。
+
+### 計數核算與 AI 摘要契約
+
+以原始整數計數矩陣 `M`、明確的任務和標籤語意核算，按標籤找 healthy／fault／unknown，不假定 unknown 在最後。橫列和 `sum(M[i, :])` 是該真實類的支持數，對角 `M[i, i]` 是正確數；總量是所有格子的和。
+
+| 指標 | 分子 | 分母 |
+| --- | --- | --- |
+| 二元健康誤報率 | healthy→fault | healthy 真值支持數 |
+| 二元故障召回率 | fault→fault | fault 真值支持數 |
+| 已知判對率 | 所有 known 對角和 | known 真值支持總數 |
+| 已知誤拒率 | 所有 known→unknown | known 真值支持總數 |
+| 已知互相錯分數 | 所有 known→其他 known 的非對角和 | 計數，不用近似百分比代替 |
+| 未知正確拒絕率 | unknown→unknown | unknown 真值支持數 |
+| 未知未拒數 | unknown→任何 known | 計數 |
+
+必須滿足 `known_total = known_correct + known_rejected + known_misclassified`。已知判對率的分母包含被拒樣本，不能換成已接受量；二元與多類屬不同流程，不能互換支持數。分母為零時回傳 null／不適用，不填0%或100%；缺unknown標籤時未知指標為不適用。矩陣須為與唯一labels等長的方陣，值必須為非負整數，布林值、浮點／normalized比例與不合法shape明確拒絕，不能將比例冒充樣本數。僅有整數陣列仍無法證明來源確實是計數，呼叫端須明示 `counts` 語意。
+
+統計純函式放`src/core/confusion_summary.py`；Web只呼叫並呈現。舊保存JSON可唯讀推導，不回寫原檔，也不採信保存的衍生摘要取代原始矩陣。摘要優先保留實驗／存檔來源、設定、分子分母與限制；預算不足則整段標示不完整，不截出缺分母的百分比。`get_run_status`及`get_run_events`提供相同的事後核算，來源文件僅說明方法，不是模型特徵資料來源。AI可以解釋程式核算，不能沿用對話中的錯答或其他實驗的誤報常數。
+
+聊天視窗另顯示「程式核算」純文字區塊：SSE的`facts`來自工具artifact，與模型`delta`分開，也不當成模型回答寫回對話歷史。存檔來源顯示實際讀取路徑、原檔SHA與設定；檔名／實驗ID或參數／結果設定不一致時，不提供可信數值。這保障計數和呈現來源，不保證LLM每句解釋都正確；mock與Node DOM測試也不等於真實模型或瀏覽器驗收。
+
+legacy介面限制必須另核對來源版本：`fit()`固定label=-1、`classify()`將負標籤轉None，再由實驗記unknown。只憑矩陣全部unknown不足以確認該原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
 
 預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [exp12 輸出](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp12_confusion_tsne/2026-10-09-14-27-55)。
 
@@ -64,3 +86,5 @@ main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_t
 van der Maaten與Hinton（2008），*Visualizing Data using t-SNE*，JMLR9,2579–2605，[原文](https://jmlr.org/papers/v9/vandermaaten08a.html)。perplexity30與配置標記是Lineage設定，不是原文對此資料的保證。混淆矩陣為計數工具；LW／legacy來源見[實驗十一](exp11_ancestor_comparison.md#來源與程式碼)。
 
 [exp12](../../src/experiments/exp12_confusion_tsne.py)負責取樣／矩陣／嵌入／writer；[exp11](../../src/experiments/exp11_ancestor_comparison.py)供known協定；[core/monitor](../../src/core/monitor.py)fit與classify；[test_exp12_confusion_tsne](../../src/tests/test_exp12_confusion_tsne.py)檢查形狀／行和／有限嵌入，不能證明視覺推論正確。
+
+計數核算延伸沿用本實驗編號；新增的core純函式及其`src/tests/test_confusion_summary.py`測試不另占新實驗。資料鏈使用`src/web/playback.py`、`src/web/assistant.py`、`src/web/static/ai_chat.js`，對應測試為`src/tests/test_playback.py`、`src/tests/test_assistant.py`、`src/tests/test_ai_chat_frontend.py`及其`ai_chat_frontend.cjs`；不新增人工output報告，驗證證據依`src/tests/pytest_evidence.py`的writer保存。

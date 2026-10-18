@@ -1,0 +1,4 @@
+2026-10-18 14:12:41 | INFO    | Logger initialized: pytest_evidence
+2026-10-18 14:12:41 | INFO    | log_file=logs\pytest_evidence\2026-10-18-14-12-41.log
+2026-10-18 14:12:41 | INFO    | output_dir=output\pytest_evidence\2026-10-18-14-12-41
+2026-10-18 14:15:11 | INFO    | pytest FAILED：{'tests': 911, 'failures': 17, 'errors': 0, 'skipped': 3}

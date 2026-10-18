@@ -154,5 +154,31 @@ const tick = () => new Promise(r => setImmediate(r));
   const errMsg = el('aiLog').children.at(-1).children[1];
   assert.equal(errMsg.className, 'ai-msg error');
   assert.equal(errMsg.children[1].textContent, '本地模型呼叫失敗');
+
+  // 程式核算獨立於模型文字，來源保留，HTML 以純文字處理。
+  replies.push(sse([
+    {event: 'tool', name: 'get_run_status', label: '讀取實驗執行紀錄', sources: ['指定來源/exp12.json']},
+    {event: 'facts', text: '【程式核算】45／572＝7.87% <script>不執行</script>', sources: ['指定來源/exp12.json']},
+    {event: 'delta', text: '模型文字不取代程式核算'},
+    {event: 'done'},
+  ]));
+  el('aiInput').value = '實驗十二';
+  el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  const factMsg = el('aiLog').children.at(-1).children[1];
+  const factBox = factMsg.children.find(c => c.className === 'ai-facts');
+  assert.equal(factBox.textContent, '【程式核算】45／572＝7.87% <script>不執行</script>');
+  assert.equal(factBox.innerHTML, '');
+  assert.equal(factBox.style.whiteSpace, 'pre-wrap');
+  assert.equal(factMsg.children[1].innerHTML, '<p>模型文字不取代程式核算</p>');
+  assert.match(factMsg.children.at(-1).textContent, /指定來源\/exp12.json/);
+  replies.push(sse([{event: 'delta', text: '下一輪'}, {event: 'done'}]));
+  el('aiInput').value = '繼續';
+  el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  const next = requests.filter(r => r[0] === '/api/assistant/ask').at(-1);
+  const nextHistory = JSON.parse(next[1].body).history;
+  assert.equal(nextHistory.at(-1).content, '模型文字不取代程式核算');
+  assert.ok(!JSON.stringify(nextHistory).includes('【程式核算】'));
   console.log('ai chat frontend OK');
 })().catch(err => { console.error(err); process.exit(1); });

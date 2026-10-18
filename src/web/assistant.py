@@ -64,8 +64,15 @@ SYSTEM_PROMPT = """你是無人機馬達冷啟動 PHM 監測系統的值班助�
 6. 系統當下的判定只有「健康／已知／未知」「漸進／突發」與健康指數；未知故障的身分就是未知，
    不要猜是哪種螺絲鬆動。「事後對照」裡的配置名稱是評估用真值，引用時必須明說是事後對照，
    不能說成系統判定。
-7. 單筆偶發未知可能是健康誤報（約 10.9%）；判斷是否異常要一起看 EWMA 與隔離區。
-8. 回答先講結論，再列支撐的內容。"""
+7. 單筆偶發未知可能是健康誤報；判斷是否異常要一起看該次 EWMA 與隔離區。
+   各次實驗的誤報率只能引用該次核算，不能挪用其他實驗的常數。
+8. 實驗十二的數值引用本輪工具的「程式核算」，保留來源、任務、分子／分母；對話歷史可能有錯，
+   不沿用舊答自行重算。核算失敗或摘要不完整時，說明不足，不能猜數字。
+   known 支持總數不等於誤拒數；unknown→unknown 是正確拒絕，但不識別各未知配置。
+   legacy 即使把已知全拒，unknown 對角仍可判對；-1 介面限制須有來源版本證據，不能從圖樣猜原因，
+   不能判定原方法完全失效。此批不能證明跨馬達或部署可靠，也不能由誤拒率確認邊界過嚴，
+   不建議用同一 test 調門檻後宣稱改善。手冊說明方法，模型特徵來自 CSV，不來自手冊。
+9. 回答先講結論，再列支撐的內容。"""
 
 NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系統狀態裡沒有這項資訊；不要自行推測或用一般知識補充。"
 
@@ -100,8 +107,10 @@ def record_label(rec: dict | None) -> str:
     if rec is None:
         return "實驗頁紀錄：無"
     progress = f"，已播 {rec['samples']} 筆" if rec.get("mode") == "stream" else ""
-    return (f"實驗頁紀錄：{record_name(rec)}（{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}），"
-            f"{STATUS_DISPLAY.get(rec['status'], rec['status'])}{progress}，時間 {rec['updated_at']}")
+    label = (f"實驗頁紀錄：{record_name(rec)}（{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}），"
+             f"{STATUS_DISPLAY.get(rec['status'], rec['status'])}{progress}，時間 {rec['updated_at']}")
+    saved = (rec.get("result") or {}).get("saved")
+    return label + (f"，存檔 {saved}" if saved else "")
 
 
 def latest_record(snap: dict | None) -> dict | None:
@@ -184,7 +193,16 @@ def describe_record_events(rec: dict) -> str:
     if truth:
         out.append("【事後對照（由注入配置真值計算，只用於評估；不是系統當下的判定）】")
         out += truth
+    if rec.get("fact_text"):
+        out += ["【已完成結果的程式核算（事後對照，非即時系統判定）】", rec["fact_text"]]
     return "\n".join(out)
+
+
+def _record_artifact(rec: dict, *, events: bool = False):
+    sources = [record_label(rec) + (" › 事件與事後對照" if events else "")]
+    if rec.get("fact_text"):
+        return {"sources": sources, "facts": rec["fact_text"]}
+    return sources
 
 
 # -- 知識庫 ---------------------------------------------------------------------
@@ -314,22 +332,33 @@ def experiment_with_sources(number: str, experiments_dir: Path = EXPERIMENTS_DIR
 
 def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR,
                load_saved=None) -> list:
+    saved_cache = {}
+
+    def frozen_saved(exp_id):
+        if exp_id not in saved_cache:
+            rec = load_saved(exp_id)
+            if rec is not None:
+                rec = saved_cache.setdefault(rec["exp_id"], rec)
+            saved_cache[exp_id] = rec
+        return saved_cache[exp_id]
+
+    saved_reader = frozen_saved if load_saved else None
     # artifact = 依據清單，由程式決定、不經模型轉述，前端顯示成「📎 依據」
     @tool(response_format="content_and_artifact")
-    def get_run_status(number: str = "") -> tuple[str, list[str]]:
+    def get_run_status(number: str = "") -> tuple[str, list[str] | dict]:
         """讀取實驗頁的執行紀錄與結果（「▶ 執行」或「⏵ 邊跑邊畫」）：哪個實驗、參數、狀態、播放進度、最新一筆的系統判定、完整結果摘要（混淆矩陣、偵測率等）。number 填實驗編號，例如「12」「十二」「實驗二」；使用者沒指定實驗時留空，取最近一次。"""
-        rec, missing = pick_record(snap, number, load_saved)
+        rec, missing = pick_record(snap, number, saved_reader)
         if rec is None:
             return missing, [record_label(None)]
-        return describe_record(rec), [record_label(rec)]
+        return describe_record(rec), _record_artifact(rec)
 
     @tool(response_format="content_and_artifact")
-    def get_run_events(number: str = "") -> tuple[str, list[str]]:
+    def get_run_events(number: str = "") -> tuple[str, list[str] | dict]:
         """讀取某次執行或播放的重點事件（候選群、模型自學、變化點警報、嚴重度改變）與事後對照（依注入配置真值算的評估結果）。number 規則同 get_run_status。"""
-        rec, missing = pick_record(snap, number, load_saved)
+        rec, missing = pick_record(snap, number, saved_reader)
         if rec is None:
             return missing, [record_label(None)]
-        return describe_record_events(rec), [record_label(rec) + " › 事件與事後對照"]
+        return describe_record_events(rec), _record_artifact(rec, events=True)
 
     @tool(response_format="content_and_artifact")
     def get_experiment(number: str = "") -> tuple[str, list[str]]:
@@ -482,7 +511,7 @@ class Assistant:
 
     async def ask(self, snap: dict | None, question: str, history: list | None = None,
                   load_saved=None) -> AsyncIterator[dict]:
-        """逐 frame 產出：{"event": "tool", "name", "label", "sources"}、{"event": "delta", "text"}。"""
+        """回傳工具來源、非生成 facts 與模型 delta；facts 不由模型改寫。"""
         sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
         graph = build_graph(await self.llm(), make_tools(snap, sections, self.experiments_dir, load_saved))
         think = ThinkFilter()
@@ -493,9 +522,13 @@ class Assistant:
         ):
             node = meta.get("langgraph_node")
             if node == "tools" and isinstance(chunk, ToolMessage):
+                artifact = chunk.artifact or []
+                sources = artifact.get("sources", []) if isinstance(artifact, dict) else artifact
                 yield {"event": "tool", "name": chunk.name,
                        "label": TOOL_DISPLAY.get(chunk.name, chunk.name),
-                       "sources": list(chunk.artifact or [])}
+                       "sources": list(sources)}
+                if isinstance(artifact, dict) and artifact.get("facts"):
+                    yield {"event": "facts", "text": artifact["facts"], "sources": list(sources)}
             elif node == "agent" and isinstance(chunk, (AIMessageChunk, AIMessage)):
                 text = think.feed(_chunk_text(chunk.content))
                 if text:

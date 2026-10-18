@@ -1,4 +1,5 @@
 """web/playback.py：用真正的 ExperimentRunner 產生 frame／結果，確認紀錄彙整、存檔讀取與真值隔離。"""
+import hashlib
 import json
 import tempfile
 import urllib.parse
@@ -9,6 +10,7 @@ import tornado.testing
 
 import web.server as server
 from tests.test_navigation_guide import fixture
+from tests.exp12_counts_fixture import historical_result
 from web.experiments import ExperimentRunner
 from web.playback import PlaybackTracker, summarize_result
 
@@ -198,6 +200,93 @@ class SummarizeResultTests(unittest.TestCase):
         self.assertIn("…另有 15 列", text)
         self.assertTrue(summarize_result({"rows": [{"x": "y" * 300} for _ in range(30)]}, budget=500)
                         .endswith("…（以下略，完整結果見存檔）"))
+
+
+class Exp12FactsTests(unittest.TestCase):
+    def test_counts_identity_limits_and_budget_are_kept_together(self):
+        source = {"exp_id": "exp12", "saved": "指定來源/exp12.json", "params": {"seed": 42}}
+        result = historical_result()
+        result["_tsne_by_dataset"] = {"coords": "x" * 100000}
+        text = summarize_result(result, exp_id="exp12", source=source)
+        self.assertLessEqual(len(text), 6000)
+        for value in ("指定來源/exp12.json", '"seed": 42', "45／572＝7.87%", "26642", "2736／2938＝93.12%",
+                      "202／2938＝6.88%", "已知互相錯分 0", "正確拒絕 14381", "未提供可核驗版本",
+                      "不證明未見馬達泛化", "非模型生成"):
+            self.assertIn(value, text)
+        self.assertNotIn("coords", text)
+        self.assertNotIn("已確認 legacy", text)
+
+    def test_budget_does_not_cut_a_denominator_or_drop_limits(self):
+        for budget in (1, 3, 100, 300, 1000, 6000):
+            with self.subTest(budget=budget):
+                text = summarize_result(historical_result(), budget, exp_id="exp12")
+                self.assertLessEqual(len(text), budget)
+                if "7.87%" in text:
+                    self.assertIn("45／572", text)
+                    self.assertIn("介面限制", text)
+                    self.assertIn("來源識別", text)
+                else:
+                    self.assertTrue("不完整" in text or text == "略")
+
+    def test_invalid_and_normalized_matrices_do_not_reach_raw_table(self):
+        for matrix in ([[0.5, 0.5], [0.1, 0.9]], [[1, -1], [0, 2]], [[True, 0], [0, 2]]):
+            result = {"binary_confusion": {"labels": ["healthy", "fault"], "matrix": matrix}}
+            text = summarize_result(result, exp_id="exp12")
+            self.assertIn("矩陣核算失敗", text)
+            self.assertNotIn("真值＼預測", text)
+            self.assertNotIn("%", text)
+
+    def test_other_experiments_do_not_gain_exp12_semantics(self):
+        text = summarize_result(historical_result(), exp_id="exp1")
+        self.assertNotIn("程式核算", text)
+        self.assertNotIn("45／572", text)
+
+    def test_conflicting_settings_do_not_produce_trusted_numbers(self):
+        text = summarize_result(historical_result(), exp_id="exp12", source={"params": {"seed": 7}})
+        self.assertIn("設定不一致", text)
+        self.assertNotIn("7.87%", text)
+
+    def test_read_saved_recomputes_facts_keeps_bytes_and_real_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "session/experiments"
+            folder.mkdir(parents=True)
+            path = folder / "exp12_2026-10-17-14-50-27.json"
+            result = historical_result()
+            result["matrix_facts"] = {"total": 999999}
+            raw = json.dumps({"experiment": "exp12", "saved": "錯誤來源.json", "params": {"seed": 42},
+                              "finished_at": "2026-10-17T14:50:27", "result": result}).encode()
+            path.write_bytes(raw)
+            rec = PlaybackTracker(root).load_saved("exp12")
+            self.assertEqual(rec["mode"], "saved")
+            self.assertEqual(rec["result"]["saved"], str(path))
+            self.assertEqual(rec["result"]["saved_sha256"], hashlib.sha256(raw).hexdigest())
+            self.assertEqual(path.read_bytes(), raw)
+            self.assertIn("45／572", rec["fact_text"])
+            self.assertIn("14:50:27", rec["fact_text"])
+            self.assertNotIn("999999", rec["fact_text"])
+            self.assertNotIn("錯誤來源.json", rec["fact_text"])
+
+    def test_saved_experiment_identity_mismatch_is_not_accepted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "session/experiments"
+            folder.mkdir(parents=True)
+            (folder / "exp12_2026-10-17-14-50-27.json").write_text(json.dumps({
+                "experiment": "exp1", "result": historical_result()}), encoding="utf-8")
+            self.assertIsNone(PlaybackTracker(root).load_saved("exp12"))
+
+    def test_same_second_collision_uses_latest_sequence_and_correct_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            folder = root / "session/experiments"
+            folder.mkdir(parents=True)
+            for suffix in ("", "_1", "_2"):
+                (folder / f"exp12_2026-10-17-14-50-27{suffix}.json").write_text(json.dumps({
+                    "experiment": "exp12", "result": historical_result()}), encoding="utf-8")
+            rec = PlaybackTracker(root).load_saved("exp12")
+            self.assertTrue(rec["result"]["saved"].endswith("_2.json"))
+            self.assertEqual(rec["exp_id"], "exp12")
 
 
 class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):

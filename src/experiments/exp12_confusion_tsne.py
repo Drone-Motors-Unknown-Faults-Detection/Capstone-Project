@@ -17,11 +17,40 @@ import argparse
 
 import numpy as np
 
+from core.confusion_summary import summarize_confusion
 from core.data import HEALTHY, config_sort_key, discover_datasets, load_pools
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import save_json
 from experiments.exp11_ancestor_comparison import _ANCESTOR_UNKNOWN_CANDIDATES, build_ancestor_monitor
+
+
+def summarize_matrices(result: dict) -> dict:
+    """唯讀核算新舊 exp12 payload；不採信保存的衍生摘要或推測其他實驗。"""
+    if not isinstance(result, dict):
+        raise ValueError("exp12 結果必須為物件")
+    if result.get("value_kind", "counts") != "counts":
+        raise ValueError("exp12 只核算原始 counts，不能使用正規化比例")
+    facts = {"schema_version": "exp12_matrix_facts_v1", "openset": {}}
+    if "binary_confusion" in result:
+        entry = result["binary_confusion"]
+        if not isinstance(entry, dict):
+            raise ValueError("binary_confusion 必須包含 labels 與 matrix")
+        facts["binary"] = summarize_confusion(entry.get("labels"), entry.get("matrix"),
+                                               task="binary", value_kind=entry.get("value_kind", "counts"))
+    if "openset_confusion" in result:
+        entries = result["openset_confusion"]
+        if not isinstance(entries, dict) or not entries:
+            raise ValueError("openset_confusion 必須包含方法與計數矩陣")
+        for method, entry in entries.items():
+            if not isinstance(method, str) or not isinstance(entry, dict):
+                raise ValueError("每個開集方法必須包含 labels 與 matrix")
+            facts["openset"][method] = summarize_confusion(
+                entry.get("labels"), entry.get("matrix"), task="openset",
+                value_kind=entry.get("value_kind", "counts"), unknown_label="unknown")
+    if "binary" not in facts and not facts["openset"]:
+        raise ValueError("exp12 缺少可核算的原始矩陣")
+    return facts
 
 
 def _canon(config: str) -> str:
