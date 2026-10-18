@@ -6,7 +6,7 @@
 
 拆 `exp6_formal_benchmark._run_benchmark` 或 `exp6_matrix.run_matrix` 前，先讀[orchestration 回歸規範](refactoring_contract.md)。
 
-當前缺口與交付狀態請查 [GitHub issues](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues) 及各 PR 的受測 SHA，不把歷史測試次數當成最新 main 驗收。
+當前缺口與交付狀態請查 [GitHub issues](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues) 及各 PR 的受測 SHA，不把歷史測試次數當成最新 main 驗收。
 
 內容指紋、portable manifest 與本機 private sidecar 的操作見[內容來源規則](content_provenance_contract.md)；它只涵蓋正式入口，不代表所有 runner 都有完整來源紀錄。
 
@@ -15,7 +15,7 @@
 老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp13_README.md)。
 
 > 實驗總覽與名詞在 [experiments/README.md](experiments/README.md)。
-> Step 1–6、Tensorflow 與三份研究筆記描述原始論文的論文版管線。程式在 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)。
+> Step 1–6、Tensorflow 與三份研究筆記描述原始論文的論文版管線。程式在 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Original-Paper)。
 > 新專案的說明見根目錄 [README.md](../README.md)。
 
 ## 現行實驗技術報告

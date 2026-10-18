@@ -14,7 +14,7 @@
 完整說明、實驗結果與引用文獻見 [README.md](README.md)。
 
 原論文版程式碼（Step 1–6 管線、128 個 notebook 與論文全文）已整批移回
-[原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) repo
+[原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Original-Paper) repo
 （本機路徑 `~/Ancestor`）保存；本 repo 的 git 歷史仍保留搬移前的所有版本。
 技術文件快照（含三份 Lineage 時期研究文件）於 2026-09-17 放回本 repo 的 `docs/`。
 
@@ -278,7 +278,7 @@ current／events 不含真值；注入配置、expected、is_fault、候選群 m
 2. 一個 commit 只做一件事。
 3. `logs/` 與 `output/` 納入版控，不需要加入 .gitignore；`data/` 維持忽略。
 4. Agent 進行 GitHub 相關操作時，將自己加入 Co-Authors。
-5. legacy 的 issue 討論串在 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)，查缺陷成因時到該處。
+5. legacy 的 issue 討論串在 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Original-Paper)，查缺陷成因時到該處。
 6. 每個 PR 都要指定 reviewer：JW-Albert <ru04jo30801@gmail.com>。
 
 

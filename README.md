@@ -483,7 +483,7 @@ output/{program}/{YYYY-MM-DD-HH-MM-SS}/       # results.csv / summary.json / *.p
 ## 與 legacy 的關係
 
 論文版程式碼（Step 1–6 管線、128 個 notebook、scripts、執行紀錄與論文全文）
-已整批移回 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)
+已整批移回 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Original-Paper)
 repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也在該處；
 本 repo 的 git 歷史仍完整保留搬移前的所有版本，可隨時回溯。
 技術文件快照（Step 1–6 說明 + 三份 Lineage 時期研究文件）保留於本 repo 的
