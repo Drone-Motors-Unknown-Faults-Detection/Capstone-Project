@@ -29,6 +29,8 @@ def summarize_matrices(result: dict) -> dict:
     """唯讀核算新舊 exp12 payload；不採信保存的衍生摘要或推測其他實驗。"""
     if not isinstance(result, dict):
         raise ValueError("exp12 結果必須為物件")
+    if result.get("value_kind", "counts") != "counts":
+        raise ValueError("exp12 只核算原始 counts，不能使用正規化比例")
     facts = {"schema_version": "exp12_matrix_facts_v1", "openset": {}}
     if "binary_confusion" in result:
         entry = result["binary_confusion"]

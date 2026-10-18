@@ -30,6 +30,7 @@ from web.assistant import (
     KNOWLEDGE_DIR,
 )
 from web.playback import PlaybackTracker
+from tests.exp12_counts_fixture import historical_result
 
 
 class FakeToolModel(GenericFakeChatModel):
@@ -230,6 +231,69 @@ class AskTests(unittest.TestCase):
         tool_msgs = [m for m in model.seen[1] if isinstance(m, ToolMessage)]
         self.assertIn("已播放：3 筆", tool_msgs[0].content)
 
+    def test_exp12_tool_facts_override_wrong_history_and_are_not_generated(self):
+        for name in ("get_run_status", "get_run_events"):
+            with self.subTest(tool=name):
+                tracker = PlaybackTracker()
+                tracker.record_run("exp12", {"params": {"seed": 42}, "saved": "指定來源/exp12.json",
+                                             "result": historical_result()})
+                tracker.record_run("exp1", {"params": {}, "result": {"irrelevant": 123}})
+                model = fake_model(
+                    AIMessage(content="", tool_calls=[{"name": name, "args": {"number": "12"}, "id": "c1"}]),
+                    AIMessage(content="模型仍可能答錯，這段不作為數值權威"))
+                assistant = Assistant("http://unused/v1", llm=model)
+
+                async def collect():
+                    return [f async for f in assistant.ask(tracker.snapshot(), "更正實驗十二", history=[
+                        {"role": "assistant", "content": "健康527筆，誤報率8.5%，2938筆都誤拒；legacy沒有判對"}])]
+
+                frames = asyncio.run(collect())
+                facts = [f for f in frames if f["event"] == "facts"]
+                self.assertEqual(len(facts), 1)
+                self.assertIn("45／572＝7.87%", facts[0]["text"])
+                self.assertIn("202／2938＝6.88%", facts[0]["text"])
+                self.assertIn("正確拒絕 14381", facts[0]["text"])
+                self.assertIn("指定來源/exp12.json", facts[0]["sources"][0])
+                self.assertNotIn("irrelevant", facts[0]["text"])
+                self.assertNotIn("模型仍可能答錯", facts[0]["text"])
+                tool_messages = [m for m in model.seen[-1] if isinstance(m, ToolMessage)]
+                self.assertIn(facts[0]["text"], tool_messages[0].content)
+                self.assertTrue(any(isinstance(m, AIMessage) and "健康527筆" in m.content for m in model.seen[0]))
+
+    def test_exp12_without_matrix_emits_inadequacy_not_invented_facts(self):
+        tracker = PlaybackTracker()
+        tracker.record_run("exp12", {"result": {"seed": 42}})
+        text = describe_record_events(tracker.snapshot()["records"]["exp12"])
+        self.assertIn("矩陣核算失敗", text)
+        self.assertNotIn("7.87%", text)
+
+    def test_saved_record_does_not_change_between_tools_in_one_question(self):
+        reads = []
+
+        def changing_saved(exp_id):
+            reads.append(exp_id)
+            result = historical_result()
+            result["binary_confusion"]["matrix"][0][1] += len(reads) - 1
+            tracker = PlaybackTracker()
+            tracker.record_run("exp12", {"saved": f"來源{len(reads)}.json", "result": result})
+            return tracker.snapshot()["records"]["exp12"]
+
+        model = fake_model(
+            AIMessage(content="", tool_calls=[{"name": "get_run_status", "args": {"number": "12"}, "id": "c1"}]),
+            AIMessage(content="", tool_calls=[{"name": "get_run_events", "args": {"number": "12"}, "id": "c2"}]),
+            AIMessage(content="核對同一份存檔"))
+        assistant = Assistant("http://unused/v1", llm=model)
+
+        async def collect():
+            return [f async for f in assistant.ask(None, "實驗十二結果與事件", load_saved=changing_saved)]
+
+        frames = asyncio.run(collect())
+        facts = [f for f in frames if f["event"] == "facts"]
+        self.assertEqual(reads, ["exp12"])
+        self.assertEqual(len(facts), 2)
+        self.assertEqual(facts[0]["text"], facts[1]["text"])
+        self.assertIn("來源1.json", facts[1]["text"])
+
 
 class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
     def setUp(self):
@@ -266,6 +330,18 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))
         frames = self.frames(json.dumps({"question": "目前狀況？"}))
         self.assertRegex(frames[-1]["as_of"], r"^實驗頁紀錄：實驗二 量尺擴張（⏵ 邊跑邊畫），播放中，已播 3 筆")
+
+    def test_http_forwards_exp12_facts_and_sources_separately_from_answer(self):
+        server.PLAYBACK.record_run("exp12", {"saved": "指定來源/exp12.json", "result": historical_result()})
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(
+            AIMessage(content="", tool_calls=[{"name": "get_run_status", "args": {"number": "12"}, "id": "c1"}]),
+            AIMessage(content="模型的說明文字")))
+        frames = self.frames(json.dumps({"question": "實驗十二總結", "history": []}))
+        fact = next(f for f in frames if f["event"] == "facts")
+        self.assertIn("45／572＝7.87%", fact["text"])
+        self.assertIn("指定來源/exp12.json", fact["sources"][0])
+        self.assertNotIn("模型的說明文字", fact["text"])
+        self.assertEqual(frames[-1]["event"], "done")
 
     def test_bad_request_returns_error_frame(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())

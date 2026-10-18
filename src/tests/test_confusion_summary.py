@@ -1,6 +1,9 @@
 """計數語意、標籤交換與分母邊界；不依賴正式資料或正在執行的模型。"""
 
 from copy import deepcopy
+import hashlib
+import json
+from pathlib import Path
 
 import pytest
 
@@ -131,3 +134,21 @@ def test_saved_derived_summary_cannot_override_raw_counts():
     expected = summarize_matrices(result)
     result["matrix_facts"] = {"binary": {"total": 1}}
     assert summarize_matrices(result) == expected
+
+
+def test_exp12_rejects_explicit_root_or_entry_normalization():
+    for location in ("root", "entry"):
+        result = historical_result()
+        target = result if location == "root" else result["binary_confusion"]
+        target["value_kind"] = "normalized"
+        with pytest.raises(ValueError, match="counts"):
+            summarize_matrices(result)
+
+
+def test_historical_fixture_matches_tracked_source_without_rewriting_it():
+    path = Path(__file__).resolve().parents[2] / "output/exp12_confusion_tsne/2026-10-09-14-27-55/summary.json"
+    raw = path.read_bytes()
+    source = json.loads(raw)
+    assert source == historical_result()
+    assert summarize_matrices(source) == summarize_matrices(historical_result())
+    assert hashlib.sha256(path.read_bytes()).digest() == hashlib.sha256(raw).digest()

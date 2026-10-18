@@ -75,6 +75,8 @@ main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_t
 
 統計純函式放`src/core/confusion_summary.py`；Web只呼叫並呈現。舊保存JSON可唯讀推導，不回寫原檔，也不採信保存的衍生摘要取代原始矩陣。摘要優先保留實驗／存檔來源、設定、分子分母與限制；預算不足則整段標示不完整，不截出缺分母的百分比。`get_run_status`及`get_run_events`提供相同的事後核算，來源文件僅說明方法，不是模型特徵資料來源。AI可以解釋程式核算，不能沿用對話中的錯答或其他實驗的誤報常數。
 
+聊天視窗另顯示「程式核算」純文字區塊：SSE的`facts`來自工具artifact，與模型`delta`分開，也不當成模型回答寫回對話歷史。存檔來源顯示實際讀取路徑、原檔SHA與設定；檔名／實驗ID或參數／結果設定不一致時，不提供可信數值。這保障計數和呈現來源，不保證LLM每句解釋都正確；mock與Node DOM測試也不等於真實模型或瀏覽器驗收。
+
 legacy介面限制必須另核對來源版本：`fit()`固定label=-1、`classify()`將負標籤轉None，再由實驗記unknown。只憑矩陣全部unknown不足以確認該原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
 
 預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [exp12 輸出](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp12_confusion_tsne/2026-10-09-14-27-55)。
@@ -85,4 +87,4 @@ van der Maaten與Hinton（2008），*Visualizing Data using t-SNE*，JMLR9,2579�
 
 [exp12](../../src/experiments/exp12_confusion_tsne.py)負責取樣／矩陣／嵌入／writer；[exp11](../../src/experiments/exp11_ancestor_comparison.py)供known協定；[core/monitor](../../src/core/monitor.py)fit與classify；[test_exp12_confusion_tsne](../../src/tests/test_exp12_confusion_tsne.py)檢查形狀／行和／有限嵌入，不能證明視覺推論正確。
 
-計數核算延伸沿用本實驗編號；新增的core純函式及其`src/tests/test_confusion_summary.py`測試不另占新實驗。資料鏈使用`src/web/playback.py`、`src/web/assistant.py`，對應測試為`src/tests/test_playback.py`、`src/tests/test_assistant.py`；不新增人工output報告，驗證證據依`src/tests/pytest_evidence.py`的writer保存。
+計數核算延伸沿用本實驗編號；新增的core純函式及其`src/tests/test_confusion_summary.py`測試不另占新實驗。資料鏈使用`src/web/playback.py`、`src/web/assistant.py`、`src/web/static/ai_chat.js`，對應測試為`src/tests/test_playback.py`、`src/tests/test_assistant.py`、`src/tests/test_ai_chat_frontend.py`及其`ai_chat_frontend.cjs`；不新增人工output報告，驗證證據依`src/tests/pytest_evidence.py`的writer保存。

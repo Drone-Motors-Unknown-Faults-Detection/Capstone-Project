@@ -19,12 +19,15 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import itertools
 import json
+import re
 import time
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
+from experiments.exp12_confusion_tsne import summarize_matrices
 from web.experiments import CATALOG
 
 MAX_EVENTS = 12
@@ -33,6 +36,7 @@ RESULT_BUDGET = 6000          # 結果摘要字數上限（模型 context 32k，
 RESULTS_ROOT = Path("output/web_server")
 _SPEC = {e["id"]: e for e in CATALOG}
 _SEQ = itertools.count(1)     # 紀錄先後順序：同一編號有多張卡（6-1／6-2）時取最近的
+_SAVED_NAME = re.compile(r"(.+)_(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})(?:_(\d+))?\.json")
 
 # 實驗八逐窗輸出中屬於系統判定的欄位（is_fault 是真值，不在此列）
 WINDOW_FIELDS = ("window_index", "health_index", "severity_stage", "trend", "degradation_rate",
@@ -46,6 +50,11 @@ def _round(v, nd=3):
 
 def _now() -> str:
     return time.strftime("%H:%M:%S")
+
+
+def _saved_order(path: Path) -> tuple:
+    match = _SAVED_NAME.fullmatch(path.name)
+    return (match[2], int(match[3] or 0), str(path)) if match else ("", 0, str(path))
 
 
 # -- 結果摘要 ----------------------------------------------------------------------
@@ -117,8 +126,77 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
     out.append(f"{label}{_fmt(v)}")
 
 
-def summarize_result(result, budget: int = RESULT_BUDGET) -> str:
+def _rate_text(rate: dict) -> str:
+    n, d, p = rate["numerator"], rate["denominator"], rate["percent"]
+    return f"{n}／{d}＝{p:.2f}%" if p is not None else f"不適用（分子={n}，分母={d}）"
+
+
+def _exp12_summary(result, budget: int, source: dict | None) -> str:
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
+        raise ValueError("摘要預算必須為正整數")
+    identity = "來源識別：" + json.dumps(source or {"exp_id": "exp12", "source": "未提供，不能當完整執行證據"},
+                                     ensure_ascii=False, sort_keys=True)
+    lines = ["【程式核算：exp12 原始計數，事後評估；非模型生成】", identity]
+    try:
+        params = (source or {}).get("params") or {}
+        if isinstance(result, dict) and any(k in params and k in result and params[k] != result[k]
+                                            for k in ("seed", "confidence", "perplexity")):
+            raise ValueError("執行參數與結果設定不一致，需核對來源")
+        facts = summarize_matrices(result)
+    except ValueError as exc:
+        lines.append(f"【矩陣核算失敗】{exc}；不提供推測數字。")
+    else:
+        settings = {k: result[k] for k in ("seed", "confidence", "perplexity", "n_datasets") if k in result}
+        lines.append("結果設定：" + json.dumps(settings, ensure_ascii=False, sort_keys=True))
+        if "binary" in facts:
+            f = facts["binary"]
+            b = f["binary"]
+            lines += [f"二元健康冷啟動：健康支持 {b['healthy_total']}，故障支持 {b['fault_total']}，總量 {f['total']}。",
+                      f"健康誤報 {_rate_text(b['healthy_false_positive_rate'])}；故障漏判 {b['fault_missed']} 筆，"
+                      f"故障召回 {_rate_text(b['fault_recall'])}。"]
+        for method, f in facts["openset"].items():
+            o = f["openset"]
+            lines += [f"多類 {method}：已知支持 {o['known_total']}，判對 {o['known_correct']}，"
+                      f"誤拒 {o['known_rejected']}，已知互相錯分 {o['known_misclassified']}；總量 {f['total']}。",
+                      f"已知判對率 {_rate_text(o['known_accuracy'])}；已知誤拒率 {_rate_text(o['known_rejection_rate'])}。",
+                      f"未知支持 {o['unknown_total']}，unknown→unknown 正確拒絕 {o['unknown_correct']}，"
+                      f"unknown→known 未拒 {o['unknown_accepted']}；未知召回 {_rate_text(o['unknown_recall'])}。",
+                      "逐真值類支持／對角正確：" + "；".join(
+                          f"{label}={v['support']}／{v['correct']}" for label, v in f["per_class"].items())]
+            if not o["unknown_present"]:
+                lines.append("缺 unknown 標籤；未知與誤拒指標不適用，不能推定未知完全判對。")
+        lines += ["二元只學健康；多類 A 協定是健康＋四種已知故障配置，兩者分母不可互換。",
+                  "unknown→unknown 是正確拒絕，沒有辨識具體未知配置身分；已知總數不等於誤拒數。",
+                  "此批按工況評估不證明未見馬達泛化或部署可靠；t-SNE 可含擬合資料，只供事後觀察。"
+                  "誤拒率不能單獨證明邊界過嚴，不使用同一 test 調門檻。"]
+        if "legacy" in facts["openset"]:
+            lines.append("legacy 的 -1 標籤介面限制須核對來源程式版本，本紀錄未提供可核驗版本，不能僅憑全 unknown 確認原因；"
+                         "unknown 對角仍是判對，不支持原方法完全失效。")
+    protected = "\n".join(lines)
+    if len(protected) > budget:
+        fallback = "【摘要不完整】exp12 的來源、分母與限制無法完整容納；請讀原存檔，不據此推算。"
+        with_source = identity + "\n" + fallback
+        if len(with_source) <= budget:
+            return with_source
+        return fallback if len(fallback) <= budget else ("不完整" if budget >= 3 else "略")
+    if any("【矩陣核算失敗】" in line for line in lines):
+        return protected
+    tables = []
+    for key in ("binary_confusion", "openset_confusion"):
+        if key in result:
+            _render(key, result[key], 0, tables)
+    suffix = "\n\n原始矩陣（每一橫列 row＝真值，每一直欄 column＝預測）：\n" + "\n".join(tables)
+    if len(protected + suffix) <= budget:
+        return protected + suffix
+    omitted = "\n原始矩陣表因預算略去；上述來源、核算與限制完整保留。"
+    return protected + omitted if len(protected + omitted) <= budget else protected
+
+
+def summarize_result(result, budget: int = RESULT_BUDGET, *, exp_id: str | None = None,
+                     source: dict | None = None) -> str:
     """實驗結果轉成模型讀得完的文字：去掉畫圖座標與模型細節，矩陣轉表格，長清單截斷。"""
+    if exp_id == "exp12":
+        return _exp12_summary(result, budget, source)
     out: list[str] = []
     _render("", result, 0, out)
     text = "\n".join(line for line in out if line.strip())
@@ -147,8 +225,13 @@ def _split_params(st: dict, params: dict) -> None:
 
 def _fill_result(st: dict, payload: dict) -> None:
     st["status"] = "done"
-    st["result"] = {k: payload.get(k) for k in ("seconds", "saved", "finished_at") if payload.get(k) is not None}
-    st["result_text"] = summarize_result(payload.get("result"))
+    st["result"] = {k: payload.get(k) for k in ("seconds", "saved", "finished_at", "saved_sha256")
+                    if payload.get(k) is not None}
+    source = {"exp_id": st["exp_id"], "mode": st["mode"], "status": st["status"],
+              "started_at": st["started_at"], "params": st["params"], **st["result"]}
+    st["result_text"] = summarize_result(payload.get("result"), exp_id=st["exp_id"], source=source)
+    if st["exp_id"] == "exp12":
+        st["fact_text"] = st["result_text"]
 
 
 class PlaybackTracker:
@@ -189,17 +272,23 @@ class PlaybackTracker:
     def load_saved(self, exp_id: str | None = None) -> dict | None:
         """記憶體沒有紀錄時讀存檔；exp_id=None 取所有實驗中最新的一份。"""
         pattern = f"*/experiments/{exp_id}_2*.json" if exp_id else "*/experiments/*_2*.json"
-        files = sorted(self.results_root.glob(pattern), key=lambda p: p.name.rsplit("_", 1)[-1])
+        files = sorted(self.results_root.glob(pattern), key=_saved_order)
         for path in reversed(files):
             try:
-                payload = json.loads(path.read_text(encoding="utf-8"))
+                raw = path.read_bytes()
+                payload = json.loads(raw)
             except (OSError, ValueError):
                 continue
-            exp = payload.get("experiment") or path.name.rsplit("_", 1)[0]
+            match = _SAVED_NAME.fullmatch(path.name)
+            if not match or not isinstance(payload, dict) or not isinstance(payload.get("params", {}), dict):
+                continue
+            exp = match[1]
+            if (exp_id and exp != exp_id) or payload.get("experiment", exp) != exp:
+                continue
             st = _base(exp, "saved")
             _split_params(st, payload.get("params") or {})
-            _fill_result(st, {**payload, "saved": payload.get("saved") or str(path)})
             st["started_at"] = st["updated_at"] = payload.get("finished_at") or "—"
+            _fill_result(st, {**payload, "saved": str(path), "saved_sha256": hashlib.sha256(raw).hexdigest()})
             return st
         return None
 
