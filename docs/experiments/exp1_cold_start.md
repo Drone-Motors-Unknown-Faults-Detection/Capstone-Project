@@ -38,7 +38,7 @@
 
 每列是原始論文前處理管線留下的105維特徵向量，不是本程式接收的原始10,000Hz訊號。健康配置為`8screws`，其餘目錄名是螺絲數量／位置配置，不能直接當九種已驗證的物理故障原因。T1／T2／T3是不同馬達個體，不能串成同一顆馬達的壽命歷程。來源說明見[固定採集文件](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/afcfcc419dab3103a86a8f95601d3af85890eb38/docs/Experiments_Guide.md#L218)。
 
-載入順序為：逐配置依檔名排序讀CSV → 串接資料列 → 只取數值欄 → 移除含NaN或Inf的列 → 檢查是否105欄 → 保留非空配置。沒有去重、原始訊號再清理、欄位單位轉換或嚴格欄名／順序驗證；任意105個數值欄通過不表示物理語意正確，見[#44](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/44)。資料的原始視窗時間、stride、錄製群組與單位須另查來源，不能由這個loader補出。
+載入順序為：依配置目錄排序 → 只收正式 CSV → header 必須是已登錄的完整 105 欄順序 → 非有限值、錯欄或空配置整檔拒絕。不刪列，也不依「剛好 105 個數字欄」放行。沒有去重、原始訊號再清理或欄位單位轉換。欄名與拒絕政策見[正式特徵載入規則](../formal_feature_schema_contract.md)（#44 已實作並關閉）。單位、session、stride 與 raw window 仍是 UNKNOWN，不能由這個 loader 補出。
 
 載入後`pools[config]`是「資料列數×105」陣列。筆數依這次載入結果與輸出`n`查核，本手冊不預填固定總數。
 
