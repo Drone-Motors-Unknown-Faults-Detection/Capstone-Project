@@ -101,7 +101,7 @@ def _same_value(left: object, right: object) -> bool:
 
 
 def validate_run(run_dir: Path, expected: dict, fingerprint: str | None = None) -> list[str]:
-    """依完成判定契約核對單格，回傳全部不符原因；空清單代表完成。
+    """依完成判定規範核對單格，回傳全部不符原因；空清單代表完成。
 
     ``expected`` 需含 method、seed，可含 motor、rpm、condition。
     ``fingerprint`` 給定時 summary 的 dataset_fingerprint 必須相同。

@@ -4,7 +4,7 @@
 
 ## 完成範圍
 
-本報告保留 2026-10-08 的整合邊界。串流抽取來源為 JW-Albert 的 PR #36／544d4ed，原共同作者為 Claude Opus 5.5；當次只納入 exp1／3／4，不含後來才合併的健康監測串流。事前配對要求及當時 localhost QA 命令見 [固定原契約](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/integration_20261008/streaming_contract.md)。現行操作以實驗手冊為準，不用這份歷史範圍判定當前功能。
+本報告保留 2026-10-08 的整合邊界。串流抽取來源為 JW-Albert 的 PR #36／544d4ed，原共同作者為 Claude Opus 5.5；當次只納入 exp1／3／4，不含後來才合併的健康監測串流。事前配對要求及當時 localhost QA 命令見 [固定原規範](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/integration_20261008/streaming_contract.md)。現行操作以實驗手冊為準，不用這份歷史範圍判定當前功能。
 
 已備份整合前 main、盤點全部分支、分批抽取獨立導覽與 exp1/3/4 SSE，完成真實資料配對及瀏覽器操作。沒有整批合併研究分支，沒有修改原分支或刪分支。每批 commit/push 與遠端 ref 相符。PR 必須核對最新 main、候選 head、保護與 reviews/checks 後才合併。
 
@@ -19,7 +19,7 @@
 | feat/web-experiment-pages | 先前已整合，不重套 | #33 MERGED、tip 是 main 祖先 |
 | feat/web-fit-notice | 先前已整合，不重套 | #34 MERGED、tip 是 main 祖先且 tree 相同 |
 | refactor/exp8-health-into-experiments | 先前已整合，不倒退 | #32 MERGED；保留 experiments/health 搬家 |
-| research-improvements-20260920 | 僅抽取導覽、來源契約、配對入口與 exp24 文件 | 固定 b3d68f；其餘3128檔完整tip差異含大量研究輸出、刪除、舊AGENT/health/Web。其他研究模組及guards未完成主線相依閉包驗證，留原分支；負面研究以固定連結保存，FAILED不換成正式winner |
+| research-improvements-20260920 | 僅抽取導覽、來源規範、配對入口與 exp24 文件 | 固定 b3d68f；其餘3128檔完整tip差異含大量研究輸出、刪除、舊AGENT/health/Web。其他研究模組及guards未完成主線相依閉包驗證，留原分支；負面研究以固定連結保存，FAILED不換成正式winner |
 | feat/web-streaming | 僅抽取 exp1/3/4、SSE及背景小窗 | 固定544d4ed；health_monitor與health串流旗標排除。#35索引缺陷仍OPEN。#36保留OPEN，避免把部分抽取冒稱整個PR完成 |
 | backup_260806 | 歷史備份保留 | 舊Notebook，不作功能合併來源 |
 | main | 被備份的整合基底 | 候選只加合格內容，透過PR更新，不force push |

@@ -1,4 +1,4 @@
-"""實驗六矩陣的合成產物：依完成判定契約寫出每格 summary.json、results.csv、run.log。"""
+"""實驗六矩陣的合成產物：依完成判定規範寫出每格 summary.json、results.csv、run.log。"""
 
 from __future__ import annotations
 

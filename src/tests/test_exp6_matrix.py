@@ -1,4 +1,4 @@
-"""實驗六矩陣的完成判定契約（#43）；只用 fixture，不讀正式 data。"""
+"""實驗六矩陣的完成判定規範（#43）；只用 fixture，不讀正式 data。"""
 
 from __future__ import annotations
 

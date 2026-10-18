@@ -1,4 +1,4 @@
-"""web/assistant.py 與 /api/assistant/* 的契約：快照不帶真值、工具內容、串流 frame。"""
+"""web/assistant.py 與 /api/assistant/* 的規範：快照不帶真值、工具內容、串流 frame。"""
 import asyncio
 import json
 import unittest

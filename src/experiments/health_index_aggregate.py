@@ -104,17 +104,17 @@ def _contract(data: bytes) -> dict:
         "csv_atol": 1e-12, "csv_rtol": 1e-10, "historical_formula_status": "UNKNOWN",
     }
     for field, value in fixed.items():
-        _require(contract.get(field) == value and type(contract.get(field)) is type(value), f"契約規則不符：{field}")
-    _require(bool(re.fullmatch(r"[0-9a-f]{64}", str(contract.get("dataset_fingerprint", "")))), "契約資料指紋錯誤")
+        _require(contract.get(field) == value and type(contract.get(field)) is type(value), f"規範規則不符：{field}")
+    _require(bool(re.fullmatch(r"[0-9a-f]{64}", str(contract.get("dataset_fingerprint", "")))), "規範資料指紋錯誤")
     names = {"matrix_manifest.json", "aggregate_summary.json", "aggregate_by_condition.csv", "README.md"}
     names.update(f"seed_{seed}/{method}.{suffix}" for seed in fixed["seeds"]
                  for method in fixed["methods"] for suffix in ("json", "csv"))
     hashes = contract.get("source_sha256", {})
-    _require(isinstance(hashes, dict) and set(hashes) == names, "契約必須列出完整 16 檔")
-    _require(all(re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in hashes.values()), "契約 SHA 格式錯誤")
+    _require(isinstance(hashes, dict) and set(hashes) == names, "規範必須列出完整 16 檔")
+    _require(all(re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in hashes.values()), "規範 SHA 格式錯誤")
     git_hashes = contract.get("source_git_lf_sha256", {})
-    _require(isinstance(git_hashes, dict) and set(git_hashes) == names, "契約必須列出完整 Git LF SHA")
-    _require(all(re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in git_hashes.values()), "契約 Git SHA 格式錯誤")
+    _require(isinstance(git_hashes, dict) and set(git_hashes) == names, "規範必須列出完整 Git LF SHA")
+    _require(all(re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in git_hashes.values()), "規範 Git SHA 格式錯誤")
     return contract
 
 
@@ -380,7 +380,7 @@ def run(source_root: Path | str = DEFAULT_SOURCE, contract_path: Path | str = DE
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source-root", type=Path, default=DEFAULT_SOURCE, help="唯讀封存目錄")
-    parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT, help="事前提交的來源契約")
+    parser.add_argument("--contract", type=Path, default=DEFAULT_CONTRACT, help="事前提交的來源規範")
     args = parser.parse_args(argv)
     try:
         result = run(args.source_root, args.contract)

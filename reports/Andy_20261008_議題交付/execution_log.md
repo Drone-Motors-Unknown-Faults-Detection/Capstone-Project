@@ -63,4 +63,4 @@ computer-use瀏覽器實際驗收含三入口、兩模式、六工況選單、T1
 
 ## 未擬合防護的原驗收邊界
 
-當次契約在程式修改前固定：synthetic fixture seed7，模型 seeds42／123；與 4f783c676849a27185cd28d2410b4e76639b7357 的 monitor 比較健康初始與新增已確認配置兩階段，atol=rtol=1e-12。11 個 test methods 的首次紅燈含 14 個 failure entries／18 個 error entries，不能加成 32 個獨立測試；8 組配對的 score／PCA 最大差 0。原紅燈、綠燈與逐樣本來源仍在本紀錄連結的 output，沒有覆寫；這些是工程回歸，不是準確率提高。完整事前文字見 [固定原契約](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/issue_delivery_20261008/monitor_guard.md)，現行 API 操作統一見 [模型生命週期](../../docs/experiments/README.md#共用模型生命週期)。
+當次規範在程式修改前固定：synthetic fixture seed7，模型 seeds42／123；與 4f783c676849a27185cd28d2410b4e76639b7357 的 monitor 比較健康初始與新增已確認配置兩階段，atol=rtol=1e-12。11 個 test methods 的首次紅燈含 14 個 failure entries／18 個 error entries，不能加成 32 個獨立測試；8 組配對的 score／PCA 最大差 0。原紅燈、綠燈與逐樣本來源仍在本紀錄連結的 output，沒有覆寫；這些是工程回歸，不是準確率提高。完整事前文字見 [固定原規範](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/issue_delivery_20261008/monitor_guard.md)，現行 API 操作統一見 [模型生命週期](../../docs/experiments/README.md#共用模型生命週期)。

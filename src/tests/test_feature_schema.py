@@ -1,4 +1,4 @@
-"""正式格式契約fixture；完全不讀ignored data。"""
+"""正式格式規範fixture；完全不讀ignored data。"""
 from __future__ import annotations
 
 import csv

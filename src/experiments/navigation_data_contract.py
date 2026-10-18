@@ -1,4 +1,4 @@
-"""導覽展示的唯讀來源契約，不提供新的科學計算。"""
+"""導覽展示的唯讀來源規範，不提供新的科學計算。"""
 from __future__ import annotations
 
 import argparse
@@ -37,7 +37,7 @@ def split_audit(demo) -> dict:
     return {
         "schema": "navigation_fit_v1", "seed": demo.seed,
         "known_only": True, "fit_source": "既有完整標記配置池",
-        "row_id_meaning": "concat後有限值列索引，搭配資料契約CSV SHA",
+        "row_id_meaning": "concat後有限值列索引，搭配資料規範CSV SHA",
         "roles": {c: {"train": sp.train.tolist(), "calibration": sp.cal.tolist(),
                       "holdout": sp.holdout.tolist()}
                   for c, sp in demo.session.monitor.splits.items()},
@@ -58,7 +58,7 @@ def main() -> None:
     result = run(ds, args.seed)
     (paths.output_dir / "data_contract.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
-    log.info("唯讀資料契約完成；沒有訓練或評估")
+    log.info("唯讀資料規範完成；沒有訓練或評估")
 
 
 if __name__ == "__main__":

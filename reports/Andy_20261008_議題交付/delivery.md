@@ -34,7 +34,7 @@ python -m tests.issue_delivery_evidence --data-root D:/schoolshit/專題/src/Lin
 
 下面均相對本repo；本機絕對根為`D:/schoolshit/專題/src/lineage_integration_20261008`。
 
-- [當次稽核與分組](#當次17項稽核與分組)、[引用判定與剩餘清單](citation_followup.md)、[導覽QA](guide_acceptance.md)、[未擬合契約](../../docs/experiments/README.md#共用模型生命週期)。
+- [當次稽核與分組](#當次17項稽核與分組)、[引用判定與剩餘清單](citation_followup.md)、[導覽QA](guide_acceptance.md)、[未擬合規範](../../docs/experiments/README.md#共用模型生命週期)。
 - 最後完整測試：`output/branch_integration/2026-10-09-03-11-15/{validation.json,tests.txt}`、對應`logs/branch_integration/2026-10-09-03-11-15.log`。
 - guard紅／綠燈：`output/monitor_guard_evidence/2026-10-08-22-01-46`、`22-02-10`；原紅燈有subTest failures/errors，保留不改成PASS。
 - 導覽修改前後1190筆ledger：`output/navigation_regression/2026-10-08-21-52-04/summary.json`及`2026-10-09-03-13-18/summary.json`；SHA `dbae28737e288cbf46d4dedd8d352dfce884b82a28ff4daa4a9f36b94139e8e0`。
@@ -88,12 +88,12 @@ Co-authored-by: Codex <noreply@openai.com>
 | R2 DATA-001 | 新草案 | healthy-only/任意105欄fixture；先定exact schema/labels/finite/nonempty與compatibility，不重清資料 |
 | R3 DATA-002/SEC-003 | 一份新草案 | 通道2/3窗、config '..'；明確通道截斷政策與resolved containment，drive/UNC/absolute測試只寫temp，root escape目前未驗證 |
 | R4 DATA-003/004/REPRO | 一份metadata草案，引用#26 | 同size/mtime異bytes需異SHA；portable摘要/private sidecar、commit/packages/OS版本，排除raw寫入 |
-| R5 TEST-002 | 補既有#27，不重建CI issue | loader/主WS/exp1–3契約；先保留新增導覽與SSE測試，不重寫 |
+| R5 TEST-002 | 補既有#27，不重建CI issue | loader/主WS/exp1–3規範；先保留新增導覽與SSE測試，不重寫 |
 | R6 SEC-002 | 補既有#28，與PR36同server檔保留 | client不回path/trace，server有correlation；本輪不修 |
 | R7 ARCH-001 | 新草案 | flags到canonical config到schema一致；fitted guard由#29處理 |
 | R8 PERF | 一份量測草案 | 固定資料/seed量load walltime/memory及classes/batch/reference；先量再決定cache/vectorization |
 | R9 DOC/DX | 文件入口本輪補，環境部分引用#26 | clean Windows與POSIX smoke、歷史鏈；不刪venv、不把局部驗收當全平台 |
-| R10 ARCH-002 | 新草案 | 先fixture契約，再逐helper；metrics/event順序不變，排除Albert重疊檔案 |
+| R10 ARCH-002 | 新草案 | 先fixture規範，再逐helper；metrics/event順序不變，排除Albert重疊檔案 |
 
 
 #13–16需核對研究分支既有成果及各自驗收；main缺檔不代表全專案未做。#24／#28／#35的當時公開同檔重疊保留，未知未推送工作不推斷。原始資料獨立性及fresh資格沒有因文件交付改變。

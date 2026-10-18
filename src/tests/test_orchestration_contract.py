@@ -1,4 +1,4 @@
-"""#49：拆分 orchestration 前固定的回歸契約；契約見 docs/refactoring_contract.md。
+"""#49：拆分 orchestration 前固定的回歸規範；規範見 docs/refactoring_contract.md。
 
 現行程式與基準 commit 的同名函數在同一份 fixture 上配對執行。允許新增欄位或
 新增有預設值的 keyword-only 參數（例如 #47 的 resolved_config、#48 的 pool_cache），

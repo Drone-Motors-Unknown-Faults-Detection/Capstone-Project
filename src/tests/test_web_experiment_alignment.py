@@ -1,4 +1,4 @@
-"""目的、資料角色及真實前端呈現契約；不讀正式data或重跑研究。"""
+"""目的、資料角色及真實前端呈現規範；不讀正式data或重跑研究。"""
 from pathlib import Path
 import shutil
 import subprocess
