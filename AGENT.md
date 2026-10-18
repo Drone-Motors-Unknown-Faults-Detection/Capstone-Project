@@ -23,8 +23,8 @@
 ## 目錄結構
 
 ```
-src/core/        共用零件：data / mahalanobis / monitor / openset / geometry / detectors / formal_data /
-                 trend / logger / runner / runtime_environment
+src/core/        共用零件：data / feature_schema / mahalanobis / monitor / openset / geometry / detectors /
+                 formal_data / provenance / trend / logger / runner / runtime_environment
 reports/         單次實驗結果／單次說明／更新紀錄，每篇一個資料夾，命名
                  `<Author Name>_<YYYYMMDD>_<Report Subject>`；見「docs／reports／note 分工」
 note/            個人記事，非專案全局變動；每人一個資料夾（例如 note/JW-Albert/）
@@ -42,7 +42,9 @@ src/experiments/ 實驗模組（exp1 冷啟動 exp1_cold_start.py、exp2 量尺�
                  exp13 導覽一致性 navigation_data_contract.py／navigation_regression.py）；
                  總覽見 docs/experiments/README.md；技術報告在 docs/experiments/
 src/web/         即時展示與實驗頁（live.py 串流編排、experiments.py 實驗頁目錄與執行、
-                 server.py Tornado+WS+HTTP API、guide.py、static/index.html + experiments.js、
+                 server.py Tornado+WS+HTTP API、playback.py 實驗頁執行紀錄、
+                 guide.py 獨立導覽（static/guide.html + guide.js + guide.css）、
+                 static/index.html + experiments.js + ai_chat.js + markdown.js、
                  assistant.py AI 問答（LangGraph agent 連本地模型，知識庫在 web/knowledge/*.md））
 src/tests/       pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）
                  一樣經 core.logger.setup_run() 寫 logs/ 與 output/，不得改成手寫報告
@@ -90,8 +92,7 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
    （通常是 `core.logger.setup_run()` 配 `output/{program}/{ts}/`，或實驗程式自己的 `Path("output")/...`）；
    不得手動把問答記錄、測試心得、交付說明等報告丟進 `output/`。需要留存文字說明時寫進
    `docs/experiments/` 或對應的技術報告。新增檔案前先確認有對應的寫入程式碼，找不到就不要放進
-   `output/`（已發現的反例：`output/integration_browser/guide_qa.md`、`stream_qa.md`，
-   repo 內沒有任何程式碼寫這兩個檔案，應移除或改放 `docs/`）。
+   `output/`。
 10. **新增或修改程式碼一律要有對應的 pytest 測試，且測試要能通過。** 測試放在 `src/tests/`，
     檔名 `test_<module>.py`，對應 `src/core/`、`src/experiments/`、`src/experiments/health/` 或 `src/web/` 裡被改動的
     模組；提交前跑 `./scripts/quantity/run_pytest.sh`（或 `venv/bin/python -m pytest src/tests/`，或至少跑到相關檔案）
@@ -246,8 +247,9 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
 6. **資料集以掃描為準**：目前 9 組（T1/T2/T3 × 3 轉速）皆有完整 10 配置、各約
    3000 筆（早期「T2 不全」的狀況已補齊）；`discover_datasets` 動態列出，
    勿硬編碼組合清單。
-7. **venv 相容性**：現有 venv 是舊依賴集（含 TF）建的超集，可直接跑新專案；
-   重建才會套用新 `pyproject.toml`。伺服器用的 Tornado 由 Jupyter 附帶或新依賴提供。
+7. **環境以 `uv.lock` 為準**：`./scripts/opt/build_uv.sh` 建出的 `venv/` 不含 TensorFlow；
+   Tornado 是 `pyproject.toml` 的直接依賴。舊的含 TF 環境不在鎖版範圍，跑出問題先用
+   `build_uv.sh` 重建新目錄再比對（見鐵則 11）。
 
 ---
 
