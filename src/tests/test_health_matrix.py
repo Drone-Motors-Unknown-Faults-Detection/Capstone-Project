@@ -40,7 +40,7 @@ class HealthMatrixTests(unittest.TestCase):
         return code, json.loads(stdout.getvalue())
 
     def test_cli_default_writes_setup_run_output_not_reports(self):
-        """#24：不給 --output-root 時寫 output/exp8_health_index_matrix/{ts}/，並有 logs。"""
+        """不給 --output-root 時寫 output/exp8_health_index_matrix/{ts}/，並有 logs。"""
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as workspace:
             try:

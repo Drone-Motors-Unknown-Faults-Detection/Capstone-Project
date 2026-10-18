@@ -159,7 +159,7 @@ class IntegrationTests(unittest.TestCase):
 
 
 class ResolvedConfigTests(unittest.TestCase):
-    """#47：CLI、run() 與 detector 共用同一份 resolved config。"""
+    """CLI、run() 與 detector 共用同一份 resolved config。"""
 
     def test_default_is_mahalanobis_ledoit_wolf(self):
         resolved = resolve_openset_config()

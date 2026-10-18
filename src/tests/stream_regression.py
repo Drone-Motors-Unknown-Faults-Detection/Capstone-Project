@@ -1,4 +1,4 @@
-"""真實 CSV 與整合前 main 配對；工程回歸，不選模型。"""
+"""真實 CSV 上與 tests.test_stream_integration.BASE 版本的 run() 逐一比對；工程回歸，不選模型。"""
 import argparse
 import hashlib
 import importlib

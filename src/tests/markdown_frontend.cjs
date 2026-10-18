@@ -20,7 +20,7 @@ assert.equal(md('見 exp1_cold_start.md 與 __init__'), '<p>見 exp1_cold_start.
 assert.equal(md('2 * 3 * 4'), '<p>2 * 3 * 4</p>');
 assert.equal(md('**未閉合'), '<p>**未閉合</p>');   // 串流途中：保持原字
 
-// 截圖中的回答形狀：有序清單 → 無序清單 → 巢狀項目
+// 助理回答常見形狀：有序清單 → 無序清單 → 巢狀項目
 const answer = [
   ' 1. 從健康資料中以 **187** 筆訓練',
   ' 2. 使用 62 筆作為校準集',

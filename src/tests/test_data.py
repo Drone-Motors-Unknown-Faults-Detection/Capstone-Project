@@ -1,4 +1,4 @@
-"""core.data.PoolCache（#48）：以內容 SHA 為鍵的 load_pools 快取。"""
+"""core.data.PoolCache：以內容 SHA 為鍵的 load_pools 快取。"""
 
 from __future__ import annotations
 

@@ -139,7 +139,7 @@ class RecordDescribeTests(unittest.TestCase):
         for number in ("2", "二", "實驗二", "exp2"):
             with self.subTest(number=number):
                 self.assertEqual(pick_record(snap, number, exp12_saved)[0]["exp_id"], "exp2")
-        # 截圖情境：實驗十二用「▶ 執行」跑的，記憶體沒有（伺服器重啟），改讀存檔
+        # 實驗十二用「▶ 執行」跑的，記憶體沒有（伺服器重啟），改讀存檔
         for number in ("12", "十二", "實驗12", "exp12_2026-10-17-14-17-08.json"):
             with self.subTest(number=number):
                 rec, _ = pick_record(snap, number, exp12_saved)

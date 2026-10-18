@@ -71,7 +71,7 @@ class PairedStreamTests(unittest.TestCase):
         self.assertEqual([e["name"] for e in events if e["event"] == "part"],
                          ["geometry", "direction", "severity"])
 
-    def test_catalog_streams_health_monitor_after_issue_35(self):
+    def test_catalog_stream_set_includes_health_monitor(self):
         self.assertEqual({e["id"] for e in CATALOG if e.get("stream")},
                          {"exp1", "exp2", "exp3", "exp4", "exp8_monitor"})
         with self.assertRaises(ValueError):
@@ -184,7 +184,7 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         return [json.loads(line[6:]) for line in response.body.decode().splitlines() if line.startswith("data: ")]
 
     def test_exp2_confirm_endpoint_is_removed(self):
-        # 實驗二成群即 adopt() 自學，實驗頁不提供確認閘門（#184）
+        # 實驗二成群即 adopt() 自學，實驗頁不提供確認閘門
         patterns = [rule.matcher.regex.pattern for rule in server.make_app().wildcard_router.rules]
         self.assertFalse(any("confirm" in pattern for pattern in patterns))
         self.assertFalse(hasattr(server, "Exp2ConfirmHandler"))

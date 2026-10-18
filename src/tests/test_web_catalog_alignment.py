@@ -1,4 +1,4 @@
-"""展示文案對上實際方法及資料角色，不變更演算法。"""
+"""CATALOG 文案對上實際方法與資料角色、首頁量尺用語，以及 experiments.js 的 LIVE 畫面涵蓋所有串流實驗。"""
 import re
 from pathlib import Path
 

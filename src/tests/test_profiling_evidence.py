@@ -1,4 +1,4 @@
-"""效能量測工具（#48）的輸出結構與門檻判定；不檢查秒數。"""
+"""tests/profiling_evidence.py 的輸出結構與門檻判定；不檢查秒數。"""
 
 from __future__ import annotations
 

@@ -53,7 +53,7 @@ class HealthBenchmarkTests(unittest.TestCase):
             temporary.cleanup()
 
     def test_cli_uses_setup_run_and_saves_same_result_as_api(self):
-        """#24：CLI 經 setup_run 寫 logs/output，同 seed 的 result.json 與 API 回傳相同。"""
+        """CLI 經 setup_run 寫 logs/output，同 seed 的 result.json 與 API 回傳相同。"""
         temporary, root = self._fixture_root()
         previous = Path.cwd()
         try:

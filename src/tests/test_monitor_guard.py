@@ -1,4 +1,4 @@
-"""未擬合防護與固定舊版逐欄回歸。"""
+"""未擬合防護，與固定基準 commit（BASE）逐欄回歸。"""
 import hashlib
 import subprocess
 import unittest

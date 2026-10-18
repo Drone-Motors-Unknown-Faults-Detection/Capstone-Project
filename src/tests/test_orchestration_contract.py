@@ -1,7 +1,7 @@
-"""#49：拆分 orchestration 前固定的回歸規範；規範見 docs/refactoring_contract.md。
+"""exp6_formal_benchmark／exp6_matrix 對基準 commit（BASE）的回歸規範；規範見 docs/refactoring_contract.md。
 
-現行程式與基準 commit 的同名函數在同一份 fixture 上配對執行。允許新增欄位或
-新增有預設值的 keyword-only 參數（例如 #47 的 resolved_config、#48 的 pool_cache），
+現行程式與基準 commit 的同名函數在同一份 fixture 上配對執行。允許新增欄位（例如
+resolved_config）或有預設值的 keyword-only 參數（例如 pool_cache），
 既有欄位、參數與數值不得改變。
 """
 
@@ -25,7 +25,7 @@ from experiments import exp6_matrix as matrix
 from tests.exp6_fixture import condition_row
 
 ROOT = Path(__file__).resolve().parents[2]
-BASE = "39d39931e9573d6b70b3822420b085aa496f52da"  # PR #84 合併後的 main
+BASE = "39d39931e9573d6b70b3822420b085aa496f52da"  # exp6 orchestration 基準 commit
 VOLATILE = {"inference_seconds", "commit_sha", "python", "dataset_fingerprint"}
 
 
