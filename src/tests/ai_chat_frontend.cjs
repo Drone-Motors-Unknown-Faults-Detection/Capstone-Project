@@ -234,6 +234,19 @@ const tick = () => new Promise(r => setImmediate(r));
   el('aiInput').value = '下一輪'; el('aiForm').requestSubmit();
   for (let k = 0; k < 8; k++) await tick();
   assert.ok(!JSON.stringify(JSON.parse(requests.filter(r => r[0] === '/api/assistant/ask').at(-1)[1].body).history).includes('查詢已達上限'));
+  replies.push(sse([
+    {event:'mode', mode:'record_timing', context:{experiment:'exp1', mode:'result'}, sources:['時間原檔']},
+    {event:'delta', text:'猜測大約開始時間'},
+    {event:'delta', origin:'record', text:'開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。'},
+    {event:'done'}
+  ]));
+  el('aiInput').value = '何時開始、何時完成？'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 8; k++) await tick();
+  const timed = el('aiLog').children.at(-1).children[1];
+  assert.equal(timed.attrs['data-response-mode'], 'record_timing');
+  assert.ok(timed.children[1].innerHTML.includes('原檔未記錄'));
+  assert.ok(timed.children[1].htmlWrites.every(value => !value.includes('猜測大約')));
+  assert.equal(el('aiSend').disabled, false);
   if (acceptedFrames) {
     // 直接消費正式HTTP handler產生的SSE，不以手寫正確答案替代資料鏈。
     replies.push(sse(acceptedFrames));
@@ -241,12 +254,20 @@ const tick = () => new Promise(r => setImmediate(r));
     el('aiForm').requestSubmit();
     for (let k = 0; k < 10; k++) await tick();
     const actual = el('aiLog').children.at(-1).children[1];
+    if (acceptedFrames[0].mode === 'record_timing') {
+      assert.equal(actual.attrs['data-response-mode'], 'record_timing');
+      assert.ok(actual.children[1].innerHTML.includes('開始時間：'));
+      assert.ok(actual.children[1].innerHTML.includes('完成時間：'));
+      assert.ok(actual.children[1].innerHTML.includes('耗時：'));
+      assert.equal(el('aiSend').disabled, false);
+    } else {
     assert.equal(actual.attrs['data-response-mode'], 'matrix_summary');
     assert.ok(actual.children[1].innerHTML.includes('2736／2938＝93.12%'));
     assert.ok(actual.children[1].innerHTML.includes('202／2938＝6.88%'));
     assert.ok(actual.children[1].htmlWrites.every(value => !/legacy 模型完全失效|接近100%|46～47|unknown無誤報/.test(value)));
     assert.ok(!actual.children.some(c => c.className === 'ai-facts'));
     assert.ok(actual.children.at(-1).textContent.includes(acceptedFrames[0].sources[0]));
+    }
     console.log('HTTP to frontend primary OK');
   }
   console.log('ai chat frontend OK');

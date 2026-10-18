@@ -134,7 +134,7 @@ class RecordDescribeTests(unittest.TestCase):
 
     def test_label_summarizes_progress(self):
         label = record_label(latest_record(exp2_tracker().snapshot()))
-        self.assertRegex(label, r"^實驗頁紀錄：實驗二 量尺擴張（⏵ 邊跑邊畫），播放中，已播 3 筆，時間 \d\d:\d\d:\d\d$")
+        self.assertRegex(label, r"^實驗頁紀錄：實驗二 量尺擴張（⏵ 邊跑邊畫），播放中，已播 3 筆，紀錄更新 \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}\+00:00$")
 
     def test_pick_by_number_prefers_memory_then_saved_file(self):
         snap = exp2_tracker().snapshot()

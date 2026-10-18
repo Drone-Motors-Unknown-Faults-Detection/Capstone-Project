@@ -536,7 +536,10 @@ function showResult(e, payload){
 function resultContext(e, payload){
   const current = collectParams(e), actual = payload.params;
   const same = Object.keys(current).every(k => current[k] === actual[k]);
-  return `保存結果時間：${payload.finished_at || "未記錄"}。${same ? "與目前選項一致；這是該次執行的結果。" : "選項已變更；下方仍是舊設定結果，尚未按新選項執行。"}`;
+  const stamp = value => value ? String(value) + (/T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? "" : "（原檔未提供時區）") : "原檔未記錄";
+  const conflict = payload.started_at && payload.started_at === payload.finished_at && payload.seconds > 1.01 ? "時間紀錄不一致，保留原值。" : "";
+  const fallback = `開始時間：${stamp(payload.started_at)}；完成時間：${stamp(payload.finished_at)}；耗時：${Number.isFinite(payload.seconds) && payload.seconds >= 0 ? payload.seconds + " 秒" : "原檔未記錄或數值無效"}。${conflict}`;
+  return `${payload.timing_text || fallback}${same ? "與目前選項一致；這是該次執行的結果。" : "選項已變更；下方仍是舊設定結果，尚未按新選項執行。"}`;
 }
 
 function refreshResultContext(e){

@@ -27,6 +27,9 @@ const payload = {params:{dataset:'T1/8000rpm', seed:42}, seconds:1, finished_at:
   result:{healthy_fp_rate:0, macro_detect_rate:1, macro_auroc:1, rows:[], model:{score_type:'測試', threshold_strategy:'q95',
     classes:[{config:'8screws', n_train:187, n_cal:62, n_holdout:64}]}}};
 assert.match(sandbox.resultContext(e, payload), /與目前選項一致/);
+assert.match(sandbox.resultContext(e, payload), /開始時間：原檔未記錄/);
+assert.match(sandbox.resultContext(e, payload), /原檔未提供時區/);
+assert.match(sandbox.resultContext(e, {...payload, timing_text:'開始時間：2026-10-18T23:59:30.000+00:00；完成時間：2026-10-19T00:00:20.150+00:00；耗時：50.15 秒。'}), /2026-10-19T00:00:20.150\+00:00/);
 element('f-exp1-seed').value = '123';
 assert.match(sandbox.resultContext(e, payload), /舊設定結果/);
 assert.match(sandbox.resultContext(e, payload), /2026-10-14/);

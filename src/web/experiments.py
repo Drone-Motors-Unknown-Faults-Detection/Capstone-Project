@@ -15,7 +15,6 @@ import csv
 import importlib
 import json
 import math
-import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -25,6 +24,7 @@ import numpy as np
 from core.data import HEALTHY, config_sort_key, display_name, load_pools
 from core.detectors import ALL_DETECTORS
 from core.openset import SUPPORTED_OPENSET_METHODS
+from web.run_timing import RunTimer
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -292,15 +292,14 @@ class ExperimentRunner:
         if spec is None:
             raise ValueError(f"未知實驗：{exp_id}")
         params = self._clean(spec, raw_params or {})
-        t0 = time.time()
+        timer = RunTimer("batch_execution")
         result = jsonable(self._dispatch(exp_id, params))
         payload = {
             "experiment": exp_id,
             "no": spec["no"],
             "code": spec["code"],
             "params": params,
-            "seconds": round(time.time() - t0, 2),
-            "finished_at": datetime.now().isoformat(timespec="seconds"),
+            **timer.finish(),
             "result": result,
         }
         payload["saved"] = self._save(exp_id, payload)
@@ -398,8 +397,8 @@ class ExperimentRunner:
         params = self._clean(spec, raw_params)
         if scenario:
             params = {**params, "scenario": scenario}
-        t0 = time.time()
-        yield {"event": "start", "params": params}, 0
+        timer = RunTimer("stream_elapsed_including_playback")
+        yield {"event": "start", "params": params, **timer.start_fields()}, 0
         result: Any = None
         windows: list[dict] = []
         for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
@@ -429,8 +428,7 @@ class ExperimentRunner:
             "no": spec["no"],
             "code": spec["code"],
             "params": params,
-            "seconds": round(time.time() - t0, 2),
-            "finished_at": datetime.now().isoformat(timespec="seconds"),
+            **timer.finish(),
             "result": result,
             "streamed": True,
         }

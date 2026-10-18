@@ -33,6 +33,7 @@ from experiments.exp3_trend import KIND_DISPLAY
 from web.experiments import CATALOG
 from web.playback import ANSWER_SCHEMA
 from web.assistant_budget import build_bounded_graph, fallback_answer
+from web.run_timing import timing_fields
 
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 EXPERIMENTS_DIR = Path(__file__).resolve().parents[2] / "docs" / "experiments"
@@ -73,7 +74,8 @@ SYSTEM_PROMPT = """你是無人機馬達冷啟動 PHM 監測系統的值班助�
    legacy 即使把已知全拒，unknown 對角仍可判對；-1 介面限制須有來源版本證據，不能從圖樣猜原因，
    不能判定原方法完全失效。此批不能證明跨馬達或部署可靠，也不能由誤拒率確認邊界過嚴，
    不建議用同一 test 調門檻後宣稱改善。手冊說明方法，模型特徵來自 CSV，不來自手冊。
-9. 回答先講結論，再列支撐的內容。"""
+9. 執行起訖只讀保存欄位；開始缺值或原檔時區不明時照實說，不由檔名、讀取時刻或完成減耗時推算。
+10. 回答先講結論，再列支撐的內容。"""
 
 NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系統狀態裡沒有這項資訊；不要自行推測或用一般知識補充。"
 
@@ -109,7 +111,7 @@ def record_label(rec: dict | None) -> str:
         return "實驗頁紀錄：無"
     progress = f"，已播 {rec['samples']} 筆" if rec.get("mode") == "stream" else ""
     label = (f"實驗頁紀錄：{record_name(rec)}（{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}），"
-             f"{STATUS_DISPLAY.get(rec['status'], rec['status'])}{progress}，時間 {rec['updated_at']}")
+             f"{STATUS_DISPLAY.get(rec['status'], rec['status'])}{progress}，紀錄更新 {rec['updated_at']}")
     saved = (rec.get("result") or {}).get("saved")
     return label + (f"，存檔 {saved}" if saved else "")
 
@@ -155,8 +157,9 @@ def describe_record(rec: dict) -> str:
     params = "、".join(f"{k}={v}" for k, v in rec.get("params", {}).items()) or "—"
     lines = [
         f"實驗：{record_name(rec)}（{rec['exp_id']}）",
-        f"來源：{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}；狀態：{STATUS_DISPLAY.get(rec['status'], rec['status'])}；"
-        f"開始 {rec['started_at']}，最後更新 {rec['updated_at']}",
+        f"來源：{MODE_DISPLAY.get(rec.get('mode'), rec.get('mode'))}；狀態：{STATUS_DISPLAY.get(rec['status'], rec['status'])}；",
+        timing_fields(rec.get("result") or rec)["timing_text"],
+        f"紀錄更新 {rec['updated_at']}（與實驗起訖分開）",
         f"參數：{params}",
     ]
     if rec.get("mode") == "stream":
@@ -332,6 +335,48 @@ def result_frames(snap: dict | None, request: dict, load_saved=None, load_select
         {"event": "tool", "name": "get_run_status", "label": "程式核算實驗十二結果", "sources": sources},
         {"event": "delta", "text": text, "origin": "matrix"},
     ]
+
+
+def timing_frames(snap, question, context, load_saved, load_selected):
+    """時間問題只讀紀錄欄位，無需模型由秒數或檔名猜起點。"""
+    if not re.search(r"何時.*(?:開始|完成)|開始時間|完成時間|起訖|(?:這次|本次).*花多久", question):
+        return None
+    context = context or {}
+    match = _SAVED_REFERENCE.search(question)
+    reference = match.group() if match else context.get("saved")
+    number = experiment_number(_SAVED_REFERENCE.sub("", question))
+    rec, problem = None, ""
+    try:
+        if reference:
+            name = reference.replace("\\", "/").rsplit("/", 1)[-1]
+            ids = [e["id"] for e in CATALOG if re.match(re.escape(e["id"]) + r"_\d{4}-", name)]
+            if len(ids) != 1 or (number is not None and experiment_number(ids[0]) != number):
+                raise ValueError("時間查詢的指定存檔與實驗不一致，未改取另一筆")
+            if load_selected is None:
+                raise ValueError("目前介面無法定位指定存檔，未改取最新紀錄")
+            rec = load_selected(reference, ids[0])
+        else:
+            requested = str(number) if number is not None else context.get("experiment", "")
+            rec, problem = pick_record(snap, requested, load_saved)
+    except ValueError as exc:
+        problem = str(exc)
+    sources = [record_label(rec)]
+    if rec is None:
+        text, status = "【時間紀錄不足】" + problem, "missing"
+    else:
+        timing = timing_fields(rec.get("result") or rec)
+        identity = {"experiment": rec["exp_id"], "status": rec["status"], **timing,
+                    **{k: v for k, v in (rec.get("result") or {}).items() if k in ("saved", "saved_sha256")}}
+        text = ("【執行紀錄時間，由程式讀取】\n" + timing["timing_text"] + "\n來源識別："
+                + json.dumps(identity, ensure_ascii=False, sort_keys=True))
+        status = timing["timing_status"]
+    response_context = {"experiment": (rec or {}).get("exp_id", context.get("experiment", "")), "mode": "result"}
+    saved = ((rec or {}).get("result") or {}).get("saved") or reference
+    if saved:
+        response_context["saved"] = saved
+    return [{"event": "mode", "mode": "record_timing", "status": status, "context": response_context, "sources": sources},
+            {"event": "tool", "name": "get_run_status", "label": "讀取實驗起訖與耗時", "sources": sources},
+            {"event": "delta", "text": text, "origin": "record"}]
 
 
 def _normalize(text: str) -> str:
@@ -608,6 +653,11 @@ class Assistant:
             request = result_request(snap, question, history or [], context)
         except ValueError as exc:
             yield {"event": "error", "error": str(exc)}
+            return
+        times = timing_frames(snap, question, context, frozen_saved, load_selected)
+        if times is not None:
+            for frame in times:
+                yield frame
             return
         if request is not None:
             for frame in result_frames(snap, request, frozen_saved, load_selected):

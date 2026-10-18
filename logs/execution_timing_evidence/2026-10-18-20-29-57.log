@@ -1,0 +1,4 @@
+2026-10-18 20:29:57 | INFO    | Logger initialized: execution_timing_evidence
+2026-10-18 20:29:57 | INFO    | log_file=logs\execution_timing_evidence\2026-10-18-20-29-57.log
+2026-10-18 20:29:57 | INFO    | output_dir=output\execution_timing_evidence\2026-10-18-20-29-57
+2026-10-18 20:30:01 | INFO    | 時間驗收=VERIFIED_HTTP；新run=output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json；瀏覽器未驗收
