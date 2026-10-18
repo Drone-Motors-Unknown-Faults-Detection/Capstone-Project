@@ -71,7 +71,7 @@ def build_bounded_graph(llm, tools, *, audit: dict, normalize_number, limits: di
         messages = state["messages"]
         if finish:
             messages = [*messages, SystemMessage("工具查詢已停止。僅根據已取得資料整理一次答案，不再要求工具；不足處明說，禁止補造數字或原因。")]
-        available = remaining if finish else max(0.001, remaining - policy["final_seconds"])
+        available = min(remaining, policy["final_seconds"]) if finish else max(0.001, remaining - policy["final_seconds"])
         try:
             response = await asyncio.wait_for(model.ainvoke(messages, config), min(policy["call_seconds"], available))
         except asyncio.TimeoutError:

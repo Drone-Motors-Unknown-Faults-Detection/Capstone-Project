@@ -85,7 +85,7 @@ def test_model_timeout_is_bounded_and_not_reported_as_experiment_failure():
 
 def test_near_deadline_reserves_finalizer_instead_of_forcing_tool():
     model = fake_model(call("二", name="get_run_status"))
-    answer, audit = graph_result(model, limits={"seconds": 0.1, "final_seconds": 0.2})
+    answer, audit = graph_result(model, limits={"seconds": 2, "final_seconds": 3})
     assert model.choices == ["none"]
     assert audit["tools"] == 0
     assert "最後整理仍要求工具" in answer.content
@@ -115,7 +115,7 @@ def test_finalizer_timeout_preserves_prior_evidence():
         return SlowModel() if kwargs.get("tool_choice") == "none" else original(tools, **kwargs)
 
     with patch.object(type(model), "bind_tools", lambda self, tools, **kwargs: bind(tools, **kwargs)):
-        answer, audit = graph_result(model, limits={"call_seconds": 0.02})
+        answer, audit = graph_result(model, limits={"call_seconds": 1, "final_seconds": 0.01})
     assert "模型回覆逾時" in answer.content
     assert "播放中" in answer.content
     assert audit["evidence"]
