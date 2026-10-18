@@ -152,6 +152,14 @@ def _exp12_answer(result, budget: int, source: dict | None) -> dict:
     else:
         settings = {k: result[k] for k in ("seed", "confidence", "perplexity", "n_datasets") if k in result}
         lines.append("結果設定：" + json.dumps(settings, ensure_ascii=False, sort_keys=True))
+        missing = []
+        if "binary" not in facts:
+            missing.append("缺少二元矩陣，無法核算健康誤報與故障漏判")
+        if not facts["openset"]:
+            missing.append("缺少多類開集矩陣，無法核算已知分類與未知拒絕")
+        if missing:
+            status = "incomplete"
+            lines.append("【資料不完整】" + "；".join(missing) + "。以下僅呈現已有矩陣，不代表完整實驗結果。")
         if "binary" in facts:
             f = facts["binary"]
             b = f["binary"]

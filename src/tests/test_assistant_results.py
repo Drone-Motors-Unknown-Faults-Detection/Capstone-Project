@@ -77,6 +77,19 @@ def test_valid_result_is_available_when_model_is_offline():
     assert "45／572＝7.87%" in frames[-1]["text"]
 
 
+@pytest.mark.parametrize("missing,notice,available", [
+    ("binary_confusion", "缺少二元矩陣", "2736／2938＝93.12%"),
+    ("openset_confusion", "缺少多類開集矩陣", "45／572＝7.87%"),
+])
+def test_partial_legacy_payload_names_missing_section_without_model(missing, notice, available):
+    result = historical_result()
+    del result[missing]
+    frames = collect(OfflineAssistant("http://unused/v1"), "實驗十二結果", snap=result_snapshot(result))
+    assert frames[0]["status"] == "incomplete"
+    assert notice in frames[-1]["text"]
+    assert available in frames[-1]["text"]
+
+
 def test_wrong_assistant_history_cannot_select_or_rewrite_result():
     snap = result_snapshot()
     tracker = PlaybackTracker()
