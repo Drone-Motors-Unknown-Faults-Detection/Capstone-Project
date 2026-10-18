@@ -245,7 +245,7 @@ def select_view(presentation, view):
             if s["id"] == "classes-ledoit_wolf":
                 s.update(detail=False, open=True)
     elif view == "tsne":
-        p["sections"] = [s for s in p["sections"] if s["id"] in {"source", "source_details", "warnings", "limits", "tsne", "legend"}]
+        p["sections"] = [s for s in p["sections"] if s["id"] in {"source", "source_details", "warnings", "limits", "tsne", "legend", "roles"}]
         p["title"] = "t-SNE抽樣與圖例"
         for s in p["sections"]:
             if s["id"] in ("tsne", "legend"):
