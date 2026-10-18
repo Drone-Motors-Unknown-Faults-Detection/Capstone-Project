@@ -276,7 +276,7 @@ def iter_playback(
     stages = []
     for config in sequence:
         sampler = CycleSampler(pools[config], np.arange(len(pools[config])), rng)
-        res, found_at, rejected = None, None, 0
+        res, found_at = None, None
         for tick in range(1, max_ticks_per_stage + 1):
             out = session.process(sampler.draw(), config)
             yield {
@@ -312,7 +312,6 @@ def iter_playback(
             "config": config,
             "display": display_name(config),
             "discovered": res is not None,
-            "rejected_known_clusters": rejected,
         }
         if res is not None:
             own = session.monitor.classify(session.monitor.holdout(res["config"]))

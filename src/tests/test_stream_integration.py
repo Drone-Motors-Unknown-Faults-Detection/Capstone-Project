@@ -173,7 +173,6 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         return tornado.web.Application([
             (r"/stream/([a-z0-9_]+)", server.StreamHandler),
             (r"/run/([a-z0-9_]+)", server.RunHandler),
-            (r"/api/experiments/exp2/confirm", server.Exp2ConfirmHandler),
         ])
 
     def tearDown(self):
@@ -184,9 +183,11 @@ class StreamHTTPTests(AsyncHTTPTestCase):
     def frames(self, response):
         return [json.loads(line[6:]) for line in response.body.decode().splitlines() if line.startswith("data: ")]
 
-    def test_confirm_without_candidate_is_rejected(self):
-        response = self.fetch("/api/experiments/exp2/confirm", method="POST", body=b"")
-        self.assertEqual(response.code, 409)
+    def test_exp2_confirm_endpoint_is_removed(self):
+        # 實驗二成群即 adopt() 自學，實驗頁不再有確認閘門（#184）
+        patterns = [rule.matcher.regex.pattern for rule in server.make_app().wildcard_router.rules]
+        self.assertFalse(any("confirm" in pattern for pattern in patterns))
+        self.assertFalse(hasattr(server, "Exp2ConfirmHandler"))
 
     def test_done_releases_shared_lock(self):
         response = self.fetch("/stream/exp1")

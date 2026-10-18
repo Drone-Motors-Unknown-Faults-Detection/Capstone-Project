@@ -15,7 +15,6 @@ import csv
 import importlib
 import json
 import math
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -225,29 +224,6 @@ def jsonable(value: Any) -> Any:
     return value
 
 
-class ConfirmGate:
-    """實驗二邊跑邊畫：候選送出後停住，直到確認或串流中斷。"""
-
-    def __init__(self) -> None:
-        self._event = threading.Event()
-        self.action = "confirm"
-        self.waiting = False
-
-    def arm(self) -> None:
-        self.waiting = True
-
-    def wait(self) -> str:
-        self._event.wait()
-        action = self.action
-        self._event.clear()
-        self.waiting = False
-        return action
-
-    def release(self, action: str) -> None:
-        self.action = action
-        self._event.set()
-
-
 class ExperimentRunner:
     def __init__(self, datasets: list[dict], data_root: str, out_dir: Path | None = None,
                  detector_options: dict | None = None):
@@ -256,7 +232,6 @@ class ExperimentRunner:
         self.out_dir = Path(out_dir) / "experiments" if out_dir else None
         self.detector_options = detector_options or {}
         self._pools_cache: dict[str, dict] = {}
-        self.pending_confirm: ConfirmGate | None = None
 
     # -- 目錄 ------------------------------------------------------------------
 
@@ -424,53 +399,43 @@ class ExperimentRunner:
         if scenario:
             params = {**params, "scenario": scenario}
         t0 = time.time()
-        try:
-            yield {"event": "start", "params": params}, 0
-            result: Any = None
-            windows: list[dict] = []
-            stopped = False
-            for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
-                event = jsonable(event)
-                kind = event["event"]
-                if kind == "stopped":
-                    stopped = True
-                    break
-                if kind == "result":
-                    result = event["result"]
-                elif kind == "scores":
-                    scores = event.pop("scores")
-                    for i in range(0, len(scores), SCORE_CHUNK):
-                        chunk = scores[i:i + SCORE_CHUNK]
-                        yield {**event, "offset": i, "scores": chunk}, len(chunk)
-                elif kind == "tick":
-                    # 每個劇本只播第一次重複；其餘重複照算，只送 trial 結果。
-                    # 實驗二的 tick 沒有 trial，全部播放。
-                    if event.get("trial", 0) == 0:
-                        yield event, 1
-                elif kind == "window":
-                    windows.append(event["window"])
+        yield {"event": "start", "params": params}, 0
+        result: Any = None
+        windows: list[dict] = []
+        for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
+            event = jsonable(event)
+            kind = event["event"]
+            if kind == "result":
+                result = event["result"]
+            elif kind == "scores":
+                scores = event.pop("scores")
+                for i in range(0, len(scores), SCORE_CHUNK):
+                    chunk = scores[i:i + SCORE_CHUNK]
+                    yield {**event, "offset": i, "scores": chunk}, len(chunk)
+            elif kind == "tick":
+                # 每個劇本只播第一次重複；其餘重複照算，只送 trial 結果。
+                # 實驗二的 tick 沒有 trial，全部播放。
+                if event.get("trial", 0) == 0:
                     yield event, 1
-                else:
-                    yield event, 0
-            if stopped:
-                yield {"event": "stopped"}, 0
-                return
-            if exp_id == "exp8_monitor":
-                result = windows  # 與 health_monitor.run() 的回傳同格式
-            payload = {
-                "experiment": exp_id,
-                "no": spec["no"],
-                "code": spec["code"],
-                "params": params,
-                "seconds": round(time.time() - t0, 2),
-                "finished_at": datetime.now().isoformat(timespec="seconds"),
-                "result": result,
-                "streamed": True,
-            }
-            payload["saved"] = self._save(exp_id, payload)
-            yield {"event": "done", "payload": payload}, 0
-        finally:
-            self.pending_confirm = None
+            elif kind == "window":
+                windows.append(event["window"])
+                yield event, 1
+            else:
+                yield event, 0
+        if exp_id == "exp8_monitor":
+            result = windows  # 與 health_monitor.run() 的回傳同格式
+        payload = {
+            "experiment": exp_id,
+            "no": spec["no"],
+            "code": spec["code"],
+            "params": params,
+            "seconds": round(time.time() - t0, 2),
+            "finished_at": datetime.now().isoformat(timespec="seconds"),
+            "result": result,
+            "streamed": True,
+        }
+        payload["saved"] = self._save(exp_id, payload)
+        yield {"event": "done", "payload": payload}, 0
 
     def _save(self, exp_id: str, payload: dict) -> str | None:
         if self.out_dir is None:

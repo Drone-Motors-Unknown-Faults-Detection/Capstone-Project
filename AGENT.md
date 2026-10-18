@@ -230,7 +230,7 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現。新類納入分兩條路徑：
    - 實驗二批次 `run()` 與實驗頁「⏵ 邊跑邊畫」：候選一成群就呼叫 `adopt()`，群至少 5 筆
      就 `learned`，否則 `insufficient`。不讀真值，也不因真值多數是已知類而退回，
-     所以批次結果的 `rejected_known_clusters` 恆為 0。
+     所以批次 stage 列沒有退回次數欄。
    - 首頁即時展示（`web/live.py`）與獨立導覽（`web/guide.py`）：按確認才呼叫 `confirm()`，
      讀完整配置池重擬合；若叢集是已知類別邊界樣本，回傳 `action="rejected_known"`
      （退回、清叢、量尺不變）。
@@ -261,8 +261,7 @@ WebSocket `/ws`，JSON 訊息：
   `event`（info/warn/success/error）、`metrics`
 - client → server：`{cmd: start|pause|reset|rate|set_source|scenario|confirm|dataset, ...}`
 - 重任務（confirm/reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
-- WebSocket 的 `confirm` 只服務首頁即時展示。實驗頁的實驗二不等確認；
-  `POST /api/experiments/exp2/confirm` 仍在路由表，但沒有呼叫端建立 `ConfirmGate`，一律回 409（清理見 #184）。
+- WebSocket 的 `confirm` 只服務首頁即時展示。實驗頁的實驗二不等確認，HTTP API 沒有確認端點。
 
 AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{question, history}` → SSE
 `tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_run_status`、`get_run_events`（`number` 指定實驗，留空取最近一次）、
