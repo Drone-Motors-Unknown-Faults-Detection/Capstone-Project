@@ -271,3 +271,20 @@ def test_saved_only_context_is_explicit_even_without_experiment_or_mode(saved_pa
                      context={"saved": str(paths[0])}, load_selected=tracker.load_saved_record)
     assert frames[0]["mode"] == "matrix_summary"
     assert str(paths[0]) in frames[0]["sources"][0]
+
+
+def test_result_after_restart_reads_latest_saved_without_model(saved_pair):
+    tracker, paths = saved_pair
+    frames = collect(OfflineAssistant("unused"), "健康池313筆是不是全部用來訓練",
+                     snap={"latest": None, "records": {}}, load_saved=tracker.load_saved)
+    assert frames[0]["mode"] == "matrix_summary"
+    assert str(paths[1]) in frames[0]["sources"][0]
+
+
+def test_explicit_record_after_restart_does_not_probe_latest(saved_pair):
+    tracker, paths = saved_pair
+    with patch.object(tracker, "load_saved", side_effect=AssertionError("指定原檔不能先查另一筆")):
+        frames = collect(OfflineAssistant("unused"), f"總結 `{paths[0].name}`",
+                         snap={"latest": None, "records": {}}, load_saved=tracker.load_saved,
+                         load_selected=tracker.load_saved_record)
+    assert str(paths[0]) in frames[0]["sources"][0]

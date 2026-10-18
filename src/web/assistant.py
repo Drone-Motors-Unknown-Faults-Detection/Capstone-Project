@@ -18,21 +18,21 @@ server.py 在 IOLoop 執行緒取 ``PlaybackTracker.snapshot()``（web/playback.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import tornado.httpclient
-from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, SystemMessage, ToolMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
-from langgraph.graph import START, MessagesState, StateGraph
-from langgraph.prebuilt import ToolNode, tools_condition
+from langgraph.errors import GraphRecursionError
 
 from experiments.exp3_trend import KIND_DISPLAY
 from web.experiments import CATALOG
 from web.playback import ANSWER_SCHEMA
+from web.assistant_budget import build_bounded_graph, fallback_answer
 
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 EXPERIMENTS_DIR = Path(__file__).resolve().parents[2] / "docs" / "experiments"
@@ -467,29 +467,10 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     return [get_run_status, get_run_events, get_experiment, lookup_knowledge]
 
 
-def _looked_up(messages: list) -> bool:
-    """本輪提問（最後一則 HumanMessage）之後是否已經呼叫過工具。"""
-    last_human = max((i for i, m in enumerate(messages) if isinstance(m, HumanMessage)), default=-1)
-    return any(isinstance(m, ToolMessage) for m in messages[last_human + 1:])
-
-
-def build_graph(llm, tools):
+def build_graph(llm, tools, *, audit=None, limits=None):
     # 每輪第一步 tool_choice="required"：模型一定先查工具，不能直接憑印象回答
-    must_look = llm.bind_tools(tools, tool_choice="required")
-    free = llm.bind_tools(tools)
-
-    async def agent(state: MessagesState, config: RunnableConfig) -> dict:
-        model = free if _looked_up(state["messages"]) else must_look
-        # Python 3.10 的 asyncio 不會自動傳遞 config；不明傳，stream_mode="messages" 收不到逐 token
-        return {"messages": [await model.ainvoke(state["messages"], config)]}
-
-    graph = StateGraph(MessagesState)
-    graph.add_node("agent", agent)
-    graph.add_node("tools", ToolNode(tools))
-    graph.add_edge(START, "agent")
-    graph.add_conditional_edges("agent", tools_condition)
-    graph.add_edge("tools", "agent")
-    return graph.compile()
+    return build_bounded_graph(llm, tools, audit=audit if audit is not None else {},
+                               normalize_number=experiment_number, limits=limits)
 
 
 def to_messages(history: list, question: str) -> list:
@@ -600,42 +581,86 @@ class Assistant:
                 model=await self.resolve_model(),
                 temperature=self.temperature,
                 streaming=True,
+                max_tokens=1600,
+                timeout=25,
+                max_retries=0,
             )
         return self._llm
 
     async def ask(self, snap: dict | None, question: str, history: list | None = None,
                   load_saved=None, context: dict | None = None, load_selected=None) -> AsyncIterator[dict]:
         """回傳工具來源、非生成 facts 與模型 delta；facts 不由模型改寫。"""
+        saved_cache = {}
+
+        def frozen_saved(exp_id):
+            if exp_id not in saved_cache:
+                saved_cache[exp_id] = load_saved(exp_id) if load_saved else None
+            return saved_cache[exp_id]
+
+        if (not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
+                and not _SAVED_REFERENCE.search(question) and not (isinstance(context, dict) and context.get("saved"))
+                and (not _METHOD_QUESTION.search(question) or re.search(r"結果|總結|摘要|誤報|誤拒|是否|是不是", question))):
+            latest = frozen_saved(None)
+            if latest:
+                snap = {"latest": latest["exp_id"], "records": {**(snap or {}).get("records", {}), latest["exp_id"]: latest}}
+                saved_cache[latest["exp_id"]] = latest
         try:
             request = result_request(snap, question, history or [], context)
         except ValueError as exc:
             yield {"event": "error", "error": str(exc)}
             return
         if request is not None:
-            for frame in result_frames(snap, request, load_saved, load_selected):
+            for frame in result_frames(snap, request, frozen_saved, load_selected):
                 yield frame
             return
         sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
-        graph = build_graph(await self.llm(), make_tools(snap, sections, self.experiments_dir, load_saved))
-        think = ThinkFilter()
-        async for chunk, meta in graph.astream(
-            {"messages": to_messages(history or [], question)},
-            {"recursion_limit": RECURSION_LIMIT},
-            stream_mode="messages",
-        ):
-            node = meta.get("langgraph_node")
-            if node == "tools" and isinstance(chunk, ToolMessage):
-                artifact = chunk.artifact or []
-                sources = artifact.get("sources", []) if isinstance(artifact, dict) else artifact
-                yield {"event": "tool", "name": chunk.name,
-                       "label": TOOL_DISPLAY.get(chunk.name, chunk.name),
-                       "sources": list(sources)}
-                if isinstance(artifact, dict) and artifact.get("facts"):
-                    yield {"event": "facts", "text": artifact["facts"], "sources": list(sources)}
-            elif node == "agent" and isinstance(chunk, (AIMessageChunk, AIMessage)):
-                text = think.feed(_chunk_text(chunk.content))
-                if text:
-                    yield {"event": "delta", "text": text}
-        tail = think.flush()
-        if tail:
-            yield {"event": "delta", "text": tail}
+        audit = {}
+        sources = []
+        iterator = None
+        deadline = asyncio.get_running_loop().time() + 90
+        try:
+            model = await asyncio.wait_for(self.llm(), 5)
+            graph = build_graph(model, make_tools(snap, sections, self.experiments_dir, frozen_saved), audit=audit)
+            iterator = graph.astream({"messages": to_messages(history or [], question)},
+                                     {"recursion_limit": RECURSION_LIMIT}, stream_mode="updates").__aiter__()
+            while True:
+                try:
+                    update = await asyncio.wait_for(iterator.__anext__(), max(0.001, deadline - asyncio.get_running_loop().time()))
+                except StopAsyncIteration:
+                    break
+                for node, value in update.items():
+                    for message in value.get("messages", []):
+                        if node == "tools" and isinstance(message, ToolMessage):
+                            artifact = message.artifact or []
+                            refs = artifact.get("sources", []) if isinstance(artifact, dict) else artifact
+                            sources = list(dict.fromkeys([*sources, *refs]))
+                            yield {"event": "tool", "name": message.name,
+                                   "label": TOOL_DISPLAY.get(message.name, message.name), "sources": list(refs)}
+                            if isinstance(artifact, dict) and artifact.get("facts"):
+                                yield {"event": "facts", "text": artifact["facts"], "sources": list(refs)}
+                        elif node == "agent" and not message.tool_calls:
+                            if audit.get("degraded"):
+                                yield {"event": "mode", "mode": "verified_fallback", "status": "incomplete", "sources": sources}
+                            think = ThinkFilter()
+                            for part in re.findall(r"\S+\s*|\s+", _chunk_text(message.content)):
+                                text = think.feed(part)
+                                if text:
+                                    yield {"event": "delta", "text": text, "origin": "fallback" if audit.get("degraded") else "model"}
+                            tail = think.flush()
+                            if tail:
+                                yield {"event": "delta", "text": tail, "origin": "fallback" if audit.get("degraded") else "model"}
+        except asyncio.CancelledError:
+            raise
+        except (GraphRecursionError, asyncio.TimeoutError) as exc:
+            reason = "查詢已達流程上限" if isinstance(exc, GraphRecursionError) else "問答時間已達上限"
+            yield {"event": "mode", "mode": "verified_fallback", "status": "incomplete", "sources": sources}
+            yield {"event": "delta", "text": fallback_answer(audit, reason), "origin": "fallback"}
+        except Exception:
+            if audit.get("evidence"):
+                yield {"event": "mode", "mode": "verified_fallback", "status": "incomplete", "sources": sources}
+                yield {"event": "delta", "text": fallback_answer(audit, "模型連線或回覆失敗"), "origin": "fallback"}
+            else:
+                yield {"event": "error", "code": "model_unavailable", "error": "本地模型呼叫失敗：連線或回覆不可用，並非實驗失敗。"}
+        finally:
+            if iterator is not None:
+                await iterator.aclose()

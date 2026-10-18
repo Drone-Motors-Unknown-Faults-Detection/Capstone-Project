@@ -216,6 +216,24 @@ const tick = () => new Promise(r => setImmediate(r));
   assert.ok(!JSON.stringify(follow.history).includes('2736／2938'));
   assert.ok(!JSON.stringify(follow.history).includes('完全失效'));
   assert.equal(el('aiLog').children.at(-1).children[1].children[1].textContent, '（程式未提供可用摘要）');
+  // 有限降級不冒充模型文字，按鈕恢復後仍能繼續提問。
+  replies.push(sse([
+    {event: 'mode', mode: 'verified_fallback', status: 'incomplete', sources: ['已確認來源']},
+    {event: 'delta', text: '不應顯示的自由文字'},
+    {event: 'delta', text: '查詢已達上限，以下只保留已確認資料。', origin: 'fallback'},
+    {event: 'done'}
+  ]));
+  el('aiInput').value = '綜合方法問題'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 8; k++) await tick();
+  const limited = el('aiLog').children.at(-1).children[1];
+  assert.equal(limited.attrs['data-response-mode'], 'verified_fallback');
+  assert.ok(limited.children[1].innerHTML.includes('查詢已達上限'));
+  assert.ok(limited.children[1].htmlWrites.every(x => !x.includes('不應顯示的自由文字')));
+  assert.equal(el('aiSend').disabled, false);
+  replies.push(sse([{event: 'delta', text: '下一輪可用'}, {event: 'done'}]));
+  el('aiInput').value = '下一輪'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 8; k++) await tick();
+  assert.ok(!JSON.stringify(JSON.parse(requests.filter(r => r[0] === '/api/assistant/ask').at(-1)[1].body).history).includes('查詢已達上限'));
   if (acceptedFrames) {
     // 直接消費正式HTTP handler產生的SSE，不以手寫正確答案替代資料鏈。
     replies.push(sse(acceptedFrames));

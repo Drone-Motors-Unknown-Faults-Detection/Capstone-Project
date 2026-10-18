@@ -332,6 +332,40 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         frames = self.frames(json.dumps({"question": "目前狀況？"}))
         self.assertRegex(frames[-1]["as_of"], r"^實驗頁紀錄：實驗二 量尺擴張（⏵ 邊跑邊畫），播放中，已播 3 筆")
 
+    def test_tool_loop_returns_incomplete_fallback_and_done_with_source(self):
+        server.PLAYBACK = exp2_tracker()
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*[
+            AIMessage(content="不應顯示的前言", tool_calls=[{"name": "get_run_status", "args": {"number": "2"}, "id": f"c{i}"}])
+            for i in range(3)]))
+        frames = self.frames(json.dumps({"question": "綜合解釋目前方法"}))
+        assert any(f.get("mode") == "verified_fallback" for f in frames)
+        text = "".join(f.get("text", "") for f in frames)
+        assert "查詢已達上限" in text
+        assert "不應顯示的前言" not in text
+        assert "模型離線" not in text
+        assert frames[-1]["event"] == "done"
+        assert "實驗二" in frames[-1]["as_of"]
+
+    @tornado.testing.gen_test
+    async def test_http_disconnect_cancels_inflight_model(self):
+        from tests.test_assistant_budget import SlowModel
+
+        slow = SlowModel()
+        server.ASSISTANT = Assistant("http://unused/v1", llm=slow)
+        reader, writer = await asyncio.open_connection("127.0.0.1", self.get_http_port())
+        body = json.dumps({"question": "方法問題"}).encode()
+        writer.write(b"POST /api/assistant/ask HTTP/1.1\r\nHost: localhost\r\nContent-Length: "
+                     + str(len(body)).encode() + b"\r\nContent-Type: application/json\r\n\r\n" + body)
+        await writer.drain()
+        await asyncio.wait_for(slow.started.wait(), 2)
+        writer.close()
+        await writer.wait_closed()
+        for _ in range(100):
+            if slow.stopped:
+                break
+            await asyncio.sleep(0.01)
+        assert slow.stopped
+
     def test_http_exp12_primary_answer_is_program_generated_with_consistent_source(self):
         server.PLAYBACK.record_run("exp12", {"saved": "指定來源/exp12.json", "result": historical_result()})
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(

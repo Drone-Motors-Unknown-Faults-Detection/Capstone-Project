@@ -86,11 +86,11 @@
           const line = buf.slice(0, i); buf = buf.slice(i + 2);
           if (!line.startsWith("data: ")) continue;
           const f = JSON.parse(line.slice(6));
-          if (f.event === "mode" && f.mode === "matrix_summary") {
-            responseMode = "matrix_summary";
+          if (f.event === "mode" && ["matrix_summary", "verified_fallback"].includes(f.mode)) {
+            responseMode = f.mode;
             responseContext = f.context;
             box.setAttribute("data-response-mode", responseMode);
-            tools.textContent = "📐 結果摘要由程式依矩陣產生";
+            tools.textContent = responseMode === "matrix_summary" ? "📐 結果摘要由程式依矩陣產生" : "⚠ 查詢未完整完成，只保留已確認資料";
             (f.sources || []).forEach(x => sources.add(x));
           }
           else if (f.event === "tool") {
@@ -110,11 +110,12 @@
           }
           else if (f.event === "delta") {
             if (responseMode === "matrix_summary" && f.origin !== "matrix") continue;
+            if (responseMode === "verified_fallback" && f.origin !== "fallback") continue;
             answer += f.text; body.className = "ai-md"; body.innerHTML = renderMarkdown(answer);
           }
           else if (f.event === "error") { box.className = "ai-msg error"; body.textContent = f.error; }
           else if (f.event === "done" && !answer && box.className !== "ai-msg error") {
-            body.textContent = responseMode === "matrix_summary" ? "（程式未提供可用摘要）" : "（模型沒有回覆文字）";
+            body.textContent = responseMode !== "model" ? "（程式未提供可用摘要）" : "（模型沒有回覆文字）";
           }
           if (f.event === "done") {
             const src = document.createElement("div"); src.className = "ai-sources";
@@ -126,7 +127,7 @@
       }
       if (answer) {
         aiHistory.push({role: "user", content: question});
-        if (responseMode !== "matrix_summary") aiHistory.push({role: "assistant", content: answer});
+        if (responseMode === "model") aiHistory.push({role: "assistant", content: answer});
       }
       aiContext = responseMode === "matrix_summary" ? responseContext : null;
     } catch (e) {
