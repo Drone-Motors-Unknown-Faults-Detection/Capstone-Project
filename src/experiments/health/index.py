@@ -1,7 +1,7 @@
 """Calibrated relative health index built on the shared Open Set detector.
 
 The class in this module is deliberately a thin adapter around
-``core.openset.create_openset_detector``.  It keeps the historical detector
+``core.openset.create_detector_from_config``.  It keeps the historical detector
 threshold (normalised score ``> 1`` means unknown) and adds a monotone health
 view calibrated *only* on the known calibration split.  The resulting value is
 relative to the calibration population; it is not a physical damage fraction,

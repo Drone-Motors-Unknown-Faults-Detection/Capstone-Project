@@ -1,9 +1,7 @@
 """實驗六（正式版）：Mahalanobis vs k-NN 開集基準，供 exp6_matrix 多 seed 矩陣使用。
 
-與 ``exp6_osr_benchmark``（七種偵測器的廣度比較、core.detectors）互補：
+與 ``exp6_osr_benchmark``（八種偵測器的廣度比較、core.detectors）互補：
 本模組只比較主線兩種 core.openset 偵測器，並記錄完整可重現 provenance。
-（原於 feat/knn-openset-comparison 分支名為 exp6_osr_benchmark，合併時更名；
-該分支 output/、logs/ 下 2026-09-19 的 exp6_osr_benchmark 紀錄即出自本模組。）
 
     venv/bin/python -m experiments.exp6_formal_benchmark --openset-method knn --seed 42
 
@@ -191,7 +189,7 @@ def _run_benchmark(
     require_nine: bool = True,
     pool_cache=None,
 ) -> dict:
-    """Run one condition×seed×method benchmark over the formal data root."""
+    """Run one seed×method benchmark over every formal condition under data_root."""
     resolved = resolve_openset_config(openset_method, confidence=confidence,
                                       mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
     requested_method = str(openset_method)

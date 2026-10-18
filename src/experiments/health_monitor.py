@@ -95,7 +95,7 @@ def iter_run(
     )
     monitor = SessionTrajectoryMonitor(model, require_identity=require_identity)
     yield {"event": "fitted", "model": model.metadata()}
-    # 8screws 取與擬合不重疊的 holdout；其他配置沒參與擬合，依原順序取整池（#35）
+    # 8screws 取與擬合不重疊的 holdout；其他配置沒參與擬合，依原順序取整池
     samples = healthy[split.holdout] if config == HEALTHY else pools[config]
     if max_windows is not None:
         if max_windows < 1:
@@ -153,8 +153,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     lines = []
     for result in results:
-        # ``to_dict`` is applied after stream state updates so the CLI and
-        # programmatic API expose exactly the same contract.
+        # iter_run 已輸出 full 模式；此處依 --output-mode 篩欄，health 欄位須與
+        # HealthMonitoringResult.to_dict("health") 一致（另加 window_index）。
         if args.output_mode == "binary":
             lines.append(json.dumps({"is_fault": result["is_fault"]}, ensure_ascii=False))
         elif args.output_mode == "health":

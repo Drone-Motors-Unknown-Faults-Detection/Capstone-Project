@@ -1,4 +1,4 @@
-"""相同來源／seed的原展示與新導覽有界配對回歸。"""
+"""相同來源／seed 下，首頁 LiveDemo 與導覽 GuideHub 的有界逐筆配對回歸。"""
 from __future__ import annotations
 
 import argparse
