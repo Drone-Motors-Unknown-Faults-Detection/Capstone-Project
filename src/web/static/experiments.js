@@ -64,7 +64,7 @@ const RENDER = {
     return kpis([["發現的新故障", `${found} / ${r.stages.length}`], ["最終已知類別", r.final_known.length]])
       + modelLine(r.model)
       + table([["display", "依序注入"], ["discovered", "發現", bool], ["learned_display", "模型新類"], ["matched_display", "事後對照"], ["samples_to_candidate", "到候選所需筆數", int],
-               ["cluster_size", "叢大小", int], ["cluster_purity", "純度", v => pct(v, 0)], ["rejected_known_clusters", "退回次數", int],
+               ["cluster_size", "叢大小", int], ["cluster_purity", "純度", v => pct(v, 0)],
                ["own_holdout_acc", "本類 holdout 認出率", v => pct(v)], ["healthy_holdout_acc", "健康 holdout 認出率", v => pct(v)],
                ["known_after", "之後已知類別數", int]], r.stages);
   },
@@ -452,7 +452,6 @@ function streamExp(e, extra){
     if (f.event === "fitted") st.textContent = "⏵ 播放中…";
     else if (f.event === "candidate") st.textContent = "⚙ 模型自學中…";
     else if (f.event === "adopted") st.textContent = "⏵ 播放中…";
-    else if (f.event === "stopped"){ st.textContent = "■ 已停止"; stopStream(); return; }
     else if (f.event === "error"){ st.className = "mini err"; st.textContent = "✗ " + f.error; stopStream(); return; }
     else if (f.event === "done"){
       LAST[e.id] = f.payload; stopStream();

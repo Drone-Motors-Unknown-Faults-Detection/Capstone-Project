@@ -119,6 +119,7 @@ class ExperimentContracts(unittest.TestCase):
         self.assertEqual(json.dumps(a, sort_keys=True), json.dumps(b, sort_keys=True))
         self.assertFalse(a["stages"][0]["discovered"])
         self.assertEqual(a["final_known"], ["8screws"])
+        self.assertNotIn("rejected_known_clusters", a["stages"][0])   # adopt() 不退回已知類（#184）
         self.assertEqual(a["threshold"], 1.0)
 
     def test_exp3_fixed_trials_events_and_determinism(self):

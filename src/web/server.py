@@ -8,12 +8,11 @@
 所有連線的瀏覽器；重擬合（確認納入、重置、換資料集）丟進執行緒池，
 避免卡住串流迴圈。
 
-實驗頁（實驗一～八，可在頁首切換）走 HTTP API，由 web/experiments.py 呼叫各
+實驗頁（實驗一～十二，可在頁首切換）走 HTTP API，由 web/experiments.py 呼叫各
 experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時展示照常串流：
     GET  /api/experiments               實驗目錄、資料集、配置清單
     POST /api/experiments/{id}/run      以 JSON 參數執行一次，回傳結果並存檔
     GET  /api/experiments/{id}/stream   邊跑邊畫（Server-Sent Events）：?params=<JSON>&rate=<筆/秒>
-    POST /api/experiments/exp2/confirm  實驗二逐筆播放遇到候選時放行確認
     GET  /api/committed/{name}          已提交的矩陣結果（唯讀）
 
 AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
@@ -264,10 +263,6 @@ class StreamHandler(tornado.web.RequestHandler):
 
     def on_connection_close(self) -> None:
         self.closed = True
-        runner = getattr(JOBS, "runner", None) if JOBS is not None else None
-        gate = getattr(runner, "pending_confirm", None) if runner is not None else None
-        if gate is not None:
-            gate.release("stop")
 
     async def send(self, frame: dict) -> None:
         if self.tracking:
@@ -332,18 +327,6 @@ class StreamHandler(tornado.web.RequestHandler):
             finally:
                 JOBS.current = None
                 PLAYBACK.finish("stopped")   # 沒收到 done／error 就結束 = 被中斷
-
-
-class Exp2ConfirmHandler(_JSONHandler):
-    """放行實驗二邊跑邊畫停住的候選。沒有待確認候選時拒絕。"""
-
-    def post(self) -> None:
-        gate = getattr(JOBS.runner, "pending_confirm", None) if JOBS is not None else None
-        if gate is None or not gate.waiting:
-            self.reply({"error": "目前沒有待確認的實驗二候選"}, 409)
-            return
-        gate.release("confirm")
-        self.reply({"ok": True})
 
 
 class CommittedHandler(_JSONHandler):
@@ -586,7 +569,6 @@ def make_app(static_dir: Path = STATIC_DIR) -> tornado.web.Application:
         (r"/ws", WSHandler),
         (r"/api/experiments", CatalogHandler),
         (r"/api/experiments/([a-z0-9_]+)/run", RunHandler),
-        (r"/api/experiments/exp2/confirm", Exp2ConfirmHandler),
         (r"/api/experiments/([a-z0-9_]+)/stream", StreamHandler),
         (r"/api/committed/([a-z0-9_]+)", CommittedHandler),
         (r"/api/assistant/status", AssistantStatusHandler),
