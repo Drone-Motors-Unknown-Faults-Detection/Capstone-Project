@@ -3,10 +3,12 @@ from __future__ import annotations
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
+from experiments import exp10_transfer
 from experiments.exp10_transfer import _draw_support, run
 from core.feature_schema import SCHEMAS
 
@@ -59,14 +61,32 @@ class Exp10TransferTests(unittest.TestCase):
             self.assertNotEqual(row["src"], row["dst"])
 
     def test_target_support_never_appears_in_eval_metrics(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = _fixture(Path(directory))
-            result = run(str(root), seed=7, n_values=(5,))
+        draws: list[tuple[np.ndarray, np.ndarray]] = []
+        healthy_lengths: list[int] = []
 
-        adapted_rows = [r for r in result["rows"] if r["strategy"] == "adapted" and r["n"] == 5]
-        scratch_rows = [r for r in result["rows"] if r["strategy"] == "scratch" and r["n"] == 5]
-        self.assertTrue(adapted_rows)
-        self.assertTrue(scratch_rows)
+        def recording_draw(pool, n, rng):
+            support, eval_pool = _draw_support(pool, n, rng)
+            draws.append((support, eval_pool))
+            return support, eval_pool
+
+        def recording_metrics(healthy_scores, fault_scores):
+            healthy_lengths.append(len(healthy_scores))
+            return original_metrics(healthy_scores, fault_scores)
+
+        original_metrics = exp10_transfer._metrics
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.object(exp10_transfer, "_draw_support", side_effect=recording_draw), \
+                patch.object(exp10_transfer, "_metrics", side_effect=recording_metrics):
+            root = _fixture(Path(directory))
+            run(str(root), seed=7, n_values=(5,))
+
+        # 3 個工況 × 2 個 target，每對抽一次 support
+        self.assertEqual(len(draws), 6)
+        for support, eval_pool in draws:
+            self.assertEqual(len(support) + len(eval_pool), 40)
+            self.assertFalse({row.tobytes() for row in support} & {row.tobytes() for row in eval_pool})
+        # 每對依序算 direct、adapted、scratch；後兩者的健康分母只有 eval 的 35 列
+        self.assertEqual(healthy_lengths, [40, 35, 35] * 6)
 
 
 if __name__ == "__main__":

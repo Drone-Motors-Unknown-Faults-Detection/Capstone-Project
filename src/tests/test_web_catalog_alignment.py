@@ -15,7 +15,7 @@ def test_catalog_matches_method_registry_and_roles():
         assert entry["data_roles"] and entry["limitations"]
         assert "9 組全跑" not in entry["question"]
     assert "故障全池" in by_id["exp8_monitor"]["question"]
-    assert "用途重疊" in by_id["exp5"]["limitations"]
+    assert "外層健康 holdout" in by_id["exp5"]["limitations"]
 
 
 def test_home_scale_is_not_physical_health():

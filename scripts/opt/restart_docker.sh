@@ -70,11 +70,10 @@ case "$GPU_MEM" in
 esac
 
 if [ ! -f docker/.env ]; then
+    # 一次 sed 寫出，不用 sed -i：BSD sed（macOS）的 -i 必須帶備份副檔名
     sed -e "s/^APP_UID=.*/APP_UID=$(id -u)/" -e "s/^APP_GID=.*/APP_GID=$(id -g)/" \
+        ${MEM_UTIL:+-e "s/^VLLM_GPU_MEMORY_UTILIZATION=.*/VLLM_GPU_MEMORY_UTILIZATION=$MEM_UTIL/"} \
         docker/.env.example > docker/.env
-    if [ -n "$MEM_UTIL" ]; then
-        sed -i "s/^VLLM_GPU_MEMORY_UTILIZATION=.*/VLLM_GPU_MEMORY_UTILIZATION=$MEM_UTIL/" docker/.env
-    fi
     echo "已由 .env.example 建立 docker/.env（APP_UID=$(id -u)、APP_GID=$(id -g)、VLLM_GPU_MEMORY_UTILIZATION=${MEM_UTIL:-預設}）"
 elif [ -n "$MEM_UTIL" ]; then
     CURRENT=$(sed -n 's/^VLLM_GPU_MEMORY_UTILIZATION=//p' docker/.env | tail -1)

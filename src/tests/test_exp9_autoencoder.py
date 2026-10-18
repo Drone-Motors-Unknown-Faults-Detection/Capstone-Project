@@ -31,8 +31,13 @@ class MLPAutoencoderDetTests(unittest.TestCase):
         X_train, X_cal, X_fault = _health_data()
         detector = MLPAutoencoderDet(confidence=0.95, seed=11).fit(X_train, X_cal)
         threshold_before = detector.threshold
-        detector.score(X_fault)  # scoring unknown data must not mutate the fitted model
+        weights_before = [w.copy() for w in detector._m.coefs_ + detector._m.intercepts_]
+        cal_scores_before = detector.score(X_cal)
+        detector.score(X_fault)  # 對未知資料打分不得改動已擬合的網路或門檻
         self.assertEqual(detector.threshold, threshold_before)
+        for before, after in zip(weights_before, detector._m.coefs_ + detector._m.intercepts_):
+            np.testing.assert_array_equal(before, after)
+        np.testing.assert_array_equal(detector.score(X_cal), cal_scores_before)
 
     def test_fault_scores_exceed_healthy_scores(self):
         X_train, X_cal, X_fault = _health_data()

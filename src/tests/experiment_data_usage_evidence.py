@@ -89,7 +89,7 @@ def inspect(data_root: Path | str, seeds: tuple[int, ...] = (42, 123, 2026)) -> 
                                              "target_healthy_test_n": max(0, len(pools[HEALTHY]) - n),
                                              "scratch": allocation({HEALTHY: pools[HEALTHY][:n]}, [HEALTHY], seeds[0])}
                                             for n in (10, 25, 50)]})
-    # exp5 的策略子實驗：外層評估 split(seed+7) 與 per_condition 自建 split(seed) 不同。
+    # exp5 的策略子實驗：三種基準都只用外層 split(seed+7) 的 train+cal 擬合，monitor 再在其中內切。
     strategy = []
     by_key = {row["dataset"]: row for row in loaded}
     for seed in seeds:
@@ -97,10 +97,11 @@ def inspect(data_root: Path | str, seeds: tuple[int, ...] = (42, 123, 2026)) -> 
         for key in sorted(by_key):
             n = next(r["finite_rows"] for r in by_key[key]["configurations"] if r["config"] == HEALTHY)
             outer = make_split(n, rng)
-            inner = make_split(n, np.random.default_rng(seed))
+            fit_rows = np.r_[outer.train, outer.cal]
+            inner = make_split(len(fit_rows), np.random.default_rng(seed))
             strategy.append({"seed": seed, "dataset": key, "outer_healthy_test_n": len(outer.holdout),
-                             "per_condition_train_overlap_n": len(np.intersect1d(outer.holdout, inner.train)),
-                             "per_condition_cal_overlap_n": len(np.intersect1d(outer.holdout, inner.cal))})
+                             "per_condition_train_overlap_n": len(np.intersect1d(outer.holdout, fit_rows[inner.train])),
+                             "per_condition_cal_overlap_n": len(np.intersect1d(outer.holdout, fit_rows[inner.cal]))})
     # 讀取後再驗證原位元組；不把 mtime 或換行標準化當內容證據。
     if any(hashlib.sha256((root / r["relative_path"]).read_bytes()).hexdigest() != r["sha256"] for r in inventory):
         raise ValueError("查核期間來源內容改變")
