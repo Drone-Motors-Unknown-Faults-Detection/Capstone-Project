@@ -5,14 +5,30 @@ import os
 import unittest
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
 
 from loguru import logger
 
-from experiments.health_index_benchmark import main, run
+from experiments import health_index_benchmark
+from experiments.health.severity import RelativeSeverityPolicy
+from experiments.health_index_benchmark import _health_distribution, main, run
 from core.feature_schema import SCHEMAS
+
+
+class HealthDistributionTests(unittest.TestCase):
+    def test_fractions_follow_severity_policy_thresholds(self):
+        values = np.array([0.05, 0.25, 0.65, 0.85, 0.95])
+        default = _health_distribution(values)
+        self.assertEqual(default["healthy_fraction"], 0.4)
+        self.assertEqual(default["critical_fraction"], 0.2)
+        policy = RelativeSeverityPolicy(healthy_min=0.9, early_warning_min=0.5, degraded_min=0.3)
+        with patch.object(health_index_benchmark, "DEFAULT_SEVERITY_POLICY", policy):
+            moved = _health_distribution(values)
+        self.assertEqual(moved["healthy_fraction"], 0.2)
+        self.assertEqual(moved["critical_fraction"], 0.4)
 
 
 class HealthBenchmarkTests(unittest.TestCase):

@@ -192,6 +192,17 @@ class RestartScriptTests(unittest.TestCase):
                 self.assertEqual(self.run_script(FAKE_GPU_MEM=gpu_mem).returncode, 0)
                 self.assertEqual(self.env_value("VLLM_GPU_MEMORY_UTILIZATION"), expected)
 
+    def test_runs_with_bsd_style_sed(self):
+        # 模擬 macOS 的 BSD sed：-i 後面沒接備份副檔名就失敗
+        real_sed = shutil.which("sed")
+        (self.root / "bin/sed").write_text(
+            '#!/bin/bash\nfor arg in "$@"; do [ "$arg" = "-i" ] && { echo "sed: -i needs suffix" >&2; exit 1; }; done\n'
+            f'exec "{real_sed}" "$@"\n', encoding="utf-8")
+        (self.root / "bin/sed").chmod(0o755)
+        result = self.run_script(FAKE_GPU_MEM="[N/A]")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.env_value("VLLM_GPU_MEMORY_UTILIZATION"), "0.5")
+
     def test_existing_env_mismatch_warns_without_rewriting(self):
         (self.root / "docker/.env").write_text("VLLM_GPU_MEMORY_UTILIZATION=0.5\n", encoding="utf-8")
         result = self.run_script()

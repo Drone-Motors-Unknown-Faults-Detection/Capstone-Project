@@ -18,6 +18,7 @@ from core.logger import setup_run
 from core.openset import resolve_openset_config
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
+from experiments.health.severity import DEFAULT_SEVERITY_POLICY
 
 
 FORMAL_CONDITION_COUNT = 9
@@ -52,8 +53,8 @@ def _health_distribution(values: np.ndarray) -> dict[str, float]:
         "mean": round(float(np.mean(values)), 6),
         "std": round(float(np.std(values)), 6),
         "median": round(float(np.median(values)), 6),
-        "healthy_fraction": round(float(np.mean(values >= 0.8)), 6),
-        "critical_fraction": round(float(np.mean(values < 0.2)), 6),
+        "healthy_fraction": round(float(np.mean(values >= DEFAULT_SEVERITY_POLICY.healthy_min)), 6),
+        "critical_fraction": round(float(np.mean(values < DEFAULT_SEVERITY_POLICY.degraded_min)), 6),
     }
 
 

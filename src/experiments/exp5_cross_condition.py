@@ -122,12 +122,15 @@ def run_strategy(all_pools, seed: int = 42, confidence: float = 0.95,
 
     strategies: dict[str, dict] = {"per_condition": {}, "global_mixed": {}, "per_rpm_mixed": {}}
 
-    for k in keys:  # 逐工況（現行做法）
-        monitor = _fit_healthy_monitor(all_pools[k], seed, confidence, method)
-        strategies["per_condition"][k] = eval_with(monitor, k)
-
+    # 三種策略都只用 outer train+cal 擬合；monitor 內部會再切 60/20/20，
+    # 若餵完整健康池，內切的 train/cal 會吃到評估 holdout。
     train_part = {k: all_pools[k][HEALTHY][np.r_[holdout_idx[k].train, holdout_idx[k].cal]]
                   for k in keys}
+
+    for k in keys:  # 逐工況（現行做法）
+        monitor = _pooled_monitor([train_part[k]], seed, confidence, method)
+        strategies["per_condition"][k] = eval_with(monitor, k)
+
     global_monitor = _pooled_monitor(list(train_part.values()), seed, confidence, method)
     for k in keys:
         strategies["global_mixed"][k] = eval_with(global_monitor, k)

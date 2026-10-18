@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import tempfile
 import unittest
 from pathlib import Path
+from zipfile import ZipFile
 
 import numpy as np
 import pandas as pd
@@ -15,6 +17,7 @@ from core.formal_data import (
     FormalDataError,
     _channel_key,
     _clean_feature_frame,
+    _convert_condition,
     _ensure_output_not_source,
 )
 
@@ -60,9 +63,29 @@ class FormalDataTests(unittest.TestCase):
                 _ensure_output_not_source(source, source / "materialized")
 
     def test_nonfinite_feature_rows_are_removed_before_materialization(self) -> None:
-        frame = pd.DataFrame([[1.0, np.inf], [2.0, 3.0]], columns=["a", "b"])
-        finite = frame.replace([np.inf, -np.inf], np.nan).dropna()
-        self.assertEqual(finite.shape, (1, 2))
+        # 每個 CSV 欄是一個視窗；全零的電流視窗讓 rms=0，峰值因子等特徵變成非有限值
+        rng = np.random.default_rng(0)
+        n_windows = 12
+        buffer = io.BytesIO()
+        with ZipFile(buffer, "w") as archive:
+            for name in ("Current", "Acceleration_X", "Acceleration_Y", "Acceleration_Z", "Delta_T"):
+                signal = rng.normal(0.0, 1.0, (400, n_windows))
+                if name == "Current":
+                    signal[:, 3] = 0.0
+                archive.writestr(f"8screws/T1_{name}_data.csv", pd.DataFrame(signal).to_csv(index=False))
+        pending: list[tuple[Path, bytes]] = []
+        with tempfile.TemporaryDirectory() as directory, ZipFile(buffer) as archive, \
+                np.errstate(divide="ignore", invalid="ignore"):
+            (record,) = _convert_condition(
+                archive, "synthetic", Path(directory), "T1", "8000rpm",
+                force=False, selected_conditions=None, pending_writes=pending,
+            )
+        # rows_before_clean 是 IQR 過濾前的列數：只少了非有限那一列
+        self.assertEqual(record.rows_before_clean, n_windows - 1)
+        (_, payload), = pending
+        written = pd.read_csv(io.BytesIO(payload))
+        self.assertEqual(len(written), record.rows_after_clean)
+        self.assertTrue(np.isfinite(written.to_numpy()).all())
 
 
 if __name__ == "__main__":

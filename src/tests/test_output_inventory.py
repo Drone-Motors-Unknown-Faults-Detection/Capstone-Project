@@ -6,11 +6,16 @@ import unittest
 from unittest.mock import patch
 
 from tests.output_inventory_evidence import (
-    inspect, main, run, verify_document_relocations, verify_external_relocations,
+    WRITERS, inspect, main, run, verify_document_relocations, verify_external_relocations,
 )
 
 
 class OutputInventoryTests(unittest.TestCase):
+    def test_every_registered_writer_file_exists(self):
+        root = Path(__file__).resolve().parents[2]
+        missing = [name for names in WRITERS.values() for name in names if not (root / name).is_file()]
+        self.assertEqual(missing, [])
+
     def test_absent_manual_report_does_not_disable_verification(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
