@@ -193,7 +193,7 @@ const COMMITTED_RENDER = {
   },
 };
 
-/* ---------- 線圖（實驗八逐窗） ---------- */
+/* ---------- 線圖（實驗八逐窗）與 t-SNE 散佈（實驗十二） ---------- */
 function drawLines(root){
   root.querySelectorAll("canvas.exp-line").forEach(cv => {
     const data = JSON.parse(cv.dataset.series), dpr = devicePixelRatio;

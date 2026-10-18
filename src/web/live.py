@@ -7,8 +7,9 @@
     實驗三（變化點判別）  → TrendMonitor + exp3 的 SCENARIOS 劇本定義
 
 session 持久化（out_dir 通常是 output/web_server/{ts}/，重置一次算一個 epoch）：
-    samples_epoch{N}.csv          逐筆串流紀錄（t/真實注入/分數/判定/趨勢統計）
-    model_epoch{N}_{K}classes.json  每次擬合後的模型快照（逐類閾值與樣本數）
+    samples_epoch{NN}.csv             逐筆串流紀錄（t/真實注入/分數/判定/趨勢統計）
+    session_epoch{NN}.json            串流進度與偵測器參數
+    model_epoch{NN}_{KK}classes.json  每次擬合後的模型快照（逐類閾值與樣本數）
 """
 
 from __future__ import annotations

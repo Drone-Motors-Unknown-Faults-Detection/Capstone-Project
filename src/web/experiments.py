@@ -385,7 +385,7 @@ class ExperimentRunner:
         """邊跑邊畫：逐步產生 (frame, units)。
 
         frame 直接送給前端；units 是這個 frame 含的樣本數，伺服器依此控制播放速度
-        （units=0 的 frame 不等待）。計算走實驗模組的 iter_run()，數字與 run() 相同。
+        （units=0 的 frame 不等待）。計算走實驗模組的 iter_run()（實驗二為 iter_playback()），數字與 run() 相同。
         最後一個 frame 是 done，內容與 run() 的回傳值同格式，並已存檔。
         """
         spec = _BY_ID.get(exp_id)

@@ -1,7 +1,7 @@
 """AI 問答：LangGraph 工具呼叫 agent，經 OpenAI 相容 API 連本地模型（vLLM／llama.cpp）。
 
 server.py 在 IOLoop 執行緒取 ``PlaybackTracker.snapshot()``（web/playback.py），凍結提問當下
-實驗頁「邊跑邊畫」目前或最近一次的播放狀態，再交給 ``Assistant.ask()``；agent 只能透過四個工具讀資料：
+實驗頁各實驗最近一次的執行／播放紀錄，再交給 ``Assistant.ask()``；agent 只能透過四個工具讀資料：
 
     get_run_status       依編號取實驗頁紀錄（▶ 執行／⏵ 邊跑邊畫／存檔）：參數、進度、系統判定、結果摘要
     get_run_events       重點事件（候選群、自學、變化點警報、嚴重度改變）與事後對照（真值評估）
