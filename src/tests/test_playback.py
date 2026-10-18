@@ -335,6 +335,41 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual((rec["mode"], rec["status"], rec["params"]), ("run", "done", {"seed": 42}))
         self.assertIn("binary_confusion：（列 = 真值、欄 = 預測）", rec["result_text"])
         self.assertIn(json.loads(resp.body)["saved"], rec["result"]["saved"])
+        payload = json.loads(resp.body)
+        raw = json.loads(Path(payload["saved"]).read_text(encoding="utf-8"))
+        for key in ("started_at", "finished_at", "seconds", "timing_text"):
+            self.assertEqual(rec[key], payload[key])
+            self.assertEqual(raw[key], payload[key])
+
+    def test_time_http_and_saved_restart_do_not_call_model(self):
+        from unittest.mock import patch
+        from web.assistant import Assistant
+
+        class NoModel(Assistant):
+            async def llm(self):
+                raise AssertionError("時間欄位不需模型推測")
+
+        root = Path(self.temp.name) / "web_server"
+        server.JOBS.runner.out_dir = root / "session/experiments"
+        server.PLAYBACK = PlaybackTracker(root)
+        with patch.object(server.JOBS.runner, "_dispatch", return_value=historical_result()):
+            response = self.fetch("/api/experiments/exp12/run", method="POST", body='{"seed":42}')
+        payload = json.loads(response.body)
+        context = {"experiment": "exp12", "mode": "result"}
+        for from_saved in (False, True):
+            if from_saved:
+                server.PLAYBACK = PlaybackTracker(root)
+                context["saved"] = payload["saved"]
+            with patch.object(server, "ASSISTANT", NoModel("http://unused")):
+                reply = self.fetch("/api/assistant/ask", method="POST", body=json.dumps({
+                    "question": "這次實驗何時開始、何時完成、花多久？", "context": context}))
+            frames = [json.loads(s[6:]) for s in reply.body.decode().split("\n\n") if s]
+            self.assertEqual(frames[0]["mode"], "record_timing")
+            self.assertEqual(frames[-1]["event"], "done")
+            text = next(f["text"] for f in frames if f["event"] == "delta")
+            self.assertIn(payload["timing_text"], text)
+            for key in ("started_at", "finished_at"):
+                self.assertIn(payload[key], text)
 
 
 if __name__ == "__main__":

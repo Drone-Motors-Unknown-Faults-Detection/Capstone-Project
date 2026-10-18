@@ -153,6 +153,8 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 起訖由runner傳到payload、原始JSON、HTTP／done、PlaybackTracker、問答工具與來源摘要；讀檔或問答時不重建實驗起點。`updated_at`只表示紀錄更新，不代表實驗開始／完成。頁面直接顯示保存的ISO時間，不暗中轉成瀏覽器或Docker當地時間。
 
+「何時開始／完成、花多久」直接從同一紀錄產生`mode=record_timing`、`origin=record`的SSE正文，不呼叫模型猜時間；指定存檔仍通過既有保存根目錄與實驗身分檢查。前端不把這份程式文字存為模型歷史。實驗十二其他結果摘要仍維持`exp12_standard_answer_v2`。
+
 舊檔沒有`started_at`就保留缺值，顯示「開始時間：原檔未記錄」；naive時間標示「原檔未提供時區」。不由檔名、父目錄、mtime或完成時間減耗時推算開始。保留有效結果及原始完成時間；格式錯誤、負／非有限耗時、起訖順序或量測不一致均提示，不覆寫歷史JSON。時間一致性比較依毫秒與兩位耗時精度容許0.011秒，舊秒級時間容許1.01秒；不同時區資訊無法比較時明說。極短執行可落在同一顯示時間，時鐘回撥仍保留實際擷取值與單調耗時，不偽裝正常。
 
 時間僅為執行紀錄，不是資料採集或raw window時間；不改資料切分、指標或模型。契約由`src/tests/test_web_run_clock.py`、`test_run_timing.py`及既有runner／playback／HTTP／前端測試驗證。

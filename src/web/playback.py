@@ -24,12 +24,12 @@ import hashlib
 import itertools
 import json
 import re
-import time
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
 from experiments.exp12_confusion_tsne import data_role_counts, summarize_matrices, visualization_counts
 from web.experiments import CATALOG
+from web.run_timing import timing_fields, utc_now
 
 MAX_EVENTS = 12
 MAX_REFERENCE = 40
@@ -51,7 +51,7 @@ def _round(v, nd=3):
 
 
 def _now() -> str:
-    return time.strftime("%H:%M:%S")
+    return utc_now()
 
 
 def _saved_order(path: Path) -> tuple:
@@ -138,7 +138,8 @@ def _exp12_answer(result, budget: int, source: dict | None) -> dict:
         raise ValueError("摘要預算必須為正整數")
     identity = "來源識別：" + json.dumps(source or {"exp_id": "exp12", "source": "未提供，不能當完整執行證據"},
                                      ensure_ascii=False, sort_keys=True)
-    lines = ["【結果摘要由程式依矩陣產生】", "【程式核算：exp12 原始計數，事後評估；非模型生成】", identity]
+    lines = ["【結果摘要由程式依矩陣產生】", "【程式核算：exp12 原始計數，事後評估；非模型生成】", identity,
+             timing_fields(source or {})["timing_text"]]
     status = "complete"
     try:
         params = (source or {}).get("params") or {}
@@ -240,7 +241,7 @@ def _base(exp_id: str, mode: str) -> dict:
     spec = _SPEC.get(exp_id, {})
     return {
         "exp_id": exp_id, "no": spec.get("no", exp_id), "sub": spec.get("sub"), "title": spec.get("title", ""),
-        "mode": mode, "params": {}, "status": "running", "started_at": _now(), "updated_at": _now(),
+        "mode": mode, "params": {}, "status": "running", "started_at": None, "finished_at": None, "updated_at": _now(),
         "samples": 0, "known": None, "current": None, "events": [], "reference": [],
         "result": None, "result_text": None, "error": None, "seq": next(_SEQ),
     }
@@ -256,8 +257,9 @@ def _split_params(st: dict, params: dict) -> None:
 
 def _fill_result(st: dict, payload: dict) -> None:
     st["status"] = "done"
-    st["result"] = {k: payload.get(k) for k in ("seconds", "saved", "finished_at", "saved_sha256")
-                    if payload.get(k) is not None}
+    timing = timing_fields(payload)
+    st.update(timing)
+    st["result"] = {**timing, **{k: payload[k] for k in ("saved", "saved_sha256") if payload.get(k) is not None}}
     source = {"exp_id": st["exp_id"], "mode": st["mode"], "status": st["status"],
               "started_at": st["started_at"], "params": st["params"], **st["result"]}
     if st["exp_id"] == "exp12":
@@ -338,7 +340,7 @@ class PlaybackTracker:
             return None
         st = _base(exp, "saved")
         _split_params(st, payload.get("params") or {})
-        st["started_at"] = st["updated_at"] = payload.get("finished_at") or "—"
+        st["updated_at"] = payload.get("finished_at") if isinstance(payload.get("finished_at"), str) else None
         _fill_result(st, {**payload, "saved": str(path), "saved_sha256": hashlib.sha256(raw).hexdigest()})
         return st
 
@@ -407,6 +409,7 @@ class PlaybackTracker:
 
     def _on_start(self, st, f):
         _split_params(st, f.get("params") or {})
+        st.update(timing_fields(f))
 
     def _on_fitted(self, st, f):
         if f.get("known") is not None:
