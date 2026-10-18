@@ -159,6 +159,8 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 時間僅為執行紀錄，不是資料採集或raw window時間；不改資料切分、指標或模型。契約由`src/tests/test_web_run_clock.py`、`test_run_timing.py`及既有runner／playback／HTTP／前端測試驗證。
 
+`python -m tests.execution_timing_evidence --help`提供8787專用驗收入口：唯讀SSH核對指定舊檔、透過HTTP建立一次實驗一、比對原始JSON與記憶體／存檔時間問答，並執行實際SSE到前端JS測試。再次驗收使用`--new-saved`沿用新紀錄，不重複fit。程式經`setup_run`寫`logs/execution_timing_evidence/{ts}.log`與`output/execution_timing_evidence/{ts}/`；HTTP與Node結果不能當實際瀏覽器操作。它拒絕正式站URL及非標準保存路徑，SSH沿用已授權的使用者專用金鑰，不修改登入設定。
+
 `web.experiments.CATALOG` 的 stream 旗標決定可播放的實驗：exp1、exp3、exp4、exp8_monitor。既有 `run()` 批次與 `iter_run()` 逐步計算共用實驗邏輯；展示編排不自行計算另一套指標。使用 `uv run --locked python -m web.server --bind-address 127.0.0.1 --data-root data --port 8600` 啟動本機展示，再在實驗卡片選批次執行或「邊跑邊畫」。
 
 `GET /api/experiments/{id}/stream` 接受 JSON 物件 params 與有限 rate；速率限制在 1～1000 筆／秒，只控制播放節奏。SSE 事件從 start 開始，再推送 scores／tick／window 等實驗事件，完成才發 done。done 的 payload 已由 runner 存入 `output/web_server/{時間戳}/experiments/`，帶 `streamed: true`；停止或失敗沒有 done 就不得當作完整結果。
