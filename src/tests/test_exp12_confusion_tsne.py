@@ -55,7 +55,7 @@ class OpensetConfusionTests(unittest.TestCase):
         all_pools = {"T1/8000": pools}
         lw = np.array(_openset_confusion(all_pools, seed=42, confidence=0.95, method="ledoit_wolf")["matrix"])
         legacy = np.array(_openset_confusion(all_pools, seed=42, confidence=0.95, method="legacy")["matrix"])
-        self.assertGreaterEqual(np.trace(lw), np.trace(legacy))
+        self.assertGreater(np.trace(lw), np.trace(legacy))
 
 
 class TsneOneDatasetTests(unittest.TestCase):
