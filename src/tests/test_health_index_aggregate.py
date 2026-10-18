@@ -275,7 +275,7 @@ class HealthAggregateTests(unittest.TestCase):
         value = json.loads(self.contract.read_text(encoding="utf-8"))
         value["weighting"] = "sample_weighted"
         _write_json(self.contract, value)
-        with self.assertRaisesRegex(ValueError, "契約規則"):
+        with self.assertRaisesRegex(ValueError, "規範規則"):
             self.load()
 
     def test_run_writes_new_outputs_without_changing_archive(self):

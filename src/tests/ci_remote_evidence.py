@@ -27,7 +27,7 @@ def run(run_ids: list[int]) -> dict:
                                for row in artifacts["artifacts"]]
         summaries = []
         for artifact in record["artifacts"]:
-            if not artifact["name"].startswith("去敏契約結果-") or artifact["expired"]:
+            if artifact["expired"] or not artifact["name"].startswith(("去敏規範結果-", "去敏契約結果-")):
                 continue
             with tempfile.TemporaryDirectory() as directory:
                 subprocess.run(["gh", "run", "download", str(run_id), "--name", artifact["name"], "--dir", directory], check=True)

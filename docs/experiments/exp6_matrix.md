@@ -18,7 +18,7 @@
 口頭主軸：「先固定工況、方法與seed清單，把每格的來源和狀態保存，讓失敗可追查。54格全部完成只代表工程coverage；是否好用要看未知召回、健康誤報與來源獨立性。」
 
 - 六個方法／seed執行是否等於六顆馬達？不是，資料重用。
-- resume是否驗完所有來源？它逐格核對三個必備檔、身分與資料指紋，見下方「完成判定契約」；仍不證明原始錄製獨立。
+- resume是否驗完所有來源？它逐格核對三個必備檔、身分與資料指紋，見下方「完成判定規範」；仍不證明原始錄製獨立。
 - 六工況能否關完整九工況驗收？不能，必須列缺T2三轉速。
 - 組員請分開講run鍵、資料列與獨立採集；歷史分數只查固定輸出，不把排程完成當研究通過。
 
@@ -41,9 +41,9 @@ uv run --locked python -m experiments.exp6_matrix --data-root data/formal_local 
 
 manual_run_001只是範例，已存在就換新名稱，不能覆寫封存。API實際為run_matrix(data_root,output_root,seeds=(42,123,2026),methods=("mahalanobis","knn"),resume=True)，沒有獨立run(pools)介面或Web重跑按鈕。網頁只能讀既有結果。
 
-同命令、同根再跑預設resume：`_is_complete`依下方契約核對該格，全部通過才跳過，並把summary裡的fingerprint、commit與相對路徑補回manifest；任何一項不符就重算該格。它不重新fit，也不比對模型參數。--no-resume會重算並覆寫同run目錄，不用在封存上。
+同命令、同根再跑預設resume：`_is_complete`依下方規範核對該格，全部通過才跳過，並把summary裡的fingerprint、commit與相對路徑補回manifest；任何一項不符就重算該格。它不重新fit，也不比對模型參數。--no-resume會重算並覆寫同run目錄，不用在封存上。
 
-### 完成判定契約
+### 完成判定規範
 
 唯一鍵：`run_id = {motor}_{rpm}_seed{seed}_{method}`，目錄固定為`runs/{run_id}/`；manifest裡的路徑一律用`/`分隔，舊封存的`\`路徑讀取時換成`/`。一格算completed要同時滿足：
 

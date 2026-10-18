@@ -1,4 +1,4 @@
-"""環境紀錄與鎖版契約的 fixture；完全不讀正式 data。"""
+"""環境紀錄與鎖版規範的 fixture；完全不讀正式 data。"""
 from __future__ import annotations
 
 from contextlib import contextmanager

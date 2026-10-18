@@ -95,7 +95,7 @@ def run() -> dict:
               "checks": checks, "document_count": len(DOCUMENTS), "relative_targets": len(links),
               "broken_targets": broken, "ignored_data_required": False,
               "status": "PASS" if not broken and all(row["returncode"] == 0 for row in checks) else "FAILED",
-              "scope": "工程契約；任意Origin現狀不代表安全，無新模型成績，macOS未驗證"}
+              "scope": "工程規範；任意Origin現狀不代表安全，無新模型成績，macOS未驗證"}
     (paths.output_dir / "public_summary.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     logger.info("CI 工程驗證：{}；失效目標={}", result["status"], len(broken))

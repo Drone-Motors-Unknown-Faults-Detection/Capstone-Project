@@ -70,7 +70,7 @@ def _format_rejections(rejected: list[dict]) -> str:
 
 
 def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False) -> tuple[dict, pd.DataFrame, list[dict]]:
-    """依完成判定契約核對矩陣與每格產物，回傳 (manifest, 列表, 被拒格)。
+    """依完成判定規範核對矩陣與每格產物，回傳 (manifest, 列表, 被拒格)。
 
     預設任何一格不符就丟 ValueError 並列出全部原因；``allow_partial=True``
     時把不符的格放進被拒清單，其餘照常回傳。
@@ -246,7 +246,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", default="output/exp6_formal_matrix/matrix_manifest.json")
     parser.add_argument("--output-root")
-    parser.add_argument("--allow-partial", action="store_true", help="不符契約的格列入 rejected_runs，status 寫 PARTIAL")
+    parser.add_argument("--allow-partial", action="store_true", help="不符規範的格列入 rejected_runs，status 寫 PARTIAL")
     args = parser.parse_args(argv)
     log, _ = setup_run("exp6_aggregate", make_output=False)
     log.info(f"參數：{vars(args)}")

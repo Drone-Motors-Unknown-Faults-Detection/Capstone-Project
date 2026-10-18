@@ -1,6 +1,6 @@
 > #65 的環境歷史紀錄。作者／日期依 Git 原作：05zhi（Andy），2026-10-09；JW-Albert 的後續修改一併保留。來源為 [固定版本 1fa9431](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/runtime_policy.md)。下方保留當時敘述、日期標題、成功與失敗；相對 output 連結僅隨搬遷調整。這些舊命令、政策及進度不代表現行狀態，現在請依 [操作說明](../../docs/runtime_policy.md)；本次沒有重跑歷史實驗。
 
-# 執行環境契約：#26 第一階段
+# 執行環境規範：#26 第一階段
 
 2026-10-09，事前基線 main `ebb702dae4fe2a79df44d78738d1412b0c24bd2e`。本階段只處理 Python、依賴、非破壞安裝與共用環境紀錄，不修改資料、模型、切分、門檻或 Albert PR #36 的待決檔案。
 
@@ -12,7 +12,7 @@
 
 八個現有直接依賴都有現行 import：numpy、pandas、matplotlib、scipy、scikit-learn、hdbscan、loguru、tornado。直接依賴保留八項；完整傳遞依賴以真實新安裝與 metadata 再核，不只檢查第一層。TensorFlow／Jupyter 的 legacy extras 保留為歷史相容入口，**不屬於本輪正式 lock 的驗證範圍**，不修改原始論文。
 
-## 安裝契約
+## 安裝規範
 
 使用 [Python 官方 venv](https://docs.python.org/3/library/venv.html) 建立新的目錄，已存在的目錄一律拒絕，不刪除或覆寫既有 venv。Windows 增加 `build_uv.ps1`；Linux／macOS 保留原 shell 入口名稱，使用明確 Python executable、相同 constraints 與 `python -m pip`。安裝建置工具後用 `--no-build-isolation`，避免另一套未鎖定的建置依賴。
 
@@ -51,7 +51,7 @@ POSIX 預定入口：
 
 ## 檔案範圍
 
-會改 `pyproject.toml`、`build_uv.sh`、`build_uv_mac.sh`、`core/logger.py`、README；會新增 `runtime-constraints.txt`、`build_uv.ps1`、`core/runtime_environment.py` 與 fixture／驗證入口。輸出沿用 `logs/`、`output/`。本階段為工程契約，不占 exp9–12，不新增研究方法。
+會改 `pyproject.toml`、`build_uv.sh`、`build_uv_mac.sh`、`core/logger.py`、README；會新增 `runtime-constraints.txt`、`build_uv.ps1`、`core/runtime_environment.py` 與 fixture／驗證入口。輸出沿用 `logs/`、`output/`。本階段為工程規範，不占 exp9–12，不新增研究方法。
 
 ## 實測區
 
@@ -63,7 +63,7 @@ POSIX 預定入口：
 
 新環境第一次測試 [失敗紀錄](../../output/runtime_policy_evidence/2026-10-09-12-06-39/evidence.json) 是測試引用 pip 23 的私有解碼模組，該模組在固定 pip 25.3 已移除。正式依賴版本均相符，工程測試仍記 FAILED；修正 fixture 改驗公開的 coding 宣告與標準庫解碼，不依賴 pip 私有 API。新乾淨安裝仍會從 bootstrap pip 23 實際讀取這份檔案，提供真正安裝回歸。
 
-修正後新環境 `lineage_clean310_20261009_retry1` 完成 [179 項全套測試](../../output/branch_integration/2026-10-09-12-08-25/validation.json)，0 failed/error/skipped，pip check 與四個 CLI help 成功；[17 個環境 fixture 與固定版本核對](../../output/runtime_policy_evidence/2026-10-09-12-08-22/evidence.json) 無 constraints 差異。guard [11 項及 8 組](../../output/monitor_guard_evidence/2026-10-09-12-08-53/evidence.json) 與封存基線相同，score／PCA 最大差值均為 0。這些產物是在事前契約 HEAD `49fec06` 加上程式 working-tree 差異下執行，正式程式 commit 封存後另測。
+修正後新環境 `lineage_clean310_20261009_retry1` 完成 [179 項全套測試](../../output/branch_integration/2026-10-09-12-08-25/validation.json)，0 failed/error/skipped，pip check 與四個 CLI help 成功；[17 個環境 fixture 與固定版本核對](../../output/runtime_policy_evidence/2026-10-09-12-08-22/evidence.json) 無 constraints 差異。guard [11 項及 8 組](../../output/monitor_guard_evidence/2026-10-09-12-08-53/evidence.json) 與封存基線相同，score／PCA 最大差值均為 0。這些產物是在事前規範 HEAD `49fec06` 加上程式 working-tree 差異下執行，正式程式 commit 封存後另測。
 
 ## 環境管理工具改為 uv（2026-10-10）
 

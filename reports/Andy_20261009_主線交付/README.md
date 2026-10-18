@@ -32,12 +32,12 @@
 
 當時基線4d1858b830890a761af1dc550e74010db8a4b5f5，對照4f783c6的科學／載入／Web／環境檔案未變；沿用17項反例，不冒稱全部重跑。逐項原判定見[前次交付](../Andy_20261008_議題交付/delivery.md#當次17項稽核與分組)及[固定發布全文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/project_closeout_20261009/audit_followups.md)。來源SHA／函數跨度由tests.audit_followup_evidence保存；只有選定文件目標重新驗證。
 
-追蹤契約1a9c59c15ab1dc31e9017a4c24c49d86fe863a5a已推送；七個issue及三則補充均已發布、未指派組員。各缺陷的驗收獨立於#30關單。
+追蹤規範1a9c59c15ab1dc31e9017a4c24c49d86fe863a5a已推送；七個issue及三則補充均已發布、未指派組員。各缺陷的驗收獨立於#30關單。
 
 | 分組 | 實際追蹤 | 缺口 |
 |---|---|---|
 | R1 | [#43](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/43) | exp6 矩陣與彙總完整性 |
-| R2 | [#44](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/44) | 正式105維資料契約 |
+| R2 | [#44](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/44) | 正式105維資料規範 |
 | R3 | [#45](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/45) | containment／不等長通道 |
 | R4 | [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46) | 內容SHA與portable metadata |
 | R7 | [#47](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/47) | resolved config／schema |
@@ -51,7 +51,7 @@
 
 ## 當時環境驗收
 
-PR51第一階段使用3.10.x、直接依賴上下限及runtime-constraints.txt；這是該版本政策，不是現行uv.lock安裝說明。Windows PowerShell7及POSIX入口只建新目錄，既有環境保留；setup_run保存去敏environment.json，直接run API及三支health CLI覆蓋仍不完整。事前契約49fec06168bfb4eb2d921a0f37b50b812fc0d75d、實作815a548e29ee427387b33c14229feb1fe32efdb0均已推送。
+PR51第一階段使用3.10.x、直接依賴上下限及runtime-constraints.txt；這是該版本政策，不是現行uv.lock安裝說明。Windows PowerShell7及POSIX入口只建新目錄，既有環境保留；setup_run保存去敏environment.json，直接run API及三支health CLI覆蓋仍不完整。事前規範49fec06168bfb4eb2d921a0f37b50b812fc0d75d、實作815a548e29ee427387b33c14229feb1fe32efdb0均已推送。
 
 第一次cp950安裝失敗、pip私有API失敗及cloudpickle間接依賴更正留在[原環境交付全文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/project_closeout_20261009/runtime_delivery.md)及其固定logs/output。最終全新安裝[12-08-35證據](../../output/runtime_policy_evidence/2026-10-09-12-08-35/evidence.json)全部exit0、版本0差異；實際新環境[sidecar](../../output/environment_install/2026-10-09-12-14-19/environment.json)不與外層runner混用。
 

@@ -1,4 +1,4 @@
-# 拆分大型 orchestration 的回歸契約
+# 拆分大型 orchestration 的回歸規範
 
 給要拆 `src/experiments/exp6_formal_benchmark.py:_run_benchmark` 與 `src/experiments/exp6_matrix.py:run_matrix` 的組員：先讓 `src/tests/test_orchestration_contract.py` 固定下面的行為，再每次抽一個 helper、單獨 commit。這個測試把現行程式和固定基準 commit 的同名函數放在同一份 fixture 上配對執行；任何一步讓配對不相等，那一步就要退回。
 
@@ -16,7 +16,7 @@
 | 矩陣狀態 | 用假的 `run` 跑 `run_matrix`：manifest 每格的鍵、狀態、相對路徑相同；`summary.json`、`results.csv` 逐位元組相同 |
 | 中斷與續跑 | 中間一格丟例外時，該格記 `failed` 並繼續其餘格，結果為 `incomplete`；重跑只重算失敗那格 |
 
-failed-refit 由 `src/tests/test_monitor_guard.py` 涵蓋，Web 串流的事件順序由 `src/tests/test_stream_integration.py` 對照整合前的 main，本契約不重複。
+failed-refit 由 `src/tests/test_monitor_guard.py` 涵蓋，Web 串流的事件順序由 `src/tests/test_stream_integration.py` 對照整合前的 main，本規範不重複。
 
 ## 拆分範圍與順序
 

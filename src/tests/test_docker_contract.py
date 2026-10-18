@@ -1,4 +1,4 @@
-"""docker/ 的 compose 與 Dockerfile 契約：版本訂死、模型名稱與 tool calling 對得上 web 端、資料唯讀。"""
+"""docker/ 的 compose 與 Dockerfile 規範：版本訂死、模型名稱與 tool calling 對得上 web 端、資料唯讀。"""
 import os
 import re
 import shutil
