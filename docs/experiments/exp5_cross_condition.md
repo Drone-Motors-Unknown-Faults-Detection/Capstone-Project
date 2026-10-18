@@ -11,7 +11,7 @@
 | 跨工況健康／fault test | T3／8000rpm | 272／2953 | 目標健康／fault各全池100% | 非對角線評估 | 同target會被多source重用 |
 | 策略b的outer test | T1／8000rpm，seed42 | 64 | 64/313 | 三策略共用評估 | per_condition其中42列進train、9列進cal |
 
-最後一列是[唯讀索引重播](../../output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的可確認用途重疊，沒有改split或重跑分數。不同seed的數字另存`exp5_strategy_overlap`。本機六工況只能形成6×6=36格矩陣，不是完整9×9；配置與列數見[總表](README.md#資料用量與分母怎麼讀)。
+最後一列是[唯讀索引重播](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的可確認用途重疊，沒有改split或重跑分數。不同seed的數字另存`exp5_strategy_overlap`。本機六工況只能形成6×6=36格矩陣，不是完整9×9；配置與列數見[總表](README.md#資料用量與分母怎麼讀)。
 
 ## 發表與理解檢查
 
