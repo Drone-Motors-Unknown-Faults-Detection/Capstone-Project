@@ -91,7 +91,7 @@ def load_pools(dataset_path: Path | str, *, require_complete: bool = False,
 
 
 class PoolCache:
-    """以內容 SHA 為鍵的 load_pools() 記憶體快取；契約見 docs/profiling_contract.md。
+    """以內容 SHA 為鍵的 load_pools() 記憶體快取；規範見 docs/profiling_contract.md。
 
     範圍由呼叫端決定（例如一次 run_matrix）。命中時回傳深拷貝；載入失敗不快取。
     """

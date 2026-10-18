@@ -1,4 +1,4 @@
-"""暫停、斷線及正常結束的實際 CSV 保存契約。"""
+"""暫停、斷線及正常結束的實際 CSV 保存規範。"""
 import csv
 import json
 import tempfile

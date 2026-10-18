@@ -4,7 +4,7 @@
 
 先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全規則](formal_materialization_contract.md)、[實驗八健康監測](experiments/exp8_health.md)、[導覽操作](navigation/exp13_README.md)。各頁說明程式用途、操作、預期輸出與限制。
 
-拆 `exp6_formal_benchmark._run_benchmark` 或 `exp6_matrix.run_matrix` 前，先讀[orchestration 回歸契約](refactoring_contract.md)。
+拆 `exp6_formal_benchmark._run_benchmark` 或 `exp6_matrix.run_matrix` 前，先讀[orchestration 回歸規範](refactoring_contract.md)。
 
 當前缺口與交付狀態請查 [GitHub issues](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues) 及各 PR 的受測 SHA，不把歷史測試次數當成最新 main 驗收。
 

@@ -1,4 +1,4 @@
-"""不讀 ignored data 的 loader、exp1～3、主 WebSocket 契約。"""
+"""不讀 ignored data 的 loader、exp1～3、主 WebSocket 規範。"""
 from __future__ import annotations
 
 import json

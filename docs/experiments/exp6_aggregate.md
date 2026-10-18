@@ -26,12 +26,12 @@
 
 ## 輸入與驗證邊界
 
-load_matrix先檢查矩陣層級，再對每格呼叫[矩陣手冊](exp6_matrix.md#完成判定契約)的`validate_run`：
+load_matrix先檢查矩陣層級，再對每格呼叫[矩陣手冊](exp6_matrix.md#完成判定規範)的`validate_run`：
 
 1. manifest status=completed，runs長度等於expected_runs。
 2. run_id不重複，且等於`{motor}_{rpm}_seed{seed}_{method}`；seed、method屬於manifest的seeds、methods。
 3. (工況, seed, method)集合等於「manifest出現的工況 × seeds × methods」，缺格或多格都列出。
-4. 每格的summary.json、results.csv、run.log符合完成判定契約，manifest記的dataset_fingerprint等於summary的值，八個指標為有限值。
+4. 每格的summary.json、results.csv、run.log符合完成判定規範，manifest記的dataset_fingerprint等於summary的值，八個指標為有限值。
 5. 所有格的dataset_fingerprint相同。
 
 任何一條不符就失敗，錯誤訊息逐格列出全部原因，不補零、不跳過。dataset_fingerprint本身的限制見[正式版](exp6_formal_benchmark.md#輸出怎麼讀)。

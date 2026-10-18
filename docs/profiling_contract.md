@@ -1,4 +1,4 @@
-# 效能量測契約：CSV 載入與 k-NN 評分
+# 效能量測規範：CSV 載入與 k-NN 評分
 
 給要改 `src/core/data.py:load_pools` 或 `src/core/openset.py` k-NN 評分的組員：先用 `src/tests/profiling_evidence.py` 量測，依本頁事先寫好的門檻決定要不要加 CSV cache 或把逐類 `kneighbors` 批次化。門檻在量測前固定，量完不回頭改門檻。
 

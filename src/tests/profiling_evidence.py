@@ -1,4 +1,4 @@
-"""CSV 載入與 k-NN 評分的效能量測；量測契約與門檻見 docs/profiling_contract.md。"""
+"""CSV 載入與 k-NN 評分的效能量測；量測規範與門檻見 docs/profiling_contract.md。"""
 
 from __future__ import annotations
 
@@ -172,7 +172,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args(argv)
     log, paths = setup_run("profiling_evidence")
-    log.info(f"參數：{vars(args)}；契約 {CONTRACT}")
+    log.info(f"參數：{vars(args)}；規範 {CONTRACT}")
     with tempfile.TemporaryDirectory() as directory:
         if args.data_root:
             dataset, source = Path(args.data_root), "data_root"

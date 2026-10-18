@@ -1,6 +1,6 @@
 > #65 的CI歷史紀錄。作者／日期依 Git 原作：05zhi（Andy），2026-10-09；JW-Albert 的後續修改一併保留。來源為 [固定版本 791216c](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/791216cf5602c370091fa516264f1ce6aaad6ab1/docs/ci_contract.md)。下方保留當時敘述、日期標題、成功與失敗；相對 output 連結僅隨搬遷調整。這些舊命令、政策及進度不代表現行狀態，現在請依 [操作說明](../../docs/ci_contract.md)；本次沒有重跑歷史實驗。
 
-# #27：無正式資料的 CI 契約
+# #27：無正式資料的 CI 規範
 
 日期：2026-10-09。基線：main `0282209959183bf7b8654115b175a94aafa26f35`。
 已重讀該版本 AGENT.md、#27 本文及留言、開放 PR。公開實作仍只有 PR #36；不修改其待決 Web／health 檔案，也不能確認作者未推送的工作。
@@ -14,7 +14,7 @@ Windows／Ubuntu 使用 CPython 3.10、新 venv、同一份 runtime-constraints.
 
 新增 fixture 直接測 core.data 的掃描／多檔載入／合法 1screw 異名、exp1／3 的既有事件與資料角色、exp2 的確認前後狀態，以及真正本機 WebSocket 的 start／pause／reset／rate／錯誤 JSON／未知指令。
 目前未知指令只回 state、任意 Origin 可連線，均記為現狀特徵化；**不構成安全通過**，#28 保持待修。
-測試只寫 TemporaryDirectory，不讀正式 data。exp1～3 CLI 以 fixture 走載入與輸出；其結果只驗工程契約，不作研究成績。
+測試只寫 TemporaryDirectory，不讀正式 data。exp1～3 CLI 以 fixture 走載入與輸出；其結果只驗工程規範，不作研究成績。
 
 CI permissions 只有 contents:read，使用 push／pull_request，不使用 pull_request_target、不讀 secrets、不部署服務。
 官方 Actions 固定完整 commit SHA；pip cache 由 OS／Python／constraints SHA 區分，只快取下載套件。
@@ -53,7 +53,7 @@ Python 沿用已安裝的 CPython 3.10.19 鎖版環境，不重新建置既有 v
 
 ## 實測與公開交付
 
-事前契約 `d85cf83`；實作 `d2647f3`；[PR #53](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/pull/53)。
+事前規範 `d85cf83`；實作 `d2647f3`；[PR #53](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/pull/53)。
 本輪基線 discover 實跑 179 項全通過；新增 14 項後本機 CPython 3.10.19 共 193 項全通過，pip check、七個 CLI help、8 份文件相對目標零失效。
 第一次 fixture 關閉順序曾在測試後造成 WebSocket on_close 存取已復原的 HUB，雖 unittest 仍 OK，不能忽略背景例外；已修測試自身的斷線等待與 teardown 次序，再跑四個 WS 測試與全部193項。沒有修改 Web 實作。
 

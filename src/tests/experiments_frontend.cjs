@@ -1,4 +1,4 @@
-/* 執行真正 experiments.js；合成 DOM 只驗呈現契約，不冒充瀏覽器驗收。 */
+/* 執行真正 experiments.js；合成 DOM 只驗呈現規範，不冒充瀏覽器驗收。 */
 const fs = require('node:fs');
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
@@ -88,5 +88,5 @@ assert.match(formal, /健康接受率/);
   streams[1].onmessage({data:JSON.stringify({event:'done', payload})});
   assert.equal(streams[1].closed, true);
   assert.match(element('out-exp1').innerHTML, /2026-10-14/);
-  console.log('前端契約通過：設定／舊結果、空資料、來源與用途、失敗後重試');
+  console.log('前端規範通過：設定／舊結果、空資料、來源與用途、失敗後重試');
 })().catch(error => { console.error(error); process.exitCode = 1; });
