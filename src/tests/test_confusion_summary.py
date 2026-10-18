@@ -37,6 +37,10 @@ def test_historical_lw_counts_per_class_and_invariant():
     assert o["known_rejection_rate"]["ratio"] == 202 / 2938
     assert (o["unknown_total"], o["unknown_correct"], o["unknown_accepted"]) == (14381, 14381, 0)
     assert fact["total"] == 17319
+    known_rows = [fact["per_class"][label] for label in o["known_labels"]]
+    assert [row["rejected"] for row in known_rows] == [47, 39, 46, 30, 40]
+    assert [row["misclassified"] for row in known_rows] == [0, 0, 0, 0, 0]
+    assert [row["recall"]["denominator"] for row in known_rows] == [572, 601, 605, 591, 569]
 
 
 def test_legacy_has_correct_unknown_without_guessing_interface_reason():
@@ -48,10 +52,12 @@ def test_legacy_has_correct_unknown_without_guessing_interface_reason():
 
 
 def test_nonzero_known_confusion_unknown_acceptance_and_custom_label():
-    o = calculate(["a", "unseen", "b"], [[4, 2, 3], [1, 5, 2], [2, 1, 6]],
-                  unknown_label="unseen")["openset"]
+    result = calculate(["a", "unseen", "b"], [[4, 2, 3], [1, 5, 2], [2, 1, 6]], unknown_label="unseen")
+    o = result["openset"]
     assert (o["known_total"], o["known_correct"], o["known_rejected"], o["known_misclassified"]) == (18, 10, 3, 5)
     assert (o["unknown_total"], o["unknown_correct"], o["unknown_accepted"]) == (8, 5, 3)
+    assert result["per_class"]["a"]["rejected"] == 2
+    assert result["per_class"]["a"]["misclassified"] == 3
 
 
 @pytest.mark.parametrize("task,labels,matrix", [
