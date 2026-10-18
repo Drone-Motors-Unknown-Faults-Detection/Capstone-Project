@@ -147,6 +147,16 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 ## Web 串流生命週期
 
+### 執行紀錄的起訖與耗時
+
+`src/web/experiments.py`在參數驗證完成、worker進入實驗執行邊界時擷取一次`started_at`；完成結果轉換後擷取`finished_at`。新時間為UTC、ISO 8601毫秒格式，含`+00:00`。`seconds`由`time.perf_counter()`量測並四捨五入至兩位，不以系統時鐘相減；排除參數驗證、worker排隊、存檔及HTTP傳輸。批次包含資料載入、實驗與JSON可序列化轉換；串流從generator首次執行開始，包含frame轉換、消費端播放節流及等待，屬該次串流經過時間，不是純模型計算時間。`timing_scope`分別為`batch_execution`與`stream_elapsed_including_playback`，`timing_version`為`web_run_timing_v1`。
+
+起訖由runner傳到payload、原始JSON、HTTP／done、PlaybackTracker、問答工具與來源摘要；讀檔或問答時不重建實驗起點。`updated_at`只表示紀錄更新，不代表實驗開始／完成。頁面直接顯示保存的ISO時間，不暗中轉成瀏覽器或Docker當地時間。
+
+舊檔沒有`started_at`就保留缺值，顯示「開始時間：原檔未記錄」；naive時間標示「原檔未提供時區」。不由檔名、父目錄、mtime或完成時間減耗時推算開始。保留有效結果及原始完成時間；格式錯誤、負／非有限耗時、起訖順序或量測不一致均提示，不覆寫歷史JSON。時間一致性比較依毫秒與兩位耗時精度容許0.011秒，舊秒級時間容許1.01秒；不同時區資訊無法比較時明說。極短執行可落在同一顯示時間，時鐘回撥仍保留實際擷取值與單調耗時，不偽裝正常。
+
+時間僅為執行紀錄，不是資料採集或raw window時間；不改資料切分、指標或模型。契約由`src/tests/test_web_run_clock.py`、`test_run_timing.py`及既有runner／playback／HTTP／前端測試驗證。
+
 `web.experiments.CATALOG` 的 stream 旗標決定可播放的實驗：exp1、exp3、exp4、exp8_monitor。既有 `run()` 批次與 `iter_run()` 逐步計算共用實驗邏輯；展示編排不自行計算另一套指標。使用 `uv run --locked python -m web.server --bind-address 127.0.0.1 --data-root data --port 8600` 啟動本機展示，再在實驗卡片選批次執行或「邊跑邊畫」。
 
 `GET /api/experiments/{id}/stream` 接受 JSON 物件 params 與有限 rate；速率限制在 1～1000 筆／秒，只控制播放節奏。SSE 事件從 start 開始，再推送 scores／tick／window 等實驗事件，完成才發 done。done 的 payload 已由 runner 存入 `output/web_server/{時間戳}/experiments/`，帶 `streamed: true`；停止或失敗沒有 done 就不得當作完整結果。
