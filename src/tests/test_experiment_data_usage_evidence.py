@@ -40,6 +40,8 @@ def test_counts_rounding_known_roles_and_no_training(tmp_path):
     assert ds["monitor_default_120"][HEALTHY] == 12
     assert ds["transfer_support"][0]["scratch"]["holdout"] == 2
     assert ds["transfer_support"][0]["target_healthy_test_n"] == 43
+    for row in result["exp5_strategy_overlap"]:
+        assert row["per_condition_train_overlap_n"] == row["per_condition_cal_overlap_n"] == 0
     assert inspect(tmp_path) == result
 
 
