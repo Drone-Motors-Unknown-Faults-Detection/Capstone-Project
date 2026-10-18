@@ -32,6 +32,7 @@ from langgraph.prebuilt import ToolNode, tools_condition
 
 from experiments.exp3_trend import KIND_DISPLAY
 from web.experiments import CATALOG
+from web.playback import ANSWER_SCHEMA
 
 KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 EXPERIMENTS_DIR = Path(__file__).resolve().parents[2] / "docs" / "experiments"
@@ -238,6 +239,99 @@ def experiment_number(text: str) -> int | None:
     text = text.strip().lower()
     m = re.search(r"(?:實驗|exp)\s*([0-9]+|[零一二兩三四五六七八九十]+)", text)
     return _cn_number(m.group(1) if m else text)
+
+
+_SAVED_REFERENCE = re.compile(r"[^\s`\"'<>「」（）()，；]*exp\d+_\d{4}(?:-\d{2}){5}(?:_\d+)?\.json")
+_METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.*意思")
+_RESULT_QUESTION = re.compile(r"結果|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|可靠|未知|unknown|legacy|狀況|換馬達", re.I)
+
+
+def _reference_number(reference: str) -> int | None:
+    return experiment_number(reference.replace("\\", "/").rsplit("/", 1)[-1])
+
+
+def result_request(snap: dict | None, question: str, history: list, context: dict | None) -> dict | None:
+    """解析明確來源與結果任務；方法問答保留模型，來源不從助手舊答擷取。"""
+    context = context or {}
+    if not isinstance(context, dict) or any(not isinstance(v, str) for k, v in context.items()
+                                           if k in ("experiment", "mode", "saved")):
+        raise ValueError("context 的experiment、mode與saved必須為字串")
+    if context.get("mode", "auto") not in ("auto", "result", "method"):
+        raise ValueError("context.mode僅支援auto、result或method")
+    match = _SAVED_REFERENCE.search(question)
+    explicit_ref = match.group() if match else None
+    number = experiment_number(_SAVED_REFERENCE.sub("", question))
+    if explicit_ref and _reference_number(explicit_ref) == 12 and number not in (None, 12):
+        raise ValueError("問句實驗編號與指定exp12存檔不一致")
+    if (context.get("saved") and _reference_number(context["saved"]) == 12
+            and experiment_number(context.get("experiment", "exp12")) != 12):
+        raise ValueError("context實驗編號與指定存檔不一致")
+    if number is not None and number != 12:
+        return None
+    if not explicit_ref and _METHOD_QUESTION.search(question) and not re.search(
+            r"這次|這批|本次|結果|總結|摘要|是不是|是否|失效|可靠|正確率|誤拒|誤報", question):
+        return None
+    newest = bool(re.search(r"最新|新結果|重新.*結果", question))
+    latest = latest_record(snap)
+    target = number or (_reference_number(explicit_ref) if explicit_ref else None) or (
+        experiment_number(latest["exp_id"]) if newest and latest else (
+            experiment_number(context.get("experiment", "")) or _reference_number(context.get("saved", ""))))
+    historical_ref = None
+    for item in reversed(history[-MAX_HISTORY:]):
+        if isinstance(item, dict) and item.get("role") == "user" and isinstance(item.get("content"), str):
+            ref = _SAVED_REFERENCE.search(item["content"])
+            previous = experiment_number(_SAVED_REFERENCE.sub("", item["content"])) or (
+                _reference_number(ref.group()) if ref else None)
+            if previous is not None:
+                historical_ref = ref.group() if previous == 12 and ref else None
+                if target is None:
+                    target = previous
+                break
+    if target is None:
+        rec = latest_record(snap)
+        target = experiment_number(rec["exp_id"]) if rec else None
+    if target != 12 or not (number == 12 or explicit_ref or context.get("saved") or context.get("mode") == "result"
+                            or _RESULT_QUESTION.search(question) or re.match(r"^(那|所以|繼續|接著|為何|為什麼)", question)):
+        return None
+    return {"experiment": "exp12", "mode": "result",
+            "saved": explicit_ref or (None if newest else context.get("saved") or historical_ref)}
+
+
+def result_frames(snap: dict | None, request: dict, load_saved=None, load_selected=None) -> list[dict]:
+    """在任何模型初始化前固定同一筆紀錄；只送出已核算正文或明確不足。"""
+    rec = None
+    problem = ""
+    try:
+        if request.get("saved"):
+            if load_selected is None:
+                raise ValueError("目前介面無法定位指定保存檔，不能改讀最新一筆")
+            rec = load_selected(request["saved"], "exp12")
+        else:
+            rec, problem = pick_record(snap, "12", load_saved)
+    except ValueError as exc:
+        problem = str(exc)
+    sources = [record_label(rec)]
+    answer = (rec or {}).get("matrix_answer") or {}
+    if rec is None:
+        text, status = "【結果資料不足】" + problem, "missing"
+    elif rec.get("exp_id") != "exp12":
+        text, status = "【結果資料不足】來源實驗不符，未改讀另一筆。", "invalid"
+    elif rec.get("status") != "done":
+        text, status = "【結果尚未完成】不以未完成紀錄產生成功摘要；請確認該次執行狀態。", "incomplete"
+    elif answer.get("schema_version") != ANSWER_SCHEMA or not isinstance(answer.get("text"), str):
+        text, status = "【結果資料不足】缺少由原始矩陣產生的核算，不能沿用舊助手文字。", "missing"
+    else:
+        text, status = answer["text"], answer["status"]
+    response_context = {"experiment": "exp12", "mode": "result"}
+    saved = ((rec or {}).get("result") or {}).get("saved")
+    if saved or request.get("saved"):
+        response_context["saved"] = saved or request["saved"]
+    return [
+        {"event": "mode", "mode": "matrix_summary", "schema": ANSWER_SCHEMA, "status": status,
+         "context": response_context, "sources": sources},
+        {"event": "tool", "name": "get_run_status", "label": "程式核算實驗十二結果", "sources": sources},
+        {"event": "delta", "text": text, "origin": "matrix"},
+    ]
 
 
 def _normalize(text: str) -> str:
@@ -510,8 +604,17 @@ class Assistant:
         return self._llm
 
     async def ask(self, snap: dict | None, question: str, history: list | None = None,
-                  load_saved=None) -> AsyncIterator[dict]:
+                  load_saved=None, context: dict | None = None, load_selected=None) -> AsyncIterator[dict]:
         """回傳工具來源、非生成 facts 與模型 delta；facts 不由模型改寫。"""
+        try:
+            request = result_request(snap, question, history or [], context)
+        except ValueError as exc:
+            yield {"event": "error", "error": str(exc)}
+            return
+        if request is not None:
+            for frame in result_frames(snap, request, load_saved, load_selected):
+                yield frame
+            return
         sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
         graph = build_graph(await self.llm(), make_tools(snap, sections, self.experiments_dir, load_saved))
         think = ThinkFilter()
