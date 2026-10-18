@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
-from experiments.exp12_confusion_tsne import data_role_counts, summarize_matrices, visualization_counts
+from web.presentation import build_exp12, table_text
 from web.experiments import CATALOG
 from web.run_timing import timing_fields, utc_now
 
@@ -81,9 +81,8 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
     if isinstance(v, dict) and isinstance(v.get("labels"), list) and isinstance(v.get("matrix"), list):
         labels = [str(x) for x in v["labels"]]   # 混淆矩陣：列 = 真值、欄 = 預測
         out.append(f"{label}（列 = 真值、欄 = 預測）")
-        out.append(f"{pad}| 真值＼預測 | " + " | ".join(labels) + " |")
-        for name, row in zip(labels, v["matrix"]):
-            out.append(f"{pad}| {name} | " + " | ".join(_fmt(x) for x in row) + " |")
+        out.append(table_text(["真值＼預測", *labels],
+                              [[name, *(_fmt(x) for x in row)] for name, row in zip(labels, v["matrix"])]))
         return
     if isinstance(v, dict):
         if depth >= 4:
@@ -117,9 +116,8 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
                 cols += [k for k, x in row.items() if _scalar(x) and k not in cols and not str(k).startswith("_")]
             cols = cols[:14]
             out.append(f"{label}（{len(v)} 列）")
-            out.append(f"{pad}| " + " | ".join(cols) + " |")
-            for row in v[:30]:
-                out.append(f"{pad}| " + " | ".join(_fmt(row.get(c)) for c in cols) + " |")
+            if cols:
+                out.append(table_text(cols, [[_fmt(row.get(c)) for c in cols] for row in v[:30]]))
             if len(v) > 30:
                 out.append(f"{pad}…另有 {len(v) - 30} 列")
         else:
@@ -128,100 +126,9 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
     out.append(f"{label}{_fmt(v)}")
 
 
-def _rate_text(rate: dict) -> str:
-    n, d, p = rate["numerator"], rate["denominator"], rate["percent"]
-    return f"{n}／{d}＝{p:.2f}%" if p is not None else f"不適用（分子={_fmt(n)}，分母={_fmt(d)}）"
-
-
 def _exp12_answer(result, budget: int, source: dict | None) -> dict:
-    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
-        raise ValueError("摘要預算必須為正整數")
-    identity = "來源識別：" + json.dumps(source or {"exp_id": "exp12", "source": "未提供，不能當完整執行證據"},
-                                     ensure_ascii=False, sort_keys=True)
-    lines = ["【結果摘要由程式依矩陣產生】", "【程式核算：exp12 原始計數，事後評估；非模型生成】", identity,
-             timing_fields(source or {})["timing_text"]]
-    status = "complete"
-    try:
-        params = (source or {}).get("params") or {}
-        if isinstance(result, dict) and any(k in params and k in result and params[k] != result[k]
-                                            for k in ("seed", "confidence", "perplexity")):
-            raise ValueError("執行參數與結果設定不一致，需核對來源")
-        facts = summarize_matrices(result)
-    except ValueError as exc:
-        status = "invalid"
-        lines.append(f"【矩陣核算失敗】{exc}；不提供推測數字。")
-    else:
-        settings = {k: result[k] for k in ("seed", "confidence", "perplexity", "n_datasets") if k in result}
-        lines.append("結果設定：" + json.dumps(settings, ensure_ascii=False, sort_keys=True))
-        missing = []
-        if "binary" not in facts:
-            missing.append("缺少二元矩陣，無法核算健康誤報與故障漏判")
-        if not facts["openset"]:
-            missing.append("缺少多類開集矩陣，無法核算已知分類與未知拒絕")
-        if missing:
-            status = "incomplete"
-            lines.append("【資料不完整】" + "；".join(missing) + "。以下僅呈現已有矩陣，不代表完整實驗結果。")
-        if "binary" in facts:
-            f = facts["binary"]
-            b = f["binary"]
-            lines += [f"二元健康冷啟動：健康支持 {b['healthy_total']}，故障支持 {b['fault_total']}，總量 {f['total']}。",
-                      f"健康誤報 {_rate_text(b['healthy_false_positive_rate'])}；故障漏判 {b['fault_missed']} 筆，"
-                      f"故障召回 {_rate_text(b['fault_recall'])}。"]
-        for method, f in facts["openset"].items():
-            o = f["openset"]
-            lines += [f"多類 {method}：已知支持 {o['known_total']}，判對 {o['known_correct']}，"
-                      f"誤拒 {o['known_rejected']}，已知互相錯分 {o['known_misclassified']}；總量 {f['total']}。",
-                      f"已知判對率 {_rate_text(o['known_accuracy'])}；已知誤拒率 {_rate_text(o['known_rejection_rate'])}。",
-                      f"未知支持 {o['unknown_total']}，unknown→unknown 正確拒絕 {o['unknown_correct']}，"
-                      f"unknown→known 未拒 {o['unknown_accepted']}；未知召回 {_rate_text(o['unknown_recall'])}。",
-                      "逐真值類支持／對角正確：" + "；".join(
-                          f"{label}={v['support']}／{v['correct']}" for label, v in f["per_class"].items())]
-            for label in o["known_labels"]:
-                v = f["per_class"][label]
-                name = label + ("（健康）" if label == "8screws" else "")
-                lines.append(f"{name}：支持 {v['support']}、判對 {v['correct']}、誤拒 {v['rejected']}、"
-                             f"錯分其他已知 {v['misclassified']}；判對率 {_rate_text(v['recall'])}。")
-            if not o["unknown_present"]:
-                lines.append("缺 unknown 標籤；未知與誤拒指標不適用，不能推定未知完全判對。")
-        lines += ["二元只學健康；多類 A 協定的目標是健康＋四種已知故障配置，實際標籤如上；已知判對率包含健康，不是純故障正確率。缺類不代表完整coverage，兩者分母不可互換。",
-                  "unknown→unknown 是正確拒絕，沒有辨識具體未知配置身分；已知總數不等於誤拒數。",
-                  "故障漏判為健康、健康誤報、已知誤拒與未知未拒是不同指標；未知全拒不代表整個系統沒有誤報。",
-                  "此批按工況評估不證明未見馬達泛化或部署可靠；t-SNE 可含擬合資料，只供事後觀察。"
-                  "誤拒率不能單獨證明邊界過嚴，不使用同一 test 調門檻。"]
-        lines += ["本次為批次實驗：模型產生預測，再以事後真值計算指標；不是沒有模型判斷。",
-                  "t-SNE 現行預設每工況每配置最多抽200筆，十配置完整時每工況最多2000筆，並非全部工況合計2000筆；上限不等於當次實際數量。",
-                  "顏色表示真實配置；三角形表示模型判為unknown，包含已知誤拒及未知正確拒絕；圓點為已知判對；叉為錯誤接受，包含未知被判為已知。各工況分別fit，群距無物理損傷意義。"]
-        vis = visualization_counts(result)
-        lines.append("當次t-SNE抽樣：" + ("；".join(f"{k}={n}筆" for k, n in vis["datasets"].items())
-                     + f"；合計{vis['total']}筆。" if vis["status"] == "VERIFIED" else
-                     "實際數量未知／無法核對，未用2000或矩陣樣本數代替。"))
-        roles = data_role_counts(313)
-        lines.append(f"資料角色示例（T1／8000rpm，非全工況固定量）：健康池{roles['pool']}筆，"
-                     f"train擬合{roles['train']}／cal校準{roles['cal']}／holdout測試{roles['holdout']}，"
-                     "不是整池皆用來訓練；其他工況須另查來源。")
-        if "legacy" in facts["openset"]:
-            lines.append("legacy 的 -1 標籤介面限制須核對來源程式版本，本紀錄未提供可核驗版本，不能僅憑全 unknown 確認原因；"
-                         "unknown 對角仍是判對，不支持原方法完全失效。")
-    protected = "\n".join(lines)
-    if len(protected) > budget:
-        fallback = "【摘要不完整】exp12 的來源、分母與限制無法完整容納；請讀原存檔，不據此推算。"
-        with_source = identity + "\n" + fallback
-        if len(with_source) <= budget:
-            return {"schema_version": ANSWER_SCHEMA, "status": "incomplete", "text": with_source}
-        text = fallback if len(fallback) <= budget else ("不完整" if budget >= 3 else "略")
-        return {"schema_version": ANSWER_SCHEMA, "status": "incomplete", "text": text}
-    if status == "invalid":
-        return {"schema_version": ANSWER_SCHEMA, "status": status, "text": protected}
-    tables = []
-    for key in ("binary_confusion", "openset_confusion"):
-        if key in result:
-            _render(key, result[key], 0, tables)
-    suffix = "\n\n原始矩陣（每一橫列 row＝真值，每一直欄 column＝預測）：\n" + "\n".join(tables)
-    if len(protected + suffix) <= budget:
-        return {"schema_version": ANSWER_SCHEMA, "status": status, "text": protected + suffix}
-    omitted = "\n原始矩陣表因預算略去；上述來源、核算與限制完整保留。"
-    text = protected + omitted if len(protected + omitted) <= budget else protected
-    return {"schema_version": ANSWER_SCHEMA, "status": status, "text": text}
+    return build_exp12(result, budget, source, ANSWER_SCHEMA)
+
 
 
 def summarize_result(result, budget: int = RESULT_BUDGET, *, exp_id: str | None = None,
@@ -262,6 +169,8 @@ def _fill_result(st: dict, payload: dict) -> None:
     st["result"] = {**timing, **{k: payload[k] for k in ("saved", "saved_sha256") if payload.get(k) is not None}}
     source = {"exp_id": st["exp_id"], "mode": st["mode"], "status": st["status"],
               "started_at": st["started_at"], "params": st["params"], **st["result"]}
+    if isinstance(payload.get("streamed"), bool):
+        source["streamed"] = payload["streamed"]
     if st["exp_id"] == "exp12":
         st["matrix_answer"] = _exp12_answer(payload.get("result"), RESULT_BUDGET, source)
         st["result_text"] = st["matrix_answer"]["text"]

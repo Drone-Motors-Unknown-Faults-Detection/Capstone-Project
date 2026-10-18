@@ -210,8 +210,8 @@ class Exp12FactsTests(unittest.TestCase):
         text = summarize_result(result, exp_id="exp12", source=source)
         self.assertLessEqual(len(text), 6000)
         for value in ("指定來源/exp12.json", '"seed": 42', "45／572＝7.87%", "26642", "2736／2938＝93.12%",
-                      "202／2938＝6.88%", "已知互相錯分 0", "正確拒絕 14381", "未提供可核驗版本",
-                      "不證明未見馬達泛化", "非模型生成"):
+                      "202／2938＝6.88%", "| 已知類互相錯分 | 0 | 0 |", "14381／14381＝100.00%", "未提供可核驗版本",
+                      "不證明換到未見馬達仍可靠", "由程式依矩陣核算"):
             self.assertIn(value, text)
         self.assertNotIn("coords", text)
         self.assertNotIn("已確認 legacy", text)
@@ -224,7 +224,7 @@ class Exp12FactsTests(unittest.TestCase):
                 if "7.87%" in text:
                     self.assertIn("45／572", text)
                     self.assertIn("介面限制", text)
-                    self.assertIn("來源識別", text)
+                    self.assertIn("來源與執行資訊", text)
                 else:
                     self.assertTrue("不完整" in text or text == "略")
 
@@ -333,7 +333,7 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(resp.code, 200)
         rec = server.PLAYBACK.snapshot()["records"]["exp12"]
         self.assertEqual((rec["mode"], rec["status"], rec["params"]), ("run", "done", {"seed": 42}))
-        self.assertIn("binary_confusion：（列 = 真值、欄 = 預測）", rec["result_text"])
+        self.assertIn("原始混淆矩陣：二元 binary（橫列＝真值；直欄＝預測）", rec["result_text"])
         self.assertIn(json.loads(resp.body)["saved"], rec["result"]["saved"])
         payload = json.loads(resp.body)
         raw = json.loads(Path(payload["saved"]).read_text(encoding="utf-8"))

@@ -49,6 +49,7 @@ def summarize_confusion(labels, matrix, *, task: str, value_kind: str,
             "healthy_total": support[h], "healthy_false_alarms": counts[h][f],
             "healthy_false_positive_rate": _ratio(counts[h][f], support[h]),
             "fault_total": support[f], "fault_missed": counts[f][h],
+            "fault_missed_rate": _ratio(counts[f][h], support[f]),
             "fault_recall": _ratio(counts[f][f], support[f]),
         }
         return result
@@ -78,6 +79,7 @@ def summarize_confusion(labels, matrix, *, task: str, value_kind: str,
         "unknown_total": unknown_total, "unknown_correct": unknown_correct,
         "unknown_accepted": sum(counts[u][j] for j in known) if u is not None else None,
         "unknown_recall": _ratio(unknown_correct, unknown_total),
+        "unknown_acceptance_rate": _ratio(sum(counts[u][j] for j in known) if u is not None else None, unknown_total),
     }
     if known_total != correct + (rejected or 0) + wrong:
         raise ValueError("已知計數分解不一致")

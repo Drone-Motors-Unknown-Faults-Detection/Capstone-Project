@@ -42,7 +42,7 @@ def test_hostile_model_cannot_leak_wrong_text_in_any_delta_or_final_answer():
         assert fragment not in visible
     assert "2736／2938＝93.12%" in visible
     assert "202／2938＝6.88%" in visible
-    assert "結果摘要由程式依矩陣產生" in visible
+    assert "由程式依矩陣核算" in visible
     assert model.seen == []
 
 
@@ -56,11 +56,11 @@ def test_result_phrasings_do_not_call_hostile_model(question):
     text = "".join(f.get("text", "") for f in frames if f["event"] == "delta")
     assert "2736／2938＝93.12%" in text
     assert "8screws（健康）" in text
-    for count in (47, 39, 46, 30, 40):
-        assert f"誤拒 {count}" in text
+    for row in ("572 | 525 | 47", "601 | 562 | 39", "605 | 559 | 46", "591 | 561 | 30", "569 | 529 | 40"):
+        assert row in text
     assert "未知全拒不代表整個系統沒有誤報" in text
     assert "本紀錄未提供可核驗版本" in text
-    assert "不證明未見馬達泛化" in text
+    assert "不證明換到未見馬達仍可靠" in text
     assert not any(f["event"] == "facts" for f in frames)
     assert model.seen == []
 
@@ -99,7 +99,7 @@ def test_wrong_assistant_history_cannot_select_or_rewrite_result():
     frames = collect(OfflineAssistant("http://unused/v1"), "那legacy真的完全失效嗎", snap=snap,
                      history=[{"role": "user", "content": "總結實驗十二"},
                               {"role": "assistant", "content": REPORTED_WRONG_ANSWER}])
-    assert "正確拒絕 14381" in frames[-1]["text"]
+    assert "14381／14381＝100.00%" in frames[-1]["text"]
     assert "exp12" in frames[0]["sources"][0]
     assert "wrong" not in frames[-1]["text"]
 
@@ -127,9 +127,9 @@ def test_changed_matrix_and_label_order_change_visible_facts():
     frames = collect(OfflineAssistant("http://unused/v1"), "實驗十二結果", snap=result_snapshot(result))
     text = frames[-1]["text"]
     assert "52／579＝8.98%" in text
-    assert "已知互相錯分 3" in text
-    assert "unknown→known 未拒 2" in text
-    assert "8screws（健康）：支持 575、判對 525、誤拒 47、錯分其他已知 3" in text
+    assert "| 已知類互相錯分 | 3 | 0 |" in text
+    assert "| 未知誤接受為已知 | 2／14383" in text
+    assert "| 8screws（健康） | 575 | 525 | 47 | 3 |" in text
 
 
 @pytest.mark.parametrize("case", ["missing", "normalized", "zero", "unfinished", "budget"])

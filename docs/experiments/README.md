@@ -147,6 +147,14 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 ## Web 串流生命週期
 
+### 問答結果的閱讀順序與安全呈現
+
+實驗十二沿用`summarize_matrices()`核算，Web只組裝「來源／時間、三句內摘要、二元表、多類比較、必要限制」，逐類、t-SNE、資料角色、原矩陣與安全來源物件另列詳情。文字版與可選`assistant_presentation_v1`使用同一份資料，不交由模型重算。表格含合法Markdown分隔列；特殊字元以文字跳脫，完整標籤與來源另保留。原核算函式只補出既有比率函式可表示的漏判率／未知誤接受率欄位供排版，計數與公式不變。
+
+來源與設定使用有標題的列表。明確offset的時間固定顯示為Asia/Taipei（UTC+08:00）；原UTC字串、機器欄位、完整路徑及SHA留於技術詳情，缺少原SHA不另算一個冒充。時區不明、缺開始、時間矛盾及資料不完整預設可見；時間檢查通過只描述起訖與量測，不代表實驗可靠。時間品質判定仍只使用`run_timing.timing_fields()`。
+
+可信結果的mode／origin與來源識別必須一致，才可使用可選presentation。舊客戶端仍讀可讀Markdown；無presentation或資料非法不換來源。前端以DOM建立details／summary與表格，模型HTML不經這條路徑。完整回覆後一次呈現詳情，工具進度不串長箭頭，依據逐項列出。HTTP環境複製失敗時顯示可選取的完整文字，不假稱已複製。這些是排版與操作契約，不新增實驗編號、改模型或改資料。
+
 ### 執行紀錄的起訖與耗時
 
 `src/web/experiments.py`在參數驗證完成、worker進入實驗執行邊界時擷取一次`started_at`；完成結果轉換後擷取`finished_at`。新時間為UTC、ISO 8601毫秒格式，含`+00:00`。`seconds`由`time.perf_counter()`量測並四捨五入至兩位，不以系統時鐘相減；排除參數驗證、worker排隊、存檔及HTTP傳輸。批次包含資料載入、實驗與JSON可序列化轉換；串流從generator首次執行開始，包含frame轉換、消費端播放節流及等待，屬該次串流經過時間，不是純模型計算時間。`timing_scope`分別為`batch_execution`與`stream_elapsed_including_playback`，`timing_version`為`web_run_timing_v1`。

@@ -24,6 +24,7 @@ def test_historical_binary_counts_and_denominators():
     assert b["healthy_false_positive_rate"] == {
         "numerator": 45, "denominator": 572, "ratio": 45 / 572, "percent": 45 / 572 * 100}
     assert b["fault_recall"]["ratio"] == 1
+    assert b["fault_missed_rate"] == {"numerator": 0, "denominator": 26070, "ratio": 0, "percent": 0}
 
 
 def test_historical_lw_counts_per_class_and_invariant():
@@ -56,6 +57,7 @@ def test_nonzero_known_confusion_unknown_acceptance_and_custom_label():
     o = result["openset"]
     assert (o["known_total"], o["known_correct"], o["known_rejected"], o["known_misclassified"]) == (18, 10, 3, 5)
     assert (o["unknown_total"], o["unknown_correct"], o["unknown_accepted"]) == (8, 5, 3)
+    assert o["unknown_acceptance_rate"]["ratio"] == 3 / 8
     assert result["per_class"]["a"]["rejected"] == 2
     assert result["per_class"]["a"]["misclassified"] == 3
 
@@ -91,6 +93,7 @@ def test_changing_a_cell_changes_facts_without_mutating_input():
 def test_zero_support_and_unknown_only_are_not_perfect_known_accuracy():
     b = calculate(["healthy", "fault"], [[0, 0], [0, 0]], "binary")["binary"]
     assert b["fault_recall"]["ratio"] is None
+    assert b["fault_missed_rate"]["ratio"] is None
     assert b["healthy_false_positive_rate"]["percent"] is None
     o = calculate(["unknown"], [[4]])["openset"]
     assert o["known_total"] == 0 and o["known_accuracy"]["ratio"] is None
@@ -104,6 +107,7 @@ def test_missing_unknown_metrics_are_explicitly_not_applicable():
     assert o["known_rejected"] is None
     assert o["unknown_total"] is None
     assert o["unknown_recall"]["ratio"] is None
+    assert o["unknown_acceptance_rate"]["ratio"] is None
 
 
 @pytest.mark.parametrize("labels,matrix", [
