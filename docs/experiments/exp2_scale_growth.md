@@ -25,7 +25,7 @@
 
 ## 資料、切分與模型
 
-資料來自單一馬達／轉速的105維clean特徵CSV；來源、數值欄選取、非有限列移除、未做去重及單位／raw-window未知，見[實驗一](exp1_cold_start.md#資料與載入)。T-code代表不同個體；螺絲目錄代表配置。初始只用健康池列隨機60/20/20，seed42；train fit RobustScaler與LW或k-NN參考，calibration定0.95分位數，健康holdout供評估。legacy的train門檻例外同實驗一。
+資料來自單一馬達／轉速的105維clean特徵CSV；只接受已登錄 ordered 105 欄，非法列整批拒絕、不刪列。未去重、單位與 raw window 未知，見[實驗一](exp1_cold_start.md#資料與載入)。T-code代表不同個體；螺絲目錄代表配置。初始只用健康池列隨機60/20/20，seed42；train fit RobustScaler與LW或k-NN參考，calibration定0.95分位數，健康holdout供評估。legacy的train門檻例外同實驗一。
 
 未知注入用全配置池，不只holdout。`CycleSampler`每圈洗牌、抽完重用，rng為seed+1；600個tick不代表600次獨立採集。成群後 `add_observed` 只把這一群做 60/20/20，和既有已知類一起重新 fit scaler、detector 與 PCA。不呼叫 `add_class(config)`，因此不會把該配置的完整池拿來學。新類 holdout 仍來自同一群。
 
