@@ -26,7 +26,7 @@
 
 ## 資料與fit順序
 
-data-root依[loader](../../src/core/data.py)掃描單一motor／RPM的105維clean特徵池，沒有強制九工況。每列／單位／移除非有限列／未去重及來源限制見[實驗一](exp1_cold_start.md#資料與載入)。數量以rows與實際來源為準。三顆馬達是不同個體，列隨機切分不能證明錄製獨立。
+data-root依[loader](../../src/core/data.py)掃描單一motor／RPM的105維clean特徵池，沒有強制九工況。非有限值整批拒絕、不刪列；單位與未去重見[實驗一](exp1_cold_start.md#資料與載入)與[正式特徵載入規則](../formal_feature_schema_contract.md)。數量以rows與實際來源為準。三顆馬達是不同個體，列隨機切分不能證明錄製獨立。
 
 run以一個default_rng(seed=42)連續處理所有工況，健康池每次列洗牌60/20/20；改變掃描集合可能改變後續切分。同工況所有方法共用同一train／cal／holdout。每個方法獨立用train fit RobustScaler和參考模型，cal只定0.95分位數門檻，healthy holdout與所有fault配置全池只評估，unknown不選參或校準。legacy是例外：用train本身距離定線。
 
