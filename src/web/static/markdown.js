@@ -18,14 +18,22 @@
 
   function inline(raw) {
     const codes = [];
-    let s = raw.replace(/`([^`\n]+)`/g, (_, c) => { codes.push(c); return "\u0000" + (codes.length - 1) + "\u0000"; });
+    const stash = (text, code) => { codes.push({text, code}); return "\u0000" + (codes.length - 1) + "\u0000"; };
+    // 跳脫的標點不再參與Markdown語法；輸入的NUL不能冒用內部佔位符。
+    let s = raw.replace(/\u0000/g, "").replace(/\\([\\|`*\[\]()~#>])/g, (_, c) => stash(c, false));
+    s = s.replace(/`([^`\n]+)`/g, (_, c) => stash(c, true));
     s = esc(s);
     s = s.replace(/\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
     s = s.replace(/\*\*([^*\n]+?)\*\*/g, "<strong>$1</strong>");
     s = s.replace(/(^|[^*])\*([^*\s][^*\n]*?)\*(?!\*)/g, "$1<em>$2</em>");
     s = s.replace(/~~([^~\n]+?)~~/g, "<del>$1</del>");
-    return s.replace(/\u0000(\d+)\u0000/g, (_, i) => "<code>" + esc(codes[+i]) + "</code>");
+    return s.replace(/\u0000(\d+)\u0000/g, (_, i) => {
+      const item = codes[+i];
+      // 行內程式碼內仍可能包含先前保護的標點。
+      const text = item.text.replace(/\u0000(\d+)\u0000/g, (_, j) => codes[+j].text);
+      return item.code ? "<code>" + esc(text) + "</code>" : esc(text);
+    });
   }
 
   function indentOf(line) {
@@ -44,8 +52,15 @@
   function cells(line) {
     let s = line.trim();
     if (s.startsWith("|")) s = s.slice(1);
-    if (s.endsWith("|")) s = s.slice(0, -1);
-    return s.split("|").map(c => c.trim());
+    if (s.endsWith("|") && !/\\(?:\\\\)*\|$/.test(s)) s = s.slice(0, -1);
+    const result = []; let cell = "", slashes = 0;
+    for (const c of s) {
+      if (c === "|" && slashes % 2 === 0) { result.push(cell.trim()); cell = ""; }
+      else cell += c;
+      slashes = c === "\\" ? slashes + 1 : 0;
+    }
+    result.push(cell.trim());
+    return result;
   }
 
   function table(lines, i) {

@@ -254,7 +254,7 @@ class AskTests(unittest.TestCase):
                 self.assertEqual(frames[0]["mode"], "matrix_summary")
                 self.assertIn("45／572＝7.87%", text)
                 self.assertIn("202／2938＝6.88%", text)
-                self.assertIn("正確拒絕 14381", text)
+                self.assertIn("14381／14381＝100.00%", text)
                 self.assertIn("指定來源/exp12.json", frames[0]["sources"][0])
                 self.assertNotIn("irrelevant", text)
                 self.assertNotIn("模型仍可能答錯", text)
@@ -381,6 +381,10 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertTrue(all(f.get("origin") == "matrix" for f in frames if f["event"] == "delta"))
         self.assertEqual(frames[-1]["event"], "done")
         self.assertEqual(frames[-1]["as_of"], frames[0]["sources"][0])
+        p = next(f["presentation"] for f in frames if f["event"] == "presentation")
+        self.assertEqual(p["source"], frames[0]["presentation_source"])
+        self.assertEqual(p["source"]["saved"], "指定來源/exp12.json")
+        self.assertEqual(p["source_id"], frames[0]["source_id"])
 
     def test_status_exposes_only_minimal_app_diagnostics(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())

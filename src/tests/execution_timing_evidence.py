@@ -44,7 +44,17 @@ def verify_time(frames, expected, *, old=False, sha=None):
     deltas = [f for f in frames if f.get("event") == "delta"]
     assert deltas and all(f.get("origin") == "record" for f in deltas), "混入非紀錄正文"
     text = "".join(f["text"] for f in deltas)
-    identity = json.loads(text.split("\n來源識別：", 1)[1])
+    presentation = next((f["presentation"] for f in frames if f.get("event") == "presentation"), None)
+    if presentation:
+        assert presentation["schema_version"] == "assistant_presentation_v1"
+        assert presentation["mode"] == "record_timing" and presentation["origin"] == "record"
+        assert presentation["source_id"] == frames[0].get("source_id"), "來源識別不符"
+        identity = presentation["source"]
+        assert identity == frames[0].get("presentation_source"), "時間詳情換了來源"
+        from web.presentation import markdown
+        assert text == markdown(presentation), "時間文字與區段不同"
+    else:
+        identity = json.loads(text.split("\n來源識別：", 1)[1])
     for field in ("started_at", "finished_at", "seconds"):
         assert identity.get(field) == expected.get(field), "各層時間不一致：" + field
     if sha:
@@ -53,7 +63,8 @@ def verify_time(frames, expected, *, old=False, sha=None):
         assert "開始時間：原檔未記錄" in text and "原檔未提供時區" in text, "舊檔缺值說明不足"
     else:
         assert identity["timing_status"] == "VERIFIED", "新起訖未通過一致性檢查"
-        assert expected["timing_text"] in text
+        if not presentation:
+            assert expected["timing_text"] in text
     return identity
 
 

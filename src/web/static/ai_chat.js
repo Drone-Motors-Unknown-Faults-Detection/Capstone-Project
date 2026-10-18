@@ -63,81 +63,117 @@
     aiBubble("user", question);
     const box = aiBubble("assistant", "");
     const tools = document.createElement("div"); tools.className = "ai-tools";
-    const body = document.createElement("div");
-    body.innerHTML = '<span class="ai-typing"><span></span><span></span><span></span></span>';  // 等第一個字
+    const progress = document.createElement("div"); progress.textContent = "正在讀取執行紀錄";
+    progress.setAttribute("role", "status");
+    const steps = document.createElement("details"), stepTitle = document.createElement("summary"), stepList = document.createElement("ul");
+    stepTitle.textContent = "工具明細"; steps.append(stepTitle, stepList); tools.append(progress, steps);
+    const body = document.createElement("div"); body.textContent = "等待回覆…";
     box.append(tools, body);
-    let answer = "";
-    let factsBox = null;
-    let responseMode = "model", responseContext = null;
-    const sources = new Set();   // 工具回傳的依據（程式決定，不經模型轉述）
+    let answer = "", factsBox = null, presentation = null, binding = {};
+    let responseMode = "model", responseContext = null, completed = false, failed = false;
+    const sources = new Map(), labels = new Set();
+    function addSources(values) {
+      for (const value of values || []) {
+        const key = typeof value === "string" ? value : JSON.stringify(value);
+        sources.set(key, value);
+      }
+    }
     try {
       const resp = await fetch("/api/assistant/ask", {
         method: "POST", headers: {"Content-Type": "application/json"},
         body: JSON.stringify({question, history: aiHistory.slice(-6), ...(aiContext ? {context: aiContext} : {})}),
       });
-      const reader = resp.body.getReader(), dec = new TextDecoder();
+      if (resp.ok === false || !resp.body) throw new Error("伺服器未提供可讀串流");
+      const reader = resp.body.getReader(), dec = new TextDecoder("utf-8", {fatal: true});
       let buf = "";
       for (;;) {
         const {value, done} = await reader.read();
-        if (done) break;
-        buf += dec.decode(value, {stream: true});
+        if (done) { buf += dec.decode(); break; }
+        buf = (buf + dec.decode(value, {stream: true})).replace(/\r\n/g, "\n");
         let i;
         while ((i = buf.indexOf("\n\n")) >= 0) {
           const line = buf.slice(0, i); buf = buf.slice(i + 2);
-          if (!line.startsWith("data: ")) continue;
+          if (!line.startsWith("data: ") || completed) continue;
           const f = JSON.parse(line.slice(6));
-          if (f.event === "mode" && ["matrix_summary", "record_timing", "verified_fallback"].includes(f.mode)) {
-            responseMode = f.mode;
-            responseContext = f.context;
+          if (failed && f.event !== "done") continue;
+          if (f.event === "mode" && ["matrix_summary", "record_timing", "verified_fallback"].includes(f.mode) && !answer && !presentation) {
+            binding = f; responseMode = f.mode; responseContext = f.context;
             box.setAttribute("data-response-mode", responseMode);
-            tools.textContent = responseMode === "matrix_summary" ? "📐 結果摘要由程式依矩陣產生" :
-              responseMode === "record_timing" ? "🕒 執行起訖由程式讀取，缺值不推算" : "⚠ 查詢未完整完成，只保留已確認資料";
-            (f.sources || []).forEach(x => sources.add(x));
+            progress.textContent = responseMode === "matrix_summary" ? "正在核算矩陣" :
+              responseMode === "record_timing" ? "正在讀取時間欄位" : "查詢未完整完成";
+            addSources(f.source_records || f.sources);
+          }
+          else if (f.event === "presentation") {
+            if (!presentation && window.AssistantPresentation?.valid(f.presentation, binding)) presentation = f.presentation;
           }
           else if (f.event === "tool") {
-            tools.textContent += (tools.textContent ? " → " : "🔧 ") + f.label;
-            (f.sources || []).forEach(x => sources.add(x));
+            progress.textContent = f.label || "正在讀取依據";
+            if (typeof f.label === "string" && !labels.has(f.label)) {
+              const li = document.createElement("li"); li.textContent = f.label; stepList.appendChild(li); labels.add(f.label);
+            }
+            addSources(f.source_records || f.sources);
           }
           else if (f.event === "facts") {
             if (["matrix_summary", "record_timing"].includes(responseMode)) continue;
             if (!factsBox) {
-              factsBox = document.createElement("div");
-              factsBox.className = "ai-facts";
-              factsBox.style.whiteSpace = "pre-wrap";
-              box.appendChild(factsBox);
+              factsBox = document.createElement("div"); factsBox.className = "ai-facts";
+              factsBox.style.whiteSpace = "pre-wrap"; box.appendChild(factsBox);
             }
-            factsBox.textContent = f.text;  // 程式核算獨立顯示，不混入模型文字或下一輪對話歷史
-            (f.sources || []).forEach(x => sources.add(x));
+            factsBox.textContent = f.text;
+            addSources(f.sources);
           }
           else if (f.event === "delta") {
             if (responseMode === "matrix_summary" && f.origin !== "matrix") continue;
             if (responseMode === "record_timing" && f.origin !== "record") continue;
             if (responseMode === "verified_fallback" && f.origin !== "fallback") continue;
-            answer += f.text; body.className = "ai-md"; body.innerHTML = renderMarkdown(answer);
+            if (typeof f.text !== "string") throw new Error("回覆文字格式無效");
+            answer += f.text;
+            if (responseMode === "model") { body.className = "ai-md"; body.innerHTML = renderMarkdown(answer); }
           }
-          else if (f.event === "error") { box.className = "ai-msg error"; body.textContent = f.error; }
-          else if (f.event === "done" && !answer && box.className !== "ai-msg error") {
-            body.textContent = responseMode !== "model" ? "（程式未提供可用摘要）" : "（模型沒有回覆文字）";
+          else if (f.event === "error") {
+            failed = true; box.className = "ai-msg error"; body.textContent = f.error || "查詢失敗";
+            progress.textContent = "查詢失敗";
           }
-          if (f.event === "done") {
+          else if (f.event === "done") {
+            completed = true;
+            if (!failed) {
+              progress.textContent = responseMode === "verified_fallback" || ["invalid", "incomplete", "missing", "INCOMPLETE", "INCONSISTENT"].includes(binding.status) ?
+                "查詢已結束；請注意資料限制" : "已完成";
+              body.className = "ai-md";
+              if (!answer) body.textContent = responseMode !== "model" ? "（程式未提供可用摘要）" : "（模型沒有回覆文字）";
+              else if (!presentation || !window.AssistantPresentation?.render(body, presentation, binding, answer)) {
+                body.innerHTML = renderMarkdown(answer);
+                if (window.AssistantPresentation) window.AssistantPresentation.copyControl(body, "完整文字", answer);
+              }
+            }
             const src = document.createElement("div"); src.className = "ai-sources";
-            src.textContent = sources.size ? "📎 依據：" + [...sources].join("；") : "📎 依據：無（工具沒有找到相關資料）";
+            if (window.AssistantPresentation) window.AssistantPresentation.sources(src, [...sources.values()]);
+            else {
+              const title = document.createElement("div"); title.textContent = "📎 依據"; src.appendChild(title);
+              const ul = document.createElement("ul");
+              for (const value of sources.values()) { const li = document.createElement("li"); li.textContent = typeof value === "string" ? value : value.label || "來源未提供"; ul.appendChild(li); }
+              if (ul.children.length) src.appendChild(ul); else { const no = document.createElement("p"); no.textContent = "沒有取得依據"; src.appendChild(no); }
+            }
             box.appendChild(src);
           }
           $("aiLog").scrollTop = $("aiLog").scrollHeight;
         }
       }
-      if (answer) {
-        aiHistory.push({role: "user", content: question});
-        if (responseMode === "model") aiHistory.push({role: "assistant", content: answer});
+      if (!completed) throw new Error("回覆提前中斷，尚未收到完成事件；請重試。");
+      if (!failed) {
+        if (answer) {
+          aiHistory.push({role: "user", content: question});
+          if (responseMode === "model") aiHistory.push({role: "assistant", content: answer});
+        }
+        aiContext = ["matrix_summary", "record_timing"].includes(responseMode) ? responseContext : null;
       }
-      aiContext = ["matrix_summary", "record_timing"].includes(responseMode) ? responseContext : null;
     } catch (e) {
-      box.className = "ai-msg error"; body.textContent = "連線失敗：" + e;
+      failed = true; box.className = "ai-msg error"; body.textContent = "連線或回覆失敗：" + e;
+      progress.textContent = "查詢未完成";
     } finally {
       aiBusy = false; $("aiSend").disabled = false;
-      if ($("aiChat").hidden) $("aiUnread").hidden = false;   // 關著視窗時回答完成 → 黃點提示
-      aiStatus();  // 回答成功或失敗後同步狀態燈
+      if ($("aiChat").hidden) $("aiUnread").hidden = false;
+      aiStatus();
     }
   }
 

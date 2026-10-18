@@ -91,5 +91,14 @@ assert.match(formal, /健康接受率/);
   streams[1].onmessage({data:JSON.stringify({event:'done', payload})});
   assert.equal(streams[1].closed, true);
   assert.match(element('out-exp1').innerHTML, /2026-10-14/);
+  // 新版頁面確實把同一payload交給共用來源／時間元件；舊客戶端路徑仍由前面案例覆蓋。
+  const shared = [];
+  sandbox.window.AssistantPresentation = {runInfo:(out, value, id) => shared.push({out, value, id})};
+  sandbox.showResult(e, payload);
+  assert.equal(shared.length, 1);
+  assert.equal(shared[0].value, payload); assert.equal(shared[0].id, 'exp1');
+  assert.equal(shared[0].out, element('out-exp1'));
+  assert.match(sandbox.resultContext(e, payload), /舊設定結果/);
+  assert.doesNotMatch(sandbox.resultContext(e, payload), /開始時間|完成時間/);
   console.log('前端規範通過：設定／舊結果、空資料、來源與用途、失敗後重試');
 })().catch(error => { console.error(error); process.exitCode = 1; });

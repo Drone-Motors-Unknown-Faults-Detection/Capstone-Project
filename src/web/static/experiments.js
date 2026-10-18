@@ -524,22 +524,26 @@ function showResult(e, payload){
   const out = $(`out-${e.id}`);
   if (!out) return;
   const p = Object.entries(payload.params).map(([k, v]) => `${k}=${v}`).join("，");
-  out.innerHTML = `<div class="mini" role="status" id="context-${e.id}">${esc(resultContext(e, payload))}</div><div class="mini">結果參數 ${esc(p)}；${esc(payload.seconds)} 秒；結果存於 <code>${esc(payload.saved || "（未存檔）")}</code></div>`
+  out.innerHTML = `<div class="mini" role="status" id="context-${e.id}">${esc(resultContext(e, payload))}</div>`
+    + (window.AssistantPresentation ? "" : `<div class="mini">結果參數 ${esc(p)}；${esc(payload.seconds)} 秒；結果存於 <code>${esc(payload.saved || "（未存檔）")}</code></div>`)
     + RENDER[e.id](payload.result);
   const model = payload.result?.model;
   if (model?.classes) out.innerHTML += details("本次模型資料用途（逐類池為分母）",
     table([["config", "已註冊配置"], ["n_train", "訓練", int], ["n_cal", "校準", int], ["n_holdout", "holdout", int]], model.classes)
     + `<div class="mini">分數 ${esc(model.score_type)}；門檻來源 ${esc(model.threshold_strategy)}。列級切分不證明採集獨立。</div>`);
+  if (window.AssistantPresentation) window.AssistantPresentation.runInfo(out, payload, e.id);
   drawLines(out);
 }
 
 function resultContext(e, payload){
   const current = collectParams(e), actual = payload.params;
   const same = Object.keys(current).every(k => current[k] === actual[k]);
+  const selection = same ? "與目前選項一致；這是該次執行的結果。" : "選項已變更；下方仍是舊設定結果，尚未按新選項執行。";
+  if (window.AssistantPresentation) return selection;
   const stamp = value => value ? String(value) + (/T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(value) ? "" : "（原檔未提供時區）") : "原檔未記錄";
   const conflict = payload.started_at && payload.started_at === payload.finished_at && payload.seconds > 1.01 ? "時間紀錄不一致，保留原值。" : "";
   const fallback = `開始時間：${stamp(payload.started_at)}；完成時間：${stamp(payload.finished_at)}；耗時：${Number.isFinite(payload.seconds) && payload.seconds >= 0 ? payload.seconds + " 秒" : "原檔未記錄或數值無效"}。${conflict}`;
-  return `${payload.timing_text || fallback}${same ? "與目前選項一致；這是該次執行的結果。" : "選項已變更；下方仍是舊設定結果，尚未按新選項執行。"}`;
+  return `${payload.timing_text || fallback}${selection}`;
 }
 
 function refreshResultContext(e){

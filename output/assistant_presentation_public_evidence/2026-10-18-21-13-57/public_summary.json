@@ -1,0 +1,56 @@
+{
+  "schema_version": "assistant_presentation_public_v1",
+  "status": "VERIFIED_HTTP_NODE",
+  "deployed_public_commit": "cdffbeb89d6d98b72bfd38d9df35d14919b19b1b",
+  "browser": "NOT_VERIFIED",
+  "cases": [
+    {
+      "view": "default",
+      "status": "VERIFIED_HTTP_NODE"
+    },
+    {
+      "view": "time",
+      "status": "VERIFIED_HTTP_NODE"
+    },
+    {
+      "view": "default",
+      "status": "VERIFIED_HTTP_NODE"
+    },
+    {
+      "view": "lw_classes",
+      "status": "VERIFIED_HTTP_NODE"
+    },
+    {
+      "view": "full",
+      "status": "VERIFIED_HTTP_NODE"
+    },
+    {
+      "view": "tsne",
+      "status": "VERIFIED_HTTP_NODE"
+    },
+    {
+      "view": "method",
+      "status": "COMPLETED_LIMITED_PROBE"
+    }
+  ],
+  "related_tests": {
+    "tests": 260,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "returncode": 0,
+    "status": "PASS"
+  },
+  "windows_full_tests": {
+    "tests": 1046,
+    "failures": 15,
+    "errors": 0,
+    "skipped": 3,
+    "returncode": 1,
+    "status": "FAILED"
+  },
+  "source_bytes_unchanged": true,
+  "runtime_unchanged_during_acceptance": true,
+  "scope": "只核對既有結果的呈現；未重跑研究，不代表準確率提高或模型可靠。",
+  "privacy": "不含原始問答、檔案路徑、來源metadata、容器識別或原始來源SHA。"
+}

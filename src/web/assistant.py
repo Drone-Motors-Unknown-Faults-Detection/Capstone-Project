@@ -30,6 +30,7 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
 from experiments.exp3_trend import KIND_DISPLAY
+from web.presentation import markdown, select_view, timing_presentation
 from web.experiments import CATALOG
 from web.playback import ANSWER_SCHEMA
 from web.assistant_budget import build_bounded_graph, fallback_answer
@@ -246,7 +247,7 @@ def experiment_number(text: str) -> int | None:
 
 _SAVED_REFERENCE = re.compile(r"[^\s`\"'<>「」（）()，；]*exp\d+_\d{4}(?:-\d{2}){5}(?:_\d+)?\.json")
 _METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.*意思")
-_RESULT_QUESTION = re.compile(r"結果|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d+(?:\.\d+)?%", re.I)
+_RESULT_QUESTION = re.compile(r"結果|矩陣|逐類|t.?sne|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d+(?:\.\d+)?%", re.I)
 
 
 def _reference_number(reference: str) -> int | None:
@@ -296,7 +297,14 @@ def result_request(snap: dict | None, question: str, history: list, context: dic
     if target != 12 or not (number == 12 or explicit_ref or context.get("saved") or context.get("mode") == "result"
                             or _RESULT_QUESTION.search(question) or re.match(r"^(那|所以|繼續|接著|為何|為什麼)", question)):
         return None
-    return {"experiment": "exp12", "mode": "result",
+    view = "default"
+    if re.search(r"完整結果|全部矩陣|展開全部", question):
+        view = "full"
+    elif re.search(r"(?:LW|Ledoit).*逐類|逐類.*(?:LW|Ledoit)", question, re.I):
+        view = "lw_classes"
+    elif re.search(r"t.?sne|三角|抽樣|圖例", question, re.I):
+        view = "tsne"
+    return {"experiment": "exp12", "mode": "result", "view": view,
             "saved": explicit_ref or (None if newest else context.get("saved") or historical_ref)}
 
 
@@ -315,6 +323,7 @@ def result_frames(snap: dict | None, request: dict, load_saved=None, load_select
         problem = str(exc)
     sources = [record_label(rec)]
     answer = (rec or {}).get("matrix_answer") or {}
+    presentation = None
     if rec is None:
         text, status = "【結果資料不足】" + problem, "missing"
     elif rec.get("exp_id") != "exp12":
@@ -325,16 +334,23 @@ def result_frames(snap: dict | None, request: dict, load_saved=None, load_select
         text, status = "【結果資料不足】缺少由原始矩陣產生的核算，不能沿用舊助手文字。", "missing"
     else:
         text, status = answer["text"], answer["status"]
+        if answer.get("presentation"):
+            presentation = select_view(answer["presentation"], request.get("view"))
+            status = presentation["status"]
+            text = markdown(presentation)
     response_context = {"experiment": "exp12", "mode": "result"}
     saved = ((rec or {}).get("result") or {}).get("saved")
     if saved or request.get("saved"):
         response_context["saved"] = saved or request["saved"]
-    return [
+    frames = [
         {"event": "mode", "mode": "matrix_summary", "schema": ANSWER_SCHEMA, "status": status,
-         "context": response_context, "sources": sources},
+         "context": response_context, "sources": sources,
+         **({"source_id": presentation["source_id"], "presentation_source": presentation["source"]} if presentation else {})},
         {"event": "tool", "name": "get_run_status", "label": "程式核算實驗十二結果", "sources": sources},
-        {"event": "delta", "text": text, "origin": "matrix"},
     ]
+    if presentation:
+        frames.append({"event": "presentation", "presentation": presentation})
+    return [*frames, {"event": "delta", "text": text, "origin": "matrix"}]
 
 
 def timing_frames(snap, question, context, load_saved, load_selected):
@@ -361,22 +377,27 @@ def timing_frames(snap, question, context, load_saved, load_selected):
     except ValueError as exc:
         problem = str(exc)
     sources = [record_label(rec)]
+    presentation = None
     if rec is None:
         text, status = "【時間紀錄不足】" + problem, "missing"
     else:
         timing = timing_fields(rec.get("result") or rec)
-        identity = {"experiment": rec["exp_id"], "status": rec["status"], **timing,
+        identity = {"exp_id": rec["exp_id"], "mode": rec["mode"], "status": rec["status"],
+                    "params": rec.get("params", {}), **timing,
                     **{k: v for k, v in (rec.get("result") or {}).items() if k in ("saved", "saved_sha256")}}
-        text = ("【執行紀錄時間，由程式讀取】\n" + timing["timing_text"] + "\n來源識別："
-                + json.dumps(identity, ensure_ascii=False, sort_keys=True))
+        presentation = timing_presentation(identity)
+        text = markdown(presentation)
         status = timing["timing_status"]
     response_context = {"experiment": (rec or {}).get("exp_id", context.get("experiment", "")), "mode": "result"}
     saved = ((rec or {}).get("result") or {}).get("saved") or reference
     if saved:
         response_context["saved"] = saved
-    return [{"event": "mode", "mode": "record_timing", "status": status, "context": response_context, "sources": sources},
-            {"event": "tool", "name": "get_run_status", "label": "讀取實驗起訖與耗時", "sources": sources},
-            {"event": "delta", "text": text, "origin": "record"}]
+    frames = [{"event": "mode", "mode": "record_timing", "status": status, "context": response_context, "sources": sources,
+               **({"source_id": presentation["source_id"], "presentation_source": presentation["source"]} if presentation else {})},
+              {"event": "tool", "name": "get_run_status", "label": "讀取實驗起訖與耗時", "sources": sources}]
+    if presentation:
+        frames.append({"event": "presentation", "presentation": presentation})
+    return [*frames, {"event": "delta", "text": text, "origin": "record"}]
 
 
 def _normalize(text: str) -> str:
