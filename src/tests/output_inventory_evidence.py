@@ -14,7 +14,6 @@ from core.logger import setup_run
 
 WRITERS = {
     "branch_integration": ["src/tests/integration_evidence.py"],
-    "exp8_aggregate_baseline": ["src/tests/exp8_aggregate_baseline.py"],
     "exp8_aggregate_validation_full": ["src/tests/exp8_aggregate_validation.py"],
     "exp8_aggregate_validation_related": ["src/tests/exp8_aggregate_validation.py"],
     "exp8_health_index_aggregate": ["src/experiments/health_index_aggregate.py"],
