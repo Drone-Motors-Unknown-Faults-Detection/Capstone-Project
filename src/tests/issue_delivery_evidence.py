@@ -1,4 +1,4 @@
-"""本輪issue交付的唯讀來源、函數行號及相對連結證據；不擬合模型。"""
+"""SOURCE_FILES 與 HISTORY_FILES 的唯讀來源 SHA、函數行號及相對連結證據；不擬合模型。"""
 from __future__ import annotations
 
 import argparse

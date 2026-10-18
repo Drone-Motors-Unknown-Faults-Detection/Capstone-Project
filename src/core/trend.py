@@ -7,7 +7,7 @@
   「中間帶」[onset_frac, alarm_frac) 的時間 transition——
   漸進退化會在中間帶徘徊很久，突發跳變只是快速穿過。
   transition ≤ sudden_max 判為「突發」，否則「漸進」。
-  （以停留時間而非「起點到警報」計，可免疫健康期零星誤報與比例短暫回落。）
+  （停留時間只計中間帶內的筆數，健康期零星誤報與比例短暫回落不會拉長它。）
 """
 
 from __future__ import annotations

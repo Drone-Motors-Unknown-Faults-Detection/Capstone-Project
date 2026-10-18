@@ -1,4 +1,4 @@
-"""experiments.health_monitor：故障配置的窗口取樣（#35）與 8screws 輸出不變。"""
+"""experiments.health_monitor：故障配置的窗口取樣與 8screws 輸出不變。"""
 import contextlib
 from functools import lru_cache
 import io
@@ -17,7 +17,7 @@ from experiments.health_monitor import iter_run, main, run
 from core.feature_schema import SCHEMAS
 from web.experiments import ExperimentRunner, jsonable
 
-BASE = "64cb71d84663e1745ec54db74abad68def67e8e6"  # #35 修正前的 main
+BASE = "64cb71d84663e1745ec54db74abad68def67e8e6"  # 比對 8screws 輸出不變的基準 commit
 CONFIGS = ["8screws", "7screws", "6screws", "5screws", "4screws", "3screws",
            "2screws", "1screws", "3_14screws", "4_146screws"]
 SIZES = {"8screws": 300, "5screws": 40}  # 5screws 比健康 holdout 最大索引還少
@@ -104,7 +104,7 @@ class HealthMonitorWindows(unittest.TestCase):
                 json.dumps(frame, allow_nan=False)
 
     def test_cli_uses_setup_run_and_saves_printed_windows(self):
-        """#24：CLI 經 setup_run 寫 logs/output，windows.jsonl 與 stdout 及 API 逐行相同。"""
+        """CLI 經 setup_run 寫 logs/output，windows.jsonl 與 stdout 及 API 逐行相同。"""
         argv = ["--data-root", str(self.root), "--motor", "T1", "--rpm", "8000rpm", "--config", "5screws",
                 "--seed", "42", "--motor-id", "m", "--session-id", "s", "--max-windows", "12"]
         previous = Path.cwd()

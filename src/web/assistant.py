@@ -11,7 +11,7 @@ server.py 在 IOLoop 執行緒取 ``PlaybackTracker.snapshot()``（web/playback.
 知識量小且有編號結構，用編號直取 + 關鍵字檢索，不另建向量資料庫：
 「實驗一／實驗1／exp1」一律正規化成 exp1 再比對。
 
-本模組不做任何判定：數字全部來自各實驗 iter_run() 的既有輸出，模型只負責解讀。
+本模組不做任何判定：數字全部來自各實驗 run()／iter_run()（實驗二 iter_playback()）的輸出或其存檔，模型只負責解讀。
 注入配置、expected、is_fault、候選群 majority／purity 等真值只放在「事後對照」，
 並標明是評估用、不是系統當下的判定（AGENT.md 鐵則 6）。
 """
@@ -38,7 +38,7 @@ EXPERIMENTS_DIR = Path(__file__).resolve().parents[2] / "docs" / "experiments"
 MAX_DOC_CHARS = 9000     # get_experiment 一次回傳的手冊字數上限（多份手冊平分）
 MAX_HISTORY = 6          # 帶入的歷史訊息則數（user + assistant 合計）
 MAX_TEXT = 2000          # 單則訊息字數上限
-RECURSION_LIMIT = 10     # agent ↔ tools 來回上限
+RECURSION_LIMIT = 10     # LangGraph 節點步數上限（agent、tools 各算一步）
 
 TOOL_DISPLAY = {
     "get_run_status": "讀取實驗執行紀錄",
@@ -103,7 +103,7 @@ def record_name(rec: dict) -> str:
 
 
 def record_label(rec: dict | None) -> str:
-    """一行摘要：依據清單與回答下方「狀態取自」共用。"""
+    """一行摘要：工具回傳的 sources（前端 📎 依據）與 server.py 的 AI 問答日誌共用。"""
     if rec is None:
         return "實驗頁紀錄：無"
     progress = f"，已播 {rec['samples']} 筆" if rec.get("mode") == "stream" else ""

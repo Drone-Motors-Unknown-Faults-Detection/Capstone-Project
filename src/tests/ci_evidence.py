@@ -2,6 +2,7 @@
 
 pytest／ruff 由 CI yaml 的獨立 step（./scripts/quantity/run_pytest.sh、./scripts/quantity/run_ruff.sh）把關，
 不在這裡重複跑；這裡只做 pip check、CLI help 與文件相對連結檢查。
+即使正式 data 在開發機存在，本入口與 tests 也不將它當測試輸入。
 """
 from __future__ import annotations
 
@@ -68,7 +69,7 @@ def run() -> dict:
     logger, paths = setup_run("ci_evidence")
     environment = collect_environment(ROOT)
     checks = []
-    # 即使正式 data 在開發機存在，本入口與 tests 也不將它當測試輸入。
+    # 子行程的 TMP／TEMP／TMPDIR 暫時指向一次性目錄，結束後還原。
     with tempfile.TemporaryDirectory(prefix="lineage_ci_") as directory:
         previous_tmp = {name: os.environ.get(name) for name in ("TMP", "TEMP", "TMPDIR")}
         try:

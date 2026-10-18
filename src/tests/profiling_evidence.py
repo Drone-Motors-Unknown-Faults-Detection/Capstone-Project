@@ -22,7 +22,7 @@ from core.logger import setup_run
 from core.openset import create_openset_detector
 
 CONTRACT = "docs/profiling_contract.md"
-MATRIX_LOADS = 9 * 54  # exp6_matrix：每個 run_id 都重算 9 個工況
+MATRIX_LOADS = 9 * 54  # 未快取估計：每個 run_id 重載 9 個工況；run_matrix 實際共用一個 PoolCache
 THRESHOLDS = {
     "cache_load_share": 0.50,
     "cache_matrix_load_seconds": 60.0,

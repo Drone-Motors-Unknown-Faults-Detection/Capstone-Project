@@ -1,4 +1,4 @@
-"""本輪文件收尾的相對目標與版本證據；不載入正式資料或訓練模型。"""
+"""TODO.md、docs 與交付 README 等選定文件的相對連結目標、SHA 與 HEAD 版本證據；不載入正式資料或訓練模型。"""
 
 from __future__ import annotations
 

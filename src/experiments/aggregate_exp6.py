@@ -39,7 +39,7 @@ def _round(value: float) -> float:
 
 
 def _entry_problems(entry: dict, manifest: dict) -> list[str]:
-    """manifest 單格的身分欄位；不讀檔。"""
+    """回傳 manifest 單格的不符原因（身分、status、summary 路徑、fingerprint）；不讀檔。"""
     problems = []
     for key in ("run_id", "motor", "rpm", "seed", "method"):
         if entry.get(key) in (None, ""):
@@ -70,10 +70,14 @@ def _format_rejections(rejected: list[dict]) -> str:
 
 
 def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False) -> tuple[dict, pd.DataFrame, list[dict]]:
-    """依完成判定規範核對矩陣與每格產物，回傳 (manifest, 列表, 被拒格)。
+    """核對矩陣 manifest 與每格產物，回傳 (manifest, 列表, 被拒格)。
 
-    預設任何一格不符就丟 ValueError 並列出全部原因；``allow_partial=True``
-    時把不符的格放進被拒清單，其餘照常回傳。
+    每格先以 _entry_problems 核對 manifest 欄位，再以 exp6_matrix.validate_run
+    核對產物，最後確認 summary 指標皆為有限值。預設任何矩陣層或單格不符就丟
+    ValueError 並列出全部原因；``allow_partial=True`` 時把不符的格放進被拒清單、
+    矩陣層問題以 run_id="<matrix>" 放在清單最前，其餘照常回傳。無論是否
+    allow_partial，接受的格之間 dataset fingerprint 不一致、或沒有任何接受的格，
+    都會丟 ValueError。
     """
     path = Path(manifest_path).expanduser().resolve()
     manifest = _read_json(path)

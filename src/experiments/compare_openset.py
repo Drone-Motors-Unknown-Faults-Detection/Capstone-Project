@@ -188,7 +188,7 @@ def main() -> None:
         "--method",
         choices=("legacy", "ledoit_wolf", "oas", "mcd"),
         default="ledoit_wolf",
-        help="Mahalanobis covariance estimator（向後相容名稱）",
+        help="Mahalanobis covariance estimator；使用 knn 時忽略",
     )
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args()

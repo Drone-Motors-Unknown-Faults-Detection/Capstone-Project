@@ -119,7 +119,7 @@ class ExperimentContracts(unittest.TestCase):
         self.assertEqual(json.dumps(a, sort_keys=True), json.dumps(b, sort_keys=True))
         self.assertFalse(a["stages"][0]["discovered"])
         self.assertEqual(a["final_known"], ["8screws"])
-        self.assertNotIn("rejected_known_clusters", a["stages"][0])   # adopt() 不退回已知類（#184）
+        self.assertNotIn("rejected_known_clusters", a["stages"][0])   # adopt() 不退回已知類
         self.assertEqual(a["threshold"], 1.0)
 
     def test_exp3_fixed_trials_events_and_determinism(self):
@@ -251,7 +251,7 @@ class WebSocketContracts(AsyncHTTPTestCase):
 
     @gen_test
     async def test_untrusted_origin_is_current_insecure_baseline(self):
-        # 成功連線只是 #28 尚待修的現狀，不稱為安全 PASS。
+        # WSHandler.check_origin 目前一律回 True，不可信 origin 也能連線；本測試只記錄現況，不算安全 PASS。
         socket = await self.connect()
         await self.disconnect(socket)
 

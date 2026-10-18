@@ -44,7 +44,7 @@ def test_counts_rounding_known_roles_and_no_training(tmp_path):
 
 
 def test_nonfinite_rejected_and_exact_source_bytes(tmp_path):
-    """正式 loader（#44）拒絕非有限列而不是丟掉；檢查過程不改來源位元組。"""
+    """正式 loader 遇非有限值即拋 FeatureSchemaError（non_finite），不刪列；檢查過程不改來源位元組。"""
     fixture(tmp_path)
     result = inspect(tmp_path, (42,))
     row = next(r for r in result["datasets"][0]["configurations"] if r["config"] == "5screws")

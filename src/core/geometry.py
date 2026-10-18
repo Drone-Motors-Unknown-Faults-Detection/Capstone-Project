@@ -12,7 +12,7 @@ Cholesky 分解取白化矩陣 W = chol(P_H)^T，對任意樣本（已標準化�
     - same_ray：max_c cos_c ≥ τ_c（該類 holdout cos 的低百分位校準）
       → 疑似已知故障 c 的惡化/變體；嚴重度 severity = r·cos_c / ‖z(μ_c)‖
       （= 沿射線投影長相對類中心半徑；類中心處 ≈ 1、健康 ≈ 0、更嚴重 > 1）
-    - new_direction：所有 cos 皆低 → 走新類發現（隔離區）
+    - new_direction：最相近射線的 cos 低於該射線的 τ → 走新類發現（隔離區）
 
 幾何基準固定為馬氏距離：不論開集偵測採用 Mahalanobis 或 k-NN（monitor 的
 --openset-method），PolarMap 一律在 monitor 已知類的 train/calibration split

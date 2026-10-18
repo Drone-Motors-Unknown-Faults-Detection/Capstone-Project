@@ -1,4 +1,4 @@
-"""實驗六彙總的來源一致性（#43）；fixture 加上封存矩陣的回歸。"""
+"""實驗六彙總的來源一致性；fixture 加上封存矩陣的回歸。"""
 
 from __future__ import annotations
 

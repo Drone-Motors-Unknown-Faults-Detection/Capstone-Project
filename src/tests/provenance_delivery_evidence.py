@@ -1,4 +1,4 @@
-"""唯讀比對本輪內容來源與既有逐檔 SHA 清冊，不重新訓練模型。"""
+"""唯讀比對 --data-root 來源與 --baseline 既有逐檔 SHA 清冊，不重新訓練模型。"""
 from __future__ import annotations
 
 import argparse

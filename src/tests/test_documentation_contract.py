@@ -20,7 +20,7 @@ GUIDE_DOCUMENTS = ("exp13_README.md", "exp13_實驗總覽.md", "exp13_來源索�
 
 
 def heading_anchors(text):
-    """核對本輪 Markdown ATX 標題；忽略程式區塊並處理同名標題。"""
+    """回傳 Markdown ATX 標題的 GitHub 錨點集合；忽略程式區塊，同名標題加 -N 後綴。"""
     result, counts, fence = set(), {}, None
     for line in text.splitlines():
         marker = re.match(r"^\s*(`{3,}|~{3,})", line)

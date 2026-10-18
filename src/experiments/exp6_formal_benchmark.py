@@ -115,7 +115,7 @@ def _validate_datasets(datasets: list[dict], data_root: Path, require_nine: bool
     if not datasets:
         raise FileNotFoundError(
             f"formal data not found under {data_root}; expected "
-            "Step-*/myfeature/*/*/*_Group_feature_data_clean.csv. "
+            "Step-*/myfeature/*/*/*/*_Group_feature_data_clean.csv. "
             "Run core.formal_data with the verified formal source first."
         )
     conditions = {(row["motor"], row["rpm"]) for row in datasets}

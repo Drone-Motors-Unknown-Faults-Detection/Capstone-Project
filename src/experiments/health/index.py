@@ -1,7 +1,7 @@
 """Calibrated relative health index built on the shared Open Set detector.
 
 The class in this module is deliberately a thin adapter around
-``core.openset.create_detector_from_config``.  It keeps the historical detector
+``core.openset.create_detector_from_config``.  It uses the core.openset
 threshold (normalised score ``> 1`` means unknown) and adds a monotone health
 view calibrated *only* on the known calibration split.  The resulting value is
 relative to the calibration population; it is not a physical damage fraction,
@@ -37,9 +37,9 @@ def _matrix(value: np.ndarray, name: str, *, allow_empty: bool = False) -> np.nd
 def relative_severity(health_index: float, policy: RelativeSeverityPolicy = DEFAULT_SEVERITY_POLICY) -> str:
     """Map a relative health value to a policy stage.
 
-    These thresholds are presentation policy, not supervised severity labels.
-    They are kept in one place so a later ordinal data contract can replace
-    them without changing the detector or calibration code.
+    These thresholds are presentation policy, not supervised severity labels:
+    ``RelativeSeverityPolicy`` (health/severity.py) splits the calibrated
+    health value at healthy_min / early_warning_min / degraded_min.
     """
 
     return policy.classify(health_index)

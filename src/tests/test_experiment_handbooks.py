@@ -19,7 +19,7 @@ DOCS = ROOT / "docs/experiments"
 
 
 def anchors(text: str) -> set[str]:
-    """核對本輪使用的GitHub標題錨點；忽略程式碼區塊。"""
+    """回傳 Markdown ATX 標題的 GitHub 錨點集合；忽略程式碼區塊，同名標題加 -N 後綴。"""
     found, counts, fenced = set(), {}, False
     for line in text.splitlines():
         if line.startswith("```"):
@@ -131,7 +131,7 @@ def test_existing_indexes_reach_all_current_handbooks():
 
 
 def test_main_lifecycle_and_report_links_survive_handbook_sync():
-    """手冊整合必須保留主線共用規則與交付附件入口。"""
+    """手冊索引保有共用生命週期錨點，各實驗手冊連回這些錨點與交付附件入口。"""
     index = (DOCS / "README.md").read_text(encoding="utf-8")
     assert {"共用模型生命週期", "web-串流生命週期"}.issubset(anchors(index))
     assert "uv run --locked python -m web.server" in index
