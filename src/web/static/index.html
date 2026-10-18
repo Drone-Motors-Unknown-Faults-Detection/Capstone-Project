@@ -132,6 +132,25 @@ details summary{cursor:pointer; color:var(--muted); font-size:12.5px; margin-top
 .ai-msg.error{background:#3f1d1d; border:1px solid #7f1d1d; color:#fca5a5; border-radius:16px 16px 16px 4px;}
 .ai-tools{font-size:11.5px; color:var(--muted); margin-bottom:4px; white-space:normal;}
 .ai-sources{font-size:11.5px; color:var(--muted); margin-top:6px; padding-top:6px; border-top:1px dashed var(--border); white-space:normal;}
+.ai-row,.ai-msg,.ai-md,.ai-presentation,.ai-section{min-width:0;}
+.ai-msg.assistant{max-width:calc(100% - 44px); overflow-wrap:anywhere;}
+.ai-presentation,.ai-section,.ai-sources{white-space:normal; overflow-wrap:anywhere; max-width:100%;}
+.ai-presentation h3,.ai-presentation h4{margin:10px 0 5px;}
+.ai-section{margin:10px 0;}
+.ai-section summary,.ai-tools summary,.ai-sources summary{cursor:pointer; padding:5px 0;}
+.ai-fields{display:grid; grid-template-columns:minmax(5em,1fr) minmax(0,3fr); gap:3px 10px; margin:6px 0;}
+.ai-fields dt{color:var(--muted);}
+.ai-fields dd{margin:0; min-width:0; overflow-wrap:anywhere;}
+.ai-table-scroll{max-width:100%; overflow-x:auto; margin:6px 0;}
+.ai-table-scroll table{border-collapse:collapse; width:100%; font-size:12px;}
+.ai-table-scroll th,.ai-table-scroll td{border:1px solid var(--border); padding:5px; text-align:left; min-width:5em;}
+.ai-warning{border-left:3px solid #f59e0b; padding:5px 9px; margin:7px 0;}
+.ai-section pre{max-width:100%; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px;}
+.ai-copy{font-size:11px; margin:5px 5px 5px 0;}
+.ai-copy-status{font-size:11px; overflow-wrap:anywhere;}
+.ai-copy-manual{display:block; width:100%; min-width:0; box-sizing:border-box; min-height:6em;}
+.ai-sources ul,.ai-presentation ul{padding-left:20px; margin:5px 0;}
+@media (max-width:420px){.ai-fields{grid-template-columns:minmax(0,1fr);}.ai-fields dd{margin-bottom:5px;}}
 .ai-typing span{display:inline-block; width:6px; height:6px; margin-right:3px; border-radius:50%;
   background:var(--muted); animation:aiblink 1.2s infinite;}
 .ai-typing span:nth-child(2){animation-delay:.2s;}
@@ -351,6 +370,7 @@ footer a:hover{color:var(--blue);}
 </footer>
 
 <script src="/static/markdown.js"></script>
+<script src="/static/assistant_presentation.js"></script>
 <script src="/static/ai_chat.js"></script>
 <script>
 "use strict";

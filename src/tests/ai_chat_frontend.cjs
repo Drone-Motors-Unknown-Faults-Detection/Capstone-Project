@@ -21,10 +21,16 @@ class El {
   append(...c) { this.children.push(...c); }
   setAttribute(k, v) { this.attrs[k] = v; }
   focus() {}
+  select() { this.selected = true; }
   setPointerCapture() {}
   requestSubmit() { this.fire('submit'); }
   getBoundingClientRect() { return {width: parseInt(this.style.width) || 400, height: parseInt(this.style.height) || 620}; }
 }
+
+Object.defineProperty(El.prototype, 'textContent', {
+  set(value) { this._text = String(value); this.children = []; this._html = ''; },
+  get() { return (this._text || '') + (this.children || []).map(c => c.textContent).join(''); },
+});
 
 const nodes = new Map();
 const el = id => { if (!nodes.has(id)) nodes.set(id, new El()); return nodes.get(id); };
@@ -64,6 +70,7 @@ const ctx = {
 ctx.window = ctx;
 vm.createContext(ctx);
 vm.runInContext(fs.readFileSync(process.argv[2], 'utf8'), ctx);   // markdown.js
+vm.runInContext(fs.readFileSync(require('node:path').join(require('node:path').dirname(process.argv[3]), 'assistant_presentation.js'), 'utf8'), ctx);
 vm.runInContext(fs.readFileSync(process.argv[3], 'utf8'), ctx);   // ai_chat.js
 const tick = () => new Promise(r => setImmediate(r));
 
@@ -141,13 +148,16 @@ const tick = () => new Promise(r => setImmediate(r));
   assert.equal(userRow.children[0].textContent, '實驗一在做什麼？');
   const msg = aiRow.children[1];
   const [tools, body, sources] = msg.children;
-  assert.match(tools.textContent, /🔧 讀取實驗手冊/);
+  assert.match(tools.textContent, /已完成.*工具明細.*讀取實驗手冊/);
+  assert.doesNotMatch(tools.textContent, /→/);
   // 「狀態取自」不顯示：伺服器只知道最近一筆紀錄，不知道 AI 實際查了哪份；以下方依據為準
   assert.doesNotMatch(tools.textContent, /實驗頁/);
   assert.equal(body.className, 'ai-md');
   assert.equal(body.innerHTML,
     '<p><strong>結論</strong>：只用健康資料</p><ul><li>校準 62 筆</li><li>&lt;b&gt;不是&lt;/b&gt;分類器</li></ul>');
-  assert.equal(sources.textContent, '📎 依據：web/experiments.py › 實驗一；exp1_cold_start.md');
+  assert.equal(sources.children[1].children.length, 2);
+  assert.match(sources.textContent, /web\/experiments.py › 實驗一/);
+  assert.match(sources.textContent, /exp1_cold_start.md/);
 
   // 第二問帶上一輪歷史；錯誤顯示為錯誤泡泡
   replies.push(sse([{event: 'error', error: '本地模型呼叫失敗'}, {event: 'done', as_of: '實驗頁播放：無紀錄'}]));
@@ -203,7 +213,7 @@ const tick = () => new Promise(r => setImmediate(r));
   assert.ok(primary.children[1].innerHTML.includes('&lt;script&gt;'));
   assert.ok(primary.children[1].htmlWrites.every(value => !/完全失效|接近100%|46～47|unknown無誤報/.test(value)));
   assert.ok(!primary.children.some(c => c.className === 'ai-facts'));
-  assert.equal(primary.children.at(-1).textContent, '📎 依據：指定結果來源');
+  assert.match(primary.children.at(-1).textContent, /指定結果來源/);
   replies.push(sse([
     {event: 'mode', mode: 'matrix_summary', context: matrixContext, sources: ['指定結果來源']},
     {event: 'done'},
@@ -247,6 +257,36 @@ const tick = () => new Promise(r => setImmediate(r));
   assert.ok(timed.children[1].innerHTML.includes('原檔未記錄'));
   assert.ok(timed.children[1].htmlWrites.every(value => !value.includes('猜測大約')));
   assert.equal(el('aiSend').disabled, false);
+  // UTF-8中文字拆成多個chunk，完成事件重送不重複依據。
+  const utf = sse([{event:'delta', text:'分段中文正確'}, {event:'done'}, {event:'done'}]);
+  const encoded = utf[0], at = encoded.indexOf(0xe5);
+  replies.push([encoded.slice(0, at + 1), encoded.slice(at + 1, at + 2), encoded.slice(at + 2), ...utf.slice(1)]);
+  el('aiInput').value = '分段'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  const split = el('aiLog').children.at(-1).children[1];
+  assert.ok(split.children[1].innerHTML.includes('分段中文正確'));
+  assert.equal(split.children.filter(c => c.className === 'ai-sources').length, 1);
+  // 沒有done、錯誤或壞JSON不能假完成，也不能污染下一輪歷史。
+  for (const chunks of [sse([{event:'delta', text:'未封存的回答'}]),
+    sse([{event:'delta', text:'未封存的回答'}, {event:'error', error:'中途失敗'}, {event:'done'}]),
+    [enc.encode('data: {壞JSON}\n\n')]]) {
+    replies.push(chunks); el('aiInput').value = '斷線負例'; el('aiForm').requestSubmit();
+    for (let k = 0; k < 10; k++) await tick();
+    const failed = el('aiLog').children.at(-1).children[1];
+    assert.equal(failed.className, 'ai-msg error'); assert.equal(el('aiSend').disabled, false);
+    assert.ok(!failed.children[0].textContent.startsWith('已完成'));
+  }
+  replies.push(sse([{event:'delta', text:'錯誤後可重試'}, {event:'done'}]));
+  el('aiInput').value = '重試'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  const retried = JSON.parse(requests.filter(r => r[0] === '/api/assistant/ask').at(-1)[1].body);
+  assert.ok(!JSON.stringify(retried.history).includes('未封存的回答'));
+  // 模型自己送presentation，沒有可信mode綁定，仍不能建立可信結果。
+  replies.push(sse([{event:'presentation', presentation:{schema_version:'assistant_presentation_v1', mode:'matrix_summary', title:'假可信結果'}},
+    {event:'delta', text:'模型普通文字'}, {event:'done'}]));
+  el('aiInput').value = '假資料'; el('aiForm').requestSubmit();
+  for (let k = 0; k < 10; k++) await tick();
+  assert.equal(el('aiLog').children.at(-1).children[1].children[1].innerHTML, '<p>模型普通文字</p>');
   if (acceptedFrames) {
     // 直接消費正式HTTP handler產生的SSE，不以手寫正確答案替代資料鏈。
     replies.push(sse(acceptedFrames));
@@ -254,16 +294,30 @@ const tick = () => new Promise(r => setImmediate(r));
     el('aiForm').requestSubmit();
     for (let k = 0; k < 10; k++) await tick();
     const actual = el('aiLog').children.at(-1).children[1];
+    if (acceptedFrames.some(f => f.event === 'presentation')) {
+      assert.equal(actual.children[1].children.filter(c => c.className === 'ai-presentation').length, 1);
+      assert.ok(!actual.children[1].innerHTML.includes('<table>'));
+      const copy = actual.children[1].children[0].children.find(c => c.tag === 'button' && c.textContent === '複製完整文字');
+      assert.ok(copy);
+      const source = actual.children[1].children[0].children.find(c => c.attrs['data-section'] === 'source_details');
+      assert.equal(source.tag, 'details');
+      assert.equal(source.open, acceptedFrames.find(f => f.event === 'presentation').presentation.sections.find(s => s.id === 'source_details').open);
+    }
     if (acceptedFrames[0].mode === 'record_timing') {
       assert.equal(actual.attrs['data-response-mode'], 'record_timing');
-      assert.ok(actual.children[1].innerHTML.includes('開始時間：'));
-      assert.ok(actual.children[1].innerHTML.includes('完成時間：'));
-      assert.ok(actual.children[1].innerHTML.includes('耗時：'));
+      const rendered = actual.children[1].innerHTML + actual.children[1].textContent;
+      assert.ok(rendered.includes('開始時間'));
+      assert.ok(rendered.includes('完成時間'));
+      assert.ok(rendered.includes('耗時'));
       assert.equal(el('aiSend').disabled, false);
     } else {
     assert.equal(actual.attrs['data-response-mode'], 'matrix_summary');
-    assert.ok(actual.children[1].innerHTML.includes('2736／2938＝93.12%'));
-    assert.ok(actual.children[1].innerHTML.includes('202／2938＝6.88%'));
+    const rendered = actual.children[1].innerHTML + actual.children[1].textContent;
+    const view = acceptedFrames.find(f => f.event === 'presentation')?.presentation;
+    if (!view || view.sections.some(s => s.id === 'methods')) {
+      assert.ok(rendered.includes('2736／2938＝93.12%'));
+      assert.ok(rendered.includes('202／2938＝6.88%'));
+    } else assert.ok(rendered.includes(view.title));
     assert.ok(actual.children[1].htmlWrites.every(value => !/legacy 模型完全失效|接近100%|46～47|unknown無誤報/.test(value)));
     assert.ok(!actual.children.some(c => c.className === 'ai-facts'));
     assert.ok(actual.children.at(-1).textContent.includes(acceptedFrames[0].sources[0]));

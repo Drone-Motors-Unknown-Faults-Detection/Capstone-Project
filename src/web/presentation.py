@@ -165,6 +165,10 @@ def build_exp12(result, budget, source, schema):
             status = "incomplete"
         else:
             methods = facts["openset"]
+            roles = {(tuple(sorted(f["openset"]["known_labels"])), f["openset"]["known_total"], f["openset"]["unknown_total"])
+                     for f in methods.values()}
+            if len(roles) > 1:
+                warnings.append("兩方法的已知標籤或支持數不同；僅並列原值，不可當相同資料角色的配對比較。")
             names = {"ledoit_wolf": "Ledoit–Wolf（LW）", "legacy": "legacy"}
             metrics = [("已知樣本", lambda o: string(o["known_total"])), ("已知判對", lambda o: rate(o["known_accuracy"])),
                        ("已知誤拒為未知", lambda o: rate(o["known_rejection_rate"])), ("已知類互相錯分", lambda o: string(o["known_misclassified"])),
@@ -233,6 +237,10 @@ def select_view(presentation, view):
         ids = {"source", "source_details", "warnings", "limits", "classes-ledoit_wolf"}
         p["sections"] = [s for s in p["sections"] if s["id"] in ids]
         p["title"] = "Ledoit–Wolf逐類結果"
+        if not any(s["id"] == "classes-ledoit_wolf" for s in p["sections"]):
+            if p["status"] == "complete":
+                p["status"] = "incomplete"
+            p["sections"].insert(1, section("missing-lw", "資料不完整", "warning", items=["本紀錄缺少LW逐類結果，未改取另一筆來源。"]))
         for s in p["sections"]:
             if s["id"] == "classes-ledoit_wolf":
                 s.update(detail=False, open=True)
