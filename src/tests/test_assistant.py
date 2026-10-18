@@ -1,6 +1,8 @@
 """web/assistant.py 與 /api/assistant/* 的規範：快照不帶真值、工具內容、串流 frame。"""
 import asyncio
 import json
+import shutil
+import subprocess
 import unittest
 from pathlib import Path
 
@@ -30,7 +32,7 @@ from web.assistant import (
     KNOWLEDGE_DIR,
 )
 from web.playback import PlaybackTracker
-from tests.exp12_counts_fixture import historical_result
+from tests.exp12_counts_fixture import REPORTED_WRONG_ANSWER, historical_result
 
 
 class FakeToolModel(GenericFakeChatModel):
@@ -384,6 +386,28 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         followup = self.frames(json.dumps({"question": "那是不是全部誤拒", "context": frames[0]["context"]}))
         self.assertIn("45／572＝7.87%", "".join(f.get("text", "") for f in followup))
         self.assertFalse(any(f["event"] == "error" for f in followup))
+
+    def test_actual_http_sse_reaches_frontend_without_hostile_model_text(self):
+        node = shutil.which("node")
+        self.assertTrue(node, "完整前端回歸需要Node.js")
+        root = Path("saved")
+        folder = root / "session/experiments"
+        folder.mkdir(parents=True)
+        name = "exp12_2026-01-01-00-00-00.json"
+        (folder / name).write_text(json.dumps({"experiment": "exp12", "result": historical_result()}), encoding="utf-8")
+        server.PLAYBACK = PlaybackTracker(root)
+        model = fake_model(
+            AIMessage(content="", tool_calls=[{"name": "get_run_status", "args": {"number": "12"}, "id": "c1"}]),
+            AIMessage(content=REPORTED_WRONG_ANSWER))
+        server.ASSISTANT = Assistant("http://unused/v1", llm=model)
+        frames = self.frames(json.dumps({"question": f"總結 `{name}`"}))
+        repo = Path(__file__).resolve().parents[2]
+        process = subprocess.run([node, str(repo / "src/tests/ai_chat_frontend.cjs"),
+                                  str(repo / "src/web/static/markdown.js"), str(repo / "src/web/static/ai_chat.js"), "--frames"],
+                                 input=json.dumps(frames), capture_output=True, text=True, encoding="utf-8")
+        self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+        self.assertIn("HTTP to frontend primary OK", process.stdout)
+        self.assertEqual(model.seen, [])
 
     def test_bad_request_returns_error_frame(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
