@@ -1,4 +1,0 @@
-2026-10-09 15:27:57 | INFO    | Logger initialized: ci_evidence
-2026-10-09 15:27:57 | INFO    | log_file=logs\ci_evidence\2026-10-09-15-27-57.log
-2026-10-09 15:27:57 | INFO    | output_dir=output\ci_evidence\2026-10-09-15-27-57
-2026-10-09 15:28:35 | INFO    | CI 工程驗證：PASS；測試數=235；failed=0；errors=0；skipped=3；失效目標=0

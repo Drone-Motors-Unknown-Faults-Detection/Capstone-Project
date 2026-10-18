@@ -10,7 +10,7 @@
 
 ### 資料角色用量表
 
-以下對應[唯讀計數](../../output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的T1／8000rpm、seed42，僅重播loader與splitter，沒有新fit或準確率。六工況逐份數量見[分母總表](README.md#資料用量與分母怎麼讀)。
+以下對應[唯讀計數](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的T1／8000rpm、seed42，僅重播loader與splitter，沒有新fit或準確率。六工況逐份數量見[分母總表](README.md#資料用量與分母怎麼讀)。
 
 | 資料角色 | 馬達／轉速／類別 | 有效數量 | 比例與分母 | 用途 | 重疊 |
 |---|---|---:|---|---|---|

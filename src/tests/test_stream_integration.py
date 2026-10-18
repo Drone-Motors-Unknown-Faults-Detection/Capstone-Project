@@ -21,7 +21,7 @@ BASE = "64cb71d84663e1745ec54db74abad68def67e8e6"
 
 @lru_cache(None)
 def baseline(module):
-    source = subprocess.check_output(["git", "show", f"{BASE}:experiments/{module}.py"])
+    source = subprocess.check_output(["git", "show", f"{BASE}:experiments/{module}.py"], cwd=Path(__file__).resolve().parents[2])
     namespace = {"__name__": f"experiments._baseline_{module}"}
     exec(compile(source, f"{BASE}/{module}", "exec"), namespace)
     return namespace["run"]

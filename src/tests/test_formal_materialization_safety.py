@@ -58,7 +58,7 @@ def stage_source(root, entries=None):
 def old_module():
     module = types.ModuleType("_formal_materialization_baseline")
     sys.modules[module.__name__] = module
-    source = subprocess.check_output(["git", "show", f"{BASE}:core/formal_data.py"])
+    source = subprocess.check_output(["git", "show", f"{BASE}:core/formal_data.py"], cwd=Path(__file__).resolve().parents[2])
     exec(compile(source, f"{BASE}/core/formal_data.py", "exec"), module.__dict__)
     return module
 

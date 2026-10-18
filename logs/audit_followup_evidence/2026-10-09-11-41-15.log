@@ -1,4 +1,0 @@
-2026-10-09 11:41:15 | INFO    | Logger initialized: audit_followup_evidence
-2026-10-09 11:41:15 | INFO    | log_file=logs\audit_followup_evidence\2026-10-09-11-41-15.log
-2026-10-09 11:41:15 | INFO    | output_dir=output\audit_followup_evidence\2026-10-09-11-41-15
-2026-10-09 11:41:16 | INFO    | 16 份來源、15 個文件目標、0 個失效

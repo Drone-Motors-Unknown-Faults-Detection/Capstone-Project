@@ -1,8 +1,0 @@
-2026-10-09 12:12:10 | INFO    | Logger initialized: branch_integration
-2026-10-09 12:12:10 | INFO    | log_file=logs\branch_integration\2026-10-09-12-12-10.log
-2026-10-09 12:12:10 | INFO    | output_dir=output\branch_integration\2026-10-09-12-12-10
-2026-10-09 12:12:23 | INFO    | 工作進行中，拒絕重複操作
-2026-10-09 12:12:23 | INFO    | 請先選資料並建立健康基準
-2026-10-09 12:12:23 | INFO    | 沒有可確認候選，或候選ID已過期
-2026-10-09 12:12:25 | INFO    | 劇本窗口播畢，已暫停；這是劇本結果，不是物理時間
-2026-10-09 12:12:25 | INFO    | 串流錯誤，已暫停：測試

@@ -1,4 +1,0 @@
-2026-10-14 19:56:01 | INFO    | Logger initialized: pytest_evidence
-2026-10-14 19:56:01 | INFO    | log_file=logs\pytest_evidence\2026-10-14-19-56-01.log
-2026-10-14 19:56:01 | INFO    | output_dir=output\pytest_evidence\2026-10-14-19-56-01
-2026-10-14 19:57:10 | INFO    | pytest PASS：{'tests': 26, 'failures': 0, 'errors': 0, 'skipped': 0}

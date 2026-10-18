@@ -1,4 +1,0 @@
-2026-10-08 13:36:22 | INFO    | Logger initialized: stream_integration_regression
-2026-10-08 13:36:22 | INFO    | log_file=logs\stream_integration_regression\2026-10-08-13-36-22.log
-2026-10-08 13:36:22 | INFO    | output_dir=output\stream_integration_regression\2026-10-08-13-36-22
-2026-10-08 13:36:25 | INFO    | 5 組與原 main 配對，全部相同，來源未變

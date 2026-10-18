@@ -89,7 +89,7 @@
 
 ## 資料用量與分母怎麼讀
 
-以下是[唯讀用量產物](../../output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的六工況資料版本：60 個 CSV、19,053 個有效105維特徵列，全部列有限。本機沒有 T2。它不等於研究分支90個CSV／28,910列的資料版本，也不能拿六工況代替九工況矩陣驗收。`source_inventory` 保存各檔原位元組 SHA，`content_inventory_sha256` 是這份排序清冊的摘要，不沿用歷史 stat-based fingerprint。
+以下是[唯讀用量產物](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的六工況資料版本：60 個 CSV、19,053 個有效105維特徵列，全部列有限。本機沒有 T2。它不等於研究分支90個CSV／28,910列的資料版本，也不能拿六工況代替九工況矩陣驗收。`source_inventory` 保存各檔原位元組 SHA，`content_inventory_sha256` 是這份排序清冊的摘要，不沿用歷史 stat-based fingerprint。
 
 | 工況 | 全部有效列 | 健康池 H | 健康 train／H | 健康 cal／H | 健康 holdout／H | 故障全池 U |
 |---|---:|---:|---:|---:|---:|---:|

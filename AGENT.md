@@ -46,7 +46,9 @@ src/web/         即時展示與實驗頁（live.py 串流編排、experiments.p
                  guide.py 獨立導覽（static/guide.html + guide.js + guide.css）、
                  static/index.html + experiments.js + ai_chat.js + markdown.js、
                  assistant.py AI 問答（LangGraph agent 連本地模型，知識庫在 web/knowledge/*.md））
-src/tests/       pytest 單元測試；其中需要留存證據的驗證腳本（*_evidence.py 等）
+src/tests/       pytest 單元測試；conftest.py 讓每個測試在自己的暫存目錄執行，
+                 測試中呼叫 setup_run() 不會寫進 repo 的 logs/ 與 output/。
+                 需要留存證據的驗證腳本（*_evidence.py 等）以 CLI 執行時
                  一樣經 core.logger.setup_run() 寫 logs/ 與 output/，不得改成手寫報告
 docs/            實驗技術報告在 docs/experiments/（每個 src/experiments/*.py 一份 .md）
                  ＋論文版技術文件快照、Lineage 研究文件及 navigation 操作導覽；

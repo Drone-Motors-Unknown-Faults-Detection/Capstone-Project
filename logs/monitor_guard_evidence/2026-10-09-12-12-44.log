@@ -1,4 +1,0 @@
-2026-10-09 12:12:44 | INFO    | Logger initialized: monitor_guard_evidence
-2026-10-09 12:12:44 | INFO    | log_file=logs\monitor_guard_evidence\2026-10-09-12-12-44.log
-2026-10-09 12:12:44 | INFO    | output_dir=output\monitor_guard_evidence\2026-10-09-12-12-44
-2026-10-09 12:12:46 | INFO    | 11項；0 failure entries／0 error entries；successful=True
