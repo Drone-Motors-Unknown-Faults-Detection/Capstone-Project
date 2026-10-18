@@ -122,6 +122,11 @@ def test_finalizer_timeout_preserves_prior_evidence():
 
 
 def test_recursion_error_becomes_bounded_verified_fallback_with_sources():
+    @tool(response_format="content_and_artifact")
+    def lookup_knowledge(query: str):
+        """固定短證據，讓案例只觸發圖步數而非文字預算。"""
+        return "固定短證據", {"sources": ["固定來源"]}
+
     model = fake_model(*(call(f"不同{i}", i) for i in range(8)))
     assistant = Assistant("http://unused/v1", llm=model)
     original = build_graph
@@ -129,7 +134,8 @@ def test_recursion_error_becomes_bounded_verified_fallback_with_sources():
     async def run():
         return [f async for f in assistant.ask(None, "方法綜合問題")]
 
-    with patch("web.assistant.build_graph", side_effect=lambda *a, **k: original(*a, **k, limits={"rounds": 100, "models": 100, "tools": 100})):
+    with patch("web.assistant.make_tools", return_value=[lookup_knowledge]), patch(
+            "web.assistant.build_graph", side_effect=lambda *a, **k: original(*a, **k, limits={"rounds": 100, "models": 100, "tools": 100})):
         frames = asyncio.run(run())
     text = "".join(f.get("text", "") for f in frames)
     assert "流程上限" in text
