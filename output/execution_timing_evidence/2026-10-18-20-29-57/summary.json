@@ -1,0 +1,434 @@
+{
+  "schema_version": "execution_timing_evidence_v1",
+  "base_url": "http://140.134.138.33:8787",
+  "expected_deployment_sha": "0ef71bd2e671abd493eec7110dc40e26357a99e5",
+  "browser": "NOT_VERIFIED",
+  "cases": [
+    {
+      "context": {
+        "experiment": "exp12",
+        "mode": "result",
+        "saved": "output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+      },
+      "question": "這次實驗何時開始、何時完成、花多久？",
+      "sse": "data: {\"event\": \"mode\", \"mode\": \"record_timing\", \"status\": \"INCOMPLETE\", \"context\": {\"experiment\": \"exp12\", \"mode\": \"result\", \"saved\": \"output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"}, \"sources\": [\"實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"]}\n\ndata: {\"event\": \"tool\", \"name\": \"get_run_status\", \"label\": \"讀取實驗起訖與耗時\", \"sources\": [\"實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"]}\n\ndata: {\"event\": \"delta\", \"text\": \"【執行紀錄時間，由程式讀取】\\n開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\\n來源識別：{\\\"experiment\\\": \\\"exp12\\\", \\\"finished_at\\\": \\\"2026-10-18T12:11:13\\\", \\\"saved\\\": \\\"output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\\\", \\\"saved_sha256\\\": \\\"ae90fed3851fcaafd5de5d9481da9b6f09b0e918b3b7b9fa9e3ec480df3c1394\\\", \\\"seconds\\\": 50.15, \\\"started_at\\\": null, \\\"status\\\": \\\"done\\\", \\\"timing_scope\\\": null, \\\"timing_status\\\": \\\"INCOMPLETE\\\", \\\"timing_text\\\": \\\"開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\\\", \\\"timing_version\\\": null, \\\"timing_warnings\\\": []}\", \"origin\": \"record\"}\n\ndata: {\"event\": \"done\", \"as_of\": \"實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"}\n\n",
+      "frames": [
+        {
+          "event": "mode",
+          "mode": "record_timing",
+          "status": "INCOMPLETE",
+          "context": {
+            "experiment": "exp12",
+            "mode": "result",
+            "saved": "output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+          },
+          "sources": [
+            "實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+          ]
+        },
+        {
+          "event": "tool",
+          "name": "get_run_status",
+          "label": "讀取實驗起訖與耗時",
+          "sources": [
+            "實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+          ]
+        },
+        {
+          "event": "delta",
+          "text": "【執行紀錄時間，由程式讀取】\n開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\n來源識別：{\"experiment\": \"exp12\", \"finished_at\": \"2026-10-18T12:11:13\", \"saved\": \"output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\", \"saved_sha256\": \"ae90fed3851fcaafd5de5d9481da9b6f09b0e918b3b7b9fa9e3ec480df3c1394\", \"seconds\": 50.15, \"started_at\": null, \"status\": \"done\", \"timing_scope\": null, \"timing_status\": \"INCOMPLETE\", \"timing_text\": \"開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\", \"timing_version\": null, \"timing_warnings\": []}",
+          "origin": "record"
+        },
+        {
+          "event": "done",
+          "as_of": "實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+        }
+      ]
+    },
+    {
+      "context": {
+        "experiment": "exp12",
+        "mode": "result",
+        "saved": "output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+      },
+      "question": "總結實驗十二結果與限制。",
+      "sse": "data: {\"event\": \"mode\", \"mode\": \"matrix_summary\", \"schema\": \"exp12_standard_answer_v2\", \"status\": \"complete\", \"context\": {\"experiment\": \"exp12\", \"mode\": \"result\", \"saved\": \"output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"}, \"sources\": [\"實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"]}\n\ndata: {\"event\": \"tool\", \"name\": \"get_run_status\", \"label\": \"程式核算實驗十二結果\", \"sources\": [\"實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"]}\n\ndata: {\"event\": \"delta\", \"text\": \"【結果摘要由程式依矩陣產生】\\n【程式核算：exp12 原始計數，事後評估；非模型生成】\\n來源識別：{\\\"exp_id\\\": \\\"exp12\\\", \\\"finished_at\\\": \\\"2026-10-18T12:11:13\\\", \\\"mode\\\": \\\"saved\\\", \\\"params\\\": {\\\"seed\\\": 42}, \\\"saved\\\": \\\"output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\\\", \\\"saved_sha256\\\": \\\"ae90fed3851fcaafd5de5d9481da9b6f09b0e918b3b7b9fa9e3ec480df3c1394\\\", \\\"seconds\\\": 50.15, \\\"started_at\\\": null, \\\"status\\\": \\\"done\\\", \\\"timing_scope\\\": null, \\\"timing_status\\\": \\\"INCOMPLETE\\\", \\\"timing_text\\\": \\\"開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\\\", \\\"timing_version\\\": null, \\\"timing_warnings\\\": []}\\n開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\\n結果設定：{\\\"confidence\\\": 0.95, \\\"n_datasets\\\": 9, \\\"perplexity\\\": 30.0, \\\"seed\\\": 42}\\n二元健康冷啟動：健康支持 572，故障支持 26070，總量 26642。\\n健康誤報 45／572＝7.87%；故障漏判 0 筆，故障召回 26070／26070＝100.00%。\\n多類 ledoit_wolf：已知支持 2938，判對 2736，誤拒 202，已知互相錯分 0；總量 17319。\\n已知判對率 2736／2938＝93.12%；已知誤拒率 202／2938＝6.88%。\\n未知支持 14381，unknown→unknown 正確拒絕 14381，unknown→known 未拒 0；未知召回 14381／14381＝100.00%。\\n逐真值類支持／對角正確：8screws=572／525；1screw=601／562；2screws=605／559；3screws=591／561；4screws=569／529；unknown=14381／14381\\n8screws（健康）：支持 572、判對 525、誤拒 47、錯分其他已知 0；判對率 525／572＝91.78%。\\n1screw：支持 601、判對 562、誤拒 39、錯分其他已知 0；判對率 562／601＝93.51%。\\n2screws：支持 605、判對 559、誤拒 46、錯分其他已知 0；判對率 559／605＝92.40%。\\n3screws：支持 591、判對 561、誤拒 30、錯分其他已知 0；判對率 561／591＝94.92%。\\n4screws：支持 569、判對 529、誤拒 40、錯分其他已知 0；判對率 529／569＝92.97%。\\n多類 legacy：已知支持 2938，判對 0，誤拒 2938，已知互相錯分 0；總量 17319。\\n已知判對率 0／2938＝0.00%；已知誤拒率 2938／2938＝100.00%。\\n未知支持 14381，unknown→unknown 正確拒絕 14381，unknown→known 未拒 0；未知召回 14381／14381＝100.00%。\\n逐真值類支持／對角正確：8screws=572／0；1screw=601／0；2screws=605／0；3screws=591／0；4screws=569／0；unknown=14381／14381\\n8screws（健康）：支持 572、判對 0、誤拒 572、錯分其他已知 0；判對率 0／572＝0.00%。\\n1screw：支持 601、判對 0、誤拒 601、錯分其他已知 0；判對率 0／601＝0.00%。\\n2screws：支持 605、判對 0、誤拒 605、錯分其他已知 0；判對率 0／605＝0.00%。\\n3screws：支持 591、判對 0、誤拒 591、錯分其他已知 0；判對率 0／591＝0.00%。\\n4screws：支持 569、判對 0、誤拒 569、錯分其他已知 0；判對率 0／569＝0.00%。\\n二元只學健康；多類 A 協定的目標是健康＋四種已知故障配置，實際標籤如上；已知判對率包含健康，不是純故障正確率。缺類不代表完整coverage，兩者分母不可互換。\\nunknown→unknown 是正確拒絕，沒有辨識具體未知配置身分；已知總數不等於誤拒數。\\n故障漏判為健康、健康誤報、已知誤拒與未知未拒是不同指標；未知全拒不代表整個系統沒有誤報。\\n此批按工況評估不證明未見馬達泛化或部署可靠；t-SNE 可含擬合資料，只供事後觀察。誤拒率不能單獨證明邊界過嚴，不使用同一 test 調門檻。\\n本次為批次實驗：模型產生預測，再以事後真值計算指標；不是沒有模型判斷。\\nt-SNE 現行預設每工況每配置最多抽200筆，十配置完整時每工況最多2000筆，並非全部工況合計2000筆；上限不等於當次實際數量。\\n顏色表示真實配置；三角形表示模型判為unknown，包含已知誤拒及未知正確拒絕；圓點為已知判對；叉為錯誤接受，包含未知被判為已知。各工況分別fit，群距無物理損傷意義。\\n當次t-SNE抽樣：T1/11000=2000筆；T1/6000=2000筆；T1/8000=2000筆；T2/11000=2000筆；T2/6000=1980筆；T2/8000=2000筆；T3/11000=2000筆；T3/6000=2000筆；T3/8000=2000筆；合計17980筆。\\n資料角色示例（T1／8000rpm，非全工況固定量）：健康池313筆，train擬合187／cal校準62／holdout測試64，不是整池皆用來訓練；其他工況須另查來源。\\nlegacy 的 -1 標籤介面限制須核對來源程式版本，本紀錄未提供可核驗版本，不能僅憑全 unknown 確認原因；unknown 對角仍是判對，不支持原方法完全失效。\\n\\n原始矩陣（每一橫列 row＝真值，每一直欄 column＝預測）：\\nbinary_confusion：（列 = 真值、欄 = 預測）\\n| 真值＼預測 | healthy | fault |\\n| healthy | 527 | 45 |\\n| fault | 0 | 26070 |\\nopenset_confusion：\\n  ledoit_wolf：（列 = 真值、欄 = 預測）\\n  | 真值＼預測 | 8screws | 1screw | 2screws | 3screws | 4screws | unknown |\\n  | 8screws | 525 | 0 | 0 | 0 | 0 | 47 |\\n  | 1screw | 0 | 562 | 0 | 0 | 0 | 39 |\\n  | 2screws | 0 | 0 | 559 | 0 | 0 | 46 |\\n  | 3screws | 0 | 0 | 0 | 561 | 0 | 30 |\\n  | 4screws | 0 | 0 | 0 | 0 | 529 | 40 |\\n  | unknown | 0 | 0 | 0 | 0 | 0 | 14381 |\\n  legacy：（列 = 真值、欄 = 預測）\\n  | 真值＼預測 | 8screws | 1screw | 2screws | 3screws | 4screws | unknown |\\n  | 8screws | 0 | 0 | 0 | 0 | 0 | 572 |\\n  | 1screw | 0 | 0 | 0 | 0 | 0 | 601 |\\n  | 2screws | 0 | 0 | 0 | 0 | 0 | 605 |\\n  | 3screws | 0 | 0 | 0 | 0 | 0 | 591 |\\n  | 4screws | 0 | 0 | 0 | 0 | 0 | 569 |\\n  | unknown | 0 | 0 | 0 | 0 | 0 | 14381 |\", \"origin\": \"matrix\"}\n\ndata: {\"event\": \"done\", \"as_of\": \"實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\"}\n\n",
+      "frames": [
+        {
+          "event": "mode",
+          "mode": "matrix_summary",
+          "schema": "exp12_standard_answer_v2",
+          "status": "complete",
+          "context": {
+            "experiment": "exp12",
+            "mode": "result",
+            "saved": "output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+          },
+          "sources": [
+            "實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+          ]
+        },
+        {
+          "event": "tool",
+          "name": "get_run_status",
+          "label": "程式核算實驗十二結果",
+          "sources": [
+            "實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+          ]
+        },
+        {
+          "event": "delta",
+          "text": "【結果摘要由程式依矩陣產生】\n【程式核算：exp12 原始計數，事後評估；非模型生成】\n來源識別：{\"exp_id\": \"exp12\", \"finished_at\": \"2026-10-18T12:11:13\", \"mode\": \"saved\", \"params\": {\"seed\": 42}, \"saved\": \"output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json\", \"saved_sha256\": \"ae90fed3851fcaafd5de5d9481da9b6f09b0e918b3b7b9fa9e3ec480df3c1394\", \"seconds\": 50.15, \"started_at\": null, \"status\": \"done\", \"timing_scope\": null, \"timing_status\": \"INCOMPLETE\", \"timing_text\": \"開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\", \"timing_version\": null, \"timing_warnings\": []}\n開始時間：原檔未記錄；完成時間：2026-10-18T12:11:13（原檔未提供時區）；耗時：50.15 秒。原檔未提供耗時邊界。\n結果設定：{\"confidence\": 0.95, \"n_datasets\": 9, \"perplexity\": 30.0, \"seed\": 42}\n二元健康冷啟動：健康支持 572，故障支持 26070，總量 26642。\n健康誤報 45／572＝7.87%；故障漏判 0 筆，故障召回 26070／26070＝100.00%。\n多類 ledoit_wolf：已知支持 2938，判對 2736，誤拒 202，已知互相錯分 0；總量 17319。\n已知判對率 2736／2938＝93.12%；已知誤拒率 202／2938＝6.88%。\n未知支持 14381，unknown→unknown 正確拒絕 14381，unknown→known 未拒 0；未知召回 14381／14381＝100.00%。\n逐真值類支持／對角正確：8screws=572／525；1screw=601／562；2screws=605／559；3screws=591／561；4screws=569／529；unknown=14381／14381\n8screws（健康）：支持 572、判對 525、誤拒 47、錯分其他已知 0；判對率 525／572＝91.78%。\n1screw：支持 601、判對 562、誤拒 39、錯分其他已知 0；判對率 562／601＝93.51%。\n2screws：支持 605、判對 559、誤拒 46、錯分其他已知 0；判對率 559／605＝92.40%。\n3screws：支持 591、判對 561、誤拒 30、錯分其他已知 0；判對率 561／591＝94.92%。\n4screws：支持 569、判對 529、誤拒 40、錯分其他已知 0；判對率 529／569＝92.97%。\n多類 legacy：已知支持 2938，判對 0，誤拒 2938，已知互相錯分 0；總量 17319。\n已知判對率 0／2938＝0.00%；已知誤拒率 2938／2938＝100.00%。\n未知支持 14381，unknown→unknown 正確拒絕 14381，unknown→known 未拒 0；未知召回 14381／14381＝100.00%。\n逐真值類支持／對角正確：8screws=572／0；1screw=601／0；2screws=605／0；3screws=591／0；4screws=569／0；unknown=14381／14381\n8screws（健康）：支持 572、判對 0、誤拒 572、錯分其他已知 0；判對率 0／572＝0.00%。\n1screw：支持 601、判對 0、誤拒 601、錯分其他已知 0；判對率 0／601＝0.00%。\n2screws：支持 605、判對 0、誤拒 605、錯分其他已知 0；判對率 0／605＝0.00%。\n3screws：支持 591、判對 0、誤拒 591、錯分其他已知 0；判對率 0／591＝0.00%。\n4screws：支持 569、判對 0、誤拒 569、錯分其他已知 0；判對率 0／569＝0.00%。\n二元只學健康；多類 A 協定的目標是健康＋四種已知故障配置，實際標籤如上；已知判對率包含健康，不是純故障正確率。缺類不代表完整coverage，兩者分母不可互換。\nunknown→unknown 是正確拒絕，沒有辨識具體未知配置身分；已知總數不等於誤拒數。\n故障漏判為健康、健康誤報、已知誤拒與未知未拒是不同指標；未知全拒不代表整個系統沒有誤報。\n此批按工況評估不證明未見馬達泛化或部署可靠；t-SNE 可含擬合資料，只供事後觀察。誤拒率不能單獨證明邊界過嚴，不使用同一 test 調門檻。\n本次為批次實驗：模型產生預測，再以事後真值計算指標；不是沒有模型判斷。\nt-SNE 現行預設每工況每配置最多抽200筆，十配置完整時每工況最多2000筆，並非全部工況合計2000筆；上限不等於當次實際數量。\n顏色表示真實配置；三角形表示模型判為unknown，包含已知誤拒及未知正確拒絕；圓點為已知判對；叉為錯誤接受，包含未知被判為已知。各工況分別fit，群距無物理損傷意義。\n當次t-SNE抽樣：T1/11000=2000筆；T1/6000=2000筆；T1/8000=2000筆；T2/11000=2000筆；T2/6000=1980筆；T2/8000=2000筆；T3/11000=2000筆；T3/6000=2000筆；T3/8000=2000筆；合計17980筆。\n資料角色示例（T1／8000rpm，非全工況固定量）：健康池313筆，train擬合187／cal校準62／holdout測試64，不是整池皆用來訓練；其他工況須另查來源。\nlegacy 的 -1 標籤介面限制須核對來源程式版本，本紀錄未提供可核驗版本，不能僅憑全 unknown 確認原因；unknown 對角仍是判對，不支持原方法完全失效。\n\n原始矩陣（每一橫列 row＝真值，每一直欄 column＝預測）：\nbinary_confusion：（列 = 真值、欄 = 預測）\n| 真值＼預測 | healthy | fault |\n| healthy | 527 | 45 |\n| fault | 0 | 26070 |\nopenset_confusion：\n  ledoit_wolf：（列 = 真值、欄 = 預測）\n  | 真值＼預測 | 8screws | 1screw | 2screws | 3screws | 4screws | unknown |\n  | 8screws | 525 | 0 | 0 | 0 | 0 | 47 |\n  | 1screw | 0 | 562 | 0 | 0 | 0 | 39 |\n  | 2screws | 0 | 0 | 559 | 0 | 0 | 46 |\n  | 3screws | 0 | 0 | 0 | 561 | 0 | 30 |\n  | 4screws | 0 | 0 | 0 | 0 | 529 | 40 |\n  | unknown | 0 | 0 | 0 | 0 | 0 | 14381 |\n  legacy：（列 = 真值、欄 = 預測）\n  | 真值＼預測 | 8screws | 1screw | 2screws | 3screws | 4screws | unknown |\n  | 8screws | 0 | 0 | 0 | 0 | 0 | 572 |\n  | 1screw | 0 | 0 | 0 | 0 | 0 | 601 |\n  | 2screws | 0 | 0 | 0 | 0 | 0 | 605 |\n  | 3screws | 0 | 0 | 0 | 0 | 0 | 591 |\n  | 4screws | 0 | 0 | 0 | 0 | 0 | 569 |\n  | unknown | 0 | 0 | 0 | 0 | 0 | 14381 |",
+          "origin": "matrix"
+        },
+        {
+          "event": "done",
+          "as_of": "實驗頁紀錄：實驗十二 混淆矩陣與 t-SNE（存檔），已完成，紀錄更新 2026-10-18T12:11:13，存檔 output/web_server/2026-10-18-12-02-30/experiments/exp12_2026-10-18-12-11-13.json"
+        }
+      ]
+    },
+    {
+      "context": {
+        "experiment": "exp1",
+        "mode": "result"
+      },
+      "question": "這次實驗何時開始、何時完成、花多久？",
+      "sse": "data: {\"event\": \"mode\", \"mode\": \"record_timing\", \"status\": \"VERIFIED\", \"context\": {\"experiment\": \"exp1\", \"mode\": \"result\", \"saved\": \"output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"}, \"sources\": [\"實驗頁紀錄：實驗一 冷啟動偵測能力（▶ 執行），已完成，紀錄更新 2026-10-18T12:29:59.806+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"]}\n\ndata: {\"event\": \"tool\", \"name\": \"get_run_status\", \"label\": \"讀取實驗起訖與耗時\", \"sources\": [\"實驗頁紀錄：實驗一 冷啟動偵測能力（▶ 執行），已完成，紀錄更新 2026-10-18T12:29:59.806+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"]}\n\ndata: {\"event\": \"delta\", \"text\": \"【執行紀錄時間，由程式讀取】\\n開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\\n來源識別：{\\\"experiment\\\": \\\"exp1\\\", \\\"finished_at\\\": \\\"2026-10-18T12:29:59.805+00:00\\\", \\\"saved\\\": \\\"output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\\\", \\\"seconds\\\": 0.13, \\\"started_at\\\": \\\"2026-10-18T12:29:59.673+00:00\\\", \\\"status\\\": \\\"done\\\", \\\"timing_scope\\\": \\\"batch_execution\\\", \\\"timing_status\\\": \\\"VERIFIED\\\", \\\"timing_text\\\": \\\"開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\\\", \\\"timing_version\\\": \\\"web_run_timing_v1\\\", \\\"timing_warnings\\\": []}\", \"origin\": \"record\"}\n\ndata: {\"event\": \"done\", \"as_of\": \"實驗頁紀錄：實驗一 冷啟動偵測能力（▶ 執行），已完成，紀錄更新 2026-10-18T12:29:59.806+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"}\n\n",
+      "frames": [
+        {
+          "event": "mode",
+          "mode": "record_timing",
+          "status": "VERIFIED",
+          "context": {
+            "experiment": "exp1",
+            "mode": "result",
+            "saved": "output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+          },
+          "sources": [
+            "實驗頁紀錄：實驗一 冷啟動偵測能力（▶ 執行），已完成，紀錄更新 2026-10-18T12:29:59.806+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+          ]
+        },
+        {
+          "event": "tool",
+          "name": "get_run_status",
+          "label": "讀取實驗起訖與耗時",
+          "sources": [
+            "實驗頁紀錄：實驗一 冷啟動偵測能力（▶ 執行），已完成，紀錄更新 2026-10-18T12:29:59.806+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+          ]
+        },
+        {
+          "event": "delta",
+          "text": "【執行紀錄時間，由程式讀取】\n開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\n來源識別：{\"experiment\": \"exp1\", \"finished_at\": \"2026-10-18T12:29:59.805+00:00\", \"saved\": \"output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\", \"seconds\": 0.13, \"started_at\": \"2026-10-18T12:29:59.673+00:00\", \"status\": \"done\", \"timing_scope\": \"batch_execution\", \"timing_status\": \"VERIFIED\", \"timing_text\": \"開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\", \"timing_version\": \"web_run_timing_v1\", \"timing_warnings\": []}",
+          "origin": "record"
+        },
+        {
+          "event": "done",
+          "as_of": "實驗頁紀錄：實驗一 冷啟動偵測能力（▶ 執行），已完成，紀錄更新 2026-10-18T12:29:59.806+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+        }
+      ]
+    },
+    {
+      "context": {
+        "experiment": "exp1",
+        "mode": "result",
+        "saved": "output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+      },
+      "question": "這次實驗何時開始、何時完成、花多久？",
+      "sse": "data: {\"event\": \"mode\", \"mode\": \"record_timing\", \"status\": \"VERIFIED\", \"context\": {\"experiment\": \"exp1\", \"mode\": \"result\", \"saved\": \"output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"}, \"sources\": [\"實驗頁紀錄：實驗一 冷啟動偵測能力（存檔），已完成，紀錄更新 2026-10-18T12:29:59.805+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"]}\n\ndata: {\"event\": \"tool\", \"name\": \"get_run_status\", \"label\": \"讀取實驗起訖與耗時\", \"sources\": [\"實驗頁紀錄：實驗一 冷啟動偵測能力（存檔），已完成，紀錄更新 2026-10-18T12:29:59.805+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"]}\n\ndata: {\"event\": \"delta\", \"text\": \"【執行紀錄時間，由程式讀取】\\n開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\\n來源識別：{\\\"experiment\\\": \\\"exp1\\\", \\\"finished_at\\\": \\\"2026-10-18T12:29:59.805+00:00\\\", \\\"saved\\\": \\\"output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\\\", \\\"saved_sha256\\\": \\\"f7fd53fa83b43acdbdd82126573d2cc2fa760b4dcb871356760cb26a7c472deb\\\", \\\"seconds\\\": 0.13, \\\"started_at\\\": \\\"2026-10-18T12:29:59.673+00:00\\\", \\\"status\\\": \\\"done\\\", \\\"timing_scope\\\": \\\"batch_execution\\\", \\\"timing_status\\\": \\\"VERIFIED\\\", \\\"timing_text\\\": \\\"開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\\\", \\\"timing_version\\\": \\\"web_run_timing_v1\\\", \\\"timing_warnings\\\": []}\", \"origin\": \"record\"}\n\ndata: {\"event\": \"done\", \"as_of\": \"實驗頁紀錄：實驗一 冷啟動偵測能力（存檔），已完成，紀錄更新 2026-10-18T12:29:59.805+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\"}\n\n",
+      "frames": [
+        {
+          "event": "mode",
+          "mode": "record_timing",
+          "status": "VERIFIED",
+          "context": {
+            "experiment": "exp1",
+            "mode": "result",
+            "saved": "output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+          },
+          "sources": [
+            "實驗頁紀錄：實驗一 冷啟動偵測能力（存檔），已完成，紀錄更新 2026-10-18T12:29:59.805+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+          ]
+        },
+        {
+          "event": "tool",
+          "name": "get_run_status",
+          "label": "讀取實驗起訖與耗時",
+          "sources": [
+            "實驗頁紀錄：實驗一 冷啟動偵測能力（存檔），已完成，紀錄更新 2026-10-18T12:29:59.805+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+          ]
+        },
+        {
+          "event": "delta",
+          "text": "【執行紀錄時間，由程式讀取】\n開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\n來源識別：{\"experiment\": \"exp1\", \"finished_at\": \"2026-10-18T12:29:59.805+00:00\", \"saved\": \"output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json\", \"saved_sha256\": \"f7fd53fa83b43acdbdd82126573d2cc2fa760b4dcb871356760cb26a7c472deb\", \"seconds\": 0.13, \"started_at\": \"2026-10-18T12:29:59.673+00:00\", \"status\": \"done\", \"timing_scope\": \"batch_execution\", \"timing_status\": \"VERIFIED\", \"timing_text\": \"開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。\", \"timing_version\": \"web_run_timing_v1\", \"timing_warnings\": []}",
+          "origin": "record"
+        },
+        {
+          "event": "done",
+          "as_of": "實驗頁紀錄：實驗一 冷啟動偵測能力（存檔），已完成，紀錄更新 2026-10-18T12:29:59.805+00:00，存檔 output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+        }
+      ]
+    }
+  ],
+  "old_before": {
+    "sha256": "ae90fed3851fcaafd5de5d9481da9b6f09b0e918b3b7b9fa9e3ec480df3c1394",
+    "keys": [
+      "experiment",
+      "no",
+      "code",
+      "params",
+      "seconds",
+      "finished_at",
+      "result"
+    ],
+    "timing": {
+      "started_at": null,
+      "finished_at": "2026-10-18T12:11:13",
+      "seconds": 50.15,
+      "timing_text": null,
+      "timing_status": null
+    },
+    "result_sha256": "d4743403f59b687119c5e950cd9a89f0f750149cb58deec0d8b4c8b0eee8fbcd"
+  },
+  "new_saved": "output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json",
+  "new_source": {
+    "sha256": "f7fd53fa83b43acdbdd82126573d2cc2fa760b4dcb871356760cb26a7c472deb",
+    "keys": [
+      "experiment",
+      "no",
+      "code",
+      "params",
+      "started_at",
+      "finished_at",
+      "seconds",
+      "timing_version",
+      "timing_scope",
+      "timing_status",
+      "timing_warnings",
+      "timing_text",
+      "result"
+    ],
+    "timing": {
+      "started_at": "2026-10-18T12:29:59.673+00:00",
+      "finished_at": "2026-10-18T12:29:59.805+00:00",
+      "seconds": 0.13,
+      "timing_text": "開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。",
+      "timing_status": "VERIFIED"
+    },
+    "result_sha256": "c391772b904af384da8db4ab00fccab5800f8107f2f24cddb34ea2d481ec3780"
+  },
+  "new_http_payload": {
+    "experiment": "exp1",
+    "no": "實驗一",
+    "code": "src/experiments/exp1_cold_start.py",
+    "params": {
+      "dataset": "T1/8000rpm",
+      "openset_method": "mahalanobis",
+      "seed": 42
+    },
+    "started_at": "2026-10-18T12:29:59.673+00:00",
+    "finished_at": "2026-10-18T12:29:59.805+00:00",
+    "seconds": 0.13,
+    "timing_version": "web_run_timing_v1",
+    "timing_scope": "batch_execution",
+    "timing_status": "VERIFIED",
+    "timing_warnings": [],
+    "timing_text": "開始時間：2026-10-18T12:29:59.673+00:00；完成時間：2026-10-18T12:29:59.805+00:00；耗時：0.13 秒。批次耗時包含載入、運算與結果轉換，排除存檔及HTTP傳輸。",
+    "result": {
+      "rows": [
+        {
+          "config": "8screws",
+          "display": "Healthy（8 螺絲全鎖）",
+          "kind": "healthy-holdout",
+          "n": 64,
+          "flagged": 7,
+          "detect_rate": 0.109375,
+          "auroc": null,
+          "median_score": 0.8594682627176564
+        },
+        {
+          "config": "7screws",
+          "display": "7 螺絲（最輕微鬆動）",
+          "kind": "unknown-fault",
+          "n": 322,
+          "flagged": 322,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 37.84187326835037
+        },
+        {
+          "config": "6screws",
+          "display": "6 螺絲（輕微鬆動）",
+          "kind": "unknown-fault",
+          "n": 314,
+          "flagged": 314,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 50.176594306831696
+        },
+        {
+          "config": "5screws",
+          "display": "5 螺絲（中度鬆動）",
+          "kind": "unknown-fault",
+          "n": 212,
+          "flagged": 212,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 83.93218730852283
+        },
+        {
+          "config": "4screws",
+          "display": "4 螺絲（明顯鬆動）",
+          "kind": "unknown-fault",
+          "n": 287,
+          "flagged": 287,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 86.9751732574498
+        },
+        {
+          "config": "3screws",
+          "display": "3 螺絲（嚴重鬆動）",
+          "kind": "unknown-fault",
+          "n": 241,
+          "flagged": 241,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 78.30403197416625
+        },
+        {
+          "config": "2screws",
+          "display": "2 螺絲（很嚴重鬆動）",
+          "kind": "unknown-fault",
+          "n": 288,
+          "flagged": 288,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 69.4741008154952
+        },
+        {
+          "config": "1screws",
+          "display": "1 螺絲（最嚴重鬆動）",
+          "kind": "unknown-fault",
+          "n": 349,
+          "flagged": 349,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 115.23018152025517
+        },
+        {
+          "config": "3_14screws",
+          "display": "3_14（複合不均勻鬆動）",
+          "kind": "unknown-fault",
+          "n": 351,
+          "flagged": 351,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 45.61972884975094
+        },
+        {
+          "config": "4_146screws",
+          "display": "4_146（複合不均勻鬆動）",
+          "kind": "unknown-fault",
+          "n": 372,
+          "flagged": 372,
+          "detect_rate": 1.0,
+          "auroc": 1.0,
+          "median_score": 13.206642384284105
+        }
+      ],
+      "healthy_fp_rate": 0.109375,
+      "macro_detect_rate": 1.0,
+      "macro_auroc": 1.0,
+      "model": {
+        "resolved_config": {
+          "version": "openset_config_v1",
+          "method_id": "mahalanobis/ledoit_wolf",
+          "openset_method": "mahalanobis",
+          "requested_method": "mahalanobis",
+          "effective": {
+            "confidence": 0.95,
+            "threshold": 1.0,
+            "mahalanobis_method": "ledoit_wolf"
+          },
+          "ignored": [
+            {
+              "parameter": "knn_neighbors",
+              "value": 5,
+              "reason": "only used by openset_method=knn"
+            }
+          ]
+        },
+        "openset_method": "mahalanobis",
+        "method": "ledoit_wolf",
+        "score_type": "normalized_class_mahalanobis",
+        "threshold": 1.0,
+        "threshold_strategy": "known_calibration_class_quantile_0.95",
+        "calibration_source": "known-only 20% calibration split",
+        "confidence": 0.95,
+        "knn_neighbors": null,
+        "random_seed": 42,
+        "split": {
+          "train": 0.6,
+          "calibration": 0.2,
+          "holdout": 0.2
+        },
+        "n_known": 1,
+        "classes": [
+          {
+            "config": "8screws",
+            "label": 0,
+            "n_train": 187,
+            "n_cal": 62,
+            "n_holdout": 64,
+            "threshold": 9.71809584700257,
+            "centroid_pca": [
+              0.0,
+              0.0
+            ]
+          }
+        ]
+      },
+      "confidence": 0.95,
+      "openset_method": "mahalanobis",
+      "method": "ledoit_wolf",
+      "score_type": "normalized_class_mahalanobis",
+      "threshold": 1.0,
+      "threshold_strategy": "known_calibration_class_quantile_0.95",
+      "calibration_source": "known-only 20% calibration split",
+      "split": {
+        "train": 0.6,
+        "calibration": 0.2,
+        "holdout": 0.2
+      },
+      "knn_neighbors": null,
+      "seed": 42
+    },
+    "saved": "output/web_server/2026-10-18-12-29-38/experiments/exp1_2026-10-18-12-29-59.json"
+  },
+  "old_after": {
+    "sha256": "ae90fed3851fcaafd5de5d9481da9b6f09b0e918b3b7b9fa9e3ec480df3c1394",
+    "keys": [
+      "experiment",
+      "no",
+      "code",
+      "params",
+      "seconds",
+      "finished_at",
+      "result"
+    ],
+    "timing": {
+      "started_at": null,
+      "finished_at": "2026-10-18T12:11:13",
+      "seconds": 50.15,
+      "timing_text": null,
+      "timing_status": null
+    },
+    "result_sha256": "d4743403f59b687119c5e950cd9a89f0f750149cb58deec0d8b4c8b0eee8fbcd"
+  },
+  "assets_sha256_lf": {
+    "ai_chat.js": "f2c4c600a2e9d7e9edd879758ac66b5ae5220190fe58f4c1d6133760fd55ef17",
+    "experiments.js": "6a4b527cb6c252d5090732dfefb0bdfc923c0ccfcf86fb64c2dad706de32a740"
+  },
+  "status": "VERIFIED_HTTP",
+  "frontend_node": "VERIFIED"
+}
