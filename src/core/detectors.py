@@ -3,6 +3,7 @@
 統一介面：fit(健康訓練集, 健康校準集) → score(X) 回傳正規化分數（> 1 = 未知）。
 正規化方式一致：各法的原始異常分數以「校準集第 confidence 百分位」為 1.0，
 與主線 Mahalanobis 偵測器同一套校準哲學，比較才公平。
+例外：MahalanobisLegacy 重現論文版基準，門檻取訓練集自身的 confidence 分位數。
 所有方法共用 RobustScaler（以健康訓練集擬合）。僅使用 scikit-learn，不引入深度學習依賴。
 """
 
@@ -62,7 +63,7 @@ class MahalanobisLW(_Base):
 
 
 class MahalanobisLegacy(MahalanobisLW):
-    """論文版對照：全域經驗共變異數 + pinv + 訓練集自身 95 百分位。"""
+    """論文版對照：全域經驗共變異數 + pinv + 訓練集自身 confidence 分位數。"""
 
     name = "maha_legacy"
 

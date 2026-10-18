@@ -2,8 +2,7 @@
 
 複製來源：scripts/openset_mahalanobis.py（本 repo git 歷史 commit dda8910；
 論文版程式碼現存於原始論文 repo）。
-本專案不依賴論文版程式碼，需要的零件以「複製 + 註記來源」方式帶入；
-此檔以來源為基礎，另加入特徵維度檢查（n_features_in_）與 class_summaries()（供 core.openset 共用介面）。
+本專案不依賴論文版程式碼，需要的零件以「複製 + 註記來源」方式帶入。
 
 The legacy detector models all known classes as one Gaussian.  The improved
 detectors model every known class separately and divide its distance by a

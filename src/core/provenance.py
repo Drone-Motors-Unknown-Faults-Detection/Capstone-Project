@@ -1,4 +1,4 @@
-"""內容來源清冊；環境蒐集沿用runtime_environment，不碰模型。"""
+"""建立 data-root 下 Step-*/…/*_Group_feature_data_clean.csv 的 SHA256 內容來源清冊，並與 formal_materialization_manifest.json 比對；不載入模型。"""
 from __future__ import annotations
 
 import argparse

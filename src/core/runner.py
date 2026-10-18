@@ -1,4 +1,4 @@
-"""實驗批次執行的共用小工具：資料集選擇參數與 JSON 儲存。
+"""實驗批次執行的共用小工具：資料集選擇參數、Open Set CLI 參數（add_openset_args）與 JSON 儲存。
 
 （日誌與輸出目錄由 core.logger.setup_run 依 logs/ + output/ 慣例建立。）
 """

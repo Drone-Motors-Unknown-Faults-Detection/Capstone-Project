@@ -7,7 +7,8 @@
     共變異數，以校準距離分位數正規化；分數大於 1 判為未知。
 
 ``knn``
-    在相同的 RobustScaler 特徵空間中，計算樣本到每個已知類別訓練集的
+    在呼叫端已縮放的特徵空間中（core.monitor.OpenSetMonitor._refit 的
+    RobustScaler），計算樣本到每個已知類別訓練集的
     k 個最近鄰平均歐氏距離。每類以獨立 calibration split 的距離分位數
     正規化；最小正規化分數大於 1 判為未知。
 

@@ -1,11 +1,10 @@
-"""執行期日誌與輸出目錄——沿用論文版專案的 logs/ + output/ 慣例，改以 loguru 實作。
+"""執行期日誌與輸出目錄（loguru，logs/ + output/ 慣例）。
 
 每次執行自動建立（以程式名與時間戳隔離）：
     logs/{program}/{YYYY-MM-DD-HH-MM-SS}.log     ← loguru 檔案日誌（同步輸出到終端）
-    output/{program}/{YYYY-MM-DD-HH-MM-SS}/      ← 結果檔與圖表（save_plot 自動編號）
+    output/{program}/{YYYY-MM-DD-HH-MM-SS}/      ← 結果檔與圖表（save_plot 自動編號）、environment.json
 
-論文版專案因 Jupyter 的遞迴問題自製 SimpleFileLogger；本專案全部是純 Python 程式，
-可直接使用 loguru。
+setup_run(unique=True) 遇到同秒已存在的檔名時，在時間戳後加 `_NNN`（_001、_002…）。
 """
 
 from __future__ import annotations
