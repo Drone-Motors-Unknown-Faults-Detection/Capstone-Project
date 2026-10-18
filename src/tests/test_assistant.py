@@ -360,7 +360,7 @@ class FrontendMarkupTests(unittest.TestCase):
         self.assertEqual(icon[:8], b"\x89PNG\r\n\x1a\n")
 
     def test_placeholder_fits_single_line(self):
-        # 原本把操作說明塞進 placeholder，在 400px 視窗折成兩行被裁掉
+        # placeholder 只放短提示，操作說明另外顯示；放進 placeholder 會在 400px 視窗折成兩行被裁掉
         self.assertIn('placeholder="輸入問題…"', self.html)
         self.assertIn("Enter 送出，Shift+Enter 換行。", self.html)
 

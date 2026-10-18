@@ -5,7 +5,7 @@
 
 方法（core/detectors.py，全部 sklearn、統一校準哲學）：
     maha_ledoit_wolf（主線）、maha_legacy（論文版對照）、ocsvm、
-    iforest、lof、knn_dist、pca_recon
+    iforest、lof、knn_dist、pca_recon、mlp_autoencoder
 
 流程：對 9 組資料集各自——健康池 60/20/20 切訓練/校準/保留 →
 各方法在訓練集擬合、校準集定閾值（第 95 百分位 = 正規化 1.0）→

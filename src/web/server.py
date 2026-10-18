@@ -175,8 +175,8 @@ STATIC_REF = re.compile(r'(src|href)="/static/([^"?#]+)"')
 class IndexHandler(tornado.web.RequestHandler):
     """首頁不快取；其中每個 /static/ 引用都補上內容雜湊 ?v=，檔案一改網址就變。
 
-    Cloudflare 會把沒有版本的 .js 快取 4 小時（cf-cache-status: HIT），部署後新伺服器
-    搭配舊前端（例：實驗二「邊跑邊畫」在舊 experiments.js 沒有對應畫面，按下去拋例外）。
+    Cloudflare 會把沒有版本的 .js 快取 4 小時（cf-cache-status: HIT），部署後瀏覽器
+    可能拿到舊前端配新 API。
     """
 
     def get(self) -> None:

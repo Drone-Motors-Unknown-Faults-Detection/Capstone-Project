@@ -132,7 +132,7 @@ def verify_cleanup(root: Path) -> dict:
     relocations = {f"output/integration_browser/{name}":
                    f"reports/Andy_20261008_分支整合/browser_qa/{name}"
                    for name in ("guide_qa.md", "stream_qa.md")}
-    # 原臨時 python -c 命令已核對；未補寫專案 writer，不把摘要當演算法結果。
+    # 此摘要沒有專案 writer，只核對搬移內容，不當演算法結果。
     relocations["output/exp8_aggregate_baseline/2026-10-09-03-28-48/test_summary.json"] = (
         "reports/Andy_20261009_實驗八基線測試/test_summary.json")
     moves = verify_document_relocations(root, baseline, relocations)

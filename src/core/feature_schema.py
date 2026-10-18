@@ -18,7 +18,7 @@ CONFIG_ALIASES = {"1screw": "1screws"}
 
 
 def adapter_columns() -> list[str]:
-    """保留main 22a253b的FEATURE_NAMES順序與拼字。"""
+    """與 core.formal_data.FEATURE_NAMES 相同的順序與拼字（adapter_generated_v1）。"""
     stats = ("rms", "mean", "kurtosis", "std", "skewness", "peak2peak",
              "crest_indicator", "clearance_indicator", "shape_indicator",
              "impulse_indicator", "max", "min", "msa", "variance", "mean_amplitude")

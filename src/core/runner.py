@@ -25,7 +25,7 @@ def add_dataset_args(parser: argparse.ArgumentParser) -> None:
 def add_openset_args(parser: argparse.ArgumentParser) -> None:
     """加入所有實驗共用的 Open Set 方法與校準參數。
 
-    ``--method`` 保留原行為，仍只控制 Mahalanobis 的 covariance estimator。
+    ``--method`` 只控制 Mahalanobis 的 covariance estimator；openset_method=knn 時忽略。
     """
     parser.add_argument(
         "--openset-method",

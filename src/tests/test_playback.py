@@ -12,7 +12,7 @@ from tests.test_navigation_guide import fixture
 from web.experiments import ExperimentRunner
 from web.playback import PlaybackTracker, summarize_result
 
-# fixture 的故障配置；這些名稱只能出現在事後對照
+# 會洩漏真值的詞：fixture 故障配置名稱與真值欄位名；只能出現在事後對照
 TRUTH = ("5screws", "7screws", "6screws", "4screws", "螺絲", "truth", "expected", "majority", "is_fault", "onset")
 
 

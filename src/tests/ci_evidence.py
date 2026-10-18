@@ -1,7 +1,7 @@
 """CI 工程證據：真實執行指定命令，只公開白名單摘要。
 
-pytest／ruff 改由 CI yaml 的獨立 step（./scripts/quantity/run_pytest.sh、./scripts/quantity/run_ruff.sh）把關，
-不在這裡重複跑；這裡只留 pip check、CLI help 與文件相對連結檢查。
+pytest／ruff 由 CI yaml 的獨立 step（./scripts/quantity/run_pytest.sh、./scripts/quantity/run_ruff.sh）把關，
+不在這裡重複跑；這裡只做 pip check、CLI help 與文件相對連結檢查。
 """
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def run() -> dict:
         try:
             for name in previous_tmp:
                 os.environ[name] = directory
-            # uv sync 不把 pip 裝進最終 venv，改用 uv pip check；傳相對路徑避免洩漏絕對路徑。
+            # uv sync 不把 pip 裝進 venv，所以用 uv pip check；傳相對路徑避免洩漏絕對路徑。
             # 不對 sys.executable 呼叫 resolve()：uv 建的 venv 裡 python 是指向共用安裝目錄的
             # symlink，resolve 後的路徑會跑到 ROOT 之外，uv pip check 反而認得這個相對路徑。
             try:

@@ -43,7 +43,7 @@ def paired_baseline():
                 np.testing.assert_allclose(a, b, atol=ATOL, rtol=RTOL)
                 np.testing.assert_allclose(x, y, atol=ATOL, rtol=RTOL)
                 assert old.classify(query) == new.classify(query)
-                # #47 只新增 resolved_config 欄位；其餘摘要必須與基準逐欄相同
+                # 固定基準沒有 resolved_config 欄位；其餘摘要必須與基準逐欄相同
                 assert old.summary() == {k: v for k, v in new.summary().items() if k != "resolved_config"}
                 for config in old.splits:
                     for role in ("train", "cal", "holdout"):

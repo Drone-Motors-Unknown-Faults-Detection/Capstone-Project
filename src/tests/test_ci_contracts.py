@@ -135,7 +135,7 @@ class ExperimentContracts(unittest.TestCase):
             root = Path(directory)
             write_fixture(root / "fixture", pools())
             env = dict(os.environ, PYTHONPATH=str(ROOT), PYTHONUTF8="1", PYTHONIOENCODING="utf-8", MPLBACKEND="Agg")
-            # exp2 的空 sequence 只驗 CLI／載入／寫出；分群與確認另由上面 API fixture 驗證。
+            # exp2 的空 sequence 只驗 CLI／載入／寫出；分群與自學另由上面 API fixture 驗證。
             for module, extra in (("exp1_cold_start", []), ("exp2_scale_growth", ["--sequence"]),
                                   ("exp3_trend", ["--trials", "1"])):
                 with self.subTest(module=module):

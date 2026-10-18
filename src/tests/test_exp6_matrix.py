@@ -132,7 +132,7 @@ class RunMatrixResumeTests(unittest.TestCase):
 
 
 class ConditionResultTests(unittest.TestCase):
-    """#49 抽出的 _condition_result：只留目標工況那一列。"""
+    """_condition_result：只留目標工況那一列。"""
 
     ENTRY = {"motor": "T1", "rpm": "6000rpm", "condition": "T1/6000rpm"}
 

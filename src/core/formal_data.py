@@ -73,11 +73,7 @@ def _feature_names() -> list[str]:
     for prefix in ("Current", "Vibration_X", "Vibration_Y", "Vibration_Z", "Delta_T"):
         offset = offsets[prefix]
         for index, name in enumerate(stats, start=1):
-            # These two names are lower-case in the historical CSV contract.
-            label = name
-            if prefix == "Current" and name in {"msa", "variance", "mean_amplitude"}:
-                label = name
-            names.append(f"{offset + index}-{prefix}-{label}")
+            names.append(f"{offset + index}-{prefix}-{name}")
         if prefix.startswith("Vibration"):
             axis = prefix.rsplit("_", 1)[-1]
             fft_offset = offset + 15

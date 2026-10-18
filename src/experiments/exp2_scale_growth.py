@@ -1,6 +1,6 @@
 """實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 自行納入。
 
-ScaleGrowthSession 是核心狀態機（Web 即時展示仍可另外呼叫 confirm()）：
+ScaleGrowthSession 是核心狀態機（首頁即時展示由操作員呼叫 confirm()）：
     1. 每筆樣本以 OpenSetMonitor 打分；判為未知者進隔離區
     2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
     3. adopt() 不請操作員指出故障程度：只用這一群已到達樣本切分並重擬合，
@@ -32,7 +32,7 @@ from core.runner import add_dataset_args, add_openset_args, resolve_dataset, sav
 
 
 class ScaleGrowthSession:
-    """從健康基準起步、隨確認逐步擴張的開放集監測 session。"""
+    """從健康基準起步、每納入一個候選叢集（adopt 或 confirm）就擴張的開放集監測 session。"""
 
     def __init__(
         self,
@@ -73,7 +73,7 @@ class ScaleGrowthSession:
     # -- 串流 ------------------------------------------------------------------
 
     def process(self, x_raw: np.ndarray, truth: str) -> dict:
-        """處理一筆樣本。truth 僅存入隔離區供之後的「操作員確認」揭示。"""
+        """處理一筆樣本。truth 只存入隔離區，供 confirm() 揭示或 adopt() 事後對照，不參與判定。"""
         self.n_seen += 1
         score = float(self.monitor.score(x_raw)[0])
         label = self.monitor.classify(x_raw)[0]

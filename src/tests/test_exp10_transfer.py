@@ -54,7 +54,7 @@ class Exp10TransferTests(unittest.TestCase):
                 self.assertGreaterEqual(row["auroc_mean"], 0.0)
                 self.assertLessEqual(row["auroc_mean"], 1.0)
 
-        # 每組 src/dst/n/strategy 都要有對應列，且 src != dst
+        # 遷移列的來源與目標工況必不相同
         for row in result["rows"]:
             self.assertNotEqual(row["src"], row["dst"])
 

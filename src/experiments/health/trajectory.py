@@ -72,8 +72,8 @@ class _SessionState:
 class SessionTrajectoryMonitor:
     """Keep independent temporal state for each ``(motor_id, session_id)``.
 
-    ``predictor`` must expose ``predict_one(features, timestamp=..., condition=...)``
-    and return a :class:`HealthMonitoringResult`.  State is instance-local and
+    ``predictor`` is an object with ``predict_one(features, timestamp=..., condition=...)``
+    or a callable with that signature, and must return a :class:`HealthMonitoringResult`.  State is instance-local and
     never shared across monitors.
     """
 
