@@ -85,7 +85,7 @@ class Exp6BenchmarkTests(unittest.TestCase):
 
 
 class ConditionMetricsTests(unittest.TestCase):
-    """#49 抽出的 _condition_metrics：純函數，unknown 為正類，分數 > 1 才判 unknown。"""
+    """_condition_metrics：純函數，unknown 為正類，分數 > 1 才判 unknown。"""
 
     def test_threshold_tie_counts_as_known(self) -> None:
         metrics = _condition_metrics(np.array([0.5, 1.0]), np.array([1.0, 2.0]))

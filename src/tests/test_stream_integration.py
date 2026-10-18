@@ -1,4 +1,4 @@
-"""PR36 部分抽取：固定主線配對、SSE 互斥與例外回歸。"""
+"""固定主線配對、SSE 互斥與例外回歸。"""
 from functools import lru_cache
 import json
 from pathlib import Path
@@ -184,7 +184,7 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         return [json.loads(line[6:]) for line in response.body.decode().splitlines() if line.startswith("data: ")]
 
     def test_exp2_confirm_endpoint_is_removed(self):
-        # 實驗二成群即 adopt() 自學，實驗頁不再有確認閘門（#184）
+        # 實驗二成群即 adopt() 自學，實驗頁不提供確認閘門（#184）
         patterns = [rule.matcher.regex.pattern for rule in server.make_app().wildcard_router.rules]
         self.assertFalse(any("confirm" in pattern for pattern in patterns))
         self.assertFalse(hasattr(server, "Exp2ConfirmHandler"))

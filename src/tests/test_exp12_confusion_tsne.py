@@ -28,7 +28,7 @@ class BinaryConfusionTests(unittest.TestCase):
         matrix = np.array(result["matrix"])
         self.assertEqual(matrix.shape, (2, 2))
         self.assertEqual(result["labels"], ["healthy", "fault"])
-        # healthy holdout 列總和＝healthy holdout 樣本數；fault 列總和＝全部故障樣本數
+        # fault 列總和＝全部故障樣本數；healthy holdout 列至少有樣本
         n_fault = sum(len(v) for k, v in pools.items() if k != "8screws")
         self.assertEqual(matrix[1].sum(), n_fault)
         self.assertGreater(matrix[0].sum(), 0)

@@ -111,7 +111,7 @@ def test_web_catalog_documents_and_guide_parser_unchanged():
     table = [line for line in overview.splitlines() if line.startswith("|")]
     assert len(table) == 26
     assert all(len(line.split("|")[1:-1]) == 8 for line in table)
-    # 實驗手冊不改導覽表格的內容或頁面行為。
+    # 手冊的外部連結不得帶本機使用者路徑。
     for doc in selected_documents():
         for target in re.findall(r"\]\((https?://[^)]+)\)", doc.read_text(encoding="utf-8")):
             assert not urlsplit(target).path.startswith("/Users/")

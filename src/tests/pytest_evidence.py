@@ -1,4 +1,4 @@
-"""依新版指引執行 pytest；公開摘要不保存任意 traceback 或私人路徑。"""
+"""執行 pytest 並保存公開摘要；不保存任意 traceback 或私人路徑。"""
 from __future__ import annotations
 import argparse
 import hashlib
