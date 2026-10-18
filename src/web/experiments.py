@@ -167,7 +167,7 @@ CATALOG: list[dict] = [
         "params": [_SEED],
     },
     {
-        "id": "exp11", "no": "實驗十一", "title": "Ancestor 協定 Accuracy／F1 對照",
+        "id": "exp11", "no": "實驗十一", "title": "原始論文協定 Accuracy／F1 對照",
         "question": "同一批配置角色下，legacy 與 Ledoit–Wolf 的分類分數差多少？",
         "code": "src/experiments/exp11_ancestor_comparison.py",
         "doc": "docs/experiments/exp11_ancestor_comparison.md",

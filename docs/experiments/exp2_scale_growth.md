@@ -72,6 +72,6 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 
 ## 來源與對應程式
 
-Campello、Moulavi與Sander（2013），*Density-Based Clustering Based on Hierarchical Density Estimates*，PAKDD／LNCS7819,160–172，[DOI](https://doi.org/10.1007/978-3-642-37456-2_14)。隔離2.0、密度階梯、25筆候選與成群後只用該群自學是Lineage約定，不是論文保證。LW／k-NN來源同實驗一，Ancestor來源註記在Mahalanobis檔頭。
+Campello、Moulavi與Sander（2013），*Density-Based Clustering Based on Hierarchical Density Estimates*，PAKDD／LNCS7819,160–172，[DOI](https://doi.org/10.1007/978-3-642-37456-2_14)。隔離2.0、密度階梯、25筆候選與成群後只用該群自學是Lineage約定，不是論文保證。LW／k-NN來源同實驗一，原始論文來源註記在Mahalanobis檔頭。
 
 [ScaleGrowthSession與run](../../src/experiments/exp2_scale_growth.py)管理隔離／確認；[monitor](../../src/core/monitor.py)管理完整池fit；[src/web/live.py](../../src/web/live.py)管理即時session；[test_monitor_guard](../../src/tests/test_monitor_guard.py)、[test_geometry](../../src/tests/test_geometry.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)測狀態與編排，不證明候選物理真值、獨立採集或長期部署。

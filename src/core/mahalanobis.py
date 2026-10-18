@@ -1,7 +1,7 @@
 """Mahalanobis open-set detectors with reproducible calibration.
 
 複製來源：scripts/openset_mahalanobis.py（本 repo git 歷史 commit dda8910；
-論文版程式碼現存於 Ancestor repo）。
+論文版程式碼現存於原始論文 repo）。
 本專案不依賴論文版程式碼，需要的零件以「複製 + 註記來源」方式帶入；
 此檔內容除本段註記外與來源一致。
 

@@ -1,4 +1,4 @@
-# 重跑論文版管線（Ancestor repo）才需要；Linux + GPU。
+# 重跑論文版管線（原始論文 repo）才需要；Linux + GPU。
 # 與 pyproject.toml 主依賴的 numpy 版本衝突，刻意不放進 [project.optional-dependencies]，
 # 不受 uv.lock 管理；未完整鎖版，非本輪正式驗證範圍，見 docs/runtime_policy.md。
 tensorflow[and-cuda]

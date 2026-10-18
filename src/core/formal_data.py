@@ -8,7 +8,7 @@ small, deterministic adapter between those two contracts:
 * Stage 1 and Stage 3 already contain clean feature CSVs; they are copied
   without changing their bytes.
 * Stage 2 contains the five-channel, 10 kHz windows.  We reproduce the
-  documented Ancestor Step 2 feature extraction (15 statistics per channel,
+  documented 原始論文 Step 2 feature extraction (15 statistics per channel,
   plus ten harmonic FFT features for each vibration axis), then apply the
   observed feature-level 1.5-IQR clean rule used by the existing files.
 

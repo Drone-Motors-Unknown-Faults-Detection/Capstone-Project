@@ -1,6 +1,6 @@
 # docs/ 文件索引
 
-組員學習與發表請先讀[畢業專題總手冊](畢業專題總手冊.md)：在同一份正文說明 Ancestor 基礎、資料角色、各方法與實驗、Web、工程、未解工作及有答案的發表練習；研究分支、歷史結果與現行功能分開標示。真人走讀與試講回饋尚待確認。
+組員學習與發表請先讀[畢業專題總手冊](畢業專題總手冊.md)：在同一份正文說明原始論文基礎、資料角色、各方法與實驗、Web、工程、未解工作及有答案的發表練習；研究分支、歷史結果與現行功能分開標示。真人走讀與試講回饋尚待確認。
 
 先找操作說明：[安裝與版本紀錄](runtime_policy.md)、[CI執行與輸出](ci_contract.md)、[archive物化安全規則](formal_materialization_contract.md)、[實驗八健康監測](experiments/exp8_health.md)、[導覽操作](navigation/exp13_README.md)。各頁說明程式用途、操作、預期輸出與限制。
 
@@ -15,7 +15,7 @@
 老師要看程式如何操作，先用[導覽入口與示範腳本](navigation/exp13_README.md)。
 
 > 實驗總覽與名詞在 [experiments/README.md](experiments/README.md)。
-> Step 1–6、Tensorflow 與三份研究筆記描述 Ancestor 的論文版管線。程式在 [Ancestor](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)。
+> Step 1–6、Tensorflow 與三份研究筆記描述原始論文的論文版管線。程式在 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)。
 > 新專案的說明見根目錄 [README.md](../README.md)。
 
 ## 現行實驗技術報告
@@ -47,7 +47,7 @@
 
 實驗八的資料能力、模組、兩套趨勢、矩陣、逐窗監測、封存重算與 Ubuntu 指令都在 [exp8_health.md](experiments/exp8_health.md)。
 
-## 論文版管線文件（程式碼在 Ancestor）
+## 論文版管線文件（程式碼在原始論文）
 
 | 文件 | 內容 | 與新專案的關係 |
 |---|---|---|
@@ -68,4 +68,4 @@
 | [OpenSet_Recognition](OpenSet_Recognition.md) | OpenMax、能量分數等五種 OSR 替代方案評估 | 新專案的未來方向清單（README「限制與未來工作」）|
 
 > 注意：文內的相對連結（如 `logs/claude/Result.md`、`scripts/*.py`、`../README.md` 的舊錨點）
-> 指向撰寫當時的 repo 佈局，於現行佈局中可能失效——以 Ancestor repo 與 git 歷史為準。
+> 指向撰寫當時的 repo 佈局，於現行佈局中可能失效——以原始論文 repo 與 git 歷史為準。

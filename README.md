@@ -303,7 +303,7 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
 | 8 | **OSR 基準與校準診斷**：legacy 自校準在冷啟動失效的證據 | exp6（83.1% vs 7.1% 誤報）|
 | 9 | **非線性 AutoEncoder 偵測器**：瓶頸重建誤差，健康誤報比既有七種方法都低 | exp9（AUROC 1.0、健康誤報 5.8%，八法最低）|
 | 10 | **跨工況遷移學習定量化**：目標端少量健康資料時，中心平移 vs 從零冷啟動的具體落差 | exp10（N=50 時健康接受率 9.3% vs 87.9%，支持逐工況冷啟動）|
-| 11 | **Ancestor 協定 Accuracy/F1 對照**：Ledoit–Wolf 相對 legacy 的提升遠超專題 5~10% 門檻 | exp11（Balanced Accuracy +78.38 pp、macro-F1 +82.18 pp，Wilcoxon p≈0）|
+| 11 | **原始論文協定 Accuracy/F1 對照**：Ledoit–Wolf 相對 legacy 的提升遠超專題 5~10% 門檻 | exp11（Balanced Accuracy +78.38 pp、macro-F1 +82.18 pp，Wilcoxon p≈0）|
 | 12 | **開集混淆矩陣與 t-SNE**：把「legacy 無法做多類判別」的結論變成可見的畫面 | exp12（legacy 開集混淆矩陣對角線全 0，ledoit_wolf 已知類別互不混淆）|
 
 另附即時展示系統（web/）與可重現實驗框架（seed 決定論、logs/output 全留檔）。
@@ -480,7 +480,7 @@ output/{program}/{YYYY-MM-DD-HH-MM-SS}/       # results.csv / summary.json / *.p
 ## 與 legacy 的關係
 
 論文版程式碼（Step 1–6 管線、128 個 notebook、scripts、執行紀錄與論文全文）
-已整批移回 [Ancestor](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)
+已整批移回 [原始論文](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor)
 repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也在該處；
 本 repo 的 git 歷史仍完整保留搬移前的所有版本，可隨時回溯。
 技術文件快照（Step 1–6 說明 + 三份 Lineage 時期研究文件）保留於本 repo 的

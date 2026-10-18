@@ -29,7 +29,7 @@ test = [
     "pytest==9.1.1",
     "ruff==0.16.10",
 ]
-# 重跑論文版管線（Ancestor repo）才需要的額外套件：tensorflow 的 numpy 範圍跟上面主依賴
+# 重跑論文版管線（原始論文 repo）才需要的額外套件：tensorflow 的 numpy 範圍跟上面主依賴
 # 衝突，放進 optional-dependencies 會讓 uv.lock 的 universal lock 無解，所以改放純
 # requirements 檔，不受 uv.lock 管理；未鎖版，非本輪正式驗證範圍，見 docs/runtime_policy.md。
 #   ./scripts/opt/build_uv.sh --legacy   （Ubuntu, GPU；requirements-legacy-linux.txt）

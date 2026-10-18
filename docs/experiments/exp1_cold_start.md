@@ -36,7 +36,7 @@
 `data/Step-*/myfeature/{Motor}/{RPM}/{Screws}/*_Group_feature_data_clean.csv`。
 每次選一個馬達／轉速目錄，預設T1／8000rpm；可用組合以實際檔案為準。
 
-每列是Ancestor前處理管線留下的105維特徵向量，不是本程式接收的原始10,000Hz訊號。健康配置為`8screws`，其餘目錄名是螺絲數量／位置配置，不能直接當九種已驗證的物理故障原因。T1／T2／T3是不同馬達個體，不能串成同一顆馬達的壽命歷程。來源說明見[固定採集文件](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/afcfcc419dab3103a86a8f95601d3af85890eb38/docs/Experiments_Guide.md#L218)。
+每列是原始論文前處理管線留下的105維特徵向量，不是本程式接收的原始10,000Hz訊號。健康配置為`8screws`，其餘目錄名是螺絲數量／位置配置，不能直接當九種已驗證的物理故障原因。T1／T2／T3是不同馬達個體，不能串成同一顆馬達的壽命歷程。來源說明見[固定採集文件](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/afcfcc419dab3103a86a8f95601d3af85890eb38/docs/Experiments_Guide.md#L218)。
 
 載入順序為：逐配置依檔名排序讀CSV → 串接資料列 → 只取數值欄 → 移除含NaN或Inf的列 → 檢查是否105欄 → 保留非空配置。沒有去重、原始訊號再清理、欄位單位轉換或嚴格欄名／順序驗證；任意105個數值欄通過不表示物理語意正確，見[#44](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/44)。資料的原始視窗時間、stride、錄製群組與單位須另查來源，不能由這個loader補出。
 
@@ -61,7 +61,7 @@
 
 ## 實驗怎麼跑與怎麼使用
 
-先依[環境政策](../runtime_policy.md)準備Python3.10.x、uv及`uv.lock`環境，不重建既有venv；資料由Ancestor產出，本repo唯讀。以下在repo根目錄執行：
+先依[環境政策](../runtime_policy.md)準備Python3.10.x、uv及`uv.lock`環境，不重建既有venv；資料由原始論文產出，本repo唯讀。以下在repo根目錄執行：
 
 ```bash
 uv run --locked python -m experiments.exp1_cold_start --help
@@ -100,7 +100,7 @@ CLI writer是[main()](../../src/experiments/exp1_cold_start.py)：
 - Ledoit與Wolf（2004），*A well-conditioned estimator for large-dimensional covariance matrices*，JMVA 88(2),365–411；[DOI](https://doi.org/10.1016/S0047-259X(03)00096-4)。
 - Cover與Hart（1967），*Nearest Neighbor Pattern Classification*，IEEE TIT 13(1),21–27；[DOI](https://doi.org/10.1109/TIT.1967.1053964)。本repo的平均k距離／分位數拒絕規則是專案操作約定，不能說該論文提出本套校準管線。
 - [RobustScaler官方說明](https://scikit-learn.org/1.7/modules/generated/sklearn.preprocessing.RobustScaler.html)。實際版本由uv.lock固定，不按網站最新版本推論現行行為。
-- [src/core/runner.py](../../src/core/runner.py)負責資料定位／CLI；[src/core/openset.py](../../src/core/openset.py)是正式兩方法factory；Mahalanobis檔頭記Ancestor來源，Lineage的monitor整合scaler、切分及擴張。
+- [src/core/runner.py](../../src/core/runner.py)負責資料定位／CLI；[src/core/openset.py](../../src/core/openset.py)是正式兩方法factory；Mahalanobis檔頭記原始論文來源，Lineage的monitor整合scaler、切分及擴張。
 - [src/tests/test_openset.py](../../src/tests/test_openset.py)、[test_monitor_guard.py](../../src/tests/test_monitor_guard.py)、[test_stream_integration.py](../../src/tests/test_stream_integration.py)、[test_web_experiments.py](../../src/tests/test_web_experiments.py)核對共用方法／guard／串流與Web編排，不能證明raw來源獨立或現場準確率。
 
 串流停止、錯誤復原與模型有效狀態見[Web 串流生命週期](README.md#web-串流生命週期)及[共用模型生命週期](README.md#共用模型生命週期)。當次串流整合來源與配對證據見[固定交付紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/integration_20261008/integration_report.md)。
