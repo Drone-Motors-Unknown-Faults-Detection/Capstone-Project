@@ -33,7 +33,185 @@ def working_directory(root):
         os.chdir(before)
 
 
+def fixture_repository(root, identity, *, commit=True):
+    """只建立暫存程式樹；Git 作者設定限這次 commit，不改主機設定。"""
+    module = root / "src/core/runtime_environment.py"
+    module.parent.mkdir(parents=True)
+    module.write_text("# 測試用程式位置\n", encoding="utf-8")
+    (root / "pyproject.toml").write_text('[project]\nname = "fixture"\n', encoding="utf-8")
+    (root / "uv.lock").write_text(f'identity = "{identity}"\n', encoding="utf-8")
+    if commit:
+        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(root), "add", "."], check=True, capture_output=True)
+        subprocess.run(["git", "-C", str(root), "-c", "user.name=Fixture",
+                        "-c", "user.email=fixture@example.invalid", "commit", "-qm", identity],
+                       check=True, capture_output=True)
+    return module
+
+
 class RuntimeEnvironmentTests(unittest.TestCase):
+    def test_default_program_identity_does_not_follow_cwd(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            program, caller, outside = (base / name for name in ("program", "caller", "outside"))
+            module = fixture_repository(program, "program")
+            fixture_repository(caller, "caller")
+            outside.mkdir()
+            (program / "uv.lock").write_text('identity = "program-dirty"\n', encoding="utf-8")
+            expected_head = runtime._git(program, "rev-parse", "HEAD")
+            expected_lock = hashlib.sha256((program / "uv.lock").read_bytes()).hexdigest()
+            for cwd in (program, program / "src", outside, caller):
+                with self.subTest(cwd=cwd.name), working_directory(cwd), \
+                        patch.object(runtime, "__file__", str(module)):
+                    result = runtime.collect_environment(include_data=False)
+                    self.assertEqual(result["git"]["head"], expected_head)
+                    self.assertIs(result["git"]["tracked_dirty"], True)
+                    self.assertEqual(result["constraints_sha256"], expected_lock)
+                    self.assertNotIn(str(base), json.dumps(result))
+
+    def test_export_inside_another_repo_does_not_borrow_parent_git(self):
+        from experiments import exp6_formal_benchmark as formal, exp6_matrix as matrix, aggregate_exp6
+        from experiments import health_index_benchmark as health
+        from tests.exp6_fixture import write_matrix
+        from tests.test_exp6_benchmark import _fixture
+
+        with tempfile.TemporaryDirectory() as directory:
+            caller = Path(directory) / "caller"
+            fixture_repository(caller, "caller")
+            exported = caller / "exported"
+            module = fixture_repository(exported, "exported", commit=False)
+            data = _fixture(Path(directory) / "features")
+            manifest = write_matrix(Path(directory) / "parents")
+            with working_directory(caller), patch.object(runtime, "__file__", str(module)):
+                result = runtime.collect_environment(include_data=False)
+                aggregate_env = aggregate_exp6.aggregate(manifest)["provenance"]["environment"]
+                formal_result = formal.run(data, openset_method="knn", require_nine=False)
+                health_result = health.run(data, openset_method="knn", require_nine=False)
+                keys = [{"run_id": matrix.run_key("T1", "8000rpm", 17, "knn"),
+                         "motor": "T1", "rpm": "8000rpm", "seed": 17, "method": "knn"}]
+                with self.assertRaisesRegex(ValueError, "可信 Git"):
+                    matrix.matrix_contract(data, keys, ("knn",))
+            self.assertIsNone(result["git"]["head"])
+            self.assertIsNone(result["git"]["tracked_dirty"])
+            self.assertEqual(result["git"]["status"], "UNKNOWN")
+            self.assertEqual(result["constraints_sha256"], hashlib.sha256((exported / "uv.lock").read_bytes()).hexdigest())
+            self.assertEqual(result["program_source"]["git_reason"], "NOT_PROGRAM_CHECKOUT")
+            self.assertEqual(aggregate_env["git"], result["git"])
+            for run in (formal_result, health_result):
+                self.assertEqual(run["commit_sha"], "unknown")
+
+    def test_explicit_root_keeps_caller_selected_repo_contract(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            program, caller = base / "program", base / "caller"
+            module = fixture_repository(program, "program")
+            fixture_repository(caller, "caller")
+            with working_directory(program), patch.object(runtime, "__file__", str(module)):
+                result = runtime.collect_environment(caller / "src", include_data=False)
+            self.assertEqual(result["git"]["head"], runtime._git(caller, "rev-parse", "HEAD"))
+            self.assertEqual(result["constraints_sha256"], hashlib.sha256((caller / "uv.lock").read_bytes()).hexdigest())
+            self.assertEqual(result["program_source"]["selection"], "EXPLICIT_ROOT")
+
+    def test_installed_layout_never_falls_back_to_callers_repo(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            caller = base / "caller"
+            fixture_repository(caller, "caller")
+            installed = base / "site-packages/core/runtime_environment.py"
+            installed.parent.mkdir(parents=True)
+            installed.touch()
+            with working_directory(caller), patch.object(runtime, "__file__", str(installed)):
+                result = runtime.collect_environment(include_data=False)
+            self.assertEqual(result["git"], {"head": None, "tracked_dirty": None, "status": "UNKNOWN"})
+            self.assertIsNone(result["constraints_sha256"])
+            self.assertEqual(result["program_source"]["git_reason"], "PROGRAM_ROOT_UNAVAILABLE")
+            self.assertEqual(result["program_source"]["lock_status"], "UNKNOWN")
+
+    def test_export_without_git_keeps_only_its_own_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "exported"
+            module = fixture_repository(root, "exported", commit=False)
+            with patch.object(runtime, "__file__", str(module)):
+                result = runtime.collect_environment(include_data=False)
+            self.assertIsNone(result["git"]["head"])
+            self.assertIsNone(result["git"]["tracked_dirty"])
+            self.assertEqual(result["program_source"]["lock_status"], "VERIFIED")
+            self.assertEqual(result["constraints_sha256"], hashlib.sha256((root / "uv.lock").read_bytes()).hexdigest())
+
+    def test_missing_or_unreadable_lock_does_not_hide_verified_git(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "program"
+            module = fixture_repository(root, "program")
+            for reason in ("LOCK_MISSING", "LOCK_UNREADABLE"):
+                error = FileNotFoundError("私人路徑") if reason == "LOCK_MISSING" else PermissionError("私人路徑")
+                with self.subTest(reason=reason), patch.object(runtime, "__file__", str(module)), \
+                        patch.object(Path, "read_bytes", side_effect=error):
+                    result = runtime.collect_environment(include_data=False)
+                self.assertEqual(result["git"]["status"], "VERIFIED")
+                self.assertIsNone(result["constraints_sha256"])
+                self.assertEqual(result["program_source"]["lock_reason"], reason)
+                self.assertNotIn("私人路徑", json.dumps(result))
+
+    def test_default_git_failure_keeps_unknown_dirty_and_safe_reason(self):
+        for error in (OSError("私人 Git 路徑"), subprocess.TimeoutExpired("git", 3)):
+            with self.subTest(error=type(error).__name__), \
+                    patch.object(runtime.subprocess, "run", side_effect=error):
+                result = runtime.collect_environment(include_data=False)
+            self.assertEqual(result["git"], {"head": None, "tracked_dirty": None, "status": "UNKNOWN"})
+            self.assertEqual(result["program_source"]["git_reason"], "GIT_UNAVAILABLE_OR_INCOMPLETE")
+            self.assertNotIn("私人", json.dumps(result))
+
+    def test_common_entries_keep_program_git_data_and_output_roles_separate(self):
+        import argparse
+        import numpy as np
+        from core.data import discover_datasets
+        from core.provenance import load_pool_source
+        from core.runner import execution_context, run_dataset, run_root_sources
+        from experiments import exp6_formal_benchmark as formal, exp6_matrix as matrix, aggregate_exp6
+        from tests.exp6_fixture import write_matrix
+        from tests.test_exp6_benchmark import _fixture
+
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            caller = base / "caller"
+            fixture_repository(caller, "caller")
+            data = _fixture(base / "features")
+            manifest = write_matrix(base / "parents")
+            expected = runtime.collect_environment(ROOT, include_data=False)
+            with working_directory(caller):
+                _, paths = setup_run("program_fixture", unique=True, data_root=data)
+                saved = json.loads((paths.output_dir / "environment.json").read_text())
+                args = argparse.Namespace(data_root=data, motor="T1", rpm="8000rpm")
+                _, pool = run_dataset(args, paths, lambda pools, source_context:
+                                      execution_context(pools, source_context))
+                memory = execution_context({"8screws": np.zeros((3, 105))})
+                def compute(data_root, *, source_run):
+                    source_run.load_all()
+                    return {}
+                root = run_root_sources(compute, data, output_dir=paths.output_dir)["provenance"]
+                formal_result = formal.run(data, openset_method="knn", require_nine=False)
+                formal_env = formal_result["environment"]
+                self.assertEqual(formal_result["commit_sha"], expected["git"]["head"])
+                # 只核對環境來源的單工況契約，不執行或放寬正式九工況 runner。
+                keys = [{"run_id": matrix.run_key("T1", "8000rpm", 17, method),
+                         "motor": "T1", "rpm": "8000rpm", "seed": 17, "method": method}
+                        for method in ("mahalanobis", "knn")]
+                _, matrix_env = matrix.matrix_contract(data, keys, ("mahalanobis", "knn"))
+                aggregate_env = aggregate_exp6.aggregate(manifest)["provenance"]["environment"]
+                pools, context = load_pool_source(data, discover_datasets(data)[0]["path"])
+                source_env = execution_context(pools, context)["environment"]
+                self.assertEqual(paths.output_dir.resolve().parents[2], caller)
+            for name, environment in (("setup", saved), ("pool", pool["environment"]),
+                    ("root", root["environment"]), ("formal", formal_env), ("matrix", matrix_env),
+                    ("aggregate", aggregate_env), ("memory", memory["environment"]), ("source", source_env)):
+                with self.subTest(entry=name):
+                    self.assertEqual(environment["git"], expected["git"])
+                    self.assertEqual(environment["constraints_sha256"], expected["constraints_sha256"])
+                    self.assertNotIn(str(base), json.dumps(environment))
+            self.assertEqual(pool["source"]["dataset_fingerprint"], root["source"]["dataset_fingerprint"])
+            self.assertEqual(saved["data"]["dataset_fingerprint"], pool["source"]["dataset_fingerprint"])
+            self.assertEqual(memory["environment"]["data"]["reason"], "UNVERIFIED_MEMORY")
+
     def test_missing_git_is_unknown(self):
         with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "_git", return_value=None):
             result = runtime.collect_environment(Path(directory))

@@ -6,7 +6,6 @@ import argparse
 import json
 import platform
 import random
-import subprocess
 from pathlib import Path
 from typing import Sequence
 
@@ -17,26 +16,13 @@ from core.data import HEALTHY, discover_datasets, make_split
 from core.logger import setup_run
 from core.openset import resolve_openset_config
 from core.runner import run_root_sources
+from core.runtime_environment import collect_environment
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
 from experiments.health.severity import DEFAULT_SEVERITY_POLICY
 
 
 FORMAL_CONDITION_COUNT = 9
-
-
-def _git_sha(project_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return result.stdout.strip()
 
 
 def _validate_datasets(datasets: list[dict], data_path: Path, require_nine: bool) -> None:
@@ -196,7 +182,7 @@ def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
         "health_interpretation": "relative calibration only; no physical damage or RUL claim",
         "unknown_calibration_leakage": False,
         "rul_available": False,
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
+        "commit_sha": collect_environment(include_data=False)["git"]["head"] or "unknown",
         "python": platform.python_version(),
         "rows": rows,
         "fit_audit": fit_audit,

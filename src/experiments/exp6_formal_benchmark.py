@@ -21,7 +21,6 @@ import hashlib
 import json
 import platform
 import random
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -55,20 +54,6 @@ from core.runtime_environment import collect_environment
 
 FORMAL_CONDITION_COUNT = 9
 FORMAL_METHODS: tuple[OpenSetMethod, ...] = ("mahalanobis", "knn")
-
-
-def _git_sha(project_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return result.stdout.strip()
 
 
 def legacy_dataset_fingerprint(data_root: Path | str) -> str:
@@ -305,7 +290,7 @@ def _run_benchmark(
             "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
             "checkpoint_identifier": None,
         },
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
+        "commit_sha": collect_environment(include_data=False)["git"]["head"] or "unknown",
         "python": platform.python_version(),
         "rows": rows,
     }

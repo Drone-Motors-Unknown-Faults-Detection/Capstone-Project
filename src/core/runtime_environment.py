@@ -32,6 +32,19 @@ def _git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
+def _program_root() -> Path | None:
+    """只辨識實際載入的 src/core 程式樹，不借用呼叫端工作目錄。"""
+    try:
+        module = Path(__file__).resolve()
+        if module.parent.name == "core" and module.parent.parent.name == "src":
+            root = module.parents[2]
+            if (root / "pyproject.toml").is_file():
+                return root
+    except OSError:
+        pass
+    return None
+
+
 def blas_info() -> dict:
     """numpy 連結的 BLAS／LAPACK。同 seed 的數字會因 BLAS 不同而分岔（macOS Accelerate vs OpenBLAS，#224）。"""
     try:
@@ -72,12 +85,26 @@ def data_info(data_root: str | Path) -> dict:
 def collect_environment(root: Path | None = None, data_root: str | Path | None = None,
                         *, include_data: bool = True) -> dict:
     """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
-    root = Path.cwd() if root is None else Path(root)
-    top = _git(root, "rev-parse", "--show-toplevel")
+    explicit = root is not None
+    root = Path(root) if explicit else _program_root()
+    top = _git(root, "rev-parse", "--show-toplevel") if root is not None else None
+    git_reason = "GIT_UNAVAILABLE_OR_INCOMPLETE" if root is not None else "PROGRAM_ROOT_UNAVAILABLE"
+    if not explicit and top and Path(top).resolve() != root:
+        # 匯出程式樹可能放在另一個 repo 裡；外層版本不能替這份程式背書。
+        top = None
+        git_reason = "NOT_PROGRAM_CHECKOUT"
     head = _git(root, "rev-parse", "HEAD") if top else None
     dirty = _git(root, "status", "--porcelain", "--untracked-files=no") if top else None
-    constraint = Path(top) / "uv.lock" if top else root / "uv.lock"
-    constraint_sha = hashlib.sha256(constraint.read_bytes()).hexdigest() if constraint.is_file() else None
+    constraint_root = Path(top) if explicit and top else root
+    constraint_sha = None
+    lock_reason = "LOCK_MISSING" if constraint_root is not None else "PROGRAM_ROOT_UNAVAILABLE"
+    if constraint_root is not None:
+        try:
+            constraint_sha = hashlib.sha256((constraint_root / "uv.lock").read_bytes()).hexdigest()
+        except FileNotFoundError:
+            pass
+        except OSError:
+            lock_reason = "LOCK_UNREADABLE"
     packages = {}
     for distribution in metadata.distributions():
         name = distribution.metadata.get("Name")
@@ -96,6 +123,11 @@ def collect_environment(root: Path | None = None, data_root: str | Path | None =
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},
         "constraints_sha256": constraint_sha,
+        "program_source": {"schema_version": "program_location_v1",
+                           "selection": "EXPLICIT_ROOT" if explicit else "LOADED_MODULE",
+                           "git_reason": None if head and dirty is not None else git_reason,
+                           "lock_status": "VERIFIED" if constraint_sha is not None else "UNKNOWN",
+                           "lock_reason": None if constraint_sha is not None else lock_reason},
         "scope": "呼叫 setup_run 的執行；版本紀錄不等於依賴相容或資料獨立性驗證",
     }
 

@@ -28,6 +28,8 @@
 
 純記憶體 pools 呼叫 `collect_environment(include_data=False)`：`environment.data.status=UNKNOWN`、指紋為空並標 `reason=UNVERIFIED_MEMORY`，不查工作目錄或命令列中的另一份 `data` 來背書。一般環境查核入口仍保留既有命令列預設；此選項僅供已知沒有可信檔案來源的呼叫者明確關閉資料蒐集。
 
+程式根與資料根分開：collector 預設由載入的模組定位程式樹，Git 與 uv.lock 不隨 CWD 改變；明確 root 查詢沿原契約。`program_source` 的 program_location_v1 區分預設／明確定位與 Git／lock 未知原因，不公開絕對根。無 Git 匯出或已安裝套件不借其他 repo 的版本；輸出位置仍由 setup_run 相對工作目錄建立。matrix／aggregate 的既有程式根查詢與版本拒絕保留，新程式內容 SHA 不得補回舊契約後原根續跑，細節見[環境操作](runtime_policy.md#執行環境紀錄)。
+
 | 適用入口 | 來源現況與驗收邊界 |
 | --- | --- |
 | provenance／formal_data／exp6_formal 的 run/main | 已有內容來源、private 分離與環境；沿用既有規則 |

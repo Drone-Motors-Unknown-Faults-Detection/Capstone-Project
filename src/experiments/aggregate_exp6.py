@@ -15,7 +15,7 @@ from core.logger import setup_run
 from core.provenance import file_sha
 from core.runtime_environment import collect_environment
 from experiments.exp6_matrix import METRIC_COLUMNS as METRICS
-from experiments.exp6_matrix import (MATRIX_SCHEMA, PROJECT, artifact_hashes, artifact_snapshot,
+from experiments.exp6_matrix import (MATRIX_SCHEMA, artifact_hashes, artifact_snapshot,
                                     run_contract_problems, run_directory, run_key, validate_manifest_contract,
                                     validate_run)
 
@@ -105,7 +105,7 @@ def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False,
         contract = validate_manifest_contract(manifest, allow_missing_runs=allow_partial)
     elif schema != 1 or "contract" in manifest:
         raise ValueError("未知或降級的matrix schema，拒絕混版")
-    environment = collect_environment(PROJECT, include_data=False)
+    environment = collect_environment(include_data=False)
     environment["data"]["reason"] = "ARTIFACT_INPUTS_ONLY"
     manifest_sha = hashlib.sha256(raw_manifest).hexdigest()
     proof = {"version": "formal_aggregate_provenance_v2",

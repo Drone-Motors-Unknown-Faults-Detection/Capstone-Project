@@ -67,7 +67,7 @@ def _execution_identity(environment: dict) -> dict:
 def matrix_contract(data_root, matrix: list[dict], methods: Sequence[str]) -> tuple[dict, dict]:
     """固定起始資料及程式身分；不消耗模型 RNG。"""
     source, _ = capture_source(data_root)
-    environment = collect_environment(PROJECT, data_root=data_root)
+    environment = collect_environment(data_root=data_root)
     if environment["data"]["dataset_fingerprint"] != source["dataset_fingerprint"]:
         raise ProvenanceError("矩陣起始來源與環境不符")
     contract = {"version": MATRIX_CONTRACT, "source": source,
@@ -402,7 +402,7 @@ def _write_run_csv(run_dir: Path, result: dict) -> None:
 def _assert_source(data_root: Path, contract: dict) -> None:
     if capture_source(data_root)[0] != contract["source"]:
         raise ProvenanceError("矩陣執行期間來源變動，不能沿用或完成")
-    if _execution_identity(collect_environment(PROJECT, include_data=False)) != contract["execution"]:
+    if _execution_identity(collect_environment(include_data=False)) != contract["execution"]:
         raise ProvenanceError("矩陣執行期間程式或數值環境變動")
 
 
