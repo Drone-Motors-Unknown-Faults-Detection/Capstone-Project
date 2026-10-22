@@ -379,9 +379,9 @@ class LiveDemo:
                  "radius": r["radius"]}
                 for r in self.session.polar.summary()["rays"]
             ],
-            "healthy_threshold": round(next(
-                c["threshold"] for c in mon.summary()["classes"]
-                if c["config"] == HEALTHY), 2),
+            # 沒有健康一類的逐類閾值（例如 legacy 合併分布）時回 None，狀態訊息不中斷
+            "healthy_threshold": next(
+                (round(c["threshold"], 2) for c in mon.summary()["classes"] if c["config"] == HEALTHY), None),
         }
 
     def state_msg(self) -> dict:

@@ -58,6 +58,14 @@ class CommandError(ValueError):
     """WebSocket 指令的參數錯誤；訊息只含固定文字，可直接廣播給所有瀏覽器。"""
 
 
+def reject_legacy_method(method: str) -> None:
+    """首頁與導覽需要逐類校準閾值（healthy_threshold、量尺擴張）；legacy 只有合併分布的
+    train 距離 q95，啟動時統一拒絕，不在各實驗頁各自替換或各自失敗（#266）。"""
+    if method == "legacy":
+        raise SystemExit("web.server／web.guide 不支援 --method legacy（首頁需要逐類校準閾值）；"
+                         "請改用 ledoit_wolf、oas 或 mcd；legacy 對照請用實驗六／十一／十二的 CLI")
+
+
 class Hub:
     """連線集合 + 串流節拍器 + 重任務執行緒池。"""
 
@@ -589,6 +597,7 @@ def main() -> None:
                         help="額外允許連 WebSocket 的 Origin（例：https://demo.example.com）；預設只允許同站")
     args = parser.parse_args()
     ALLOWED_ORIGINS.update(o.rstrip("/").lower() for o in args.allow_origin)
+    reject_legacy_method(args.method)
 
     log, paths = setup_run("web_server")
     PLAYBACK.results_root = Path(paths.output_dir).parent   # output/web_server：各次啟動的實驗存檔

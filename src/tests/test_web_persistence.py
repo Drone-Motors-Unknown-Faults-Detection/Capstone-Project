@@ -1,14 +1,16 @@
 """暫停、斷線及正常結束的實際 CSV 保存規範。"""
 import csv
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 from tests.test_navigation_guide import fixture, Client
+from web.guide import main as guide_main
 from web.live import LiveDemo
-from web.server import Hub, WSHandler, serve
+from web.server import Hub, WSHandler, main as server_main, serve
 
 
 class PersistenceTests(unittest.TestCase):
@@ -79,6 +81,24 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(saved["dataset"], self.hub.full_state()["meta"])
         self.assertEqual(saved["flushed_t"], len(self.rows()))
         self.assertEqual({row["truth"] for row in self.rows()}, {saved["source"]})
+
+    def test_state_survives_legacy_covariance(self):
+        # legacy 合併分布可能沒有健康一類的逐類閾值；state() 回 None 而不是中斷（#266）
+        demo = LiveDemo(self.ds, mahalanobis_method="legacy")
+        try:
+            state = demo.state()
+            self.assertIn("healthy_threshold", state)
+            self.assertTrue(state["healthy_threshold"] is None or isinstance(state["healthy_threshold"], float))
+        finally:
+            demo.close()
+
+    def test_server_entry_points_reject_legacy_at_startup(self):
+        for module, main in (("web.server", server_main), ("web.guide", guide_main)):
+            with self.subTest(module=module), patch.object(sys, "argv", [module, "--method", "legacy"]), \
+                    patch("web.server.setup_run", side_effect=AssertionError("不應走到 setup_run")), \
+                    patch("web.guide.setup_run", side_effect=AssertionError("不應走到 setup_run")):
+                with self.assertRaisesRegex(SystemExit, "legacy"):
+                    main()
 
     def test_sample_direction_carries_polar_map_verdict(self):
         # 方向判定由 PolarMap 的射線 τ 給出，前端不再用寫死的 cos 門檻重算（#270）

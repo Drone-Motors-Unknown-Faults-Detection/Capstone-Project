@@ -19,7 +19,7 @@ from core.runner import add_openset_args
 from experiments.navigation_data_contract import run as data_contract, split_audit
 from experiments.exp3_trend import SCENARIOS
 from web.live import LiveDemo
-from web.server import Hub, serve
+from web.server import Hub, reject_legacy_method, serve
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
@@ -330,6 +330,7 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     add_openset_args(parser)
     args = parser.parse_args()
+    reject_legacy_method(args.method)
     log, paths = setup_run("web_guide")
     hub = GuideHub(discover_datasets(args.data_root), args.seed, args.rate, paths.output_dir,
                    {"openset_method": args.openset_method, "mahalanobis_method": args.method,
