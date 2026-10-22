@@ -63,6 +63,7 @@ def resolve_dataset(args: argparse.Namespace) -> tuple[dict, dict]:
 
 
 def save_json(path: Path, obj) -> None:
+    """寫 summary.json；NaN／Infinity 直接拒絕（ValueError），空集合的統計要在來源轉成 None（#271）。"""
     def _default(o):
         if isinstance(o, (np.integer,)):
             return int(o)
@@ -72,4 +73,5 @@ def save_json(path: Path, obj) -> None:
             return o.tolist()
         raise TypeError(f"無法序列化 {type(o)}")
 
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=_default), encoding="utf-8")
+    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=_default, allow_nan=False),
+                    encoding="utf-8")

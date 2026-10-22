@@ -98,11 +98,12 @@ def iter_run(
         yield {"event": "row", "row": rows[-1]}
 
     fault_rows = rows[1:]
+    # 只有健康池時沒有故障列：兩個平均記 None，不寫 NaN（#271）
     yield {"event": "result", "result": {
         "rows": rows,
         "healthy_fp_rate": rows[0]["detect_rate"],
-        "macro_detect_rate": float(np.mean([r["detect_rate"] for r in fault_rows])),
-        "macro_auroc": float(np.mean([r["auroc"] for r in fault_rows])),
+        "macro_detect_rate": float(np.mean([r["detect_rate"] for r in fault_rows])) if fault_rows else None,
+        "macro_auroc": float(np.mean([r["auroc"] for r in fault_rows])) if fault_rows else None,
         "model": monitor.summary(),
         "confidence": confidence,
         "openset_method": openset_method,
@@ -176,8 +177,11 @@ def main() -> None:
     for r in result["rows"]:
         auroc = f"{r['auroc']:.4f}" if r["auroc"] is not None else "—"
         log.info(f"{r['config']:<14}{r['n']:>6}{r['detect_rate']*100:>9.1f}%{auroc:>10}{r['median_score']:>10.2f}")
-    log.info(f"健康誤報率 {result['healthy_fp_rate']*100:.1f}%｜"
-             f"平均偵測率 {result['macro_detect_rate']*100:.1f}%｜平均 AUROC {result['macro_auroc']:.4f}")
+    if result["macro_auroc"] is None:
+        log.info(f"健康誤報率 {result['healthy_fp_rate']*100:.1f}%｜資料集沒有故障配置，沒有偵測率與 AUROC")
+    else:
+        log.info(f"健康誤報率 {result['healthy_fp_rate']*100:.1f}%｜"
+                 f"平均偵測率 {result['macro_detect_rate']*100:.1f}%｜平均 AUROC {result['macro_auroc']:.4f}")
     log.info(f"輸出：{paths.output_dir}")
 
 

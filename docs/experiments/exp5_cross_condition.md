@@ -57,7 +57,7 @@ Web啟動見[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)，實
 
 main寫logs/exp5_cross_condition/{ts}.log、output/exp5_cross_condition/{ts}/environment.json與summary.json；a+c齊全才寫cross_condition.png。Web寫web_server的experiments子目錄。cross_condition中的train／test是模型來源／評估工況，不代表三顆馬達分成專用train／cal／test的另一套研究協定。
 
-healthy_accept是健康score≤1比例，fault_detect是fault score>1比例，AUROC是故障分數高於健康的排序指標。不是九種故障配置分類準確率。各格先round4，再等格平均，不按視窗數加權；少工況或缺故障改變平均對象。健康score、p95等為無因次正規化量，不是故障嚴重度或時數。
+healthy_accept是健康score≤1比例，fault_detect是fault score>1比例，AUROC是故障分數高於健康的排序指標。不是九種故障配置分類準確率。各格先round4，再等格平均，不按視窗數加權；少工況或缺故障改變平均對象，只有一個工況時沒有非對角格，`offdiag_*`、`same_*` 欄為 null，沒有工況則直接報錯（#271）。健康score、p95等為無因次正規化量，不是故障嚴重度或時數。
 
 預期跨工況健康接受率可能下降，分工況基準是否改善需配合coverage與公平holdout判讀。程式沒有正式成功門檻。b三策略的評估列相同，但只有一個seed，差距要配合多seed再判讀；c只描述現有不同馬達分布。seed42、九工況的完整數字見[summary.json](../../output/exp5_cross_condition/2026-10-23-01-32-51/summary.json)（Aero、commit `46ed4d5`）：b的平均健康接受per_condition 91.87%、global 96.79%、per_rpm 94.94%，故障偵測100／99.27／100%。
 
