@@ -107,6 +107,50 @@ class SessionTrajectoryTests(unittest.TestCase):
         self.assertEqual(states[3], "candidate")
         self.assertEqual(states[4], "confirmed")
 
+    def _stream(self, monitor, values, session="s"):
+        states = []
+        for idx, health in enumerate(values):
+            result = monitor.update(np.array([health]), motor_id="m", session_id=session,
+                                    timestamp=str(idx), condition="x")
+            states.append(result.alarm_state)
+        return states
+
+    def test_warning_escalates_to_critical_after_persistent_drop(self):
+        """warning 下 smoothed < critical_enter 連續 enter_persistence 筆升 critical。"""
+        def predictor(features, **kwargs):
+            return _result(float(features[0]), kwargs["timestamp"])
+        monitor = SessionTrajectoryMonitor(
+            predictor,
+            config=TrajectoryConfig(min_history=2, ewma_alpha=1.0, enter_persistence=2, clear_persistence=2),
+        )
+        states = self._stream(monitor, (0.4, 0.4, 0.1, 0.1))
+        self.assertEqual(states, ["normal", "warning", "warning", "critical"])
+
+    def test_warning_does_not_escalate_on_isolated_drop(self):
+        def predictor(features, **kwargs):
+            return _result(float(features[0]), kwargs["timestamp"])
+        monitor = SessionTrajectoryMonitor(
+            predictor,
+            config=TrajectoryConfig(min_history=2, ewma_alpha=1.0, enter_persistence=2, clear_persistence=2),
+        )
+        states = self._stream(monitor, (0.4, 0.4, 0.1, 0.4, 0.1, 0.4))
+        self.assertEqual(states[1:], ["warning"] * 5)
+        # a clear window between two drops also resets the escalation streak
+        states = self._stream(monitor, (0.4, 0.4, 0.1, 0.9, 0.1, 0.9), session="t")
+        self.assertEqual(states[1:], ["warning"] * 5)
+
+    def test_warning_clear_and_escalation_streaks_are_exclusive(self):
+        def predictor(features, **kwargs):
+            return _result(float(features[0]), kwargs["timestamp"])
+        monitor = SessionTrajectoryMonitor(
+            predictor,
+            config=TrajectoryConfig(min_history=2, ewma_alpha=1.0, enter_persistence=3, clear_persistence=3),
+        )
+        states = self._stream(monitor, (0.4, 0.4, 0.4, 0.9, 0.9, 0.1, 0.9, 0.9, 0.9))
+        self.assertEqual(states[2], "warning")
+        self.assertEqual(states[5:8], ["warning", "warning", "warning"])
+        self.assertEqual(states[8], "normal")
+
     def test_alarm_hysteresis_requires_persistent_clear(self):
         def predictor(features, **kwargs):
             return _result(float(features[0]), kwargs["timestamp"])
