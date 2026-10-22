@@ -6,6 +6,7 @@ import subprocess
 import time
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import tornado.testing
 import tornado.web
@@ -397,6 +398,20 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(set(status["app"]), {"git_head", "tracked_dirty", "answer_schema"})
         self.assertEqual(status["app"]["answer_schema"], "exp12_standard_answer_v2")
         self.assertNotIn("packages", status["app"])
+
+    def test_status_poll_reads_cached_git_info(self):
+        # collect_environment 跑 git 子行程並雜湊資料集；輪詢只讀啟動時的快取（#274）
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
+        server._APP_GIT = None
+        try:
+            with patch("web.server.collect_environment",
+                       return_value={"git": {"head": "abc", "tracked_dirty": False}}) as collect:
+                for _ in range(3):
+                    status = json.loads(self.fetch("/api/assistant/status").body)
+                    self.assertEqual(status["app"]["git_head"], "abc")
+            self.assertEqual(collect.call_count, 1)
+        finally:
+            server._APP_GIT = None
 
     def test_http_result_works_with_real_offline_model_endpoint(self):
         port = tornado.testing.bind_unused_port()

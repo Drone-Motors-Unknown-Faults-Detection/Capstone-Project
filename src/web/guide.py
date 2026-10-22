@@ -178,7 +178,8 @@ class GuideHub(Hub):
         super().pause(publish=publish)
 
     def tick(self):
-        if not self.demo or self.busy:
+        # 暫停時狀態不變，不每拍廣播完整狀態（約 5.6 KB）；有新樣本或劇本播畢才送
+        if not self.demo or self.busy or not self.running:
             return
         super().tick()
         if self.scenario_end is not None and self.demo.t >= self.scenario_end:

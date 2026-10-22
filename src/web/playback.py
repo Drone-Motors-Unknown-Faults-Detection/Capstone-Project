@@ -127,18 +127,21 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
     out.append(f"{label}{_fmt(v)}")
 
 
-def _exp12_answer(result, budget: int, source: dict | None) -> dict:
-    return build_exp12(result, budget, source, ANSWER_SCHEMA)
-
+def result_contract(result, budget: int, exp_id: str | None, source: dict | None) -> tuple[str, dict] | None:
+    """實驗十二／實驗二有程式核算的契約（鍵名與契約內容）；其他實驗回 None 走一般摘要。"""
+    if exp_id == "exp12":
+        return "matrix_answer", build_exp12(result, budget, source, ANSWER_SCHEMA)
+    if exp_id == "exp2":
+        return "metric_contract", exp2_metric_contract(result, budget)
+    return None
 
 
 def summarize_result(result, budget: int = RESULT_BUDGET, *, exp_id: str | None = None,
                      source: dict | None = None) -> str:
     """實驗結果轉成模型讀得完的文字：去掉畫圖座標與模型細節，矩陣轉表格，長清單截斷。"""
-    if exp_id == "exp12":
-        return _exp12_answer(result, budget, source)["text"]
-    if exp_id == "exp2":
-        return exp2_metric_contract(result, budget)["text"]
+    contract = result_contract(result, budget, exp_id, source)
+    if contract is not None:
+        return contract[1]["text"]
     out: list[str] = []
     _render("", result, 0, out)
     text = "\n".join(line for line in out if line.strip())
@@ -175,14 +178,10 @@ def _fill_result(st: dict, payload: dict) -> None:
               "started_at": st["started_at"], "params": st["params"], **st["result"]}
     if isinstance(payload.get("streamed"), bool):
         source["streamed"] = payload["streamed"]
-    if st["exp_id"] == "exp12":
-        st["matrix_answer"] = _exp12_answer(payload.get("result"), RESULT_BUDGET, source)
-        st["result_text"] = st["matrix_answer"]["text"]
-        st["fact_text"] = st["result_text"]
-    elif st["exp_id"] == "exp2":
-        st["metric_contract"] = exp2_metric_contract(payload.get("result"), RESULT_BUDGET)
-        st["result_text"] = st["metric_contract"]["text"]
-        st["fact_text"] = st["result_text"]
+    contract = result_contract(payload.get("result"), RESULT_BUDGET, st["exp_id"], source)
+    if contract is not None:
+        st[contract[0]] = contract[1]
+        st["result_text"] = st["fact_text"] = contract[1]["text"]
     else:
         st["result_text"] = summarize_result(payload.get("result"))
 
@@ -430,10 +429,6 @@ class PlaybackTracker:
                                                         "matched_is_config", "own_holdout_acc", "own_holdout_n",
                                                         "eval_known_rate", "eval_matched_rate", "eval_n", "healthy_holdout_acc")}})
         self._event(st, f"播放完成（{payload.get('seconds')} 秒）")
-
-    def _on_stopped(self, st, f):
-        st["status"] = "stopped"
-        self._event(st, "播放被停止")
 
     def _on_error(self, st, f):
         st["status"] = "error"

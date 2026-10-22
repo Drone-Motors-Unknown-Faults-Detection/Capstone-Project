@@ -380,13 +380,8 @@ class ExperimentRunner:
             return run(self.data_root, seed=seed, confidence=conf)
         raise ValueError(f"未知實驗：{exp_id}")
 
-    def stream(self, exp_id: str, raw_params: dict):
-        """邊跑邊畫：逐步產生 (frame, units)。
-
-        frame 直接送給前端；units 是這個 frame 含的樣本數，伺服器依此控制播放速度
-        （units=0 的 frame 不等待）。計算走實驗模組的 iter_run()（實驗二為 iter_playback()），數字與 run() 相同。
-        最後一個 frame 是 done，內容與 run() 的回傳值同格式，並已存檔。
-        """
+    def stream_params(self, exp_id: str, raw_params: dict | None) -> dict:
+        """邊跑邊畫的參數驗證；錯誤丟 ValueError。伺服器先呼叫這裡，再開始記錄播放。"""
         spec = _BY_ID.get(exp_id)
         if spec is None or not spec.get("stream"):
             raise ValueError(f"{exp_id} 不支援邊跑邊畫")
@@ -395,8 +390,18 @@ class ExperimentRunner:
         if exp_id == "exp3" and scenario not in (None, "A", "B"):
             raise ValueError(f"scenario: expected A or B, got {scenario!r}")
         params = self._clean(spec, raw_params)
-        if scenario:
-            params = {**params, "scenario": scenario}
+        return {**params, "scenario": scenario} if scenario else params
+
+    def stream(self, exp_id: str, raw_params: dict):
+        """邊跑邊畫：逐步產生 (frame, units)。
+
+        frame 直接送給前端；units 是這個 frame 含的樣本數，伺服器依此控制播放速度
+        （units=0 的 frame 不等待）。計算走實驗模組的 iter_run()（實驗二為 iter_playback()），數字與 run() 相同。
+        最後一個 frame 是 done，內容與 run() 的回傳值同格式，並已存檔。
+        """
+        params = self.stream_params(exp_id, raw_params)
+        spec = _BY_ID[exp_id]
+        scenario = params.get("scenario")
         timer = RunTimer("stream_elapsed_including_playback")
         yield {"event": "start", "params": params, **timer.start_fields()}, 0
         result: Any = None

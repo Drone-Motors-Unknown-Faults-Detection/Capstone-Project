@@ -293,6 +293,11 @@ class StreamHandler(tornado.web.RequestHandler):
         if JOBS.current is not None:
             await self.send({"event": "error", "error": f"{JOBS.current} 執行中，請稍候"})
             return
+        try:
+            params = JOBS.runner.stream_params(exp_id, params)   # 參數錯誤先回報，不覆蓋上一次的播放紀錄
+        except ValueError as exc:
+            await self.send({"event": "error", "error": str(exc)})
+            return
         JOBS.current = exp_id
         PLAYBACK.start(exp_id, params)
         self.tracking = True
@@ -360,9 +365,20 @@ def _history_too_long(history: list) -> bool:
                and len(item["content"]) > MAX_HISTORY_CHARS for item in history)
 
 
+_APP_GIT: dict | None = None
+
+
+def app_git_info() -> dict:
+    """啟動後只算一次：collect_environment 跑 git 子行程並雜湊整個資料集，不能每次狀態輪詢都做（#274）。"""
+    global _APP_GIT
+    if _APP_GIT is None:
+        _APP_GIT = collect_environment(Path(__file__).resolve().parents[2])["git"]
+    return _APP_GIT
+
+
 class AssistantStatusHandler(_JSONHandler):
     async def get(self) -> None:
-        git = collect_environment(Path(__file__).resolve().parents[2])["git"]
+        git = app_git_info()
         self.reply({**await ASSISTANT.status(), "app": {
             "git_head": git["head"], "tracked_dirty": git["tracked_dirty"], "answer_schema": ANSWER_SCHEMA}})
 
@@ -608,6 +624,7 @@ def main() -> None:
 
     ASSISTANT = Assistant(args.llm_url, args.llm_model, args.llm_api_key)
     log.info(f"AI 問答模型端點 {args.llm_url}（model={args.llm_model or '自動偵測'}）")
+    log.info(f"程式版本 {app_git_info()['head']}（狀態輪詢讀這份快取）")
 
     app = make_app()
     app.listen(args.port, address=args.bind_address)

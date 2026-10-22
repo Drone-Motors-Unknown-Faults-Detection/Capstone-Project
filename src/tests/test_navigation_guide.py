@@ -174,6 +174,18 @@ class GuideTests(unittest.TestCase):
         self.assertEqual(self.hub.demo.t, 12)
         original.close()
 
+    def test_paused_tick_does_not_broadcast(self):
+        # 暫停時每拍不再送完整狀態；開始串流後每拍都有 sample 與 state（#274）
+        self.hub.build("T1", "8000rpm")
+        client = Client()
+        self.hub.clients.add(client)
+        for _ in range(3):
+            self.hub.tick()
+        self.assertEqual(client.messages, [])
+        self.hub.running = True
+        self.hub.tick()
+        self.assertEqual([m["type"] for m in client.messages][-2:], ["sample", "state"])
+
     def test_scenario_stops_without_auto_confirmation(self):
         self.hub.build("T1", "8000rpm")
         self.hub.demo.start_scenario("A")

@@ -72,6 +72,15 @@ class ParameterTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.runner.run("exp99", {})
 
+    def test_stream_params_validates_before_streaming(self):
+        self.assertEqual(self.runner.stream_params("exp3", {"scenario": "B", "n_trials": 3}),
+                         {"dataset": "T1/8000rpm", "openset_method": "mahalanobis", "seed": 42,
+                          "n_trials": 3, "scenario": "B"})
+        for exp_id, params in (("exp5", {}), ("exp99", {}), ("exp3", {"scenario": "C"}),
+                               ("exp1", {"dataset": "T9/1rpm"}), ("exp1", {"seed": -1})):
+            with self.subTest(exp_id=exp_id, params=params), self.assertRaises(ValueError):
+                self.runner.stream_params(exp_id, params)
+
 
 class JsonableTests(unittest.TestCase):
     def test_numpy_and_non_finite_values(self):
