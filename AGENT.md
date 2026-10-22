@@ -237,9 +237,14 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
      讀完整配置池重擬合；若叢集是已知類別邊界樣本，回傳 `action="rejected_known"`
      （退回、清叢、量尺不變）。
    web 偵測統計拆「學會前偵測率／學會後認出率」兩組，認出率天生 ≈ 90–95%。
-2. **發散故障（嚴重鬆動、複合配置）成叢較慢**：固定 (25,3) 下 2screws 要 225 筆、
-   3_14 在 600 筆內失敗——自適應密度階梯（見參數表）已把發現延遲壓到 65~265 筆，
-   但這類故障仍天生比輕度鬆動需要更多累積；web 會顯示「已試分群 N 次」而非卡死。
+2. **實驗二的發現延遲量的是隔離區湊出一群要多少筆**：
+   [`output/exp2_scale_growth/2026-10-22-21-46-48/stages.csv`](output/exp2_scale_growth/2026-10-22-21-46-48/stages.csv)
+   （commit 37ae787，seed 42，T1/8000rpm，`adopt()` 自學）九段的 `samples_to_candidate`
+   落在 21～105 筆，最慢的是第一段 7screws（105 筆）。從 2screws 段起的四段
+   （2screws、1screws、3_14screws、4_146screws），學到的群多數都是前一段注入的配置；
+   3screws 段的群多數是 5screws，`cluster_purity` 為 0.5435（54.4%）。所以這個延遲不等於
+   該段配置自己成叢所需的筆數。自適應密度階梯（見參數表）的消融數字只在 `confirm()`
+   重擬合版本量過，`adopt()` 版本還沒重做。隔離區還沒成群時，web 顯示「已試分群 N 次」。
 3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名。事後對照看
    `matched`／`matched_display`（候選群的真值多數）；它可能不等於該段注入配置，
    因為候選叢集取自整個隔離區，多數可能是前一階段的殘餘。
