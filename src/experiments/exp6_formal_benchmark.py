@@ -318,16 +318,19 @@ def _run_benchmark(
 
 def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95,
         openset_method: str = "mahalanobis", mahalanobis_method: str = "ledoit_wolf",
-        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_dir: Path | str | None = None,
-        pool_cache=None) -> dict:
+        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None,
+        evidence_dir: Path | str | None = None, pool_cache=None) -> dict:
     """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。
 
     本函式不碰 loguru、不呼叫 setup_run：日誌與輸出目錄由呼叫端決定（#269）。
     ``evidence_dir`` 給定時（CLI 的 output 目錄、exp6_matrix 的 runs/{run_id}/）寫入
     provenance.json 與 environment.json（目錄裡已有 environment.json 就沿用）；
     沒給（Web）就只把 source 與 environment 放進回傳值，不在磁碟留任何目錄。
+    ``evidence_paths``（setup_run 回傳的 RunPaths）是舊介面，只取其 output_dir。
     資料來源只在執行前後各 capture_source 一次，指紋沿用執行前那次。
     """
+    if evidence_dir is None and evidence_paths is not None:
+        evidence_dir = evidence_paths.output_dir
     evidence_dir = Path(evidence_dir) if evidence_dir is not None else None
     try:
         recorded_method = canonical_openset_method(openset_method)
