@@ -51,7 +51,7 @@ uv run --locked python -m experiments.exp2_scale_growth --data-root data --motor
 uv run --locked python -m experiments.exp2_scale_growth --data-root data --sequence 5screws 3_14screws --openset-method knn --knn-neighbors 5
 ```
 
-`run(pools, sequence=None, seed=42, max_ticks_per_stage=600)`回傳dict、不自行存檔；`ScaleGrowthSession(pools)`供逐筆 process，成群後呼叫 `adopt()`。共用CLI支援confidence0.95、method預設ledoit_wolf；密度階梯與隔離線須用API，CLI未暴露。
+`run(pools, sequence=None, seed=42, max_ticks_per_stage=600, adaptive_density=True)`回傳dict、不自行存檔；`ScaleGrowthSession(pools)`供逐筆 process，成群後呼叫 `adopt()`。共用CLI支援confidence0.95、method預設ledoit_wolf；`--fixed-density` 關掉密度階梯、只用 (25,3)。隔離線須用API，CLI未暴露。
 
 Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「實驗二」卡選資料集／方法／seed，按「▶ 執行」會跑整個自學劇本。「⏵ 邊跑邊畫」依序自動注入各配置並逐筆畫分數，成群後立刻用該群自學並繼續；「■ 停止」取消後續串流。首頁即時展示仍是另一個持續 session，確認按鈕留在那一頁，不代表實驗二還在等操作員命名。
 
@@ -70,8 +70,33 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 
 預期在600tick內發現配置且保持健康辨識；未預定獨立部署通過線。低純度支持混叢問題，未發現也可能是隔離／密度或資料不足，不能單憑一列確定原因。
 
+## 密度階梯消融（adopt() 版本）
+
+問題：成群後立刻 `adopt()` 自學時，密度階梯是否仍縮短發現延遲、且不降低候選群純度？階梯的原始消融只在 `confirm()` 用完整配置池重擬合的版本量過（commit 9116bb3）；`adopt()` 版的隔離區會留著前一段的殘餘，條件不同，要重做。
+
+方法：
+- 資料：T1／8000rpm，預設序列由輕到重注入九種未知配置，每段最多 600 tick。
+- 兩組：`adaptive_density=True`（現行：(25,3)，隔離區≥75 加試 (15,3)、≥100 加試 (10,2)）與 `--fixed-density`（只用 (25,3)）。其他參數全用預設：隔離線 2.0、候選至少 25 筆、每 10 筆新隔離樣本試一次。
+- seed 42、123、2026，每組各跑一次 CLI；兩組在同 seed 下的初始切分與抽樣序列相同，差別只在 HDBSCAN 的密度參數。
+- 指令：
+
+```bash
+uv run --locked python -m experiments.exp2_scale_growth --seed 42
+uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-density
+```
+
+比較的量（逐段讀 `stages.csv`）：有幾段在 600 tick 內 learned、`samples_to_candidate`、`cluster_purity`、`matched` 是否等於該段注入的 `config`、`own_holdout_acc`、`healthy_holdout_acc`。
+
+預期：
+- 階梯只在隔離區累積到 75 筆以上才介入，所以 7screws 等輕度鬆動段兩組延遲應相同；差別應出現在嚴重鬆動與複合配置段。
+- 支持假設：三個 seed 合計，階梯組 learned 段數不少於固定組，介入段的延遲中位數較短，且最低純度與 `matched==config` 段數不比固定組差。
+- 假設不成立：階梯組延遲沒有縮短，或純度、`matched==config` 段數明顯變差（較小的 mcs 把殘餘或混合樣本切成候選）。
+- 單一工況、三個 seed，只能說明這個工況下的方向，不能外推到其他工況。
+
+結果寫在 `reports/`，不回填本節。
+
 ## 來源與對應程式
 
-Campello、Moulavi與Sander（2013），*Density-Based Clustering Based on Hierarchical Density Estimates*，PAKDD／LNCS7819,160–172，[DOI](https://doi.org/10.1007/978-3-642-37456-2_14)。隔離2.0、密度階梯、25筆候選與成群後只用該群自學是Lineage約定，不是論文保證。LW／k-NN來源同實驗一，原始論文來源註記在Mahalanobis檔頭。
+Campello、Moulavi與Sander（2013），*Density-Based Clustering Based on Hierarchical Density Estimates*，PAKDD／LNCS7819,160–172，[DOI](https://doi.org/10.1007/978-3-642-37456-2_14)。隔離2.0、密度階梯、25筆候選與成群後只用該群自學是Lineage約定，不是論文保證；密度階梯的消融也是本專案的操作約定。LW／k-NN來源同實驗一，原始論文來源註記在Mahalanobis檔頭。
 
 [ScaleGrowthSession與run](../../src/experiments/exp2_scale_growth.py)管理隔離／確認；[monitor](../../src/core/monitor.py)管理完整池fit；[src/web/live.py](../../src/web/live.py)管理即時session；[test_monitor_guard](../../src/tests/test_monitor_guard.py)、[test_geometry](../../src/tests/test_geometry.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)測狀態與編排，不證明候選物理真值、獨立採集或長期部署。
