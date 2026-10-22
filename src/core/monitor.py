@@ -13,6 +13,7 @@ from sklearn.preprocessing import RobustScaler
 from threadpoolctl import threadpool_limits
 
 from core.data import HEALTHY, Split, make_split
+from core.mahalanobis import LEGACY_POOLED_LABEL
 from core.openset import OpenSetDetector, create_openset_detector, resolve_openset_config
 
 
@@ -180,15 +181,16 @@ class OpenSetMonitor:
     def summary(self) -> dict:
         """目前擬合狀態的可序列化摘要（保存用：逐類閾值與樣本數）。"""
         self._require_fitted()
+        legacy = self.openset_method == "mahalanobis" and self.method == "legacy"
         classes = []
         for item in self.detector.class_summaries():
             label = int(item["label"])
-            if label in self._label_to_config:
-                config = self._label_to_config[label]
-                splits = [self.splits[config]]
-            else:  # legacy 以 -1 代表全部已知類合併成單一分布
+            if label == LEGACY_POOLED_LABEL:  # legacy：全部已知類合併成單一分布
                 config = "pooled_known"
                 splits = [self.splits[c] for c in self.known]
+            else:
+                config = self._label_to_config[label]
+                splits = [self.splits[config]]
             row = {
                 "config": config,
                 "label": label,
@@ -200,16 +202,23 @@ class OpenSetMonitor:
             }
             row.update({k: v for k, v in item.items() if k not in {"label", "threshold"}})
             classes.append(row)
+        if legacy:  # 門檻量在估分布的同一批 train 距離上，不讀校準集；已知列再取縮放空間中最近的類別 train 中心
+            score_type = "normalized_pooled_mahalanobis"
+            threshold_strategy = f"known_train_pooled_distance_quantile_{self.confidence:.4g}"
+            calibration_source = "known-only 60% train split (legacy: threshold on training distances)"
+        else:
+            score_type = ("normalized_class_mahalanobis" if self.openset_method == "mahalanobis"
+                          else "normalized_class_knn_mean_euclidean")
+            threshold_strategy = f"known_calibration_class_quantile_{self.confidence:.4g}"
+            calibration_source = "known-only 20% calibration split"
         return {
             "resolved_config": self.resolved_config,
             "openset_method": self.openset_method,
             "method": self.method,
-            "score_type": "normalized_class_mahalanobis"
-            if self.openset_method == "mahalanobis"
-            else "normalized_class_knn_mean_euclidean",
+            "score_type": score_type,
             "threshold": 1.0,
-            "threshold_strategy": f"known_calibration_class_quantile_{self.confidence:.4g}",
-            "calibration_source": "known-only 20% calibration split",
+            "threshold_strategy": threshold_strategy,
+            "calibration_source": calibration_source,
             "confidence": self.confidence,
             "knn_neighbors": self.knn_neighbors if self.openset_method == "knn" else None,
             "random_seed": self.seed,

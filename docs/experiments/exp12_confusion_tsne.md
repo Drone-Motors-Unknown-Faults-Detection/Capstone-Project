@@ -30,7 +30,7 @@
 
 a：每工況healthy列按seed42切60/20/20，train fit RobustScaler與LW、cal定confidence0.95線；healthy holdout與fault全池score，≤1叫healthy、>1叫fault。各工況結果累加成2×2**原始筆數**矩陣，樣本多的工況權重較大。
 
-b：重用[實驗十一](exp11_ancestor_comparison.md)build_ancestor_monitor，known為8／1／2／3／4，unknown為5／6／7／3_14／4_146交集，分別LW與legacy。known各holdout、unknown全池classify後合併unknown，1screw／1screws顯示名統一成1screw，形成固定六標籤矩陣。缺類不代表完整coverage；legacy label=-1使classify無法返回known，不能將全部拒絕解讀成單純協方差差異。unknown未進detector fit／cal。
+b：重用[實驗十一](exp11_ancestor_comparison.md)build_ancestor_monitor，known為8／1／2／3／4，unknown為5／6／7／3_14／4_146交集，分別LW與legacy。known各holdout、unknown全池classify後合併unknown，1screw／1screws顯示名統一成1screw，形成固定六標籤矩陣。缺類不代表完整coverage；legacy 的 score≤1 列取縮放空間中歐氏距離最近的類別 train 中心當已知名稱（見[實驗十一](exp11_ancestor_comparison.md#資料類別與切分)），score>1 才記 unknown；LW 與 legacy 的矩陣差仍含校準來源差異，不能解讀成單純協方差差異。unknown未進detector fit／cal。本實驗每個工況只擬合一次 LW 祖先 monitor，(b) 的 LW 矩陣與 (c) 的 t-SNE 共用同一個；(b) 的 legacy 另擬合一次。
 
 c：每工況另建LW的A協定monitor，按default_rng(seed)每配置抽最多200列（不放回），**從完整池抽，包含known train／cal／holdout**。用該monitor的train-only scaler transform，再讓t-SNE在抽出的known＋unknown樣本上fit二維嵌入。unknown只參與事後視覺化、不回饋偵測器；這張圖不是獨立holdout準確率。
 
@@ -95,7 +95,7 @@ main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_t
 
 部署核對可讀`/api/assistant/status`的`app.git_head`、`tracked_dirty`與`answer_schema`；只提供版本識別，不公開環境變數、套件清冊或私人路徑。映像沒有Git資訊時版本為null，不能拿schema或某一支JS含有handler就宣稱整套部署已核實。HTML的script版本參數與內容雜湊仍需另比對。
 
-legacy介面限制必須另核對來源版本：`fit()`固定label=-1、`classify()`將負標籤轉None，再由實驗記unknown。只憑矩陣全部unknown不足以確認該原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
+legacy 的判讀規則要核對來源版本：改成最近類別判讀之前，`fit()` 的合併分布標籤是 -1、`classify()` 把它轉 None，矩陣全落在 unknown 欄；之後合併分布標籤是 `LEGACY_POOLED_LABEL`（-2），score≤1 的列會回到已知欄。預期重跑後 legacy 矩陣的對角不再只有 unknown 一格；若仍全在 unknown 欄，先查版本再查資料。只憑矩陣全部unknown不足以確認原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
 
 預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [output/exp12_confusion_tsne/2026-10-23-01-36-16](../../output/exp12_confusion_tsne/2026-10-23-01-36-16/summary.json)（Aero、commit `46ed4d5`；與 2026-10-09 的舊輸出扣掉環境欄位後相同）。
 

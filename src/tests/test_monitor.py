@@ -1,11 +1,11 @@
-"""OpenSetMonitor：legacy 合併分布的摘要列（#234）、add_classes 與逐一 add_class 相同、
-單執行緒擬合與一次算分數＋類別數字相同（#275）。"""
+"""OpenSetMonitor：legacy 合併分布的摘要列（#234、#266）、classify 對 legacy 回傳最近已知類（#266）、
+add_classes 與逐一 add_class 相同、單執行緒擬合與一次算分數＋類別數字相同（#275）、seed 傳到 MCD（#273）。"""
 import unittest
 
 import numpy as np
 from threadpoolctl import threadpool_limits
 
-from core.mahalanobis import MahalanobisOpenSetDetector
+from core.mahalanobis import LEGACY_POOLED_LABEL, MahalanobisOpenSetDetector
 from core.monitor import OpenSetMonitor
 
 
@@ -27,9 +27,16 @@ class SummaryTests(unittest.TestCase):
         monitor = _fitted("legacy")
         (row,) = monitor.summary()["classes"]
         self.assertEqual(row["config"], "pooled_known")
-        self.assertEqual(row["label"], -1)
+        self.assertEqual(row["label"], LEGACY_POOLED_LABEL)
         expected = sum(len(monitor.splits[c].train) for c in monitor.known)
         self.assertEqual(row["n_train"], expected)
+
+    def test_legacy_summary_records_training_distance_threshold_source(self):
+        summary = _fitted("legacy").summary()
+        self.assertEqual(summary["score_type"], "normalized_pooled_mahalanobis")
+        self.assertEqual(summary["threshold_strategy"], "known_train_pooled_distance_quantile_0.95")
+        self.assertIn("train", summary["calibration_source"])
+        self.assertNotIn("calibration split", summary["calibration_source"])
 
     def test_classwise_summary_keeps_one_row_per_class(self):
         monitor = _fitted()
@@ -38,6 +45,19 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(summary["classes"][1]["n_train"], len(monitor.splits["7screws"].train))
         self.assertEqual(summary["threshold_strategy"], "known_calibration_class_quantile_0.95")
         self.assertEqual(summary["calibration_source"], "known-only 20% calibration split")
+
+
+class LegacyClassifyTests(unittest.TestCase):
+    def test_legacy_classify_returns_known_names_for_rows_inside_threshold(self):
+        monitor = _fitted("legacy")
+        for config in monitor.known:
+            X = monitor.holdout(config)
+            scores = monitor.score(X)
+            labels = monitor.classify(X)
+            inside = [label for label, score in zip(labels, scores) if score <= 1.0]
+            self.assertGreater(len(inside), 0)
+            self.assertEqual(set(inside), {config})
+            self.assertTrue(all(label is None for label, score in zip(labels, scores) if score > 1.0))
 
 
 class AddClassesTests(unittest.TestCase):

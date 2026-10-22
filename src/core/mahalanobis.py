@@ -7,6 +7,10 @@
 The legacy detector models all known classes as one Gaussian.  The improved
 detectors model every known class separately and divide its distance by a
 class-specific calibration quantile.  A normalized score above one is unknown.
+
+Legacy 的合併分布標籤是 ``LEGACY_POOLED_LABEL``（-2），與 ``predict_known_class``
+的未知哨兵 -1 分開；score ≤ 1 的列取縮放空間中歐氏距離最近的類別 train 中心
+（原始論文 Step 4 的 ``LABEL_ORDER[closest_known_cluster]``）。
 """
 
 from __future__ import annotations
@@ -20,6 +24,8 @@ from sklearn.decomposition import PCA
 
 
 Method = Literal["legacy", "ledoit_wolf", "oas", "mcd"]
+UNKNOWN_LABEL = -1
+LEGACY_POOLED_LABEL = -2
 
 
 @dataclass(frozen=True)
@@ -74,6 +80,7 @@ class MahalanobisOpenSetDetector:
         self.random_state = random_state
         self.pca_: PCA | None = None
         self.distributions_: list[ClassDistribution] = []
+        self.legacy_centroids_: dict[int, np.ndarray] = {}  # legacy：各已知類 train 中心（轉換後空間）
 
     def _transform(self, X: np.ndarray) -> np.ndarray:
         X = np.asarray(X, dtype=float)
@@ -128,6 +135,7 @@ class MahalanobisOpenSetDetector:
         cal_t = self._transform(X_calibration)
         self.n_features_in_ = int(X_train.shape[1])
         self.distributions_ = []
+        self.legacy_centroids_ = {}
 
         if self.method == "legacy":
             location = train_t.mean(axis=0)
@@ -136,7 +144,10 @@ class MahalanobisOpenSetDetector:
             # Preserve the notebook baseline exactly: its threshold is measured
             # on the same training features used to estimate mean/covariance.
             threshold = float(np.quantile(_distances(train_t, location, precision), self.confidence))
-            self.distributions_.append(ClassDistribution(-1, location, precision, threshold))
+            self.distributions_.append(ClassDistribution(LEGACY_POOLED_LABEL, location, precision, threshold))
+            self.legacy_centroids_ = {
+                int(label): train_t[y_train == label].mean(axis=0) for label in np.unique(y_train)
+            }
             return self
 
         for label in np.unique(y_train):
@@ -165,9 +176,17 @@ class MahalanobisOpenSetDetector:
         return normalized, X_t
 
     def _labels_from(self, normalized: np.ndarray, X_t: np.ndarray) -> np.ndarray:
-        indices = np.argmin(normalized, axis=1)
-        labels = np.array([self.distributions_[index].label for index in indices], dtype=int)
-        labels[np.min(normalized, axis=1) > 1.0] = -1
+        if self.method == "legacy":
+            # 合併分布只決定「已知／未知」；已知列取縮放空間中歐氏距離最近的類別 train 中心
+            class_labels = sorted(self.legacy_centroids_)
+            class_distances = np.column_stack(
+                [np.linalg.norm(X_t - self.legacy_centroids_[label], axis=1) for label in class_labels]
+            )
+            labels = np.array(class_labels, dtype=int)[np.argmin(class_distances, axis=1)]
+        else:
+            indices = np.argmin(normalized, axis=1)
+            labels = np.array([self.distributions_[index].label for index in indices], dtype=int)
+        labels[np.min(normalized, axis=1) > 1.0] = UNKNOWN_LABEL
         return labels
 
     def score_samples(self, X: np.ndarray) -> np.ndarray:

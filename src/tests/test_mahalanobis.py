@@ -1,9 +1,15 @@
-"""MahalanobisOpenSetDetector：距離計算改寫後數字逐位元相同、一次算分數與標籤（#275）。"""
+"""MahalanobisOpenSetDetector：legacy 合併分布的標籤與最近類別判讀（#266）、seed 轉發（#273）、
+距離計算改寫後數字逐位元相同（#275）。"""
 import unittest
 
 import numpy as np
 
-from core.mahalanobis import MahalanobisOpenSetDetector, _distances
+from core.mahalanobis import (
+    LEGACY_POOLED_LABEL,
+    UNKNOWN_LABEL,
+    MahalanobisOpenSetDetector,
+    _distances,
+)
 from core.openset import create_detector_from_config, create_openset_detector, resolve_openset_config
 
 
@@ -32,6 +38,33 @@ class DistancesTests(unittest.TestCase):
                     reference = np.sqrt(np.maximum(
                         np.einsum("ij,jk,ik->i", delta, precision, delta, optimize=True), 0.0))
                     np.testing.assert_array_equal(_distances(X, location, precision), reference)
+
+
+class LegacyLabelTests(unittest.TestCase):
+    def test_pooled_label_is_distinct_from_unknown_sentinel(self):
+        detector = MahalanobisOpenSetDetector(method="legacy").fit(*_data())
+        self.assertNotEqual(LEGACY_POOLED_LABEL, UNKNOWN_LABEL)
+        self.assertEqual([d.label for d in detector.distributions_], [LEGACY_POOLED_LABEL])
+        self.assertEqual(detector.class_summaries()[0]["label"], LEGACY_POOLED_LABEL)
+
+    def test_known_rows_get_nearest_class_centroid_and_far_rows_stay_unknown(self):
+        X_train, y_train, X_cal, y_cal = _data()
+        detector = MahalanobisOpenSetDetector(method="legacy").fit(X_train, y_train, X_cal, y_cal)
+        labels = detector.predict_known_class(X_train)
+        scores = detector.score_samples(X_train)
+        inside = scores <= 1.0
+        self.assertGreater(inside.sum(), 0)
+        np.testing.assert_array_equal(labels[inside], y_train[inside])
+        self.assertTrue(np.all(labels[~inside] == UNKNOWN_LABEL))
+        far = np.full((3, X_train.shape[1]), 60.0)
+        self.assertTrue(np.all(detector.predict_known_class(far) == UNKNOWN_LABEL))
+
+    def test_legacy_scores_unchanged_by_labelling(self):
+        X_train, y_train, X_cal, y_cal = _data()
+        detector = MahalanobisOpenSetDetector(method="legacy").fit(X_train, y_train, X_cal, y_cal)
+        pooled = detector.distributions_[0]
+        reference = _distances(X_cal, pooled.location, pooled.precision) / pooled.threshold
+        np.testing.assert_array_equal(detector.score_samples(X_cal), reference)
 
 
 class ScoreAndPredictTests(unittest.TestCase):
