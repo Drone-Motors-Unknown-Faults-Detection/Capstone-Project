@@ -56,7 +56,7 @@ mean用保存的已round6指標；std用ddof=1，單列std設0；輸出再round6
 
 ```bash
 uv run --locked python -m experiments.aggregate_exp6 --help
-uv run --locked python -m experiments.aggregate_exp6 --manifest output/exp6_formal_matrix/matrix_manifest.json --output-root output/exp6_formal_matrix/recompute_001
+uv run --locked python -m experiments.aggregate_exp6 --manifest output/exp6_formal_matrix/aero_2026-10-23/matrix_manifest.json --output-root output/exp6_formal_matrix/aero_2026-10-23/recompute_001
 ```
 
 選未使用的recompute_001；預設會寫manifest旁的aggregate/（PARTIAL寫aggregate_partial/），**會覆寫同名檔**，不要對封存直接使用預設。API aggregate(manifest_path)只算dict；write_aggregate(manifest_path,output_root)寫檔；main提供CLI，沒有run(pools)、Web重算按鈕或續跑機制。Web唯讀讀原正式aggregate，新根不會自動部署到頁面。
@@ -65,7 +65,7 @@ uv run --locked python -m experiments.aggregate_exp6 --manifest output/exp6_form
 
 writer是[write_aggregate](../../src/experiments/aggregate_exp6.py)，寫五檔：aggregate.json、condition_summary.csv、macro_summary.csv、paired_differences.csv與aggregate.md。aggregate.md雖是Markdown，確由程式生成，不是手寫報告。main經`setup_run("exp6_aggregate", make_output=False)`寫`logs/exp6_aggregate/{ts}.log`，執行環境記在該log裡。
 
-預期同來源重算數字一致，paired鍵對齊，缺件明確失敗；工況、方法、seed都依名稱排序，同一輸入的輸出逐位元組相同。它只能核對摘要算術，不證明逐樣本預測、錄製獨立、fresh test或最佳部署方法。未知正類比例不同時不直接比accuracy／AUPR；不同指紋／split／cal策略不可混為方法提升。完整舊平均查[固定正式aggregate](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_formal_matrix/aggregate)，不人工複製分數表。
+預期同來源重算數字一致，paired鍵對齊，缺件明確失敗；工況、方法、seed都依名稱排序，同一輸入的輸出逐位元組相同。它只能核對摘要算術，不證明逐樣本預測、錄製獨立、fresh test或最佳部署方法。未知正類比例不同時不直接比accuracy／AUPR；不同指紋／split／cal策略不可混為方法提升。現行彙總是 [output/exp6_formal_matrix/aero_2026-10-23/aggregate/](../../output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md)（讀 `data`，指紋 `1b55b847…`）；`output/exp6_formal_matrix/aggregate/` 是 `data/formal_local`（指紋 `81c9…`）的歷史彙總。兩者指紋不同，不混算。
 
 ## 依據與程式碼
 

@@ -76,6 +76,8 @@ regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配�
 
 score是無因次偏離，學會前拒絕率與學會後接受率分開；接受為任一known不等於自身配置分類正確，更不代表健康恢復。EWMA／CUSUM／latency單位按筆解讀，沒有秒級事件真值、損壞百分比或RUL。
 
+2026-10-23在Aero（aero01）以commit `46ed4d5`、`--data-root data`（資料指紋`1b55b847…`）跑上方兩支CLI。[navigation_regression/2026-10-23-01-37-17](../../output/navigation_regression/2026-10-23-01-37-17/summary.json)：Mahalanobis與k-NN各595組配對、0筆不一致，兩法都在故障到達75筆時出現候選，確認的群為5screws（51筆、purity 1、`action=learned`）；`source_unchanged=true`。規則工具的輸出在[navigation_data_contract/2026-10-23-01-37-14](../../output/navigation_data_contract/2026-10-23-01-37-14/)。
+
 預期匿名／busy／過期確認等防護與配對數值一致；不一致要留失敗紀錄。這是工程驗收，不是部署可靠性／獨立盲測。研究分支另有未進 main 的 runner，手冊標成「分支舊編號」，不是本實驗十三。[來源索引](../navigation/exp13_來源索引.md)只連到固定研究提交。本頁不能跑那些研究。導覽的[七問表](../navigation/exp13_實驗總覽.md)由guide.js解析，維持原24列×8欄，不把本手冊重寫成另一張分數表。
 
 ## 來源與程式碼

@@ -36,7 +36,7 @@ expected_run_matrix要求掃描九工況，預設seed為42／123／2026、方法
 
 ```bash
 uv run --locked python -m experiments.exp6_matrix --help
-uv run --locked python -m experiments.exp6_matrix --data-root data/formal_local --output-root output/exp6_formal_matrix/manual_run_001 --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
+uv run --locked python -m experiments.exp6_matrix --data-root data --output-root output/exp6_formal_matrix/manual_run_001 --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
 ```
 
 manual_run_001只是範例，已存在就換新名稱，不能覆寫封存。API實際為run_matrix(data_root,output_root,seeds=(42,123,2026),methods=("mahalanobis","knn"),resume=True)，沒有獨立run(pools)介面或Web重跑按鈕。網頁只能讀既有結果。
@@ -64,7 +64,9 @@ main經`setup_run("exp6_formal_matrix", make_output=False)`寫`logs/exp6_formal_
 - runs/{run_id}/results.csv：相同單列的表格。
 - runs/{run_id}/run.log：開始、狀態與錯誤；duration_seconds含整次九工況運算，不等於該列單獨推論耗時。
 
-completed只表示本工具54格完成，unknown召回／健康接受等解釋見[正式版](exp6_formal_benchmark.md#輸出怎麼讀)。三seed的切分敏感度不能當motor母體信賴區間。預期54完成、0失敗且各列可追溯；來源／參數完整防護仍不足時，不宣稱研究可靠性通過。完整舊包見[固定矩陣](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_formal_matrix)。
+completed只表示本工具54格完成，unknown召回／健康接受等解釋見[正式版](exp6_formal_benchmark.md#輸出怎麼讀)。三seed的切分敏感度不能當motor母體信賴區間。預期54完成、0失敗且各列可追溯；來源／參數完整防護仍不足時，不宣稱研究可靠性通過。
+
+2026-10-23 在 Aero 以 commit `46ed4d5`、`--data-root data`（資料指紋 `1b55b847…`）跑完 54 格（[matrix_manifest.json](../../output/exp6_formal_matrix/aero_2026-10-23/matrix_manifest.json)，54 completed、0 failed）：健康接受率（known_accuracy）27 個工況-seed 列等權平均，LW 94.66% ± 3.97（最低 87.50%，T3／6000 seed 42）、k-NN 94.67% ± 4.38（最低 84.38%，T1／6000 seed 42），AUROC 與未知召回都是 1，見 [aggregate.md](../../output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md)。舊版 94.62% ± 4.01／94.57% ± 4.39 是 `data/formal_local` 的歷史結果（commit 07582ff、Python 3.12.14、無主機紀錄，[舊 aggregate](../../output/exp6_formal_matrix/aggregate/aggregate.md)）；`formal_local` 由階段 ZIP 物化，不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
 
 ## 方法來源與程式碼
 
