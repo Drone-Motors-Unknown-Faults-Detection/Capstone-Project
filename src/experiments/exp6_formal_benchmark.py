@@ -41,7 +41,13 @@ from sklearn.preprocessing import RobustScaler
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
-from core.openset import OpenSetMethod, canonical_openset_method, create_openset_detector, resolve_openset_config
+from core.openset import (
+    OpenSetMethod,
+    canonical_openset_method,
+    create_openset_detector,
+    fpr_at_tpr,
+    resolve_openset_config,
+)
 from core.runner import save_json
 from core.provenance import CONTENT_VERSION, capture_source, write_private_context
 
@@ -107,8 +113,7 @@ def _fpr_at_tpr95(known_scores: np.ndarray, unknown_scores: np.ndarray) -> float
     predictions or calibration.  It is the standard post-hoc ROC operating
     point, calculated from held-out scores solely to report the metric.
     """
-    operating_threshold = float(np.quantile(unknown_scores, 0.05))
-    return float((known_scores >= operating_threshold).mean())
+    return fpr_at_tpr(known_scores, unknown_scores, 0.95)
 
 
 def _validate_datasets(datasets: list[dict], data_root: Path, require_nine: bool) -> None:
