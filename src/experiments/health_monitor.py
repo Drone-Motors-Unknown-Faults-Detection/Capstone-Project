@@ -39,6 +39,7 @@ def run(
     seed: int = 42,
     openset_method: str = "mahalanobis",
     mahalanobis_method: str = "ledoit_wolf",
+    confidence: float = 0.95,
     knn_neighbors: int = 5,
     motor_id: str | None = None,
     session_id: str | None = None,
@@ -50,7 +51,7 @@ def run(
         event["window"]
         for event in iter_run(
             data_root, motor, rpm, config, seed=seed, openset_method=openset_method,
-            mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors,
+            mahalanobis_method=mahalanobis_method, confidence=confidence, knn_neighbors=knn_neighbors,
             motor_id=motor_id, session_id=session_id, max_windows=max_windows,
             require_identity=require_identity,
         )
@@ -67,6 +68,7 @@ def iter_run(
     seed: int = 42,
     openset_method: str = "mahalanobis",
     mahalanobis_method: str = "ledoit_wolf",
+    confidence: float = 0.95,
     knn_neighbors: int = 5,
     motor_id: str | None = None,
     session_id: str | None = None,
@@ -92,6 +94,7 @@ def iter_run(
         np.zeros(len(split.cal), dtype=int),
         openset_method=openset_method,
         mahalanobis_method=mahalanobis_method,
+        confidence=confidence,
         knn_neighbors=knn_neighbors,
     )
     monitor = SessionTrajectoryMonitor(model, require_identity=require_identity)
@@ -125,6 +128,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--openset-method", default="mahalanobis")
     parser.add_argument("--method", dest="mahalanobis_method", default="ledoit_wolf")
+    parser.add_argument("--confidence", type=float, default=0.95)
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--motor-id")
     parser.add_argument("--session-id")
@@ -146,6 +150,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         seed=args.seed,
         openset_method=args.openset_method,
         mahalanobis_method=args.mahalanobis_method,
+        confidence=args.confidence,
         knn_neighbors=args.knn_neighbors,
         motor_id=args.motor_id,
         session_id=args.session_id,
