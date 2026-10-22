@@ -23,7 +23,8 @@ from core.data import HEALTHY
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.openset import SUPPORTED_OPENSET_METHODS
-from core.runner import add_dataset_args, resolve_dataset, save_json
+from core.runner import (add_dataset_args, run_dataset, save_json,
+                         execution_context, finish_execution)
 
 
 def _fpr_at_tpr95(y_true: np.ndarray, scores: np.ndarray) -> float:
@@ -40,7 +41,10 @@ def evaluate_method(
     confidence: float = 0.95,
     mahalanobis_method: str = "ledoit_wolf",
     knn_neighbors: int = 5,
+    source_context=None,
 ) -> tuple[dict, list[dict]]:
+    provenance = execution_context(pools, source_context, seed=seed, confidence=confidence,
+        method=mahalanobis_method, openset_method=openset_method, knn_neighbors=knn_neighbors)
     monitor = OpenSetMonitor(
         pools,
         seed=seed,
@@ -113,6 +117,7 @@ def evaluate_method(
         "unknown_precision": float(precision_score(y_true, y_pred, zero_division=0)),
         "f1_unknown": float(f1_score(y_true, y_pred, zero_division=0)),
         "class_thresholds": [c["threshold"] for c in model["classes"]],
+        "provenance": finish_execution(provenance, pools, source_context),
     }
     return result, details
 
@@ -125,6 +130,7 @@ def run(
     confidence: float = 0.95,
     mahalanobis_method: str = "ledoit_wolf",
     knn_neighbors: int = 5,
+    source_context=None,
 ) -> dict:
     results, details = [], []
     for openset_method in methods:
@@ -135,6 +141,7 @@ def run(
             confidence=confidence,
             mahalanobis_method=mahalanobis_method,
             knn_neighbors=knn_neighbors,
+            source_context=source_context,
         )
         results.append(result)
         details.extend(method_details)
@@ -193,11 +200,10 @@ def main() -> None:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args()
 
-    ds, pools = resolve_dataset(args)
-    log, paths = setup_run("openset_comparison")
-    result = run(
-        pools,
-        tuple(args.openset_methods),
+    log, paths = setup_run("openset_comparison", unique=True)
+    ds, result = run_dataset(
+        args, paths, run,
+        methods=tuple(args.openset_methods),
         seed=args.seed,
         confidence=args.confidence,
         mahalanobis_method=args.method,

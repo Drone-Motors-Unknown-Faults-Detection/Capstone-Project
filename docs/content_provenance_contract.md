@@ -30,7 +30,8 @@
 | exp1／exp2／exp3 CLI | 先 setup_run(unique=True)，再 run_dataset；環境與成功／失敗 source.json 屬同一 run |
 | exp1／exp2／exp3 run／iterator API | 可傳 load_pool_source 取得的 source_context；無上下文明記 UNVERIFIED_MEMORY；結果 provenance 綁定環境與實值設定 |
 | Web exp1／exp2／exp3 批次與串流 | 共用 core 的內容快取與來源；回傳前再驗，來源／計算失敗保存 FAILED，不回覆 done 成功 |
-| exp4／exp5／廣度 exp6／exp7／exp8／exp10／exp11／exp12 | 仍有入口級內容來源缺口；setup_run 環境與 resolved config 不等於來源鏈完整 |
+| exp4／exp7 CLI、run API；exp4 iterator；Web 相同入口 | 重用 PoolSource 與 run_dataset；exp7 各方法的結果各保存有效設定與 provenance；純記憶體 API 保留 UNVERIFIED_MEMORY |
+| exp5／廣度 exp6／exp8／exp10／exp11／exp12 | 仍有入口級內容來源缺口；setup_run 環境與 resolved config 不等於來源鏈完整 |
 | exp9 | 無獨立 runner，沿廣度 exp6 的支援範圍 |
 | exp13／首頁／guide | 有自己的契約／落盤，但不由此推論所有執行已具有完整 source_content_v2 鏈 |
 

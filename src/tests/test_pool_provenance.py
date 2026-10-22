@@ -103,6 +103,89 @@ def test_missing_dataset_cli_still_saves_environment_and_failure(tmp_path):
     assert json.loads((paths.output_dir / "source.json").read_text())["status"] == "FAILED"
 
 
+def test_polar_api_iterator_and_file_binding(tmp_path):
+    from experiments.exp4_polar_map import run, iter_run
+    from tests.test_stream_integration import pools as make_pools
+    from core.feature_schema import SCHEMAS
+    import pandas as pd
+
+    root, dataset = fixture(tmp_path)
+    for config, values in make_pools().items():
+        target = dataset / config
+        target.mkdir(exist_ok=True)
+        pd.DataFrame(values, columns=SCHEMAS["historical_clean_v1"]).to_csv(
+            target / "T1_Group_feature_data_clean.csv", index=False)
+    pools, context = load_pool_source(root, dataset)
+    batch = run(pools, parts="a", source_context=context)
+    streamed = list(iter_run(pools, parts="a", source_context=context))[-1]["result"]
+    assert batch["provenance"]["source"]["row_mapping"] == streamed["provenance"]["source"]["row_mapping"]
+    assert batch["geometry"] == streamed["geometry"]
+    pools["8screws"][0, 0] += 1
+    with pytest.raises(ProvenanceError):
+        run(pools, parts="a", source_context=context)
+
+
+@pytest.mark.parametrize("method", ["mahalanobis", "knn"])
+def test_comparison_result_records_actual_method_and_memory_status(tmp_path, method):
+    from experiments.compare_openset import run
+
+    root, dataset = fixture(tmp_path)
+    pools, context = load_pool_source(root, dataset)
+    result = run(pools, methods=(method,), source_context=context)["results"][0]
+    assert result["provenance"]["source"]["status"] == "VERIFIED"
+    assert result["provenance"]["resolved_config"]["openset_method"] == method
+    memory = run(pools, methods=(method,))["results"][0]
+    assert memory["provenance"]["source"]["status"] == "UNVERIFIED_MEMORY"
+    for row in (result, memory):
+        row.pop("provenance")
+    assert result == memory
+
+
+@pytest.mark.parametrize("name", ["exp4_polar_map", "compare_openset"])
+def test_polar_and_comparison_match_current_scientific_baseline(name):
+    import importlib
+    from tests.test_stream_integration import pools
+    from web.experiments import jsonable
+
+    root = Path(__file__).resolve().parents[2]
+    text = subprocess.check_output([
+        "git", "show", f"c38b51a59700c9ea7a0ee7378062d1de1d4bf7c2:src/experiments/{name}.py"], cwd=root)
+    old = types.ModuleType("_source_pair_" + name)
+    exec(compile(text, name, "exec"), old.__dict__)
+    current = importlib.import_module("experiments." + name)
+    expected, actual = jsonable(old.run(pools())), jsonable(current.run(pools()))
+    rows = actual["results"] if name == "compare_openset" else [actual]
+    for row in rows:
+        assert row.pop("provenance")["source"]["status"] == "UNVERIFIED_MEMORY"
+    assert actual == expected
+
+
+@pytest.mark.parametrize("exp_id", ["exp4", "exp7"])
+def test_web_polar_and_comparison_receive_actual_source(tmp_path, exp_id):
+    from web.experiments import ExperimentRunner
+
+    root, _ = fixture(tmp_path)
+    runner = ExperimentRunner(discover_datasets(root), str(root))
+    module = "exp4_polar_map" if exp_id == "exp4" else "compare_openset"
+    with patch("experiments." + module + ".run", return_value={}) as callback:
+        runner.run(exp_id, {})
+    assert callback.call_args.kwargs["source_context"].public["status"] == "VERIFIED"
+
+
+@pytest.mark.parametrize("name", ["exp4_polar_map", "compare_openset"])
+def test_polar_and_comparison_cli_load_failure_is_same_run(tmp_path, name):
+    import importlib
+
+    module = importlib.import_module("experiments." + name)
+    with patch("sys.argv", [name, "--data-root", str(tmp_path / "missing")]):
+        with pytest.raises(SystemExit):
+            module.main()
+    program = "exp4_polar_map" if name == "exp4_polar_map" else "openset_comparison"
+    source = next(Path("output").glob(program + "/*/source.json"))
+    assert json.loads(source.read_text())["status"] == "FAILED"
+    assert (source.parent / "environment.json").is_file()
+
+
 def test_existing_config_resolver_and_memory_context():
     pools = {"8screws": np.zeros((3, 105))}
     before = copy.deepcopy(pools)

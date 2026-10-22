@@ -297,7 +297,7 @@ class ExperimentRunner:
         try:
             yield
         except Exception as exc:
-            if exp_id in {"exp1", "exp2", "exp3"}:
+            if exp_id in {"exp1", "exp2", "exp3", "exp4", "exp7"}:
                 self._save(exp_id, {"experiment": exp_id, "params": params,
                     "status": "FAILED", "error_type": type(exc).__name__,
                     "environment": collect_environment(),
@@ -333,7 +333,7 @@ class ExperimentRunner:
         k = opts.get("knn_neighbors", 5)
         seed = p["seed"]
         method = p.get("openset_method", "mahalanobis")
-        if exp_id in {"exp1", "exp2", "exp3"}:
+        if exp_id in {"exp1", "exp2", "exp3", "exp4", "exp7"}:
             pools, source_context = load_pool_source(
                 self.data_root, self._find_dataset(p["dataset"])["path"], cache=self._source_cache)
         if exp_id == "exp1":
@@ -360,7 +360,7 @@ class ExperimentRunner:
                        **kwargs)
         if exp_id == "exp4":
             run = getattr(importlib.import_module("experiments.exp4_polar_map"), entry)
-            return run(self._pools(p["dataset"]), seed=seed)
+            return run(pools, seed=seed, source_context=source_context)
         if exp_id == "exp5":
             run = getattr(importlib.import_module("experiments.exp5_cross_condition"), entry)
             return run(self.data_root, seed=seed, confidence=conf, method=mahal)
@@ -374,8 +374,8 @@ class ExperimentRunner:
                        knn_neighbors=k, require_nine=False)
         if exp_id == "exp7":
             run = getattr(importlib.import_module("experiments.compare_openset"), entry)
-            return run(self._pools(p["dataset"]), seed=seed, confidence=conf,
-                       mahalanobis_method=mahal, knn_neighbors=k)
+            return run(pools, seed=seed, confidence=conf,
+                       mahalanobis_method=mahal, knn_neighbors=k, source_context=source_context)
         if exp_id == "exp8":
             run = getattr(importlib.import_module("experiments.health_index_benchmark"), entry)
             return run(self.data_root, seed=seed, openset_method=method,
