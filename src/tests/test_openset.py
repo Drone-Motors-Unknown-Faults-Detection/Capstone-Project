@@ -251,5 +251,30 @@ class ResolvedConfigTests(unittest.TestCase):
         np.testing.assert_array_equal(monitor.detector.score_samples(scaled), direct.score_samples(scaled))
 
 
+class FprAtTprTests(unittest.TestCase):
+    """#235：三支 runner 共用的 ROC 定義。"""
+
+    def test_separable_scores_give_zero(self):
+        from core.openset import fpr_at_tpr
+
+        self.assertEqual(fpr_at_tpr(np.array([0.2, 0.4]), np.array([2.0, 3.0, 4.0, 5.0])), 0.0)
+
+    def test_ties_at_threshold_count_as_false_positive(self):
+        from core.openset import fpr_at_tpr
+
+        # 需要接受分數 2.0 的 unknown 才達 TPR 100%，同分的 known 也被一起判為 unknown
+        self.assertEqual(fpr_at_tpr(np.array([2.0, 0.1]), np.array([2.0, 3.0]), tpr=1.0), 0.5)
+
+    def test_runners_share_definition(self):
+        from core.openset import fpr_at_tpr
+        from experiments import compare_openset, exp6_formal_benchmark
+
+        known, unknown = np.array([0.5, 1.5, 2.5]), np.array([1.0, 2.0, 3.0, 4.0])
+        expected = fpr_at_tpr(known, unknown)
+        self.assertEqual(exp6_formal_benchmark._fpr_at_tpr95(known, unknown), expected)
+        y = np.r_[np.zeros(3), np.ones(4)]
+        self.assertEqual(compare_openset._fpr_at_tpr95(y, np.r_[known, unknown]), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

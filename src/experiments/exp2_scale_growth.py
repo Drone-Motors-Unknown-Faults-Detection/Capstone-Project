@@ -248,6 +248,7 @@ class ScaleGrowthSession:
             return result
         if len(indices) < 5:
             result["action"] = "insufficient"
+            self._drop_quarantine(set(indices))  # 不清掉會在下一筆隔離樣本又分出同一群（#236）
             return result
         result["action"] = "learned"
         result["label"] = self.monitor.add_observed(name, samples)
