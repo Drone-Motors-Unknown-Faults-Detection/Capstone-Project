@@ -1,0 +1,65 @@
+{
+  "schema_version": 1,
+  "experiment": "health_index_benchmark",
+  "status": "completed",
+  "data_root": "data",
+  "seeds": [
+    42,
+    123,
+    2026
+  ],
+  "methods": [
+    "mahalanobis",
+    "knn"
+  ],
+  "expected_runs": 6,
+  "expected_conditions_per_run": 9,
+  "runs": [
+    {
+      "run_id": "seed_42_mahalanobis",
+      "seed": 42,
+      "method": "mahalanobis",
+      "status": "completed",
+      "path": "seed_42/mahalanobis.json"
+    },
+    {
+      "run_id": "seed_42_knn",
+      "seed": 42,
+      "method": "knn",
+      "status": "completed",
+      "path": "seed_42/knn.json"
+    },
+    {
+      "run_id": "seed_123_mahalanobis",
+      "seed": 123,
+      "method": "mahalanobis",
+      "status": "completed",
+      "path": "seed_123/mahalanobis.json"
+    },
+    {
+      "run_id": "seed_123_knn",
+      "seed": 123,
+      "method": "knn",
+      "status": "completed",
+      "path": "seed_123/knn.json"
+    },
+    {
+      "run_id": "seed_2026_mahalanobis",
+      "seed": 2026,
+      "method": "mahalanobis",
+      "status": "completed",
+      "path": "seed_2026/mahalanobis.json"
+    },
+    {
+      "run_id": "seed_2026_knn",
+      "seed": 2026,
+      "method": "knn",
+      "status": "completed",
+      "path": "seed_2026/knn.json"
+    }
+  ],
+  "started_at_utc": "2026-10-22T17:34:15.343870+00:00",
+  "completed_runs": 6,
+  "failed_runs": 0,
+  "finished_at_utc": "2026-10-22T17:34:22.154055+00:00"
+}

@@ -1,0 +1,4 @@
+2026-10-23 01:33:59 | INFO    | Logger initialized: exp6_formal_api
+2026-10-23 01:33:59 | INFO    | log_file=logs/exp6_formal_api/2026-10-23-01-33-59.log
+2026-10-23 01:33:59 | INFO    | output_dir=output/exp6_formal_api/2026-10-23-01-33-59
+2026-10-23 01:34:00 | INFO    | T3_6000rpm_seed123_knn：完成

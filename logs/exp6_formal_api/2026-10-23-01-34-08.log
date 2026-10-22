@@ -1,0 +1,6 @@
+2026-10-23 01:34:08 | INFO    | Logger initialized: exp6_formal_api
+2026-10-23 01:34:08 | INFO    | log_file=logs/exp6_formal_api/2026-10-23-01-34-08.log
+2026-10-23 01:34:08 | INFO    | output_dir=output/exp6_formal_api/2026-10-23-01-34-08
+2026-10-23 01:34:08 | INFO    | T3_8000rpm_seed2026_knn：完成
+2026-10-23 01:34:08 | INFO    | CSV cache：命中 477、未命中 9
+2026-10-23 01:34:08 | INFO    | 矩陣 completed：完成 54／54

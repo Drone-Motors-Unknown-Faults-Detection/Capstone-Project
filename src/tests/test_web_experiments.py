@@ -98,7 +98,12 @@ class CommittedTests(unittest.TestCase):
         self.assertEqual(data["rows"], 54)
         self.assertEqual(len(data["by_condition"]), 18)
         self.assertIsInstance(data["by_condition"][0]["auroc_mean"], float)
+        self.assertEqual(data["data_version"], "formal_local 歷史結果")
         json.dumps(data, allow_nan=False)
+
+    def test_exp6_card_reads_aero_rerun(self):
+        data = self.runner.committed("exp6_formal_matrix")
+        self.assertIn("aero_2026-10-23", data["path"])
 
     def test_unknown_name(self):
         with self.assertRaises(ValueError):
