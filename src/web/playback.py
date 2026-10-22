@@ -127,10 +127,14 @@ def _render(key: str, v, depth: int, out: list[str]) -> None:
     out.append(f"{label}{_fmt(v)}")
 
 
+def _exp12_answer(result, budget: int, source: dict | None) -> dict:
+    return build_exp12(result, budget, source, ANSWER_SCHEMA)
+
+
 def result_contract(result, budget: int, exp_id: str | None, source: dict | None) -> tuple[str, dict] | None:
     """實驗十二／實驗二有程式核算的契約（鍵名與契約內容）；其他實驗回 None 走一般摘要。"""
     if exp_id == "exp12":
-        return "matrix_answer", build_exp12(result, budget, source, ANSWER_SCHEMA)
+        return "matrix_answer", _exp12_answer(result, budget, source)
     if exp_id == "exp2":
         return "metric_contract", exp2_metric_contract(result, budget)
     return None
