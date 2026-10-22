@@ -16,7 +16,7 @@
 
 ## 入口與支援範圍
 
-支援 `core.provenance.run/main`、`core.formal_data.run/main` 與 `experiments.exp6_formal_benchmark.run/main`。其他記憶體pools API、多數runner與統一resolved設定不由本規則保證；缺口見 [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46) 與 [#47](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/47)。
+支援 `core.provenance.run/main`、`core.formal_data.run/main` 與 `experiments.exp6_formal_benchmark.run/main`。其他記憶體pools API 與多數runner不由本規則保證來源 sidecar；缺口見 [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46)。Open Set 入口的 resolved config 由 `core.openset.resolve_openset_config()`（`openset_config_v1`）產生並寫進各入口輸出（見 [實驗總覽的共用設定解析](experiments/README.md)），但那是設定紀錄，不是本規則的內容來源清冊。
 
 ```bash
 uv run --locked python -m core.provenance --data-root data/formal_local
