@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Sequence
 
 from core.logger import setup_run
+from core.runtime_environment import git_head
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SOURCE = ROOT / "reports/exp8_health_index_results"
@@ -355,7 +356,8 @@ def run(source_root: Path | str = DEFAULT_SOURCE, contract_path: Path | str = DE
                 packages[name] = version(name)
             except PackageNotFoundError:
                 packages[name] = "未安裝"
-        sha = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
+        # 沒有 .git 或 git 指令時記 None，不讓重算整個失敗（#269 C16）
+        sha = git_head(ROOT)
         audit = {"status": "COMPLETED", "comparison_status": "MATCH" if all(row["matches"] for row in differences) else "DIFFERENT",
                  "runs": 6, "rows": 54, "condition_groups": len(table), "compared_fields": len(differences),
                  "mismatches": sum(not row["matches"] for row in differences), "source_unchanged": True,
