@@ -531,7 +531,12 @@ def main() -> None:
 
     import pandas as pd
 
-    pd.DataFrame(result["stages"]).to_csv(paths.output_dir / "stages.csv", index=False)
+    frame = pd.DataFrame(result["stages"])
+    # 未學成段缺值時 pandas 會把整數欄轉成 float（215.0）；改用可空整數寫出（#256）
+    for column in ("samples_to_candidate", "cluster_size", "pruned", "own_holdout_n", "eval_n", "known_after"):
+        if column in frame:
+            frame[column] = frame[column].astype("Int64")
+    frame.to_csv(paths.output_dir / "stages.csv", index=False)
     save_json(paths.output_dir / "summary.json", result)
 
     log.info(f"{'注入配置':<14}{'發現(筆)':>9}{'叢集':>6}{'純度':>8}{'自類準確':>10}{'健康保持':>10}{'已知數':>8}")

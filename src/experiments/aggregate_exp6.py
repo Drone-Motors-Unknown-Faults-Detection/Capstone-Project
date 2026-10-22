@@ -248,7 +248,7 @@ def write_aggregate(manifest_path: Path | str, output_root: Path | str | None = 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--manifest", default="output/exp6_formal_matrix/matrix_manifest.json")
+    parser.add_argument("--manifest", required=True, help="exp6_matrix 輸出目錄下的 matrix_manifest.json（#253）")
     parser.add_argument("--output-root")
     parser.add_argument("--allow-partial", action="store_true", help="不符規範的格列入 rejected_runs，status 寫 PARTIAL")
     args = parser.parse_args(argv)
