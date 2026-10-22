@@ -15,6 +15,7 @@ import pandas as pd
 from core.data import PoolCache
 from core.logger import setup_run
 from core.openset import SUPPORTED_OPENSET_METHODS, canonical_openset_method
+from experiments.exp6_formal_benchmark import dataset_fingerprint
 from experiments.health_index_benchmark import FORMAL_CONDITION_COUNT, run
 
 
@@ -58,11 +59,14 @@ def run_matrix(
     output_path = Path(output_root).expanduser().resolve()
     canonical_methods = tuple(canonical_openset_method(method) for method in methods)
     expected = expected_run_ids(seeds, canonical_methods)
+    # 續跑只沿用同一份資料內容的結果：指紋寫進 manifest，每格 JSON 的指紋也要相同（#269 C06）
+    fingerprint = dataset_fingerprint(data_root)
     manifest = {
         "schema_version": 1,
         "experiment": "health_index_benchmark",
         "status": "running",
         "data_root": Path(data_root).name,
+        "dataset_fingerprint": fingerprint,
         "seeds": [int(seed) for seed in seeds],
         "methods": list(canonical_methods),
         "expected_runs": len(expected),
@@ -87,8 +91,10 @@ def run_matrix(
                         and cached.get("seed") == int(seed)
                         and cached.get("method") == method
                         and cached.get("formal_condition_count") == FORMAL_CONDITION_COUNT
+                        and cached.get("dataset_fingerprint") == fingerprint
                     ):
-                        entry.update({"status": "completed", "resumed": True, "path": str(json_path.relative_to(output_path))})
+                        entry.update({"status": "completed", "resumed": True, "dataset_fingerprint": fingerprint,
+                                      "path": str(json_path.relative_to(output_path))})
                         if log is not None:
                             log.info(f"{run_id}：沿用既有結果")
                         manifest["runs"].append(entry)
@@ -98,9 +104,12 @@ def run_matrix(
                     pass
             try:
                 result = run(data_root, seed=int(seed), openset_method=method, require_nine=True, pool_cache=pool_cache)
+                if result.get("dataset_fingerprint") != fingerprint:
+                    raise ValueError("dataset_fingerprint changed during the matrix run")
                 _atomic_json(json_path, result)
                 pd.DataFrame(result["rows"]).to_csv(csv_path, index=False)
-                entry.update({"status": "completed", "path": str(json_path.relative_to(output_path))})
+                entry.update({"status": "completed", "dataset_fingerprint": fingerprint,
+                              "path": str(json_path.relative_to(output_path))})
                 if log is not None:
                     log.info(f"{run_id}：完成 {len(result['rows'])} 列")
             except Exception as exc:
