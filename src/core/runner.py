@@ -13,7 +13,7 @@ import numpy as np
 
 from core.data import discover_datasets, load_pools
 from core.openset import SUPPORTED_OPENSET_METHODS, resolve_openset_config
-from core.provenance import load_pool_source, source_for_pools
+from core.provenance import capture_source, load_pool_source, ProvenanceError, source_for_pools
 from core.runtime_environment import collect_environment
 
 
@@ -101,6 +101,64 @@ def run_dataset(args, paths, callback, **parameters):
 def finish_execution(context, pools, source_context=None):
     """回傳結果前再驗來源；保留執行開始時的環境快照。"""
     return {**context, "source": source_for_pools(pools, source_context)}
+
+
+class RootSources:
+    """同一次跨工況執行的內容版本；不參與切分或消耗模型 RNG。"""
+
+    def __init__(self, data_root):
+        self.root = Path(data_root).resolve()
+        self.initial, _ = capture_source(self.root)
+        self.loaded = {}
+
+    def load(self, dataset):
+        key = f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}"
+        if key in self.loaded:
+            raise ProvenanceError("跨工況來源鍵重複")
+        pools, context = load_pool_source(self.root, dataset["path"])
+        if context.public["data_version"] != self.initial["data_version"]:
+            raise ProvenanceError("跨工況載入混用資料版本")
+        self.loaded[key] = (pools, context)
+        return pools
+
+    def load_all(self):
+        return {f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}": self.load(ds)
+                for ds in discover_datasets(self.root)}
+
+    def finish(self):
+        current, _ = capture_source(self.root)
+        if current != self.initial:
+            raise ProvenanceError("跨工況執行期間來源變動")
+        if not self.loaded:
+            raise ProvenanceError("沒有實際載入的工況，不能宣稱來源已驗證")
+        return {**current, "status": "VERIFIED",
+                "datasets": {key: source_for_pools(pools, context)
+                             for key, (pools, context) in self.loaded.items()}}
+
+
+def run_root_sources(callback, data_root, *, output_dir=None, **parameters):
+    """root 入口共用前後核對；API 不另建 run，CLI 在 setup_run 後傳輸出目錄。"""
+    target = Path(output_dir) / "source.json" if output_dir is not None else None
+    source = {"status": "LOADING", "data_version": "UNKNOWN",
+              "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}
+    environment = collect_environment()
+    if target is not None:
+        save_json(target, source)
+    try:
+        tracker = RootSources(data_root)
+        result = callback(data_root, source_run=tracker, **parameters)
+        source = tracker.finish()
+        result["provenance"] = {"schema_version": "experiment_provenance_v1",
+                                "source": source, "environment": environment,
+                                "parameters": parameters,
+                                "implementation": callback.__module__}
+    except (Exception, SystemExit) as exc:
+        if target is not None:
+            save_json(target, {**source, "status": "FAILED", "error_type": type(exc).__name__})
+        raise
+    if target is not None:
+        save_json(target, source)
+    return result
 
 
 def save_json(path: Path, obj) -> None:

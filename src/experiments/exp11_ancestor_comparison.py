@@ -18,10 +18,10 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, discover_datasets, load_pools
+from core.data import HEALTHY, discover_datasets
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import save_json
+from core.runner import run_root_sources, save_json
 
 _ANCESTOR_KNOWN_CANDIDATES = ["8screws", "1screw", "1screws", "2screws", "3screws", "4screws"]
 _ANCESTOR_UNKNOWN_CANDIDATES = ["5screws", "6screws", "7screws", "3_14screws", "4_146screws"]
@@ -129,12 +129,17 @@ def _paired_wilcoxon(rows: list[dict], methods: tuple[str, ...]) -> dict | None:
 
 
 def run(data_root: str = "data", seeds: tuple[int, ...] = (42, 123, 2026),
-        confidence: float = 0.95, methods: tuple[str, ...] = ("legacy", "ledoit_wolf")) -> dict:
+        confidence: float = 0.95, methods: tuple[str, ...] = ("legacy", "ledoit_wolf"), *, output_dir=None) -> dict:
+    return run_root_sources(_run, data_root, output_dir=output_dir, seeds=seeds,
+                            confidence=confidence, methods=methods)
+
+
+def _run(data_root, seeds, confidence, methods, *, source_run) -> dict:
     datasets = discover_datasets(data_root)
     rows: list[dict] = []
     for ds in datasets:
         key = f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
-        pools = load_pools(ds["path"])
+        pools = source_run.load(ds)
         unknown_a = [c for c in _ANCESTOR_UNKNOWN_CANDIDATES if c in pools]
 
         for seed in seeds:
@@ -195,9 +200,9 @@ def main() -> None:
     seeds = tuple(int(s) for s in args.seeds.split(","))
     methods = tuple(args.methods.split(","))
 
-    log, paths = setup_run("exp11_ancestor_comparison")
+    log, paths = setup_run("exp11_ancestor_comparison", unique=True)
     log.info(f"實驗十一：原始論文對照（seeds={seeds}, methods={methods}）")
-    result = run(args.data_root, seeds, args.confidence, methods)
+    result = run(args.data_root, seeds, args.confidence, methods, output_dir=paths.output_dir)
     save_json(paths.output_dir / "summary.json", result)
 
     for protocol, per_method in result["summary"].items():

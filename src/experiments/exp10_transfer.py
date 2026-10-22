@@ -19,18 +19,14 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, discover_datasets, load_pools
+from core.data import HEALTHY
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import save_json
+from core.runner import run_root_sources, save_json
 
 
 def _dataset_key(ds: dict) -> str:
     return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
-
-
-def _load_all(data_root: str) -> dict[str, dict[str, np.ndarray]]:
-    return {_dataset_key(ds): load_pools(ds["path"]) for ds in discover_datasets(data_root)}
 
 
 def _draw_support(healthy_pool: np.ndarray, n: int, rng: np.random.Generator) -> tuple[np.ndarray, np.ndarray]:
@@ -53,8 +49,13 @@ def _metrics(healthy_scores: np.ndarray, fault_scores: np.ndarray) -> dict:
 
 
 def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95,
-        method: str = "ledoit_wolf", n_values: tuple[int, ...] = (10, 25, 50)) -> dict:
-    all_pools = _load_all(data_root)
+        method: str = "ledoit_wolf", n_values: tuple[int, ...] = (10, 25, 50), *, output_dir=None) -> dict:
+    return run_root_sources(_run, data_root, output_dir=output_dir, seed=seed,
+                            confidence=confidence, method=method, n_values=n_values)
+
+
+def _run(data_root, seed, confidence, method, n_values, *, source_run) -> dict:
+    all_pools = source_run.load_all()
     keys = sorted(all_pools)
     rng = np.random.default_rng(seed)
     rows: list[dict] = []
@@ -139,9 +140,10 @@ def main() -> None:
 
     n_values = tuple(int(v) for v in args.n_values.split(","))
 
-    log, paths = setup_run("exp10_transfer")
+    log, paths = setup_run("exp10_transfer", unique=True)
     log.info(f"實驗十：遷移學習（N={n_values}, method={args.method}, seed={args.seed}）")
-    result = run(args.data_root, args.seed, args.confidence, args.method, n_values)
+    result = run(args.data_root, args.seed, args.confidence, args.method, n_values,
+                 output_dir=paths.output_dir)
     save_json(paths.output_dir / "summary.json", result)
 
     for strategy, rows in result["summary"].items():

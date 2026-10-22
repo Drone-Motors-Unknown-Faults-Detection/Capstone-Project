@@ -18,10 +18,10 @@ import argparse
 import numpy as np
 
 from core.confusion_summary import summarize_confusion
-from core.data import HEALTHY, config_sort_key, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, config_sort_key, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import save_json
+from core.runner import run_root_sources, save_json
 from experiments.exp11_ancestor_comparison import _ANCESTOR_UNKNOWN_CANDIDATES, build_ancestor_monitor
 
 
@@ -241,8 +241,14 @@ def _figure_tsne(tsne_by_dataset: dict[str, dict]):
 
 
 def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95,
-        perplexity: float = 30.0, tsne_max_per_class: int = 200) -> dict:
-    all_pools = {_dataset_key(ds): load_pools(ds["path"]) for ds in discover_datasets(data_root)}
+        perplexity: float = 30.0, tsne_max_per_class: int = 200, *, output_dir=None) -> dict:
+    return run_root_sources(_run, data_root, output_dir=output_dir, seed=seed,
+                            confidence=confidence, perplexity=perplexity,
+                            tsne_max_per_class=tsne_max_per_class)
+
+
+def _run(data_root, seed, confidence, perplexity, tsne_max_per_class, *, source_run) -> dict:
+    all_pools = source_run.load_all()
 
     binary = _binary_confusion(all_pools, seed, confidence)
     openset_lw = _openset_confusion(all_pools, seed, confidence, "ledoit_wolf")
@@ -271,9 +277,10 @@ def main() -> None:
     parser.add_argument("--tsne-max-per-class", type=int, default=200)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp12_confusion_tsne")
+    log, paths = setup_run("exp12_confusion_tsne", unique=True)
     log.info(f"實驗十二：混淆矩陣與 t-SNE（seed={args.seed}, perplexity={args.perplexity}）")
-    result = run(args.data_root, args.seed, args.confidence, args.perplexity, args.tsne_max_per_class)
+    result = run(args.data_root, args.seed, args.confidence, args.perplexity, args.tsne_max_per_class,
+                 output_dir=paths.output_dir)
     tsne_by_dataset = result.pop("_tsne_by_dataset")
     save_json(paths.output_dir / "summary.json", result)
 

@@ -24,10 +24,10 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, load_pools, make_split, discover_datasets
+from core.data import HEALTHY, make_split, discover_datasets
 from core.detectors import ALL_DETECTORS
 from core.logger import save_plot, setup_run
-from core.runner import save_json
+from core.runner import run_root_sources, save_json
 
 
 def _fpr_at_tpr(healthy_scores, fault_scores, tpr: float = 0.95) -> float:
@@ -35,7 +35,12 @@ def _fpr_at_tpr(healthy_scores, fault_scores, tpr: float = 0.95) -> float:
     return float((healthy_scores > thr).mean())
 
 
-def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> dict:
+def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95, *, output_dir=None) -> dict:
+    return run_root_sources(_run, data_root, output_dir=output_dir,
+                            seed=seed, confidence=confidence)
+
+
+def _run(data_root, seed, confidence, *, source_run) -> dict:
     from sklearn.metrics import roc_auc_score
 
     datasets = discover_datasets(data_root)
@@ -43,7 +48,7 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> di
     rows = []
     for ds in datasets:
         key = f"{ds['motor']}/{ds['rpm'].replace('rpm','')}"
-        pools = load_pools(ds["path"])
+        pools = source_run.load(ds)
         sp = make_split(len(pools[HEALTHY]), rng)
         X_tr = pools[HEALTHY][sp.train]
         X_ca = pools[HEALTHY][sp.cal]
@@ -112,9 +117,9 @@ def main() -> None:
     parser.add_argument("--confidence", type=float, default=0.95)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp6_osr_benchmark")
+    log, paths = setup_run("exp6_osr_benchmark", unique=True)
     log.info(f"實驗六：OSR 方法基準比較（seed={args.seed}）")
-    result = run(args.data_root, args.seed, args.confidence)
+    result = run(args.data_root, args.seed, args.confidence, output_dir=paths.output_dir)
 
     import pandas as pd
 
