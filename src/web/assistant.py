@@ -30,7 +30,7 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
 from experiments.exp3_trend import KIND_DISPLAY
-from web.presentation import data_usage_presentation, markdown, select_view, timing_presentation
+from web.presentation import data_usage_presentation, exp2_metric_presentation, markdown, select_view, timing_presentation
 from web.experiments import CATALOG
 from web.playback import ANSWER_SCHEMA, RESULT_BUDGET
 from web.assistant_budget import build_bounded_graph, fallback_answer
@@ -90,7 +90,7 @@ NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系�
 
 NO_PLAYBACK = NO_MATCH.format(what="伺服器上沒有任何實驗的執行或播放紀錄，也找不到存檔") + \
     "可以請使用者到實驗頁按「▶ 執行」或「⏵ 邊跑邊畫」。"
-STATUS_DISPLAY = {"running": "播放中", "done": "已完成", "stopped": "被停止（未完成）", "error": "失敗"}
+STATUS_DISPLAY = {"running": "播放中", "done": "已完成", "stopped": "被停止（未完成）", "error": "失敗", "incomplete": "未完整完成"}
 MODE_DISPLAY = {"stream": "⏵ 邊跑邊畫", "run": "▶ 執行", "saved": "存檔"}
 VERDICT_DISPLAY = {"healthy": "健康", "known": "已知類別", "unknown": "未知"}
 FIELD_DISPLAY = {
@@ -263,10 +263,8 @@ def _reference_number(reference: str) -> int | None:
     return experiment_number(reference.replace("\\", "/").rsplit("/", 1)[-1])
 
 
-def usage_request(snap, question, history, context):
-    """只攔截已知易錯的切分／校準問題；沿現有存檔識別與選取器。"""
-    if not _USAGE_QUESTION.search(question):
-        return None
+def _source_request(snap, question, history, context, mode):
+    """兩種語意保護共用既有識別；真正路徑核驗仍交給PlaybackTracker。"""
     context = context or {}
     match = _SAVED_REFERENCE.search(question)
     reference = match.group() if match else None
@@ -279,7 +277,7 @@ def usage_request(snap, question, history, context):
     choices = [value for value in (number, ref_number, saved_number,
                None if newest else context_number) if value is not None]
     if len(set(choices)) > 1:
-        raise ValueError("切分查詢的實驗、context與指定存檔不一致，未改取另一筆")
+        raise ValueError("查詢的實驗、context與指定存檔不一致，未改取另一筆")
     target = number or ref_number or (context_number if not newest else None)
     target = target or saved_number
     historical = None
@@ -297,11 +295,27 @@ def usage_request(snap, question, history, context):
                     break
     latest = latest_record(snap)
     target = target or (experiment_number(latest["exp_id"]) if latest else None)
-    # 實驗十二既有核算與指定示例仍由原結果介面處理。
-    if target == 12:
-        return None
-    return {"experiment": f"exp{target}" if target else "", "mode": "data_usage",
+    return {"experiment": f"exp{target}" if target else "", "mode": mode,
             "saved": reference or saved or historical}
+
+
+def usage_request(snap, question, history, context):
+    """只攔截已知易錯的切分／校準問題，實驗十二沿原核算介面。"""
+    if not _USAGE_QUESTION.search(question):
+        return None
+    request = _source_request(snap, question, history, context, "data_usage")
+    return request if request["experiment"] != "exp12" else None
+
+
+def exp2_request(snap, question, history, context):
+    if not re.search(r"結果|總結|摘要|指標|own_holdout|eval_|final_eval|matched_rate|cluster_purity|"
+                     r"外部.*接受|接受率|配置.*正確率|未知召回|AUROC|準確率", question, re.I):
+        return None
+    if (re.search(r"原理|公式|定義|方法|在做什麼|是什麼", question)
+            and not re.search(r"own_holdout|eval_|final_eval|matched_rate|cluster_purity|這次|本次|保存|結果|總結|摘要|能算|能否", question, re.I)):
+        return None
+    request = _source_request(snap, question, history, context, "exp2_metrics")
+    return request if request["experiment"] == "exp2" else None
 
 
 def _protected_record(snap, request, load_saved, load_selected):
@@ -346,10 +360,49 @@ def usage_frames(snap, request, sections, load_saved=None, load_selected=None):
         text += "\n\n來源不足：" + problem
     response_context = {"experiment": source["exp_id"], "mode": "result"}
     if request.get("saved") or source.get("saved"):
-        response_context["saved"] = request.get("saved") or source["saved"]
+        response_context["saved"] = source.get("saved") or request["saved"]
     frames = [{"event": "mode", "mode": "data_usage", "status": status,
-               "context": response_context, "sources": sources},
+               "context": response_context, "sources": sources,
+               **({"source_id": presentation["source_id"], "presentation_source": presentation["source"]} if presentation else {})},
               {"event": "tool", "name": "get_run_status", "label": "核對切分規則與保存用量", "sources": sources}]
+    if presentation:
+        frames.append({"event": "presentation", "presentation": presentation})
+    return [*frames, {"event": "delta", "text": text, "origin": "record"}]
+
+
+def exp2_frames(snap, request, load_saved=None, load_selected=None):
+    rec, problem = None, ""
+    try:
+        rec, problem = _protected_record(snap, request, load_saved, load_selected)
+        if rec and rec.get("exp_id") != "exp2":
+            raise ValueError("保存來源不是實驗二，未改取另一筆")
+    except ValueError as exc:
+        rec, problem = None, str(exc)
+    source = _record_source(rec, request)
+    contract = (rec or {}).get("metric_contract") or {}
+    presentation = None
+    if rec is None:
+        text, status = "【結果資料不足】" + problem, "missing"
+    elif rec.get("status") != "done":
+        text, status = "【結果尚未完成】不把執行中、停止或失敗紀錄當成完成結果。", "incomplete"
+    elif contract.get("version") != "exp2_metric_semantics_v2":
+        text, status = "【結果資料不足】缺少可核對的保存欄位契約，不能沿用助手舊答。", "missing"
+    else:
+        try:
+            presentation = exp2_metric_presentation(contract, source)
+            text, status = markdown(presentation), presentation["status"]
+            if len(text) > RESULT_BUDGET:
+                raise ValueError("來源與指標超出摘要預算")
+        except (ValueError, TypeError):
+            presentation = None
+            text, status = "【摘要不完整】來源與指標超出預算或格式無效；未截出數字，請核對指定原檔。", "incomplete"
+    response_context = {"experiment": "exp2", "mode": "result"}
+    if source.get("saved") or request.get("saved"):
+        response_context["saved"] = source.get("saved") or request["saved"]
+    sources = [record_label(rec)]
+    frames = [{"event": "mode", "mode": "exp2_metrics", "status": status, "context": response_context, "sources": sources,
+               **({"source_id": presentation["source_id"], "presentation_source": presentation["source"]} if presentation else {})},
+              {"event": "tool", "name": "get_run_status", "label": "讀取實驗二保存指標", "sources": sources}]
     if presentation:
         frames.append({"event": "presentation", "presentation": presentation})
     return [*frames, {"event": "delta", "text": text, "origin": "record"}]
@@ -774,7 +827,8 @@ class Assistant:
                 saved_cache[latest["exp_id"]] = latest
         try:
             request = result_request(snap, question, history or [], context)
-            usage = usage_request(snap, question, history or [], context) if request is None else None
+            metric = exp2_request(snap, question, history or [], context) if request is None else None
+            usage = usage_request(snap, question, history or [], context) if request is None and metric is None else None
         except ValueError as exc:
             yield {"event": "error", "error": str(exc)}
             return
@@ -785,6 +839,10 @@ class Assistant:
             return
         if request is not None:
             for frame in result_frames(snap, request, frozen_saved, load_selected):
+                yield frame
+            return
+        if metric is not None:
+            for frame in exp2_frames(snap, metric, frozen_saved, load_selected):
                 yield frame
             return
         if usage is not None:

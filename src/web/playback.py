@@ -166,6 +166,15 @@ def _split_params(st: dict, params: dict) -> None:
 
 def _fill_result(st: dict, payload: dict) -> None:
     st["status"] = "done"
+    result = payload.get("result")
+    states = [value for value in (payload.get("status"), result.get("status") if isinstance(result, dict) else None)
+              if value is not None]
+    for value in states:
+        normalized = value.lower() if isinstance(value, str) else "invalid"
+        if normalized not in {"done", "complete", "completed"}:
+            st["status"] = {"failed": "error", "error": "error", "running": "running", "stopped": "stopped"}.get(
+                normalized, "incomplete")
+            break
     timing = timing_fields(payload)
     st.update(timing)
     st["result"] = {**timing, **{k: payload[k] for k in ("saved", "saved_sha256") if payload.get(k) is not None}}
