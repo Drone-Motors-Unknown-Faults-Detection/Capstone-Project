@@ -365,9 +365,9 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
 - **實驗一～實驗十二**：頁籤由 `src/web/experiments.py` 的 `CATALOG` 產生。每頁填參數（資料集、
   Open Set 方法、seed 等）按「▶ 執行」，伺服器呼叫該實驗模組的 `run()`，結果畫成表格、熱圖與線圖；
   實驗一～四與實驗八的逐窗監測（8-3）另可「⏵ 邊跑邊畫」。實驗九只有說明頁、沒有執行按鈕，
-  它的 AutoEncoder 結果在實驗六。實驗六、八另外顯示已提交的正式矩陣結果
-  （`output/exp6_formal_matrix/aggregate/`、`reports/exp8_health_index_results/`，兩份都是讀 `data/formal_local` 的歷史結果，
-  不是上方 Aero 重跑的數字），唯讀、不從網頁重跑。
+  它的 AutoEncoder 結果在實驗六。實驗六、八另外顯示已提交的正式矩陣結果，唯讀、不從網頁重跑：
+  6-3 讀 Aero 重跑的 `output/exp6_formal_matrix/aero_2026-10-23/aggregate/`；8-2 讀 `reports/exp8_health_index_results/`，
+  卡片標明它是 `data/formal_local` 的歷史結果，Aero 重跑的矩陣在 `output/exp8_health_index_matrix/2026-10-23-01-34-15/`。
   每次執行的完整結果存到 `output/web_server/{ts}/experiments/{實驗}_{時間}.json`。
   實驗在另一個執行緒池跑，一次一個；跑實驗時即時展示照常串流。每次按「執行」都從頭擬合該實驗的
   模型（統計擬合，不用 GPU）；模型跑完即丟、不保存，同 seed 重跑結果相同。
