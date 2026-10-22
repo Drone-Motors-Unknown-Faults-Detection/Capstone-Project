@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -78,6 +80,49 @@ class Exp6BenchmarkTests(unittest.TestCase):
                     mahalanobis_method="legacy",
                     require_nine=False,
                 )
+
+    def test_api_run_leaves_logger_and_disk_alone(self) -> None:
+        """run() 不呼叫 setup_run：呼叫端的 loguru sink 不被移除、不開 output/ 目錄（#269 C02）。"""
+        from loguru import logger
+
+        from experiments import exp6_formal_benchmark as formal
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory) / "data")
+            sink = io.StringIO()
+            handle = logger.add(sink, format="{message}")
+            try:
+                with patch.object(formal, "capture_source", wraps=formal.capture_source) as capture:
+                    result = run(root, seed=42, require_nine=False)
+                logger.info("still here")
+            finally:
+                logger.remove(handle)
+            self.assertIn("still here", sink.getvalue())
+            self.assertFalse(Path("output").exists())
+            self.assertFalse(Path("logs").exists())
+            self.assertFalse(Path(".lineage_private").exists())
+            # 執行前後各一次，指紋不再另外雜湊第三次（F3）
+            self.assertEqual(capture.call_count, 2)
+            self.assertIsNone(result["provenance_record_id"])
+            self.assertEqual(result["environment"]["data"]["dataset_fingerprint"], result["dataset_fingerprint"])
+            self.assertEqual(result["environment"]["data"]["status"], "VERIFIED")
+
+    def test_evidence_dir_receives_provenance_and_environment(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory) / "data")
+            evidence = Path(directory) / "runs" / "T1_8000rpm_seed42_knn"
+            result = run(root, seed=42, openset_method="knn", require_nine=False, evidence_dir=evidence)
+            self.assertEqual(result["provenance_record_id"], "runs/T1_8000rpm_seed42_knn")
+            record = json.loads((evidence / "provenance.json").read_text(encoding="utf-8"))
+            self.assertEqual(record["status"], "COMPLETED")
+            self.assertEqual(record["source"]["dataset_fingerprint"], result["dataset_fingerprint"])
+            environment = json.loads((evidence / "environment.json").read_text(encoding="utf-8"))
+            self.assertEqual(environment, result["environment"])
+            self.assertNotIn(directory, json.dumps(result).replace("\\\\", "\\"))
+            # 目錄裡已有 environment.json（CLI 的 setup_run 先寫）就沿用，不覆寫
+            (evidence / "environment.json").write_text('{"marker": true}', encoding="utf-8")
+            again = run(root, seed=42, openset_method="knn", require_nine=False, evidence_dir=evidence)
+            self.assertEqual(again["environment"], {"marker": True})
 
     def test_fpr_metric_is_separate_from_normalized_detector_threshold(self) -> None:
         fpr = _fpr_at_tpr95(np.array([0.2, 0.4]), np.array([2.0, 3.0, 4.0, 5.0]))

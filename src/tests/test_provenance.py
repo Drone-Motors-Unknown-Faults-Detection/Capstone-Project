@@ -215,16 +215,14 @@ class ProvenanceTests(unittest.TestCase):
             root = _fixture(Path(directory))
             before = capture_source(root)
             changed = dict(before[0], dataset_fingerprint="a" * 64)
-            with patch.object(formal, "capture_source", side_effect=[before, before, (changed, before[1])]):
+            # run() 只在執行前後各 capture_source 一次（#269 F3）
+            with patch.object(formal, "capture_source", side_effect=[before, (changed, before[1])]):
                 with self.assertRaisesRegex(ValueError, "來源內容"):
                     formal.run(root, require_nine=False)
             output = root / "failure_evidence"
-            output.mkdir()
-            paths = types.SimpleNamespace(output_dir=output, program="fixture", timestamp="fixed")
-            with patch.object(formal, "setup_run", return_value=(logger, paths)), \
-                    patch.object(formal, "capture_source", side_effect=ProvenanceError("private-path-secret")):
+            with patch.object(formal, "capture_source", side_effect=ProvenanceError("private-path-secret")):
                 with self.assertRaises(ProvenanceError):
-                    formal.run(root, require_nine=False)
+                    formal.run(root, require_nine=False, evidence_dir=output)
             record = json.loads((output / "provenance.json").read_text(encoding="utf-8"))
             self.assertEqual(record["status"], "FAILED")
             self.assertEqual(record["error_type"], "ProvenanceError")

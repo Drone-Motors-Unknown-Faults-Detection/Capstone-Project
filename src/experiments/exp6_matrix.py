@@ -264,11 +264,13 @@ def run_matrix(
         )
         started = time.perf_counter()
         try:
+            # 每格的 provenance.json／environment.json 寫進自己的 runs/{run_id}/，不另開 setup_run 目錄（#269）
             result = run(
                 data_path,
                 seed=entry["seed"],
                 openset_method=entry["method"],
                 require_nine=True,
+                evidence_dir=run_dir,
                 pool_cache=pool_cache,
             )
             result = _condition_result(result, entry)
