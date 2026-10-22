@@ -1,5 +1,13 @@
 # 實驗十三：逐步導覽與原展示的工程對照
 
+## 主站入口與獨立模式
+
+主站首頁的「逐步導覽」連到同來源 `/guide/`，不需新增連接埠。主站與導覽各有自己的 Hub、session、模型、rng、重任務鎖及寫檔 epoch；開啟導覽只顯示可用資料，須明確「確認所選資料 → 建立健康基準」才擬合。導覽 WS 為 `/guide/ws`，資產與文件各用 `/guide/assets/`、`/guide/docs/`，不連主站 `/ws`。
+
+主站內導覽產物在同次 `output/web_server/{ts}/guide/sessionNNN/`；獨立 `python -m web.guide` 保留根路徑 `/ws`、`/assets/`、`/docs/` 及 `output/web_guide/{ts}/sessionNNN/`。獨立模式沿 loopback 監聽，不假設遠端使用者的 localhost 是伺服器。最後導覽連線離開會暫停並 flush；主站正常退出會關閉兩個 Hub，各自保存。強制終止或掉電不保證零遺失。
+
+路由／來源遮蔽／重連及逐筆配對是工程驗證；桌面／窄屏的實際瀏覽器操作與組員重述資料角色仍須各別回報。沒有部署授權時只在本機驗證，不更新公開服務。
+
 ## 資料角色用量表
 
 流程：唯讀檢查 → 明確建立健康基準 → 重播／隔離／候選 → 模擬確認 → 完整池更新 → 查看操作及研究細節。展示／研究是同一session的兩種顯示，不是兩個獨立實驗；首頁與獨立導覽服務則不共用session。
@@ -11,7 +19,7 @@
 | 匿名異常來源 | 例S03對應5screws，答案僅此研究說明 | 212可用列 | 故障池全池 | 循環抽樣及候選 | 到達數查session，非獨立新資料 |
 | 確認後新增train／cal／holdout | 完整5screws池 | 127／42／43 | 各除以212 | 重建兩類模型 | 可能包含之前發現列 |
 
-來源依[唯讀計數](README.md#資料用量與分母怎麼讀)，未在此表執行新配對或宣稱候選已找到。無validation選參。畫面n／CSV須對同一session、epoch與t；主線保存／重連缺陷的修復在待審[#73](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/pull/73)，未合併前不能當main已有保證。
+來源依[唯讀計數](README.md#資料用量與分母怎麼讀)，未在此表執行新配對或宣稱候選已找到。無validation選參。畫面n／CSV須對同一session、epoch與t；暫停成功及正常關閉會flush，重連由後端恢復實際來源與統計，相關邊界由 `test_web_persistence.py` 與導覽測試核對。這些行為不保證強制終止或掉電後零遺失。
 
 ## 發表與理解檢查
 

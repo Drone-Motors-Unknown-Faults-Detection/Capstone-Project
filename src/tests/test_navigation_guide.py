@@ -232,3 +232,91 @@ class GuideSocketTests(AsyncHTTPTestCase):
         self.assertIn("拒絕重複", error["text"])
         self.assertIsNone(self.hub.demo)
         ws.close()
+
+
+class MountedGuideTests(AsyncHTTPTestCase):
+    def get_app(self):
+        from web import server
+        self.temp = tempfile.TemporaryDirectory()
+        self.ds = fixture(Path(self.temp.name))
+        self.previous = server.HUB
+        self.home = server.Hub(LiveDemo(self.ds), [self.ds], 4, 42)
+        server.HUB = self.home
+        self.guide = GuideHub([self.ds])
+        return server.make_app(guide_hub=self.guide)
+
+    def tearDown(self):
+        from web import server
+        self.guide.close()
+        self.home.close()
+        server.HUB = self.previous
+        self.temp.cleanup()
+        super().tearDown()
+
+    def test_home_mount_assets_docs_and_no_implicit_fit(self):
+        self.assertIn('href="/guide/"', self.fetch("/").body.decode())
+        page = self.fetch("/guide/").body.decode()
+        self.assertIn('data-guide-prefix="/guide"', page)
+        self.assertIn('href="/guide/assets/guide.css"', page)
+        self.assertIn('src="/guide/assets/guide.js"', page)
+        self.assertIn('href="/guide/docs/exp13_實驗總覽.md"', page)
+        self.assertEqual(self.fetch("/guide/assets/guide.js").code, 200)
+        self.assertEqual(self.fetch("/guide/docs/exp13_README.md").code, 200)
+        self.assertEqual(self.fetch("/guide/docs/not_found.md").code, 404)
+        self.assertEqual(self.fetch("/guide/docs/../AGENT.md").code, 403)
+        self.assertIsNone(self.guide.demo)
+        self.assertEqual(self.home.demo.t, 0)
+
+    def test_default_factory_uses_independent_lazy_hub_and_same_configuration(self):
+        from web import server
+        self.home.out_dir = Path(self.temp.name) / "main_output"
+        app = server.make_app()
+        mounted = app.settings["guide_hub"]
+        try:
+            self.assertIsNot(mounted, self.home)
+            self.assertIsNone(mounted.demo)
+            self.assertIsNot(mounted.executor, self.home.executor)
+            self.assertEqual(mounted.datasets, self.home.datasets)
+            self.assertEqual(mounted.seed, self.home.seed)
+            self.assertEqual(mounted.detector_options, self.home.detector_options)
+            self.assertEqual(mounted.out_dir, self.home.out_dir / "guide")
+            mounted.build("T1", "8000rpm")
+            self.assertIsNot(mounted.demo.stream_rng, self.home.demo.stream_rng)
+            self.assertIsNot(mounted.demo.session.monitor, self.home.demo.session.monitor)
+            self.assertEqual(self.home.demo.t, 0)
+        finally:
+            mounted.close()
+
+    @gen_test
+    async def test_mounted_socket_is_not_home_session_and_disconnect_pauses(self):
+        guide = await tornado.websocket.websocket_connect(self.get_url("/guide/ws").replace("http", "ws", 1))
+        state = json.loads(await guide.read_message())
+        self.assertEqual(state["session_id"], 0)
+        self.assertNotIn("5screws", json.dumps(state))
+        self.guide.build("T1", "8000rpm")
+        self.assertIsNot(self.guide.demo, self.home.demo)
+        self.assertIsNot(self.guide.executor, self.home.executor)
+        self.guide.running = True
+        guide.close()
+        await tornado.gen.sleep(.05)
+        self.assertFalse(self.guide.running)
+        self.assertEqual(self.home.demo.t, 0)
+        self.assertEqual(list(self.home.demo.session.monitor.known), [HEALTHY])
+
+    @gen_test
+    async def test_cross_origin_guide_socket_remains_rejected(self):
+        from tornado.httpclient import HTTPRequest, HTTPClientError
+        request = HTTPRequest(self.get_url("/guide/ws").replace("http", "ws", 1),
+                              headers={"Origin": "https://not-this-site.invalid"})
+        with self.assertRaises(HTTPClientError) as error:
+            await tornado.websocket.websocket_connect(request)
+        self.assertEqual(error.exception.code, 403)
+
+    def test_shutdown_closes_both_hubs_even_after_one_flush_failure(self):
+        from web.server import serve
+        from unittest.mock import Mock
+        loop, first, second = Mock(), Mock(), Mock()
+        first.close.side_effect = OSError("測試寫入失敗")
+        with self.assertRaises(OSError):
+            serve(loop, first, extra_hubs=(second,))
+        second.close.assert_called_once_with()
