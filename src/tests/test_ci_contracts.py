@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 import tempfile
@@ -154,6 +155,7 @@ class FakeDemo:
     t = 0
     epoch = 0
     flushed = 0
+    pools = {"8screws": None}
 
     def flush(self):
         self.flushed += 1
@@ -194,9 +196,10 @@ class WebSocketContracts(AsyncHTTPTestCase):
             await tornado.gen.sleep(.01)
         self.fail("WebSocket 未完成關閉")
 
-    async def connect(self):
-        request = tornado.httpclient.HTTPRequest(self.get_url("/ws").replace("http:", "ws:"),
-                                                headers={"Origin": "https://untrusted.invalid"})
+    async def connect(self, origin=None):
+        url = self.get_url("/ws")
+        request = tornado.httpclient.HTTPRequest(url.replace("http:", "ws:"),
+                                                headers={"Origin": origin or url[:url.index("/ws")]})
         socket = await websocket_connect(request)
         self.assertEqual(json.loads(await socket.read_message())["type"], "state")
         self.assertEqual(json.loads(await socket.read_message())["type"], "metrics")
@@ -250,10 +253,56 @@ class WebSocketContracts(AsyncHTTPTestCase):
             await self.disconnect(socket)
 
     @gen_test
-    async def test_untrusted_origin_is_current_insecure_baseline(self):
-        # WSHandler.check_origin 目前一律回 True，不可信 origin 也能連線；本測試只記錄現況，不算安全 PASS。
+    async def test_untrusted_origin_rejected_unless_allow_listed(self):
+        with self.assertRaises(tornado.httpclient.HTTPClientError) as ctx:
+            await self.connect("https://untrusted.invalid")
+        self.assertEqual(ctx.exception.code, 403)
+        self.assertFalse(self.hub.clients)
+        server.ALLOWED_ORIGINS.add("https://untrusted.invalid")
+        try:
+            socket = await self.connect("https://untrusted.invalid")
+            await self.disconnect(socket)
+        finally:
+            server.ALLOWED_ORIGINS.discard("https://untrusted.invalid")
+
+    @gen_test
+    async def test_invalid_command_arguments_are_not_echoed_and_do_not_start(self):
+        payload = "<img src=x onerror=alert(1)>"
         socket = await self.connect()
-        await self.disconnect(socket)
+        try:
+            for command in ({"cmd": "scenario", "name": payload}, {"cmd": "set_source", "config": payload},
+                            {"cmd": "rate", "value": payload}, {"cmd": "dataset", "motor": payload, "rpm": "x"}):
+                with self.subTest(cmd=command["cmd"]):
+                    messages = await self.send_until(socket, command)
+                    self.assertEqual(messages[0]["level"], "error")
+                    self.assertNotIn(payload, json.dumps(messages, ensure_ascii=False))
+                    self.assertFalse(messages[-1]["running"])
+                    self.assertFalse(messages[-1]["busy"])
+            self.assertEqual(self.hub.rate, 4)
+        finally:
+            await self.disconnect(socket)
+
+
+class FrontendEscapingTests(unittest.TestCase):
+    """index.html：事件文字走 textContent，伺服器字串進 innerHTML 前先 escapeHtml（#265）。"""
+
+    def setUp(self):
+        self.html = (Path(server.STATIC_DIR) / "index.html").read_text(encoding="utf-8")
+
+    def test_log_line_does_not_parse_html(self):
+        body = self.html[self.html.index("function logLine("):self.html.index("function onMetrics(")]
+        self.assertNotIn("innerHTML", body)
+        self.assertIn("textContent", body)
+
+    def test_server_strings_in_templates_are_escaped(self):
+        fields = ("display", "truth_display", "cls", "motor", "rpm", "config", "label", "verdict")
+        found = 0
+        for match in re.finditer(r"\$\{([^}]*)\}", self.html):
+            body = match.group(1)
+            if any(re.search(rf"\.{field}\b", body) for field in fields):
+                found += 1
+                self.assertTrue(body.startswith("escapeHtml("), body)
+        self.assertGreaterEqual(found, 8)
 
 
 class EvidencePrivacyTests(unittest.TestCase):

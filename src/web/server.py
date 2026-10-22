@@ -32,6 +32,7 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import urlparse
 
 import tornado.ioloop
 import tornado.iostream
@@ -43,12 +44,18 @@ from core.data import discover_datasets
 from core.logger import setup_run
 from core.runner import add_openset_args
 from core.runtime_environment import collect_environment
+from experiments.exp3_trend import SCENARIOS
 from web.assistant import Assistant, latest_record, record_label
 from web.experiments import ExperimentRunner
 from web.live import LiveDemo
 from web.playback import ANSWER_SCHEMA, PlaybackTracker
 
 STATIC_DIR = Path(__file__).parent / "static"
+ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 WebSocket Origin（scheme://host[:port]）
+
+
+class CommandError(ValueError):
+    """WebSocket 指令的參數錯誤；訊息只含固定文字，可直接廣播給所有瀏覽器。"""
 
 
 class Hub:
@@ -426,8 +433,11 @@ class AssistantAskHandler(tornado.web.RequestHandler):
 
 
 class WSHandler(tornado.websocket.WebSocketHandler):
-    def check_origin(self, origin: str) -> bool:  # 區網展示用
-        return True
+    def check_origin(self, origin: str) -> bool:
+        """只接受同站（Origin 的 host[:port] 等於請求的 Host）或 --allow-origin 名單；
+        區網展示的網頁由同一台伺服器送出，Origin 自然與 Host 相同。"""
+        return (urlparse(origin).netloc.lower() == self.request.host.lower()
+                or origin.rstrip("/").lower() in ALLOWED_ORIGINS)
 
     def open(self) -> None:
         HUB.clients.add(self)
@@ -443,7 +453,10 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             msg = json.loads(raw)
             await self.dispatch(msg)
         except Exception as exc:
-            HUB.event("error", f"指令失敗：{exc!r}")
+            # 只廣播固定文字；用戶端送來的字串不回送到其他瀏覽器（#265）
+            logger.warning(f"指令失敗：{exc!r}")
+            text = str(exc) if isinstance(exc, (CommandError, RuntimeError)) else type(exc).__name__
+            HUB.event("error", f"指令失敗：{text}")
             HUB.broadcast(HUB.full_state())
 
     async def dispatch(self, msg: dict) -> None:
@@ -459,14 +472,23 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             HUB.pause(publish=False)
             HUB.event("info", "⏸ 串流暫停；已寫入樣本完成 flush")
         elif cmd == "rate":
-            HUB.set_rate(msg.get("value", 4))
+            value = msg.get("value", 4)
+            if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                raise CommandError("速率必須是數字")
+            HUB.set_rate(value)
         elif cmd == "set_source":
-            for m in HUB.demo.set_source(msg["config"]):
+            config = msg.get("config")
+            if not isinstance(config, str) or config not in HUB.demo.pools:
+                raise CommandError("注入來源不在此資料集的配置清單")
+            for m in HUB.demo.set_source(config):
                 HUB.broadcast(m)
         elif cmd == "scenario":
-            HUB.running = True
-            for m in HUB.demo.start_scenario(msg["name"]):
+            name = msg.get("name")
+            if not isinstance(name, str) or name not in SCENARIOS:
+                raise CommandError("劇本名稱不存在")
+            for m in HUB.demo.start_scenario(name):
                 HUB.broadcast(m)
+            HUB.running = True   # 劇本驗證並啟動後才開始串流
         elif cmd == "confirm":
             await self._heavy(self._do_confirm, "重訓練")
             return
@@ -474,9 +496,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             await self._heavy(self._do_reset, "重置")
             return
         elif cmd == "dataset":
-            await self._heavy(
-                lambda: self._do_dataset(msg["motor"], msg["rpm"]), "載入資料集"
-            )
+            ds = next((d for d in HUB.datasets
+                       if d["motor"] == msg.get("motor") and d["rpm"] == msg.get("rpm")), None)
+            if ds is None:
+                raise CommandError("資料集不在清單中")
+            await self._heavy(lambda: self._do_dataset(ds), "載入資料集")
             return
         HUB.broadcast(HUB.full_state())
 
@@ -524,19 +548,11 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         return f"↺ 已重置回階段 0（只認識健康）；session 紀錄換到 epoch {HUB.demo.epoch}"
 
     @staticmethod
-    def _do_dataset(motor: str, rpm: str) -> str:
-        for ds in HUB.datasets:
-            if ds["motor"] == motor and ds["rpm"] == rpm:
-                HUB.demo.close()
-                HUB.demo = LiveDemo(
-                    ds,
-                    seed=HUB.seed,
-                    out_dir=HUB.out_dir,
-                    **HUB.detector_options,
-                )
-                HUB.running = False
-                return f"已載入資料集 {motor}/{rpm}，回到階段 0"
-        raise KeyError(f"{motor}/{rpm}")
+    def _do_dataset(ds: dict) -> str:
+        HUB.demo.close()
+        HUB.demo = LiveDemo(ds, seed=HUB.seed, out_dir=HUB.out_dir, **HUB.detector_options)
+        HUB.running = False
+        return f"已載入資料集 {ds['motor']}/{ds['rpm']}，回到階段 0"
 
 
 def main() -> None:
@@ -553,7 +569,10 @@ def main() -> None:
                         help="本地模型 OpenAI 相容端點（vLLM 預設 :8000；見 scripts/opt/run_llm.sh）")
     parser.add_argument("--llm-model", default="", help="模型名稱；留空取端點 /models 的第一個")
     parser.add_argument("--llm-api-key", default="EMPTY")
+    parser.add_argument("--allow-origin", action="append", default=[],
+                        help="額外允許連 WebSocket 的 Origin（例：https://demo.example.com）；預設只允許同站")
     args = parser.parse_args()
+    ALLOWED_ORIGINS.update(o.rstrip("/").lower() for o in args.allow_origin)
 
     log, paths = setup_run("web_server")
     PLAYBACK.results_root = Path(paths.output_dir).parent   # output/web_server：各次啟動的實驗存檔
