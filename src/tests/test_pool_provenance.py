@@ -149,7 +149,7 @@ def test_polar_and_comparison_match_current_scientific_baseline(name):
 
     root = Path(__file__).resolve().parents[2]
     text = subprocess.check_output([
-        "git", "show", f"c38b51a59700c9ea7a0ee7378062d1de1d4bf7c2:src/experiments/{name}.py"], cwd=root)
+        "git", "show", f"edc6a0f052379df52c6874b702badcc000ba742d:src/experiments/{name}.py"], cwd=root)
     old = types.ModuleType("_source_pair_" + name)
     exec(compile(text, name, "exec"), old.__dict__)
     current = importlib.import_module("experiments." + name)
@@ -201,7 +201,7 @@ def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
     from web.experiments import jsonable
 
     root = Path(__file__).resolve().parents[2]
-    baseline = ("c38b51a59700c9ea7a0ee7378062d1de1d4bf7c2" if name.startswith("exp2")
+    baseline = ("edc6a0f052379df52c6874b702badcc000ba742d" if name.startswith("exp2")
                 else "db47d244345e0263ff9101f0eeec4757ed92d0fe")
     text = subprocess.check_output(["git", "show", f"{baseline}:src/experiments/{name}.py"], cwd=root)
     old = types.ModuleType("_pool_provenance_" + name)

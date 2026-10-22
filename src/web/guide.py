@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -283,13 +284,41 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
         h.broadcast(h.full_state())
 
 
+class GuidePage(tornado.web.RequestHandler):
+    def initialize(self, prefix=""):
+        self.prefix = prefix
+
+    def get(self):
+        html = (STATIC / "guide.html").read_text(encoding="utf-8")
+        html = html.replace('"/assets/', f'"{self.prefix}/assets/')
+        html = html.replace('"/docs/', f'"{self.prefix}/docs/')
+        html = html.replace("<body>", f'<body data-guide-prefix="{self.prefix}">')
+        if self.prefix:
+            html = html.replace('id="mainEntry">', 'id="mainEntry"><a href="/">返回主站首頁</a> · ')
+        self.set_header("Content-Type", "text/html; charset=utf-8")
+        self.set_header("Cache-Control", "no-store")
+        self.write(html)
+
+
+def routes(prefix=""):
+    """掛載時全部資產／文件／WS 使用相同前綴，獨立入口保留根路徑。"""
+    if prefix and not re.fullmatch(r"/[A-Za-z0-9_-]+", prefix):
+        raise ValueError("導覽前綴必須是單一合法路徑節")
+    base = re.escape(prefix)
+    result = [
+        (base + r"/ws", GuideSocket),
+        (base + r"/", GuidePage, {"prefix": prefix}),
+        (base + r"/assets/guide\.html", GuidePage, {"prefix": prefix}),
+        (base + r"/assets/(guide\.(?:js|css))", tornado.web.StaticFileHandler, {"path": str(STATIC)}),
+        (base + r"/docs/(.*)", tornado.web.StaticFileHandler, {"path": str(ROOT / "docs/navigation")}),
+    ]
+    if prefix:
+        result.append((base, tornado.web.RedirectHandler, {"url": prefix + "/"}))
+    return result
+
+
 def application(hub):
-    return tornado.web.Application([
-        (r"/ws", GuideSocket),
-        (r"/", tornado.web.RedirectHandler, {"url": "/assets/guide.html"}),
-        (r"/assets/(guide\.(?:html|js|css))", tornado.web.StaticFileHandler, {"path": str(STATIC)}),
-        (r"/docs/(.*)", tornado.web.StaticFileHandler, {"path": str(ROOT / "docs/navigation")}),
-    ], guide_hub=hub)
+    return tornado.web.Application(routes(), guide_hub=hub)
 
 
 def main():

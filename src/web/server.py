@@ -577,12 +577,22 @@ def main() -> None:
     app = make_app()
     app.listen(args.port, address=args.bind_address)
     HUB.set_rate(args.rate)
+    guide_hub = app.settings["guide_hub"]
+    guide_hub.set_rate(args.rate)
     log.info(f"就緒 → http://localhost:{args.port}  （Ctrl+C 結束）")
-    serve(tornado.ioloop.IOLoop.current(), HUB, JOBS)
+    serve(tornado.ioloop.IOLoop.current(), HUB, JOBS, extra_hubs=(guide_hub,))
 
 
-def make_app(static_dir: Path = STATIC_DIR) -> tornado.web.Application:
+def make_app(static_dir: Path = STATIC_DIR, *, guide_hub=None) -> tornado.web.Application:
     """路由與靜態檔設定；static_path 讓 IndexHandler 能用 static_url() 產生 ?v= 版本網址。"""
+    # 延後匯入以保留獨立 web.guide 對 Hub 的既有使用，避免模組初始化循環。
+    from web.guide import GuideHub, routes
+    if guide_hub is None:
+        home = HUB if isinstance(HUB, Hub) else None
+        guide_hub = GuideHub(home.datasets if home else [], seed=home.seed if home else 42,
+            rate=home.rate if home else 4,
+            out_dir=Path(home.out_dir) / "guide" if home and home.out_dir else None,
+            detector_options=home.detector_options if home else None)
     return tornado.web.Application([
         (r"/", IndexHandler),
         (r"/ws", WSHandler),
@@ -592,21 +602,27 @@ def make_app(static_dir: Path = STATIC_DIR) -> tornado.web.Application:
         (r"/api/committed/([a-z0-9_]+)", CommittedHandler),
         (r"/api/assistant/status", AssistantStatusHandler),
         (r"/api/assistant/ask", AssistantAskHandler),
-    ], static_path=str(static_dir), static_handler_class=StaticHandler)
+        *routes("/guide"),
+    ], static_path=str(static_dir), static_handler_class=StaticHandler, guide_hub=guide_hub)
 
 
-def serve(loop, hub, jobs=None) -> None:
+def serve(loop, hub, jobs=None, *, extra_hubs=()) -> None:
     """正常 stop 與 Ctrl+C 共用收尾；保存錯誤仍向呼叫端傳遞。"""
     try:
         loop.start()
     except KeyboardInterrupt:
         pass
     finally:
-        try:
-            hub.close()
-        finally:
-            if jobs is not None:
-                jobs.executor.shutdown(wait=True)
+        errors = []
+        for current in (hub, *extra_hubs):
+            try:
+                current.close()
+            except Exception as exc:
+                errors.append(exc)
+        if jobs is not None:
+            jobs.executor.shutdown(wait=True)
+        if errors:
+            raise errors[0]
         logger.info("伺服器結束；session 已關閉")
 
 

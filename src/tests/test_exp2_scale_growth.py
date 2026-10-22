@@ -113,6 +113,16 @@ class AdoptTests(unittest.TestCase):
         self.assertEqual(session.quarantine_X, [])
 
 
+class InsufficientTests(unittest.TestCase):
+    def test_insufficient_cluster_leaves_quarantine(self):
+        rows = np.random.default_rng(14).normal(6.0, 0.3, (10, 6))
+        session = _session_with_quarantine(rows, "7screws", cluster=3)
+        out = session.adopt()
+        self.assertEqual(out["action"], "insufficient")
+        self.assertEqual(len(session.quarantine_X), 7)
+        self.assertEqual(list(session.monitor.known), ["8screws"])
+
+
 class EvalSplitTests(unittest.TestCase):
     def test_stream_and_eval_are_disjoint_and_cover_pool(self):
         parts = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]

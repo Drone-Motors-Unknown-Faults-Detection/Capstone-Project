@@ -17,7 +17,7 @@ def test_health_source_roles_cache_and_original_metrics(tmp_path, method):
     root = _fixture(tmp_path / "data")
     project = Path(__file__).resolve().parents[2]
     code = subprocess.check_output(["git", "show",
-        "c38b51a59700c9ea7a0ee7378062d1de1d4bf7c2:src/experiments/health_index_benchmark.py"], cwd=project)
+        "edc6a0f052379df52c6874b702badcc000ba742d:src/experiments/health_index_benchmark.py"], cwd=project)
     old = types.ModuleType("_paired_health")
     old.__file__ = module.__file__
     exec(compile(code, "health_index_benchmark", "exec"), old.__dict__)

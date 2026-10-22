@@ -16,21 +16,19 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     roc_auc_score,
-    roc_curve,
 )
 
 from core.data import HEALTHY
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.openset import SUPPORTED_OPENSET_METHODS
+from core.openset import SUPPORTED_OPENSET_METHODS, fpr_at_tpr
 from core.runner import (add_dataset_args, run_dataset, save_json,
                          execution_context, finish_execution)
 
 
 def _fpr_at_tpr95(y_true: np.ndarray, scores: np.ndarray) -> float:
-    fpr, tpr, _ = roc_curve(y_true, scores)
-    eligible = fpr[tpr >= 0.95]
-    return float(np.min(eligible)) if len(eligible) else 1.0
+    y_true, scores = np.asarray(y_true), np.asarray(scores)
+    return fpr_at_tpr(scores[y_true == 0], scores[y_true == 1], 0.95)
 
 
 def evaluate_method(

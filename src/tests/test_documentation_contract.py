@@ -42,12 +42,43 @@ def heading_anchors(text):
 
 
 class DocumentationContractTests(unittest.TestCase):
+    def test_final_report_citations_follow_first_occurrence(self):
+        text = (ROOT / "docs/FinalReport/畢業專題報告.md").read_text(encoding="utf-8")
+        body, references = text.split("## 參考文獻\n", 1)
+        definitions = re.findall(r'<a id="ref-(\d+)"></a>\[(\d+)\]', references)
+        self.assertTrue(definitions)
+        expected = [str(i) for i in range(1, len(definitions) + 1)]
+        self.assertEqual(definitions, [(n, n) for n in expected])
+        citations = re.findall(r"\[(\d+)\]\(#ref-(\d+)\)", body)
+        self.assertTrue(all(label == target for label, target in citations))
+        first = list(dict.fromkeys(target for _, target in citations))
+        self.assertEqual(first, expected)
+        for label, target in re.findall(r"\[(\d+)\]\(#ref-(\d+)\)", references):
+            self.assertEqual(label, target)
+            self.assertIn(target, expected)
+
+    def test_final_report_local_links_and_section_status(self):
+        path = ROOT / "docs/FinalReport/畢業專題報告.md"
+        text = path.read_text(encoding="utf-8")
+        for row in local_links(path, ROOT):
+            self.assertTrue(row["exists"], row)
+            if row["anchor"]:
+                target = (ROOT / row["target"]).read_text(encoding="utf-8")
+                anchors = heading_anchors(target) | set(re.findall(r'<a id="([^"]+)">', target))
+                self.assertIn(unquote(row["anchor"]), anchors, row)
+        for section in ("2.2", "2.3", "2.4"):
+            content = re.search(rf"^### {re.escape(section)} .*?(?=^### |^## |\Z)",
+                                text, re.M | re.S)
+            self.assertIsNotNone(content)
+            self.assertNotIn("（待撰）", content[0])
+        self.assertIn("Word", text)
+
     def test_scoped_local_anchors_exist(self):
         documents = {ROOT / name for name in DOCUMENTS}
         documents.update(ROOT.glob("docs/navigation/*.md"))
         documents.update(ROOT / "docs/experiments" / name for name in (
             "README.md", "exp1_cold_start.md", "exp3_trend.md", "exp4_polar_map.md",
-            "exp8_health.md", "exp6_formal_benchmark.md"))
+            "exp8_health.md", "exp6_formal_benchmark.md", "exp13_experiment_navigation.md"))
         documents.add(ROOT / "docs/formal_feature_schema_contract.md")
         documents.add(ROOT / "docs/content_provenance_contract.md")
         documents.update(ROOT.glob("reports/Andy_20261008_*/*.md"))
@@ -74,8 +105,9 @@ class DocumentationContractTests(unittest.TestCase):
         self.assertEqual(len(rows), 26)
         self.assertTrue(all(len(line.strip("|").split("|")) == 8 for line in rows))
         self.assertIn("| 實驗名稱 |", rows[0])
-        self.assertIn('fetch("/docs/exp13_實驗總覽.md")',
-                      (ROOT / "src/web/static/guide.js").read_text(encoding="utf-8"))
+        frontend = (ROOT / "src/web/static/guide.js").read_text(encoding="utf-8")
+        self.assertIn('fetch(guideUrl("/docs/exp13_實驗總覽.md"))', frontend)
+        self.assertNotIn('fetch("/docs/exp13_實驗總覽.md")', frontend)
 
     def test_report_attachments_and_readers_resolve(self):
         from tests.ci_evidence import DOCUMENTS as ci_documents

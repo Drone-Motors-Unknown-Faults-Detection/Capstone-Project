@@ -46,7 +46,7 @@ def test_root_methods_match_fixed_scientific_baseline(tmp_path, name):
     root = fixture(tmp_path)
     project = Path(__file__).resolve().parents[2]
     code = subprocess.check_output(["git", "show",
-        f"c38b51a59700c9ea7a0ee7378062d1de1d4bf7c2:src/experiments/{name}.py"], cwd=project)
+        f"edc6a0f052379df52c6874b702badcc000ba742d:src/experiments/{name}.py"], cwd=project)
     old = types.ModuleType("_paired_" + name)
     exec(compile(code, name, "exec"), old.__dict__)
     current = importlib.import_module("experiments." + name)

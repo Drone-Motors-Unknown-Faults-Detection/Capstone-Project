@@ -1,6 +1,8 @@
 "use strict";
 const el = id => document.getElementById(id);
 let state = {}, flow = "cold", ws, research = false, samples = [], lastVersion = "";
+const guidePrefix = document.body?.dataset?.guidePrefix || "";
+function guideUrl(path) { return guidePrefix + path; }
 let pendingSource = null;
 let lastMetrics = {};
 const names = {cold:"冷啟動：只有健康基準",learning:"未知學習：候選需要確認",trend:"趨勢：比較兩種 CSV 劇本"};
@@ -93,7 +95,7 @@ function showMetrics(m){
  el("alarm").textContent=m.alarms.length?"趨勢警報："+m.alarms.map(a=>`${a.kind}，t=${a.t}，中間帶${a.transition}筆／延遲${a.latency??"未計算"}筆`).join("；"):"趨勢警報：目前沒有";
 }
 function connect(){
- const socket=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+"/ws");
+ const socket=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host+guideUrl("/ws"));
  ws=socket;let firstSnapshot=true;
  socket.onopen=()=>{if(ws!==socket)return;el("connection").textContent="已連線 · 逐筆呼叫既有核心";render();};
  socket.onclose=()=>{if(ws!==socket)return;el("connection").textContent="已斷線，最後一個瀏覽器離線會暫停；重連不重訓";render();setTimeout(()=>{if(ws===socket)connect();},1500);};
@@ -132,7 +134,7 @@ el("inject").onclick=()=>send("source",{id:el("source").value});
 el("confirm").onclick=()=>send("confirm",{candidate_id:state.candidate?.id});
 el("scenarioA").onclick=()=>send("scenario",{name:"A"});
 el("scenarioB").onclick=()=>send("scenario",{name:"B"});
-fetch("/docs/exp13_實驗總覽.md").then(r=>r.text()).then(text=>{
+fetch(guideUrl("/docs/exp13_實驗總覽.md")).then(r=>r.text()).then(text=>{
  const rows=text.split("\n").filter(x=>x.startsWith("|")).filter((_,i)=>i!==1),table=document.createElement("table");
  rows.forEach((line,i)=>{const tr=document.createElement("tr");line.replace(/^\||\|$/g,"").split("|").forEach(cell=>{const td=document.createElement(i?"td":"th");td.textContent=cell.trim();tr.append(td);});table.append(tr);});el("overview").append(table);
 }).catch(()=>el("overview").textContent="總覽載入失敗；請使用 Markdown 來源連結");

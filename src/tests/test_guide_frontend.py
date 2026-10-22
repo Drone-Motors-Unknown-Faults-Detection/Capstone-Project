@@ -2,12 +2,14 @@
 import shutil
 import subprocess
 from pathlib import Path
+import pytest
 
 
-def test_guide_frontend_state_contract():
+@pytest.mark.parametrize("prefix", ["", "/guide"])
+def test_guide_frontend_state_contract(prefix):
     node = shutil.which("node")
     assert node, "前端規範測試需要 Node.js；缺少時不能視為通過"
     root = Path(__file__).resolve().parents[2]
     result = subprocess.run([node, str(root / "src/tests/guide_frontend.cjs"),
-                             str(root / "src/web/static/guide.js")], capture_output=True, text=True, encoding="utf-8")
+                             str(root / "src/web/static/guide.js"), prefix], capture_output=True, text=True, encoding="utf-8")
     assert result.returncode == 0, result.stdout + result.stderr
