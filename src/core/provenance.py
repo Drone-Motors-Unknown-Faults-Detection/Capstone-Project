@@ -2,13 +2,17 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from collections import defaultdict
+from dataclasses import dataclass, field
 import hashlib
 import json
 import os
 from pathlib import Path, PurePosixPath, PureWindowsPath
 import tempfile
 import uuid
+
+import numpy as np
 
 CONTENT_VERSION = "source_content_v2"
 MATERIALIZATION_VERSION = "formal_materialization_v3"
@@ -133,6 +137,89 @@ def write_private_context(context: dict, *, directory: Path | str = ".lineage_pr
         if temporary is not None and temporary.exists():
             temporary.unlink()
     return identity
+
+
+def pools_sha(pools: dict) -> str:
+    """僅用於綁定已載入陣列；不當成原始錄製或檔案 SHA。"""
+    digest = hashlib.sha256()
+    for name, values in pools.items():
+        array = np.asarray(values, dtype="<f8", order="C")
+        digest.update(canonical_sha([name, list(array.shape)]).encode())
+        digest.update(array.tobytes())
+    return digest.hexdigest()
+
+
+@dataclass(frozen=True)
+class PoolSource:
+    """同一次載入的公開清冊與本機驗證資訊；不得直接序列化整個物件。"""
+
+    public: dict
+    context_sha256: str
+    pools_sha256: str
+    root: Path = field(repr=False)
+
+
+def load_pool_source(data_root, dataset_path, *, cache=None) -> tuple[dict, PoolSource]:
+    """以 parser 實際讀到的 bytes SHA 綁定池與 CSV 原列；載入變動時拒絕。"""
+    from core.data import load_pools
+
+    root = Path(data_root).resolve()
+    dataset = Path(dataset_path).resolve()
+    try:
+        prefix = dataset.relative_to(root).as_posix()
+    except ValueError:
+        raise ProvenanceError("資料集不在所宣告來源根內") from None
+    before, private = capture_source(root)
+    audit = {}
+    try:
+        pools = (cache.load(dataset, audit=audit) if cache is not None
+                 else load_pools(dataset, audit=audit))
+    except (OSError, ValueError) as exc:
+        raise ProvenanceError(f"資料載入失敗：{type(exc).__name__}") from None
+    after, _ = capture_source(root)
+    if before != after:
+        raise ProvenanceError("資料載入期間來源變動")
+    files = {row["source_id"]: row["sha256"] for row in before["files"]}
+    mapping, offsets = [], defaultdict(int)
+    for row in audit["files"]:
+        source_id = f"{prefix}/{row['file_id']}"
+        if files.get(source_id) != row["sha256"]:
+            raise ProvenanceError("parser／快取實際載入內容與來源 SHA 不符")
+        config = row["file_id"].split("/")[0]
+        start = offsets[config]
+        offsets[config] += row["rows"]
+        mapping.append({"configuration": config, "source_id": source_id,
+                        "sha256": row["sha256"], "pool_start": start,
+                        "pool_stop": offsets[config], "csv_row_start": 0,
+                        "csv_row_stop": row["rows"], "schema_version": row["schema_version"]})
+    if dict(offsets) != {key: len(value) for key, value in pools.items()}:
+        raise ProvenanceError("來源列映射與資料池長度不符")
+    private["resolved_dataset"] = str(dataset)
+    try:
+        identity = write_private_context(private)
+    except OSError as exc:
+        raise ProvenanceError(f"私人來源紀錄無法保存：{type(exc).__name__}") from None
+    public = {**before, "pool_source_schema": "pool_source_v1", "status": "VERIFIED",
+              "dataset_id": prefix, "private_context_id": identity,
+              "row_mapping": mapping,
+              "row_semantics": "zero_based_clean_csv_data_rows_not_raw_time_windows"}
+    return pools, PoolSource(public, canonical_sha(public), pools_sha(pools), root)
+
+
+def source_for_pools(pools, source: PoolSource | None = None) -> dict:
+    """記憶體 API 明示 UNKNOWN；有來源則核對清冊、陣列與目前磁碟。"""
+    if source is None:
+        return {"pool_source_schema": "pool_source_v1", "status": "UNVERIFIED_MEMORY",
+                "data_version": "UNKNOWN", "files": [], "row_mapping": [],
+                "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}
+    if not isinstance(source, PoolSource):
+        raise ProvenanceError("來源必須由 load_pool_source 取得")
+    if canonical_sha(source.public) != source.context_sha256 or pools_sha(pools) != source.pools_sha256:
+        raise ProvenanceError("來源清冊或已載入陣列被修改")
+    current, _ = capture_source(source.root)
+    if any(current[key] != source.public[key] for key in current):
+        raise ProvenanceError("來源內容已變動，拒絕替舊資料池背書")
+    return copy.deepcopy(source.public)
 
 
 def run(data_root: Path | str) -> dict:

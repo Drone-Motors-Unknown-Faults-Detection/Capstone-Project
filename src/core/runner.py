@@ -12,7 +12,9 @@ from pathlib import Path
 import numpy as np
 
 from core.data import discover_datasets, load_pools
-from core.openset import SUPPORTED_OPENSET_METHODS
+from core.openset import SUPPORTED_OPENSET_METHODS, resolve_openset_config
+from core.provenance import load_pool_source, source_for_pools
+from core.runtime_environment import collect_environment
 
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
@@ -48,15 +50,52 @@ def add_openset_args(parser: argparse.ArgumentParser) -> None:
     )
 
 
-def resolve_dataset(args: argparse.Namespace) -> tuple[dict, dict]:
-    """回傳 (dataset 資訊, pools)。rpm 可寫 8000 或 8000rpm。"""
+def _dataset_info(args: argparse.Namespace) -> dict:
     rpm = args.rpm if args.rpm.endswith("rpm") else f"{args.rpm}rpm"
     datasets = discover_datasets(args.data_root)
     for ds in datasets:
         if ds["motor"] == args.motor and ds["rpm"] == rpm:
-            return ds, load_pools(ds["path"])
+            return ds
     available = ", ".join(f"{d['motor']}/{d['rpm']}" for d in datasets) or "（無）"
     raise SystemExit(f"找不到資料集 {args.motor}/{rpm}；可用：{available}")
+
+
+def resolve_dataset(args: argparse.Namespace) -> tuple[dict, dict]:
+    """回傳 (dataset 資訊, pools)。rpm 可寫 8000 或 8000rpm。"""
+    ds = _dataset_info(args)
+    return ds, load_pools(ds["path"])
+
+
+def execution_context(pools, source_context=None, *, seed=42, confidence=0.95,
+                      method="ledoit_wolf", openset_method="mahalanobis", knn_neighbors=5,
+                      **parameters) -> dict:
+    """共用來源／環境與既有設定解析，不參與實驗數值計算。"""
+    return {"schema_version": "experiment_provenance_v1",
+            "source": source_for_pools(pools, source_context),
+            "environment": collect_environment(),
+            "resolved_config": resolve_openset_config(openset_method, confidence=confidence,
+                mahalanobis_method=method, knn_neighbors=knn_neighbors),
+            "parameters": {"seed": seed, **parameters}}
+
+
+def run_dataset(args, paths, callback, **parameters):
+    """CLI 已初始化 run 後才讀檔；任一步失敗保存去敏狀態。"""
+    target = paths.output_dir / "source.json"
+    source = {"pool_source_schema": "pool_source_v1", "status": "LOADING",
+              "raw_session_independence": "UNKNOWN"}
+    save_json(target, source)
+    try:
+        ds = _dataset_info(args)
+        pools, context = load_pool_source(args.data_root, ds["path"])
+        source = source_for_pools(pools, context)
+        save_json(target, {**source, "status": "RUNNING"})
+        result = callback(pools, source_context=context, **parameters)
+        source = source_for_pools(pools, context)
+    except (Exception, SystemExit) as exc:
+        save_json(target, {**source, "status": "FAILED", "error_type": type(exc).__name__})
+        raise
+    save_json(target, source)
+    return ds, result
 
 
 def save_json(path: Path, obj) -> None:

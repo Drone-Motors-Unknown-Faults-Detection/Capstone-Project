@@ -16,6 +16,26 @@
 
 ## 入口與支援範圍
 
+### 資料池來源上下文
+
+`load_pool_source(data_root, dataset_path)` 重用 `capture_source()` 與 `load_pools()`，核對載入前後清冊及 parser 實際讀取 bytes 的 SHA；可傳既有 `PoolCache`，命中也必須核對內容。`PoolSource` 只供行程內傳遞，不能直接序列化；公開資料由 `source_for_pools()` 取得。它核對清冊與池陣列未改、磁碟仍對應同一版本，私人根目錄僅留原有 sidecar。
+
+`pool_source_v1` 的 `row_mapping` 每段描述 configuration、portable source ID、CSV SHA、pool 的半開區間及 CSV 資料列的零起算半開區間；不含標頭，未刪列、不改拼接次序。這些是 clean CSV 列，不是原 DAQ 時間或 raw-window。陣列 SHA 只做行程綁定，不替代檔案 SHA 或採集身分。清冊或陣列被改、載入中變動、sidecar 寫入失敗均拒絕；空來源的 API 明記 `UNVERIFIED_MEMORY`、版本及物理獨立性 UNKNOWN。
+
+`core.runner.execution_context()` 重用既有環境 collector 與 Open Set resolver；`run_dataset()` 必須在入口 `setup_run(..., unique=True)` 後呼叫，載入／執行失敗仍保存去敏 `source.json`，不輸出任意例外 payload。
+
+| 適用入口 | 來源現況與驗收邊界 |
+| --- | --- |
+| provenance／formal_data／exp6_formal 的 run/main | 已有內容來源、private 分離與環境；沿用既有規則 |
+| exp1／exp2／exp3 CLI | 來源上下文整合待完成；須先建立 run 再載入 |
+| exp1／exp2／exp3 run／iterator API | 整合待完成；記憶體呼叫不可宣稱檔案已核實 |
+| Web exp1／exp2／exp3 批次與串流 | 整合待完成；舊路徑快取不提供來源保證 |
+| exp4／exp5／廣度 exp6／exp7／exp8／exp10／exp11／exp12 | 仍有入口級內容來源缺口；setup_run 環境與 resolved config 不等於來源鏈完整 |
+| exp9 | 無獨立 runner，沿廣度 exp6 的支援範圍 |
+| exp13／首頁／guide | 有自己的契約／落盤，但不由此推論所有執行已具有完整 source_content_v2 鏈 |
+
+本表未全部驗收前 #46 保持開啟；來源工程不讓 #9 的 fresh／採集獨立性自動通過。
+
 支援 `core.provenance.run/main`、`core.formal_data.run/main` 與 `experiments.exp6_formal_benchmark.run/main`。其他記憶體pools API 與多數runner不由本規則保證來源 sidecar；缺口見 [#46](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/46)。Open Set 入口的 resolved config 由 `core.openset.resolve_openset_config()`（`openset_config_v1`）產生並寫進各入口輸出（見 [實驗總覽的共用設定解析](experiments/README.md)），但那是設定紀錄，不是本規則的內容來源清冊。
 
 ```bash
