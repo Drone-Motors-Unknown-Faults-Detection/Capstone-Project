@@ -65,7 +65,10 @@ const RENDER = {
       + modelLine(r.model)
       + table([["display", "依序注入"], ["discovered", "發現", bool], ["learned_display", "模型新類"], ["matched_display", "事後對照"], ["samples_to_candidate", "到候選所需筆數", int],
                ["cluster_size", "叢大小", int], ["cluster_purity", "純度", v => pct(v, 0)],
-               ["own_holdout_acc", "本類 holdout 認出率", v => pct(v)], ["healthy_holdout_acc", "健康 holdout 認出率", v => pct(v)],
+               ["matched_is_config", "學到當段配置", bool],
+               ["own_holdout_acc", "本類 holdout 認出率", v => pct(v)], ["own_holdout_n", "本類 holdout 筆數", int],
+               ["eval_known_rate", "外部評估集被認得", v => pct(v)], ["eval_n", "外部評估筆數", int],
+               ["healthy_holdout_acc", "健康 holdout 認出率", v => pct(v)],
                ["known_after", "之後已知類別數", int]], r.stages);
   },
   exp3(r){
@@ -324,8 +327,16 @@ const LIVE = {
         const box = el.querySelector(".live-cand");
         const outcome = f.outcome || {};
         box.hidden = false;
-        box.innerHTML = `<h2>已自學為 ${esc(outcome.display || "")}</h2>
-          <div class="mini">只用這一群 ${esc(outcome.size)} 筆。事後對照多數為 ${esc(outcome.matched_display)}，純度 ${esc(Math.round((outcome.purity || 0) * 100))}%。</div>`;
+        const after = `事後對照多數為 ${esc(outcome.matched_display)}，純度 ${esc(Math.round((outcome.purity || 0) * 100))}%。`;
+        if (outcome.action === "learned"){
+          box.innerHTML = `<h2>已自學為 ${esc(outcome.display || "")}</h2>
+            <div class="mini">只用這一群 ${esc(outcome.size)} 筆；隔離區另有 ${esc(outcome.pruned || 0)} 筆已被新模型接受而移出。${after}</div>`;
+        } else if (outcome.action === "rejected_boundary"){
+          box.innerHTML = `<h2>退回這一群</h2>
+            <div class="mini">群的中位分數 ${esc((outcome.median_score || 0).toFixed(2))} 沒有超過已知校準最大值 ${esc((outcome.known_cal_max || 0).toFixed(2))}，與已知邊界分不開，不學成新類。${after}</div>`;
+        } else {
+          box.innerHTML = `<h2>群太小，不學成新類</h2><div class="mini">${after}</div>`;
+        }
         known.textContent = "已知：" + (f.known || []).join("、");
       }
     },

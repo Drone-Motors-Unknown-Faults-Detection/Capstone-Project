@@ -67,5 +67,76 @@ class DensityLadderTests(unittest.TestCase):
         self.assertIs(captured["adaptive_density"], False)
 
 
+def _session_with_quarantine(rows: np.ndarray, truth: str, cluster: int) -> exp2.ScaleGrowthSession:
+    """隔離區放入 rows，前 cluster 筆設成候選群。"""
+    session = exp2.ScaleGrowthSession(_pools(), seed=42)
+    session.quarantine_X = list(rows)
+    session.quarantine_truth = [truth] * len(rows)
+    session.quarantine_t = list(range(len(rows)))
+    session.candidate = {
+        "indices": list(range(cluster)), "size": cluster, "majority": truth,
+        "majority_display": truth, "purity": 1.0,
+    }
+    return session
+
+
+class AdoptTests(unittest.TestCase):
+    def test_learned_prunes_residual_now_explained(self):
+        rows = np.random.default_rng(11).normal(6.0, 0.3, (40, 6))
+        session = _session_with_quarantine(rows, "7screws", cluster=30)
+        out = session.adopt()
+        self.assertEqual(out["action"], "learned")
+        self.assertIn("discovered-1", session.monitor.known)
+        # 10 筆殘餘：被新類接受的移出，仍超線的留下（小校準集的 95% 門檻會留幾筆）
+        self.assertGreater(out["pruned"], 0)
+        self.assertEqual(out["pruned"] + len(session.quarantine_X), 10)
+        if session.quarantine_X:
+            left = session.monitor.classify(np.vstack(session.quarantine_X))
+            self.assertTrue(all(label is None for label in left))
+
+    def test_pruning_keeps_rows_new_model_rejects(self):
+        rng = np.random.default_rng(12)
+        rows = np.vstack([rng.normal(6.0, 0.3, (30, 6)), rng.normal(-6.0, 0.3, (8, 6))])
+        session = _session_with_quarantine(rows, "7screws", cluster=30)
+        out = session.adopt()
+        self.assertEqual(out["pruned"], 0)
+        self.assertEqual(len(session.quarantine_X), 8)
+
+    def test_cluster_inside_known_boundary_is_rejected(self):
+        rows = np.random.default_rng(13).normal(0.0, 0.3, (30, 6))
+        session = _session_with_quarantine(rows, "8screws", cluster=30)
+        out = session.adopt()
+        self.assertEqual(out["action"], "rejected_boundary")
+        self.assertLessEqual(out["median_score"], out["known_cal_max"])
+        self.assertEqual(list(session.monitor.known), ["8screws"])
+        self.assertEqual(session.quarantine_X, [])
+
+
+class EvalSplitTests(unittest.TestCase):
+    def test_stream_and_eval_are_disjoint_and_cover_pool(self):
+        parts = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]
+        self.assertEqual(len(parts["eval"]), 16)
+        self.assertEqual(len(parts["stream"]), 64)
+        self.assertEqual(set(parts["eval"]) & set(parts["stream"]), set())
+        self.assertEqual(set(parts["eval"]) | set(parts["stream"]), set(range(80)))
+
+    def test_split_is_deterministic(self):
+        a = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]["eval"]
+        b = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]["eval"]
+        np.testing.assert_array_equal(a, b)
+
+    def test_run_reports_discovery_and_external_eval(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        stage = result["stages"][0]
+        self.assertTrue(stage["discovered"])
+        self.assertTrue(stage["matched_is_config"])
+        self.assertEqual(stage["eval_n"], 16)
+        self.assertGreater(stage["own_holdout_n"], 0)
+        self.assertTrue(result["discovery"]["7screws"]["discovered"])
+        self.assertEqual(result["discovery"]["7screws"]["delay"], stage["samples_to_candidate"])
+        self.assertEqual(result["final_eval"]["7screws"]["n"], 16)
+        self.assertAlmostEqual(result["final_eval"]["7screws"]["known_rate"], stage["eval_known_rate"])
+
+
 if __name__ == "__main__":
     unittest.main()
