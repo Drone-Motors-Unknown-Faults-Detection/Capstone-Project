@@ -78,7 +78,7 @@ if [ ! -f docker/.env ]; then
 elif [ -n "$MEM_UTIL" ]; then
     CURRENT=$(sed -n 's/^VLLM_GPU_MEMORY_UTILIZATION=//p' docker/.env | tail -1)
     if [ -n "$CURRENT" ] && [ "$CURRENT" != "$MEM_UTIL" ]; then
-        echo "注意：docker/.env 的 VLLM_GPU_MEMORY_UTILIZATION=$CURRENT，這台 GPU（memory.total=$GPU_MEM）建議 $MEM_UTIL" >&2
+        echo "注意：docker/.env 的 VLLM_GPU_MEMORY_UTILIZATION=${CURRENT}，這台 GPU（memory.total=${GPU_MEM}）建議 ${MEM_UTIL}" >&2
     fi
 fi
 

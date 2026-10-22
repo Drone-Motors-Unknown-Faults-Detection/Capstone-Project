@@ -374,7 +374,14 @@ class PlaybackTracker:
         o = f.get("outcome") or {}
         if f.get("known") is not None:
             st["known"] = list(f["known"])
-        self._event(st, f"已自學為「{o.get('display')}」（只用這群 {o.get('size')} 筆）")
+        if o.get("action") == "learned":
+            self._event(st, f"已自學為「{o.get('display')}」（只用這群 {o.get('size')} 筆，"
+                            f"隔離區另移出 {o.get('pruned', 0)} 筆已被接受的殘餘）")
+        elif o.get("action") == "rejected_boundary":
+            self._event(st, f"退回候選群：中位分數 {_round(o.get('median_score'))} 未超過已知校準最大值 "
+                            f"{_round(o.get('known_cal_max'))}")
+        else:
+            self._event(st, f"候選群只有 {o.get('size')} 筆，不學成新類")
         self._reference(st, {"learned_as": o.get("display"), "matched": o.get("matched_display"),
                              "purity": o.get("purity")})
 
@@ -415,7 +422,8 @@ class PlaybackTracker:
                     self._reference(st, {"stage_injected": stage.get("display"), **{
                         k: _round(stage.get(k)) for k in ("discovered", "learned_display", "matched_display",
                                                         "samples_to_candidate", "cluster_size", "cluster_purity",
-                                                        "own_holdout_acc", "healthy_holdout_acc")}})
+                                                        "matched_is_config", "own_holdout_acc", "own_holdout_n",
+                                                        "eval_known_rate", "eval_n", "healthy_holdout_acc")}})
         self._event(st, f"播放完成（{payload.get('seconds')} 秒）")
 
     def _on_stopped(self, st, f):

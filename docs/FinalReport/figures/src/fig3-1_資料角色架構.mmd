@@ -1,0 +1,15 @@
+flowchart TD
+  K["已知類別資料池<br/>起初只有健康 8screws"] --> SP["每類切分 train／cal／holdout = 60／20／20"]
+  U["未學配置資料池<br/>1–7screws、3_14screws、4_146screws"]
+  SP -- train --> M1["擬合<br/>RobustScaler＋逐類 Ledoit–Wolf 分布"]
+  SP -- cal --> M2["校準<br/>逐類距離 95% 分位數當門檻"]
+  M1 --> M2
+  M2 --> S["打分與判定<br/>分數 = 距離 ÷ 門檻，> 1 為未知"]
+  SP -- holdout --> S
+  U -- "只當測試串流<br/>不參與擬合與校準" --> S
+  S --> QZ["分數 > 2 的樣本進隔離區"]
+  QZ --> HD["HDBSCAN 找候選群"]
+  HD --> A1["adopt()：群內樣本當新類資料"]
+  HD --> A2["confirm()：確認後讀該配置完整資料池"]
+  A1 --> K
+  A2 --> K

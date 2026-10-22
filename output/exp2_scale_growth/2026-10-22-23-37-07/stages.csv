@@ -1,0 +1,10 @@
+config,display,discovered,learned,learned_display,matched,matched_display,matched_is_config,samples_to_candidate,cluster_size,cluster_purity,pruned,own_holdout_acc,own_holdout_n,eval_known_rate,eval_n,healthy_holdout_acc,known_after
+7screws,7 螺絲（最輕微鬆動）,True,discovered-1,模型新類 1,7screws,7 螺絲（最輕微鬆動）,True,315,178,1.0,58,0.918918918918919,37,0.6461538461538462,65,0.96875,2
+6screws,6 螺絲（輕微鬆動）,True,discovered-2,模型新類 2,7screws,7 螺絲（最輕微鬆動）,False,31,79,1.0,0,0.8823529411764706,17,0.0,63,0.9375,3
+5screws,5 螺絲（中度鬆動）,True,discovered-3,模型新類 3,6screws,6 螺絲（輕微鬆動）,False,31,31,1.0,0,0.8571428571428571,7,0.0,43,0.953125,4
+4screws,4 螺絲（明顯鬆動）,True,discovered-4,模型新類 4,5screws,5 螺絲（中度鬆動）,False,32,31,1.0,0,1.0,7,0.0,58,0.953125,5
+3screws,3 螺絲（嚴重鬆動）,True,discovered-5,模型新類 5,3screws,3 螺絲（嚴重鬆動）,True,311,41,1.0,5,0.5555555555555556,9,0.14285714285714285,49,0.953125,6
+2screws,2 螺絲（很嚴重鬆動）,True,discovered-6,模型新類 6,3screws,3 螺絲（嚴重鬆動）,False,31,86,0.6395,0,1.0,18,0.0,58,0.953125,7
+1screws,1 螺絲（最嚴重鬆動）,True,discovered-7,模型新類 7,2screws,2 螺絲（很嚴重鬆動）,False,31,31,1.0,0,1.0,7,0.0,70,0.96875,8
+3_14screws,3_14（複合不均勻鬆動）,True,discovered-8,模型新類 8,1screws,1 螺絲（最嚴重鬆動）,False,31,31,1.0,0,1.0,7,0.0,71,0.96875,9
+4_146screws,4_146（複合不均勻鬆動）,True,discovered-9,模型新類 9,3_14screws,3_14（複合不均勻鬆動）,False,31,31,1.0,0,0.8571428571428571,7,0.0,75,0.96875,10
