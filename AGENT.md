@@ -260,7 +260,7 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    `matched`／`matched_display`（候選群的真值多數）與 `matched_is_config`；候選叢集取自整個
    隔離區，關掉密度階梯時多數常是前一段的配置。「某配置多久被發現」讀 `summary.json` 的
    `discovery`，「學會後認不認得」讀外部評估集 `final_eval`（每配置 20% 不參與重播），
-   不要只看群內 6～19 筆的 `own_holdout_acc`。同 seed 在 Linux 與 macOS 數字不同（#224）。
+   不要只看群內 7～18 筆的 `own_holdout_acc`。數字一律取自 Aero／Spark 的輸出（鐵則 13）。
 4. **量尺擴張後 PCA 投影會變**：web 前端在已知類別數改變時清空散佈圖，這是刻意行為。
 5. **目錄名陷阱**：螺絲配置目錄可能是 `1screw` 或 `1screws`（既有資料兩種都出現過），
    `core.data` 以掃描目錄迴避硬編碼——不要寫死配置清單去讀資料。

@@ -27,7 +27,7 @@ uv pip check --python venv/bin/python
 
 ## 執行主機
 
-提交前檢查（pytest、ruff）與所有實驗 CLI（會寫 `logs/`、`output/` 的程式）只在 Aero 或 Spark 執行（AGENT.md 鐵則 13）。兩台都是 Linux，numpy 連結 scipy-openblas 0.3.29：Aero 為 x86_64、Spark 為 aarch64，實驗二 seed 42 在兩台逐位元組相同。macOS 的 numpy 連結 Apple Accelerate，同 seed、同套件版本，實驗二從第 4 段起分岔（#224），所以本機 Mac 的結果不作為文件或報告的數字來源。`environment.json` 的 `os.host` 與 `numeric.blas` 用來核對一份輸出是在哪台、用哪個 BLAS 跑的。
+提交前檢查（pytest、ruff）與所有實驗 CLI（會寫 `logs/`、`output/` 的程式）只在 Aero 或 Spark 執行（AGENT.md 鐵則 13）。兩台都是 Linux，numpy 連結 scipy-openblas 0.3.29：Aero 為 x86_64、Spark 為 aarch64。實驗二 seed 42 在兩台的 `stages.csv` 逐位元組相同；`summary.json` 裡的門檻、PCA 座標等連續值只在第 13 位有效數字之後不同（`output/exp2_scale_growth/2026-10-23-00-05-08` 對 `2026-10-23-00-05-22`）。macOS 的 numpy 連結 Apple Accelerate，同 seed、同套件版本，實驗二從第 4 段起分岔（#224），所以本機 Mac 的結果不作為文件或報告的數字來源。`environment.json` 的 `os.host` 與 `numeric.blas` 用來核對一份輸出是在哪台、用哪個 BLAS 跑的。
 
 ## 更新與支援邊界
 

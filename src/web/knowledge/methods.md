@@ -69,10 +69,10 @@
 
 - 預設 (min_cluster_size, min_samples) = (25, 3)。
 - 隔離區 ≥ 75 筆加試 (15, 3)；≥ 100 筆加試 (10, 2)。候選叢集仍需 ≥ 25 筆。
-- 實驗二現行走 `adopt()` 自學，並加了邊界退回與學會後清理殘餘。`output/exp2_scale_growth/2026-10-22-23-37-04/summary.json`（commit 39440fc，seed 42，T1/8000rpm，macOS）九段都學到當段注入的配置，發現延遲 50～75 筆；seed 123、2026 也都九段學到當段配置，延遲最多 137 筆。
-- 每個配置先切 20% 外部評估集不參與重播。學成新類後，外部評估集被認得的比例 seed 42 是 53.8%～100%，最低是 7screws；seed 2026 的 4_146screws 只有 18.67%。學成新類不代表之後都認得。
-- 關掉密度階梯（`--fixed-density`）時修正無效：三個 seed 只有 1～2 段學到當段配置，最慢一段 693 筆。報告在 `reports/JW-Albert_20261022_exp2_adopt_fix/README.md`。
-- 同 seed 在 Linux 與 macOS 跑出的數字不同（issue #224），引用數字要看是哪個平台跑的。
+- 實驗二現行走 `adopt()` 自學，並加了邊界退回與學會後清理殘餘。`output/exp2_scale_growth/2026-10-23-00-13-53/summary.json`（Aero，commit 62b6967，seed 42，T1/8000rpm）九段都學到當段注入的配置，發現延遲 51～75 筆；seed 123、2026 也都九段學到當段配置，延遲最多 118 筆。
+- 每個配置先切 20% 外部評估集不參與重播。學成新類後，外部評估集被認得的比例 seed 42 是 53.8%～96.6%，最低是 7screws；三個 seed 的最低值是 53.85%、56.92%、63.49%。學成新類不代表之後都認得。
+- 關掉密度階梯（`--fixed-density`）時修正無效：三個 seed 只有 2～3 段學到當段配置，最慢一段 696 筆。報告在 `reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md`。
+- 實驗只在 Aero 或 Spark 主機跑；macOS 的 numpy 用 Apple Accelerate，同 seed 數字不同（issue #224），不拿來引用。
 - 畫面顯示「已試分群 N 次」代表隔離區仍在累積、還沒成群。
 
 ## 極座標健康地圖（方向與半徑）

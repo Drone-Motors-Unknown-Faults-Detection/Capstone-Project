@@ -103,8 +103,8 @@ venv/bin/python -m experiments.exp2_scale_growth --motor T1 --rpm 8000rpm
 venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2screws
 ```
 
-**實測結果**（預設序列由輕到重注入，T1/8000rpm，seed=42，macOS arm64，
-[output/exp2_scale_growth/2026-10-22-23-37-04](output/exp2_scale_growth/2026-10-22-23-37-04/summary.json)）。
+**實測結果**（預設序列由輕到重注入，T1/8000rpm，seed=42，Aero，
+[output/exp2_scale_growth/2026-10-23-00-13-53](output/exp2_scale_growth/2026-10-23-00-13-53/summary.json)）。
 每個配置先切 20% 外部評估集不參與重播。「發現延遲」是該配置第一次成為某新類事後多數的筆數；
 「真值多數」與外部評估都是事後對照，不進模型：
 
@@ -112,19 +112,19 @@ venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2
 |---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
 | 7screws | 75 | discovered-1 | 7screws | 45 | 100.0% | 6 | 100.0%（9） | 53.8%（65） | 89.1% | 2 |
 | 6screws | 51 | discovered-2 | 6screws | 51 | 100.0% | 0 | 100.0%（11） | 74.6%（63） | 89.1% | 3 |
-| 5screws | 51 | discovered-3 | 5screws | 29 | 100.0% | 6 | 71.4%（7） | 100.0%（43） | 96.9% | 4 |
-| 4screws | 50 | discovered-4 | 4screws | 60 | 68.3% | 0 | 91.7%（12） | 98.3%（58） | 100.0% | 5 |
-| 3screws | 59 | discovered-5 | 3screws | 54 | 100.0% | 0 | 91.7%（12） | 98.0%（49） | 100.0% | 6 |
+| 5screws | 51 | discovered-3 | 5screws | 29 | 100.0% | 6 | 71.4%（7） | 95.3%（43） | 96.9% | 4 |
+| 4screws | 52 | discovered-4 | 4screws | 60 | 68.3% | 0 | 66.7%（12） | 89.7%（58） | 100.0% | 5 |
+| 3screws | 55 | discovered-5 | 3screws | 54 | 100.0% | 0 | 66.7%（12） | 83.7%（49） | 100.0% | 6 |
 | 2screws | 54 | discovered-6 | 2screws | 54 | 100.0% | 5 | 100.0%（12） | 96.6%（58） | 100.0% | 7 |
-| 1screws | 59 | discovered-7 | 1screws | 59 | 100.0% | 0 | 100.0%（13） | 88.6%（70） | 98.4% | 8 |
+| 1screws | 59 | discovered-7 | 1screws | 59 | 100.0% | 0 | 100.0%（13） | 88.6%（70） | 100.0% | 8 |
 | 3_14screws | 59 | discovered-8 | 3_14screws | 59 | 100.0% | 0 | 76.9%（13） | 83.1%（71） | 96.9% | 9 |
 | 4_146screws | 59 | discovered-9 | 4_146screws | 59 | 100.0% | 0 | 61.5%（13） | 85.3%（75） | 96.9% | 10 |
 
 > 九段都學到當段注入的配置，沒有同一配置被學成兩個類，最終 10 類。4screws 段的群混了 5screws
-> （純度 68.3%）。外部評估集被認得的比例 53.8%～100%：7screws 學成新類後，仍有近半數外部樣本
+> （純度 68.3%）。外部評估集被認得的比例 53.8%～96.6%：7screws 學成新類後，仍有近半數外部樣本
 > 被判為未知。seed 123、2026 也都 9 段學到當段配置；seed 123 有一次邊界退回（擋下 7screws 殘餘）。
-> 關掉密度階梯時修正無效（只有 1～2 段學到當段配置），完整對照見
-> [修正報告](reports/JW-Albert_20261022_exp2_adopt_fix/README.md)。同 seed 在 Linux x86_64 上數字不同（#224）。
+> 關掉密度階梯時修正無效（只有 2～3 段學到當段配置），完整對照見
+> [Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)。
 > 欄位定義與判讀見 [實驗二手冊](docs/experiments/exp2_scale_growth.md)。
 
 ### 實驗三：漸進磨損 vs 突發事件判別（`exp3_trend`）
@@ -310,7 +310,7 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
 |---|---|---|
 | 1 | **冷啟動框架**：健康-only 起步的開集診斷與持續學習迴圈 | exp1（九故障偵測 100%）、exp2（三個 seed 九段都學到當段配置，最終 10 類）|
 | 2 | **兩段閾值**：偵測線 1.0／隔離線 2.0 分離「警報」與「新類發現」 | 健康誤報 1.01–1.08 vs 故障 ≥10 的空隙實測 |
-| 3 | **自適應密度階梯**：縮短隔離區遲遲不成群時的發現延遲 | exp2 修正版（T1/8000rpm × 3 seed，macOS）：階梯開時學到當段配置 9／9／9 段、發現延遲最大 137 筆；關掉時 2／1／2 段、最大 693 筆（[修正報告](reports/JW-Albert_20261022_exp2_adopt_fix/README.md)）|
+| 3 | **自適應密度階梯**：縮短隔離區遲遲不成群時的發現延遲 | exp2 修正版（T1/8000rpm × 3 seed，Aero）：階梯開時學到當段配置 9／9／9 段、發現延遲最大 118 筆；關掉時 3／2／2 段、最大 696 筆（[Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)）|
 | 4 | **候選群自學與操作員在環**：實驗二成群即自學、不讀真值；首頁展示保留人工確認＋退回機制 | exp2 事後對照欄；假候選（健康誤報聚叢）實測案例與修復 |
 | 5 | **中間帶停留時間**：漸進 vs 突發的變化點判別統計量 | exp3（雙劇本各 97.5%）|
 | 6 | **極座標健康地圖**：方向=故障類型、半徑=嚴重度；錨點效應發現 | exp4（輕錨 AUROC 0.997、重錨反轉 0.146）|
@@ -563,8 +563,8 @@ repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也�
    conformal 校準改善。
 4. **候選群會混入其他配置**：實驗二的候選群取自整個隔離區。學會後清理殘餘、加邊界退回之後，
    密度階梯開時三個 seed 九段都學到當段配置，但 seed 42 的 4screws 段仍混入 5screws（純度 68.3%）；
-   關掉階梯時每段仍落後一段（[修正報告](reports/JW-Albert_20261022_exp2_adopt_fix/README.md)）。
-   學成新類也不代表之後都認得：外部評估集被認得的比例最低 18.67%（seed 2026 的 4_146screws）。修正前的密度階梯消融見
+   關掉階梯時多數段仍落後一段（[Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)）。
+   學成新類也不代表之後都認得：外部評估集被認得的比例最低 53.85%（seed 42 的 7screws）。修正前的密度階梯消融見
    [報告](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)。
 5. **衰退曲線外插未實作**：T1/T2/T3 是不同馬達個體，個體與老化影響混雜；
    缺同個體連續歷程及失效終點，不能當作 run-to-failure 模板或估計RUL。
