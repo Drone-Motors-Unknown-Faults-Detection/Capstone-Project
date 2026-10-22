@@ -40,7 +40,7 @@ class MatrixDefaultTests(unittest.TestCase):
 
         def fake(data_root, output_root, **kwargs):
             captured["output_root"] = output_root
-            return {"status": "completed", "completed_runs": 0, "expected_runs": 0}
+            return {"status": "completed", "completed_runs": 0, "expected_runs": 0, "failed_runs": 0, "missing_runs": 0}
 
         with tempfile.TemporaryDirectory() as directory:
             cwd = os.getcwd()
@@ -59,7 +59,8 @@ class MatrixDefaultTests(unittest.TestCase):
 
 class StagesCsvIntegerTests(unittest.TestCase):
     def test_missing_stage_keeps_integer_columns(self):
-        stages = [{"config": "7screws", "discovered": True, "samples_to_candidate": 215, "cluster_size": 31},
+        stages = [{"config": "7screws", "discovered": True, "samples_to_candidate": 215, "cluster_size": 31,
+                   "cluster_purity": 1.0, "own_holdout_acc": 1.0, "healthy_holdout_acc": 1.0, "known_after": 2},
                   {"config": "6screws", "discovered": False}]
         result = {"stages": stages, "final_known": ["8screws"], "model": {}}
         with tempfile.TemporaryDirectory() as directory:
