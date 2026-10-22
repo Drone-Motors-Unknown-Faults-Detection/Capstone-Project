@@ -63,4 +63,9 @@ def test_failed_run_does_not_write_done(monkeypatch, runner):
     monkeypatch.setattr(runner, "_dispatch", fail)
     with pytest.raises(RuntimeError):
         runner.run("exp12", {})
-    assert not runner.out_dir.exists()
+    artifacts = list(runner.out_dir.glob("*.json"))
+    assert len(artifacts) == 1
+    saved = json.loads(artifacts[0].read_text(encoding="utf-8"))
+    assert saved["status"] == "FAILED" and saved["error_type"] == "RuntimeError"
+    assert "result" not in saved and "finished_at" not in saved
+    assert "刻意失敗" not in artifacts[0].read_text(encoding="utf-8")
