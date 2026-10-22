@@ -48,9 +48,20 @@ main經setup_run寫logs/openset_comparison/{ts}.log、output/openset_comparison/
 
 results的auroc／aupr_unknown_positive是unknown正類排序／平均精確率；AUPR與open_set_accuracy受fault比例影響。unknown_recall／precision／f1_unknown按score>1算，零分母為0；known_class_accuracy按classify是否回healthy算。details的healthy列unknown_recall其實是健康誤報率，fault列才是未知召回率，並列n與無因次median_score。
 
-fpr_at_95_tpr取ROC上TPR≥0.95的最小FPR，是事後評估點，不修改門檻；與正式版用unknown分位數的近似算法不同，有ties時不應要求兩入口完全同值。class_thresholds是原距離線，正規化線為1。
+fpr_at_95_tpr取ROC上TPR≥0.95的最小FPR，是事後評估點，不修改門檻；實驗六廣度、正式版與本入口都呼叫`core.openset.fpr_at_tpr`（#235），定義相同。class_thresholds是原距離線，正規化線為1。
 
-預期兩法產生有限分數，unknown高於healthy且誤報低；沒有通用成功數字。不按這張圖自動換預設；同工況好分數不代表跨馬達、fresh final或真實損壞辨識。既有九工況結果查[固定正式包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_formal_matrix)，不是本單工況新實測。
+預期兩法產生有限分數，unknown高於healthy且誤報低；沒有通用成功數字。不按這張圖自動換預設；同工況好分數不代表跨馬達、fresh final或真實損壞辨識。九工況三seed的比較見[實驗六矩陣](exp6_matrix.md#輸出怎麼看)，不是本單工況實測。
+
+## 實測結果
+
+2026-10-23在Aero（aero01）以commit `46ed4d5`、`--data-root data`（資料指紋`1b55b847…`）跑上方第二行指令，輸出[output/openset_comparison/2026-10-23-01-34-12](../../output/openset_comparison/2026-10-23-01-34-12/summary.json)。T1／8000rpm、seed42，健康test 64列、unknown test 2736列：
+
+| 方法 | AUROC | AUPR | FPR@95TPR | open_set_accuracy | known_class_accuracy | 健康holdout誤報 | unknown_recall | unknown_precision |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Mahalanobis（LW） | 1.0 | 1.0 | 0.0 | 99.75% | 89.06% | 7／64（10.94%） | 100% | 99.745% |
+| k-NN（k=5） | 1.0 | 1.0 | 0.0 | 99.96% | 98.44% | 1／64（1.56%） | 100% | 99.963% |
+
+健康誤報取自`details`的8screws列（`unknown_recall`在健康列就是誤報率）。兩法排序都完全分開；差別只在固定線1上的健康誤報。這是單一工況、單一seed、64個健康窗，k-NN少6個誤報不足以換預設；九工況×三seed下兩法健康接受率是94.66%對94.67%。Mahalanobis的7／64和[實驗一](exp1_cold_start.md)同工況同seed的健康誤報一致。
 
 ## 方法來源與程式碼
 

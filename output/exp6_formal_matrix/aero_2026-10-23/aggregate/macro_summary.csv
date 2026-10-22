@@ -1,0 +1,3 @@
+method,n_condition_seed_rows,known_accuracy_mean,known_accuracy_std,open_set_accuracy_mean,open_set_accuracy_std,auroc_mean,auroc_std,aupr_unknown_positive_mean,aupr_unknown_positive_std,fpr_at_tpr95_mean,fpr_at_tpr95_std,unknown_precision_mean,unknown_precision_std,unknown_recall_mean,unknown_recall_std,unknown_f1_mean,unknown_f1_std
+mahalanobis,27,0.946644,0.039669,0.99886,0.000873,1.0,0.0,1.0,0.0,0.0,0.0,0.998837,0.000891,1.0,0.0,0.999418,0.000446
+knn,27,0.946656,0.043828,0.998867,0.000932,1.0,0.0,1.0,0.0,0.0,0.0,0.998844,0.00095,1.0,0.0,0.999421,0.000476

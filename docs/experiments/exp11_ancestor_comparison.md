@@ -59,7 +59,7 @@ main經setup_run寫logs/exp11_ancestor_comparison/{ts}.log、output/exp11_ancest
 
 rows先round4，summary按protocol×method等工況-seed平均；Wilcoxon只對dataset×seed的**macro-F1**配對，不是對balanced_accuracy檢定，輸出mean_diff_pp、W與p（round6，0不表示機率真為0）。同motor多RPM／seed共用來源，27pairs不滿足27個獨立馬達，p值只能作此依賴資料下描述，不能宣稱motor母體顯著保證。
 
-原約定主指標balanced_accuracy與macro-F1，LW−legacy絕對提升≥5個百分點（pp）；threshold_pp只是輸出設定，程式未自動判PASS。滿足這個內部門檻仍受legacy介面問題與列切分限制。完整歷史分數查[固定實測包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp11_ancestor_comparison/2026-10-09-14-17-27)。不能取代[#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9)跨馬達研究、fresh final或可靠fault-type驗證。
+原約定主指標balanced_accuracy與macro-F1，LW−legacy絕對提升≥5個百分點（pp）；threshold_pp只是輸出設定，程式未自動判PASS。滿足這個內部門檻仍受legacy介面問題與列切分限制。完整分數見 [output/exp11_ancestor_comparison/2026-10-23-01-35-07](../../output/exp11_ancestor_comparison/2026-10-23-01-35-07/summary.json)（Aero、commit `46ed4d5`、seed 42／123／2026；與 2026-10-09 的舊輸出扣掉環境欄位後相同）。不能取代[#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9)跨馬達研究、fresh final或可靠fault-type驗證。
 
 ## 來源與程式碼
 

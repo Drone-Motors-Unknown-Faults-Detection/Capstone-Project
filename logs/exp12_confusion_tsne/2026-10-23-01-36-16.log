@@ -1,0 +1,10 @@
+2026-10-23 01:36:16 | INFO    | Logger initialized: exp12_confusion_tsne
+2026-10-23 01:36:16 | INFO    | log_file=logs/exp12_confusion_tsne/2026-10-23-01-36-16.log
+2026-10-23 01:36:16 | INFO    | output_dir=output/exp12_confusion_tsne/2026-10-23-01-36-16
+2026-10-23 01:36:16 | INFO    | 實驗十二：混淆矩陣與 t-SNE（seed=42, perplexity=30.0）
+2026-10-23 01:37:12 | INFO    | (a) 二元混淆矩陣 ['healthy', 'fault']：[[527, 45], [0, 26070]]
+2026-10-23 01:37:12 | INFO    | (b) 開集多類混淆矩陣 [ledoit_wolf] 對角線：[525, 562, 559, 561, 529, 14381]
+2026-10-23 01:37:12 | INFO    | (b) 開集多類混淆矩陣 [legacy] 對角線：[0, 0, 0, 0, 0, 14381]
+2026-10-23 01:37:12 | INFO    | 圖表已儲存：output/exp12_confusion_tsne/2026-10-23-01-36-16/confusion_matrices.png
+2026-10-23 01:37:13 | INFO    | 圖表已儲存：output/exp12_confusion_tsne/2026-10-23-01-36-16/tsne_grid.png
+2026-10-23 01:37:13 | INFO    | 輸出：output/exp12_confusion_tsne/2026-10-23-01-36-16

@@ -27,6 +27,8 @@ from tests.exp6_fixture import condition_row
 ROOT = Path(__file__).resolve().parents[2]
 BASE = "39d39931e9573d6b70b3822420b085aa496f52da"  # exp6 orchestration 基準 commit
 VOLATILE = {"inference_seconds", "commit_sha", "python", "dataset_fingerprint"}
+# 刻意改變、另外驗證的欄位：dataset_root 由寫死的 formal_features 改記實際資料根名稱（#248）
+INTENDED = {"dataset_root"}
 
 
 def base_module(relative: str, name: str):
@@ -111,8 +113,9 @@ class FormalBenchmarkContract(unittest.TestCase):
                         np.testing.assert_array_equal(a_in, b_in)
                         np.testing.assert_array_equal(a_out, b_out)
                     self.assertTrue(set(old).issubset(new), set(old) - set(new))
-                    for key in set(old) - VOLATILE - {"rows"}:
+                    for key in set(old) - VOLATILE - INTENDED - {"rows"}:
                         self.assertEqual(new[key], old[key], key)
+                    self.assertEqual(new["dataset_root"], root.name)
                     self.assertEqual(len(new["rows"]), len(old["rows"]))
                     for a, b in zip(old["rows"], new["rows"]):
                         self.assertTrue(set(a).issubset(b), set(a) - set(b))

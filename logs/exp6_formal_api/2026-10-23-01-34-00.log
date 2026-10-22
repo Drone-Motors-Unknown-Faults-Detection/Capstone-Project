@@ -1,0 +1,4 @@
+2026-10-23 01:34:00 | INFO    | Logger initialized: exp6_formal_api
+2026-10-23 01:34:00 | INFO    | log_file=logs/exp6_formal_api/2026-10-23-01-34-00.log
+2026-10-23 01:34:00 | INFO    | output_dir=output/exp6_formal_api/2026-10-23-01-34-00
+2026-10-23 01:34:01 | INFO    | T3_6000rpm_seed2026_mahalanobis：完成
