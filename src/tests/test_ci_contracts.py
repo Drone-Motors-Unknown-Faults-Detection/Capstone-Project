@@ -129,6 +129,9 @@ class ExperimentContracts(unittest.TestCase):
         events = list(exp3.iter_run(pools(), seed=42, n_trials=1))
         a = events[-1]["result"]
         self.assertEqual(a, exp3.run(pools(), seed=42, n_trials=1))
+        ticks = [row for row in events if row["event"] == "tick"]
+        self.assertTrue(ticks)
+        self.assertTrue(all(row["unknown"] == (row["score"] > 1) for row in ticks))   # 旗標由實驗端給，Web 不重算
         self.assertEqual([row["trial"]["scenario"] for row in events if row["event"] == "trial"], ["A", "B"])
         self.assertEqual(a["threshold"], 1.0)
         self.assertEqual(a["n_trials"], 1)

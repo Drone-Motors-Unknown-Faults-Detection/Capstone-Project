@@ -235,6 +235,26 @@ class GuideSocketTests(AsyncHTTPTestCase):
         ws.close()
 
     @gen_test
+    async def test_invalid_arguments_not_echoed(self):
+        # 用戶端字串不回送；非 CommandError 只回型別名（#279）
+        payload = "<img src=x onerror=alert(1)>"
+        ws = await tornado.websocket.websocket_connect(self.get_url("/ws").replace("http", "ws", 1))
+        await ws.read_message()
+        self.hub.build("T1", "8000rpm")
+        for command in ({"cmd": "build", "motor": payload, "rpm": "x"}, {"cmd": "rate", "value": payload},
+                        {"cmd": "source", "id": payload}, {"cmd": "scenario", "name": payload},
+                        {"cmd": payload}, [payload]):
+            with self.subTest(command=command):
+                ws.write_message(json.dumps(command))
+                error = json.loads(await ws.read_message())
+                self.assertEqual(error["level"], "error")
+                self.assertNotIn(payload, json.dumps(error, ensure_ascii=False))
+                state = json.loads(await ws.read_message())
+                self.assertFalse(state["running"])
+        self.assertEqual(self.hub.rate, 4)
+        ws.close()
+
+    @gen_test
     async def test_busy_rejects_duplicate(self):
         ws = await tornado.websocket.websocket_connect(self.get_url("/ws").replace("http", "ws", 1))
         await ws.read_message()

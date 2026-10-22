@@ -347,13 +347,13 @@ const LIVE = {
       const keys = params.scenario ? [params.scenario] : ["A", "B"];
       const names = {A: "劇本 A：漸進磨損", B: "劇本 B：突發外力"};
       return keys.map(k => `<h3>${names[k]}（第 1 次重複逐筆播放）</h3><canvas class="live-${k}" height="180"></canvas>`).join("")
-      + `<div class="mini">點 = 開集分數（紅 = 當下注入故障、綠 = 健康）；黃線 = EWMA 異常比例（右軸 0～1，虛線 0.5 觸發警報）；直線 = 故障開始、⚠ = 警報。其餘重複直接計算，只列結果。</div>
+      + `<div class="mini">點 = 開集分數（紅 = 判未知、綠 = 判健康）；黃線 = EWMA 異常比例（右軸 0～1，虛線 0.5 觸發警報）；直線 = 故障開始、⚠ = 警報。其餘重複直接計算，只列結果。</div>
          <div class="live-trials" style="margin-top:8px"></div>`;
     },
     on(st, f, el){
       if (f.event === "tick"){
         const c = st.cur[f.scenario] = st.cur[f.scenario] || {pts: [], line: [], marks: [{i: f.onset, label: "故障開始", color: "#a78bfa"}]};
-        c.pts.push({s: f.score, color: f.truth === "8screws" ? "#22c55e" : "#ef4444"}); c.line.push(f.ewma);
+        c.pts.push({s: f.score, color: f.unknown ? "#ef4444" : "#22c55e"}); c.line.push(f.ewma);   // 判定旗標由實驗端給
         if (f.alarm_now) c.marks.push({i: c.pts.length - 1, label: "⚠ " + (f.kind === "gradual" ? "漸進" : "突發"), color: "#eab308"});
         const k = f.scenario;
         scheduleDraw(() => drawScoreStrip(el.querySelector(".live-" + k), c.pts, {h: 180, line: c.line, marks: c.marks, n: Math.max(c.pts.length, 160)}));

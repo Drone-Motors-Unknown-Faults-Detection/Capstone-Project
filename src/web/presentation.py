@@ -31,8 +31,9 @@ def _metric_row(container: dict, key: str, meaning: str, denominator_key, **wher
     valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
              and math.isfinite(value) and 0 <= value <= 1)
     denominator = container.get(denominator_key) if denominator_key else None
-    count_valid = (isinstance(denominator, int) and not isinstance(denominator, bool)
-                   and denominator > 0)
+    # 沒有分母欄位的比例（healthy_holdout_acc）只看值本身；有分母欄位才要求正整數
+    count_valid = denominator_key is None or (isinstance(denominator, int) and not isinstance(denominator, bool)
+                                              and denominator > 0)
     status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
     if denominator is not None and not count_valid:
         status, valid = "INVALID_DENOMINATOR", False

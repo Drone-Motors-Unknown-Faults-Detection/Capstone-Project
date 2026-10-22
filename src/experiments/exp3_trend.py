@@ -126,7 +126,8 @@ def iter_run(
                 score = float(monitor.score(x)[0])
                 tr = trend.update(score)
                 yield {"event": "tick", "scenario": key, "trial": k, "t": t, "truth": truth,
-                       "score": score, "ewma": tr["ewma"], "cusum": tr["cusum"],
+                       "score": score, "unknown": bool(score > 1),   # 監測器判定，Web 只呈現
+                       "ewma": tr["ewma"], "cusum": tr["cusum"],
                        "alarm_now": tr["alarm_now"], "kind": tr["kind"], "onset": onset}
                 if tr["alarm_now"]:
                     verdict, alarm_t, transition = tr["kind"], t, tr["transition"]

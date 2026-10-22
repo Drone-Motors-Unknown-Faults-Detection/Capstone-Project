@@ -37,6 +37,15 @@ def test_contract_keeps_values_but_separates_four_populations():
     assert result == before
 
 
+def test_complete_result_gives_complete_status():
+    # 沒有分母欄位的 healthy_holdout_acc 只看值本身，不再把每份完整結果都標成 incomplete（#279）
+    contract = exp2_metric_contract(fixture())
+    assert contract["status"] == "complete"
+    rows = {row["metric"]: row for row in contract["rows"]}
+    assert rows["healthy_holdout_acc"]["status"] == "VERIFIED_SAVED_FIELDS"
+    assert all(row["status"] == "VERIFIED_SAVED_FIELDS" for row in contract["rows"])
+
+
 def test_final_eval_matched_rate_rows_are_listed_per_config():
     contract = exp2_metric_contract(fixture())
     final = {row["metric"]: row for row in contract["rows"] if row.get("stage_index") == "final_eval"}
