@@ -93,7 +93,7 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 - 假設不成立：階梯組延遲沒有縮短，或純度、`matched==config` 段數明顯變差（較小的 mcs 把殘餘或混合樣本切成候選）。
 - 單一工況、三個 seed，只能說明這個工況下的方向，不能外推到其他工況。
 
-結果寫在 `reports/`，不回填本節。
+結果見 [reports/JW-Albert_20261022_exp2_density_ladder_ablation](../../reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)，不回填本節。
 
 ## 來源與對應程式
 
