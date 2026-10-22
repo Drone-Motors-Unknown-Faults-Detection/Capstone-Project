@@ -9,13 +9,16 @@ class Element {
   append(row){this.children.push(row);}
   getContext(){return new Proxy({}, {get:()=>()=>{},set:()=>true});}
 }
-const nodes=new Map(), sockets=[];
-const document={getElementById(id){if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);},
+const nodes=new Map(), sockets=[], requested=[];
+const prefix=process.argv[3]||'';
+const document={body:{dataset:{guidePrefix:prefix}},getElementById(id){if(!nodes.has(id))nodes.set(id,new Element());return nodes.get(id);},
   createElement(){return new Element();},querySelectorAll(){return [];}};
-class Socket {constructor(){this.readyState=1;sockets.push(this);}send(){} }
+class Socket {constructor(url){this.url=url;this.readyState=1;sockets.push(this);}send(){} }
 const context=vm.createContext({document,WebSocket:Socket,location:{protocol:'http:',host:'localhost'},
-  fetch:()=>new Promise(()=>{}),setTimeout(){},confirm:()=>true});
+  fetch:url=>{requested.push(url);return new Promise(()=>{});},setTimeout(){},confirm:()=>true});
 vm.runInContext(fs.readFileSync(process.argv[2],'utf8'),context);
+assert.equal(sockets[0].url,`ws://localhost${prefix}/ws`);
+assert.equal(requested[0],`${prefix}/docs/exp13_實驗總覽.md`);
 const el=id=>document.getElementById(id), message=(socket,data)=>socket.onmessage({data:JSON.stringify(data)});
 const initial={type:'state',session_id:1,epoch:1,t:24,seed:42,rate:4,step:'暫停',
   meta:{motor:'T1',rpm:'8000rpm'},datasets:[{motor:'T1',rpm:'8000rpm'}],
