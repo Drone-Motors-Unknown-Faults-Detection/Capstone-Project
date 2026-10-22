@@ -17,7 +17,8 @@ def run(dataset: dict, seed: int = 42) -> dict:
     configs = sorted(pools, key=config_sort_key)
     sources = {}
     # 只記相對資料根的 source_id（Step-*/myfeature/...），不記主機絕對路徑（#252）
-    data_root = Path(dataset["path"]).resolve().parents[3]
+    dataset_dir = Path(dataset["path"]).resolve()
+    data_root = next((p.parent for p in (dataset_dir, *dataset_dir.parents) if p.name.startswith("Step-")), dataset_dir)
     for config in configs:
         sources[config] = [
             {"sha256": hashlib.sha256(p.read_bytes()).hexdigest(),

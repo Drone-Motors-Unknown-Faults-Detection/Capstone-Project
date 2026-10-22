@@ -11,6 +11,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
+from core.feature_schema import SCHEMAS
 from experiments import aggregate_exp6, exp2_scale_growth, exp6_matrix, navigation_data_contract
 
 
@@ -19,7 +20,7 @@ def _dataset(root: Path) -> dict:
     rng = np.random.default_rng(1)
     for config, center in (("8screws", 0.0), ("7screws", 3.0)):
         (base / config).mkdir(parents=True)
-        pd.DataFrame(rng.normal(center, 0.1, (20, 105))).to_csv(
+        pd.DataFrame(rng.normal(center, 0.1, (20, 105)), columns=SCHEMAS["historical_clean_v1"]).to_csv(
             base / config / "T1_Group_feature_data_clean.csv", index=False)
     return {"motor": "T1", "rpm": "8000rpm", "path": base}
 
