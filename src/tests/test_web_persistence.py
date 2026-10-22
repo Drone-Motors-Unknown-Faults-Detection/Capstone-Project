@@ -132,7 +132,7 @@ class PersistenceTests(unittest.TestCase):
             self.assertEqual(metadata["dataset"]["motor"], "T3")
             self.assertEqual(metadata["flushed_t"], 2)
             saved = {path.name: path.read_bytes() for path in self.out.iterdir()}
-            WSHandler._do_dataset(self.ds["motor"], self.ds["rpm"])
+            WSHandler._do_dataset(self.ds)
             self.demo = self.hub.demo
             self.assertEqual(self.demo.epoch, 3)
             self.ticks(1)

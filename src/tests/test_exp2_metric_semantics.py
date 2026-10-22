@@ -30,7 +30,7 @@ def test_contract_keeps_values_but_separates_four_populations():
     assert (rows["eval_known_rate"]["value"], rows["eval_known_rate"]["denominator"]) == (0.6, 65)
     assert rows["healthy_holdout_acc"]["denominator"] is None
     assert (rows["eval_matched_rate"]["value"], rows["eval_matched_rate"]["denominator"]) == (0.55, 65)
-    assert contract["status"] == "complete"
+    assert rows["eval_matched_rate"]["status"] == "VERIFIED_SAVED_FIELDS"
     assert contract["unknown_auroc"] == contract["unknown_recall"] == "NOT_PROVIDED"
     assert "不是未知召回" in contract["text"] or "不等於未知召回" in contract["text"]
     assert "不要求判對自身配置" in contract["text"]
