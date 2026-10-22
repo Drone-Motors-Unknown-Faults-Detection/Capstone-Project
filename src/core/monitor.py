@@ -161,14 +161,18 @@ class OpenSetMonitor:
         classes = []
         for item in self.detector.class_summaries():
             label = int(item["label"])
-            config = self._label_to_config.get(label, str(label))
-            sp = self.splits[config]
+            if label in self._label_to_config:
+                config = self._label_to_config[label]
+                splits = [self.splits[config]]
+            else:  # legacy 以 -1 代表全部已知類合併成單一分布
+                config = "pooled_known"
+                splits = [self.splits[c] for c in self.known]
             row = {
                 "config": config,
                 "label": label,
-                "n_train": int(len(sp.train)),
-                "n_cal": int(len(sp.cal)),
-                "n_holdout": int(len(sp.holdout)),
+                "n_train": sum(len(sp.train) for sp in splits),
+                "n_cal": sum(len(sp.cal) for sp in splits),
+                "n_holdout": sum(len(sp.holdout) for sp in splits),
                 "threshold": float(item["threshold"]),
                 "centroid_pca": list(self.centroids.get(config, ())),
             }

@@ -272,3 +272,19 @@ def create_detector_from_config(resolved: dict) -> OpenSetDetector:
     if openset_method == "knn":
         return KNNOpenSetDetector(confidence=effective["confidence"], n_neighbors=effective["knn_neighbors"])
     raise AssertionError(f"unhandled canonical Open Set method: {openset_method}")
+
+
+def fpr_at_tpr(known_scores: np.ndarray, unknown_scores: np.ndarray, tpr: float = 0.95) -> float:
+    """評估用 FPR@TPR：unknown 為正類，取 ROC 上 TPR ≥ tpr 的最小 FPR。
+
+    只在事後用 test 分數報告排序品質，不是偵測器門檻，也不參與校準。
+    三支 runner（實驗六廣度、實驗六正式、實驗七）共用這個定義（#235）。
+    """
+    from sklearn.metrics import roc_curve
+
+    known = np.asarray(known_scores, dtype=float).ravel()
+    unknown = np.asarray(unknown_scores, dtype=float).ravel()
+    y = np.r_[np.zeros(len(known)), np.ones(len(unknown))]
+    fpr, tprs, _ = roc_curve(y, np.r_[known, unknown])
+    eligible = fpr[tprs >= tpr]
+    return float(eligible.min()) if len(eligible) else 1.0

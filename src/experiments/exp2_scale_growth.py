@@ -248,6 +248,7 @@ class ScaleGrowthSession:
             return result
         if len(indices) < 5:
             result["action"] = "insufficient"
+            self._drop_quarantine(set(indices))  # 不清掉會在下一筆隔離樣本又分出同一群（#236）
             return result
         result["action"] = "learned"
         result["label"] = self.monitor.add_observed(name, samples)
@@ -293,8 +294,11 @@ def split_stream_eval(pools: dict[str, np.ndarray], configs: list[str], seed: in
     return out
 
 
-def _eval_breakdown(labels: list[str | None]) -> dict:
-    """外部評估集被判成什麼：未知、健康、某個新類（比例），及最多被判成哪一類。"""
+def _eval_breakdown(labels: list[str | None], config: str, class_matched: dict[str, str]) -> dict:
+    """外部評估集被判成什麼：未知、健康、某個新類（比例），及最多被判成哪一類。
+
+    known_rate 只要求被任一非健康類接受，是上限；matched_rate 要求判進事後多數等於該配置的新類（#243）。
+    """
     n = len(labels)
     named = [label for label in labels if label not in (None, HEALTHY)]
     return {
@@ -302,6 +306,7 @@ def _eval_breakdown(labels: list[str | None]) -> dict:
         "unknown_rate": sum(label is None for label in labels) / n,
         "healthy_rate": sum(label == HEALTHY for label in labels) / n,
         "known_rate": len(named) / n,
+        "matched_rate": sum(class_matched.get(label) == config for label in named) / n,
         "top_class": max(set(named), key=named.count) if named else None,
     }
 
@@ -316,8 +321,11 @@ def iter_playback(
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
     adaptive_density: bool = True,
+    healthy_mix: float = 0.0,
 ):
     """依序注入未知配置。候選出現時立刻用該群樣本自學，不等操作員確認。"""
+    if not 0.0 <= healthy_mix <= 1.0:
+        raise ValueError(f"healthy_mix 必須在 0～1：{healthy_mix}")
     if sequence is None:
         sequence = sorted((c for c in pools if c != HEALTHY), key=config_sort_key)
     session = ScaleGrowthSession(
@@ -342,15 +350,28 @@ def iter_playback(
     started: dict[str, int] = {}
     global_tick = 0
     rejections = []  # 未學成的候選（rejected_boundary／insufficient）
+    class_matched: dict[str, str] = {}  # 事後對照：discovered-N → 學成當下的真值多數
+    # 健康混入（#240）：從健康 holdout 抽，另用一支 rng；healthy_mix=0 時不抽亂數，結果與不混入相同
+    mix_rng = np.random.default_rng(seed + 3)
+    healthy_sampler = CycleSampler(pools[HEALTHY], session.monitor.splits[HEALTHY].holdout, mix_rng)
 
     stages = []
     for config in sequence:
         sampler = CycleSampler(pools[config], parts[config]["stream"], rng)
         started[config] = global_tick
         res, found_at = None, None
+        healthy_seen = healthy_quarantined = 0
         for tick in range(1, max_ticks_per_stage + 1):
             global_tick += 1
-            out = session.process(sampler.draw(), config)
+            if healthy_mix > 0 and mix_rng.random() < healthy_mix:
+                x, truth = healthy_sampler.draw(), HEALTHY
+            else:
+                x, truth = sampler.draw(), config
+            before = len(session.quarantine_X)
+            out = session.process(x, truth)
+            if truth == HEALTHY:
+                healthy_seen += 1
+                healthy_quarantined += len(session.quarantine_X) > before
             yield {
                 "event": "tick",
                 "config": config,
@@ -383,6 +404,7 @@ def iter_playback(
                                    "known_cal_max": outcome.get("known_cal_max")})
                 continue
             m = outcome["matched"]
+            class_matched[outcome["config"]] = m
             if m in discovery and not discovery[m]["discovered"]:
                 discovery[m] = {"discovered": True, "learned": outcome["config"],
                                 "delay": global_tick - started[m]}
@@ -392,11 +414,13 @@ def iter_playback(
             "config": config,
             "display": display_name(config),
             "discovered": res is not None,
+            "healthy_seen": healthy_seen,
+            "healthy_quarantined": int(healthy_quarantined),
         }
         if res is not None:
             own = session.monitor.classify(session.monitor.holdout(res["config"]))
             healthy = session.monitor.classify(session.monitor.holdout(HEALTHY))
-            ev = _eval_breakdown(session.monitor.classify(pools[config][parts[config]["eval"]]))
+            ev = _eval_breakdown(session.monitor.classify(pools[config][parts[config]["eval"]]), config, class_matched)
             row.update(
                 {
                     "learned": res["config"],
@@ -411,6 +435,7 @@ def iter_playback(
                     "own_holdout_acc": float(np.mean([label == res["config"] for label in own])),
                     "own_holdout_n": len(own),
                     "eval_known_rate": ev["known_rate"],
+                    "eval_matched_rate": ev["matched_rate"],
                     "eval_n": ev["n"],
                     "healthy_holdout_acc": float(np.mean([label == HEALTHY for label in healthy])),
                     "known_after": len(session.monitor.known),
@@ -419,7 +444,7 @@ def iter_playback(
         stages.append(row)
 
     final_eval = {
-        c: _eval_breakdown(session.monitor.classify(pools[c][parts[c]["eval"]])) for c in sequence
+        c: _eval_breakdown(session.monitor.classify(pools[c][parts[c]["eval"]]), c, class_matched) for c in sequence
     }
 
     model = session.monitor.summary()
@@ -443,6 +468,7 @@ def iter_playback(
         "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
         "adaptive_density": adaptive_density,
+        "healthy_mix": healthy_mix,
     }}
 
 
@@ -456,12 +482,14 @@ def run(
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
     adaptive_density: bool = True,
+    healthy_mix: float = 0.0,
 ) -> dict:
     """依序注入各未知配置：量測發現延遲 → 用候選群自學 → 檢查新類與健康是否還認得。"""
     for event in iter_playback(
         pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
         openset_method=openset_method, knn_neighbors=knn_neighbors,
         max_ticks_per_stage=max_ticks_per_stage, adaptive_density=adaptive_density,
+        healthy_mix=healthy_mix,
     ):
         if event["event"] == "result":
             return event["result"]
@@ -480,6 +508,10 @@ def main() -> None:
         "--fixed-density", action="store_true",
         help="關掉 HDBSCAN 密度階梯，只用 (min_cluster_size, min_samples)；消融對照用",
     )
+    parser.add_argument(
+        "--healthy-mix", type=float, default=0.0,
+        help="每筆以此機率改送一筆健康 holdout 窗（0～1，預設 0 不混入）",
+    )
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
@@ -487,13 +519,13 @@ def main() -> None:
     log.info(f"實驗二：量尺擴張重播 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
              f"confidence={args.confidence}, seed={args.seed}, "
-             f"adaptive_density={not args.fixed_density}）")
+             f"adaptive_density={not args.fixed_density}, healthy_mix={args.healthy_mix}）")
 
     result = run(
         pools, sequence=args.sequence, seed=args.seed,
         confidence=args.confidence, method=args.method,
         openset_method=args.openset_method, knn_neighbors=args.knn_neighbors,
-        adaptive_density=not args.fixed_density,
+        adaptive_density=not args.fixed_density, healthy_mix=args.healthy_mix,
     )
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
 

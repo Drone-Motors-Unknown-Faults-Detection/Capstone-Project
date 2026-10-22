@@ -8,6 +8,7 @@ from importlib import metadata
 from pathlib import Path
 import platform
 import subprocess
+import sys
 
 
 def lock_versions(root: Path) -> dict[str, str]:
@@ -43,7 +44,32 @@ def blas_info() -> dict:
         return {"blas": None, "blas_version": None, "lapack": None, "status": "UNKNOWN"}
 
 
-def collect_environment(root: Path | None = None) -> dict:
+def _argv_data_root(argv: list[str]) -> str:
+    """實驗 CLI 一律用 --data-root（預設 data）；從命令列取，免得逐支傳入。"""
+    for i, arg in enumerate(argv):
+        if arg == "--data-root" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--data-root="):
+            return arg.split("=", 1)[1]
+    return "data"
+
+
+def data_info(data_root: str | Path) -> dict:
+    """資料內容指紋（core.provenance 的 source_content 版本）；只記相對 source_id 數量，不記絕對路徑（#242）。
+
+    呼叫端沒有傳入 data_root 時，才從命令列的 --data-root 推得（#249）。
+    """
+    try:
+        from core.provenance import capture_source
+
+        public, _ = capture_source(data_root)
+        return {"content_version": public["schema_version"], "dataset_fingerprint": public["dataset_fingerprint"],
+                "n_files": len(public["files"]), "status": "VERIFIED"}
+    except Exception:  # 沒有資料目錄（例如單元測試）時保留 UNKNOWN，不中斷執行
+        return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "UNKNOWN"}
+
+
+def collect_environment(root: Path | None = None, data_root: str | Path | None = None) -> dict:
     """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
     root = Path.cwd() if root is None else Path(root)
     top = _git(root, "rev-parse", "--show-toplevel")
@@ -62,6 +88,7 @@ def collect_environment(root: Path | None = None) -> dict:
         "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
                "host": platform.node()},
         "numeric": blas_info(),
+        "data": data_info(data_root if data_root is not None else _argv_data_root(sys.argv)),
         "packages": dict(sorted(packages.items())),
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},
