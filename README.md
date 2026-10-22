@@ -46,9 +46,11 @@
 Web（`src/web/`）呼叫同一份模組邏輯，兩邊數字一致。`venv/bin/python -m experiments.*`
 在專案根目錄執行（`build_uv.sh` 已把 `src/` 裝成套件）。
 
-實驗一～六的實測數字來自 2026-10-22 在 commit `37ae787`、本機 `data/` 九工況、seed 42 的重跑。
-每個結果連到該次 `output/` 目錄，其中的 `environment.json` 記錄 Git HEAD（`tracked_dirty=false`）、
-Python 與套件版本；`data/` 的內容指紋沒有寫進這些輸出。
+本節與「原創貢獻總覽」引用的實測數字來自 2026-10-23 在 Aero（aero01）以 commit `46ed4d5`、`--data-root data`
+（資料指紋 `source_content_v2:1b55b847…`，90 個特徵 CSV）的重跑。每個結果連到該次 `output/` 目錄，
+其中的 `environment.json` 記錄 Git HEAD（`tracked_dirty=false`）、主機、BLAS（scipy-openblas）、
+Python 與套件版本，以及資料指紋 `data.dataset_fingerprint`。新舊輸出的逐項比對見
+[Aero 重跑報告](reports/JW-Albert_20261023_aero_rerun/README.md)。
 
 ### 實驗一：冷啟動偵測能力（`exp1_cold_start`）
 
@@ -61,7 +63,7 @@ Python 與套件版本；`data/` 的內容指紋沒有寫進這些輸出。
 venv/bin/python -m experiments.exp1_cold_start --motor T1 --rpm 8000rpm
 ```
 
-**實測結果**（T1/8000rpm，seed=42，[output/exp1_cold_start/2026-10-22-21-45-32](output/exp1_cold_start/2026-10-22-21-45-32/results.csv)）：
+**實測結果**（T1/8000rpm，seed=42，[output/exp1_cold_start/2026-10-23-01-30-51](output/exp1_cold_start/2026-10-23-01-30-51/results.csv)）：
 
 | 注入配置 | 樣本數 | 偵測率 | AUROC | 分數中位數 |
 |---|---:|---:|---:|---:|
@@ -104,7 +106,7 @@ venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2
 ```
 
 **實測結果**（預設序列由輕到重注入，T1/8000rpm，seed=42，Aero，
-[output/exp2_scale_growth/2026-10-23-00-13-53](output/exp2_scale_growth/2026-10-23-00-13-53/summary.json)）。
+[output/exp2_scale_growth/2026-10-23-01-30-54](output/exp2_scale_growth/2026-10-23-01-30-54/summary.json)）。
 每個配置先切 20% 外部評估集不參與重播。「發現延遲」是該配置第一次成為某新類事後多數的筆數；
 「真值多數」與外部評估都是事後對照，不進模型：
 
@@ -146,7 +148,7 @@ venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2
 venv/bin/python -m experiments.exp3_trend --motor T1 --rpm 8000rpm --trials 40
 ```
 
-**實測結果**（40 次隨機重複，T1/8000rpm，[output/exp3_trend/2026-10-22-21-46-58](output/exp3_trend/2026-10-22-21-46-58/trials.csv)）：
+**實測結果**（40 次隨機重複，T1/8000rpm，[output/exp3_trend/2026-10-23-01-32-36](output/exp3_trend/2026-10-23-01-32-36/trials.csv)）：
 
 | 劇本 | 警報率 | 判別正確率 | 平均警報延遲 | 平均中間帶停留 |
 |---|---:|---:|---:|---:|
@@ -170,7 +172,7 @@ venv/bin/python -m experiments.exp3_trend --motor T1 --rpm 8000rpm --trials 40
 venv/bin/python -m experiments.exp4_polar_map --motor T1 --rpm 8000rpm
 ```
 
-**實測結果**（T1/8000rpm，seed=42，[output/exp4_polar_map/2026-10-22-21-47-00](output/exp4_polar_map/2026-10-22-21-47-00/summary.json)）：
+**實測結果**（T1/8000rpm，seed=42，[output/exp4_polar_map/2026-10-23-01-32-39](output/exp4_polar_map/2026-10-23-01-32-39/summary.json)）：
 
 - **(a) 射線結構**：中段均勻鬆動（6~2screws）共享一束緊密射線（族內平均 cos
   0.92）；4_146 是明確的獨立方向（vs 均勻族 0.49）；3_14 介於其間（0.76）——
@@ -203,7 +205,7 @@ Web 端同步整合：即時極座標健康地圖（圓心=健康、✕=已知�
 venv/bin/python -m experiments.exp5_cross_condition
 ```
 
-**實測結果**（9 組資料集，seed=42，[output/exp5_cross_condition/2026-10-22-21-47-11](output/exp5_cross_condition/2026-10-22-21-47-11/summary.json)）：
+**實測結果**（9 組資料集，seed=42，[output/exp5_cross_condition/2026-10-23-01-32-51](output/exp5_cross_condition/2026-10-23-01-32-51/summary.json)）：
 
 - **(a) 9×9 遷移矩陣**：自身 AUROC 全部 1.0；跨工況平均 0.893、**最低僅 0.10**——
   健康基準不可任意搬移（同轉速跨壽命 0.921、同壽命跨轉速 0.928）。
@@ -229,7 +231,7 @@ MLP AutoEncoder 重建誤差。手冊見 [實驗六](docs/experiments/exp6_osr_b
 venv/bin/python -m experiments.exp6_osr_benchmark
 ```
 
-**實測結果**（[output/exp6_osr_benchmark/2026-10-22-21-47-21](output/exp6_osr_benchmark/2026-10-22-21-47-21/results.csv)）：
+**實測結果**（[output/exp6_osr_benchmark/2026-10-23-01-33-02](output/exp6_osr_benchmark/2026-10-23-01-33-02/results.csv)）：
 **八種方法 AUROC 全部 1.0000**——在 105 維特徵上偵測本身不是瓶頸，
 方法差異全在校準品質（健康誤報率）：AutoEncoder 5.8% ≲ kNN 6.0% ≲ PCA 6.4% ≲ LOF 6.7% ≲
 **主線 LW 馬氏 7.1%** < OC-SVM 7.4% < iForest 8.4% ≪ **legacy 83.1%（崩潰）**。

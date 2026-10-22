@@ -61,7 +61,7 @@ main經setup_run寫logs/exp10_transfer/{ts}.log及output/exp10_transfer/{ts}/env
 
 圖只畫AUROC曲線，須同時看JSON健康接受率；AUROC高但誤報高代表排序好、原警戒線仍不適合，不能直接部署。預期同N下adapted比scratch有額外價值才支持搬用來源模型；若無優勢如實記錄，沒有事先通用成功數字。direct與N>0的健康eval不同，跨N差值含樣本組成變動。
 
-完整舊結果見[固定實測包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp10_transfer/2026-10-09-14-11-31)。本流程只支持現有工況的小樣本探索，不證明新session／廣泛motor泛化、固定5%誤報或RUL。
+seed 42 的完整結果見 [output/exp10_transfer/2026-10-23-01-34-24](../../output/exp10_transfer/2026-10-23-01-34-24/summary.json)（Aero、commit `46ed4d5`、資料指紋 `1b55b847…`；與 2026-10-09 無主機紀錄的舊輸出扣掉環境欄位後相同）。本流程只支持現有工況的小樣本探索，不證明新session／廣泛motor泛化、固定5%誤報或RUL。
 
 ## 方法來源與程式碼
 
