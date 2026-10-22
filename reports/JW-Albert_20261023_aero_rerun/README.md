@@ -21,7 +21,7 @@
 | 實驗十 | `output/exp10_transfer/2026-10-23-01-34-24` | `2026-10-09-14-11-31`（無主機紀錄） | 扣掉環境欄位後相同 |
 | 實驗十一 | `output/exp11_ancestor_comparison/2026-10-23-01-35-07` | `2026-10-09-14-17-27` | 扣掉環境欄位後相同 |
 | 實驗十二 | `output/exp12_confusion_tsne/2026-10-23-01-36-16` | `2026-10-09-14-27-55` | 扣掉環境欄位後相同 |
-| 實驗十三導覽回歸 | `output/navigation_regression/2026-10-23-01-37-17` | 總手冊 8.17（Lineage 3aa554f，本 repo 無輸出） | Mahalanobis 與 k-NN 各 595 組配對、0 筆不一致，候選確認為 5screws（同總手冊） |
+| 實驗十三導覽回歸 | `output/navigation_regression/2026-10-23-02-04-52`（167adc6，#252 修正後重跑；先前 01-37-17 那份在 summary 記了主機絕對路徑，已移除） | 總手冊 8.17（Lineage 3aa554f，本 repo 無輸出） | Mahalanobis 與 k-NN 各 595 組配對、0 筆不一致，候選確認為 5screws（同總手冊） |
 | 實驗七 | `output/openset_comparison/2026-10-23-01-34-12` | 本 repo 先前沒有輸出 | 新增 |
 
 ## 讀資料根目錄不同而改變的結果
