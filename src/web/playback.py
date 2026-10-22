@@ -423,7 +423,7 @@ class PlaybackTracker:
                         k: _round(stage.get(k)) for k in ("discovered", "learned_display", "matched_display",
                                                         "samples_to_candidate", "cluster_size", "cluster_purity",
                                                         "matched_is_config", "own_holdout_acc", "own_holdout_n",
-                                                        "eval_known_rate", "eval_n", "healthy_holdout_acc")}})
+                                                        "eval_known_rate", "eval_matched_rate", "eval_n", "healthy_holdout_acc")}})
         self._event(st, f"播放完成（{payload.get('seconds')} 秒）")
 
     def _on_stopped(self, st, f):
