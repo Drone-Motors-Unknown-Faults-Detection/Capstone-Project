@@ -46,6 +46,7 @@ class ScaleGrowthSession:
         min_samples: int = 3,
         recluster_every: int = 10,
         quarantine_margin: float = 2.0,
+        adaptive_density: bool = True,
     ) -> None:
         self.pools = pools
         self.monitor = OpenSetMonitor(
@@ -58,6 +59,7 @@ class ScaleGrowthSession:
         )
         self.monitor.fit_initial()
         self.min_cluster_size = min_cluster_size
+        self.adaptive_density = adaptive_density
         self.min_samples = min_samples
         self.recluster_every = recluster_every
         self.quarantine_margin = quarantine_margin
@@ -110,6 +112,8 @@ class ScaleGrowthSession:
         放寬的只是 HDBSCAN 的密度要求，純度不受影響（mcs 越小切得越細）。
         """
         ladder = [(self.min_cluster_size, self.min_samples)]
+        if not self.adaptive_density:  # 消融對照：只用最嚴格的一階
+            return ladder
         if n >= 3 * self.min_cluster_size:
             ladder.append((max(15, self.min_cluster_size // 2), self.min_samples))
         if n >= 4 * self.min_cluster_size:
@@ -254,6 +258,7 @@ def iter_playback(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
+    adaptive_density: bool = True,
 ):
     """依序注入未知配置。候選出現時立刻用該群樣本自學，不等操作員確認。"""
     if sequence is None:
@@ -265,6 +270,7 @@ def iter_playback(
         method=method,
         openset_method=openset_method,
         knn_neighbors=knn_neighbors,
+        adaptive_density=adaptive_density,
     )
     rng = np.random.default_rng(seed + 1)
     yield {
@@ -347,6 +353,7 @@ def iter_playback(
         "calibration_source": "known-only 20% calibration split",
         "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "adaptive_density": adaptive_density,
     }}
 
 
@@ -359,12 +366,13 @@ def run(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
+    adaptive_density: bool = True,
 ) -> dict:
     """依序注入各未知配置：量測發現延遲 → 用候選群自學 → 檢查新類與健康是否還認得。"""
     for event in iter_playback(
         pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
         openset_method=openset_method, knn_neighbors=knn_neighbors,
-        max_ticks_per_stage=max_ticks_per_stage,
+        max_ticks_per_stage=max_ticks_per_stage, adaptive_density=adaptive_density,
     ):
         if event["event"] == "result":
             return event["result"]
@@ -379,18 +387,24 @@ def main() -> None:
         "--sequence", nargs="*", default=None,
         help="注入順序（預設：所有未知配置由輕到重）",
     )
+    parser.add_argument(
+        "--fixed-density", action="store_true",
+        help="關掉 HDBSCAN 密度階梯，只用 (min_cluster_size, min_samples)；消融對照用",
+    )
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
     log, paths = setup_run("exp2_scale_growth")
     log.info(f"實驗二：量尺擴張重播 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
-             f"confidence={args.confidence}, seed={args.seed}）")
+             f"confidence={args.confidence}, seed={args.seed}, "
+             f"adaptive_density={not args.fixed_density}）")
 
     result = run(
         pools, sequence=args.sequence, seed=args.seed,
         confidence=args.confidence, method=args.method,
         openset_method=args.openset_method, knn_neighbors=args.knn_neighbors,
+        adaptive_density=not args.fixed_density,
     )
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
 
