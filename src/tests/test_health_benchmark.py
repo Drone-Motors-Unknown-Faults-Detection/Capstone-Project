@@ -22,7 +22,7 @@ class HealthDistributionTests(unittest.TestCase):
     def test_fractions_follow_severity_policy_thresholds(self):
         values = np.array([0.05, 0.25, 0.65, 0.85, 0.95])
         default = _health_distribution(values)
-        self.assertEqual(default["healthy_fraction"], 0.4)
+        self.assertEqual(default["healthy_fraction"], 0.6)
         self.assertEqual(default["critical_fraction"], 0.2)
         policy = RelativeSeverityPolicy(healthy_min=0.9, early_warning_min=0.5, degraded_min=0.3)
         with patch.object(health_index_benchmark, "DEFAULT_SEVERITY_POLICY", policy):
@@ -55,6 +55,11 @@ class HealthBenchmarkTests(unittest.TestCase):
             row = result["rows"][0]
             self.assertIn("health_gap_known_minus_unknown", row)
             self.assertFalse(row["rul_available"])
+            self.assertLess(row["calibration_healthy_anchor"], row["calibration_warning_anchor"])
+            self.assertAlmostEqual(row["calibration_critical_anchor"], 2.0 * row["calibration_warning_anchor"])
+            # cal q95 is the rejection line, so the known holdout mostly stays healthy
+            self.assertGreaterEqual(row["known_healthy_fraction"], 0.85)
+            self.assertEqual(row["unknown_health_mean"], 0.0)
         finally:
             temporary.cleanup()
 

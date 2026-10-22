@@ -34,6 +34,11 @@ class HealthIndexTests(unittest.TestCase):
         self.assertEqual(results[-1].fault_type, "unknown")
         self.assertTrue(results[-1].is_unknown_fault)
         self.assertEqual(results[-1].to_dict("binary"), {"is_fault": 1})
+        # cal windows sit inside the rejection line → healthy; far probe saturates at 0
+        self.assertTrue(all(item.health_index >= 0.5 and item.severity_stage == "healthy" for item in results[:2]))
+        self.assertEqual(results[-1].health_index, 0.0)
+        self.assertEqual(results[-1].severity_stage, "critical")
+        self.assertAlmostEqual(model.metadata()["calibration"]["warning_anchor"], 1.0)
 
     def test_knn_uses_same_output_contract(self):
         model = CalibratedHealthIndex.fit(

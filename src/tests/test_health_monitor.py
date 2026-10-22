@@ -68,11 +68,13 @@ class HealthMonitorWindows(unittest.TestCase):
         self.assertEqual(len(self.call(run, "5screws", max_windows=7)), 7)
         self.assertEqual(len(self.call(run, "7screws", max_windows=500)), 120)
 
-    def test_healthy_output_unchanged(self):
+    def test_healthy_sampling_unchanged(self):
+        """健康 holdout 的取樣與開集分數和基準 commit 相同；健康指數映射在 #267 改過，不比對。"""
+        keys = ("window_index", "openset_score", "is_fault", "fault_type", "openset_method", "condition")
         for kwargs in ({}, {"max_windows": 9}):
             old = self.call(baseline_run(), "8screws", **kwargs)
             new = self.call(run, "8screws", **kwargs)
-            self.assertEqual(json.dumps(old, sort_keys=True), json.dumps(new, sort_keys=True))
+            self.assertEqual([{k: r[k] for k in keys} for r in old], [{k: r[k] for k in keys} for r in new])
             self.assertEqual(len(new), kwargs.get("max_windows", 60))
 
     def test_confidence_is_forwarded_to_calibration(self):
