@@ -58,7 +58,9 @@ class StreamedPlaybackTests(unittest.TestCase):
         self.assertTrue(any(e.startswith("已自學為") for e in snap["events"]))
         self.assertTrue(any("majority" in r for r in snap["reference"]))
         self.assertTrue(any(k.startswith("discovered-") for k in snap["known"]))
-        self.assertIn("stages：", snap["result_text"])
+        self.assertIn("實驗二指標契約", snap["result_text"])
+        self.assertEqual(snap["metric_contract"]["version"], "exp2_metric_semantics_v1")
+        self.assertEqual(snap["fact_text"], snap["result_text"])
         self.assertTrue(any("stage_injected" in r for r in snap["reference"]))
         self.assertNoTruth(snap)
 

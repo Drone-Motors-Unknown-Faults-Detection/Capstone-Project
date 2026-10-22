@@ -1,0 +1,239 @@
+{
+  "results": [
+    {
+      "openset_method": "mahalanobis",
+      "mahalanobis_method": "ledoit_wolf",
+      "knn_neighbors": null,
+      "score_type": "normalized_class_mahalanobis",
+      "score_direction": "larger_is_more_unknown",
+      "threshold": 1.0,
+      "threshold_strategy": "known_calibration_class_quantile_0.95",
+      "calibration_source": "known-only 20% calibration split",
+      "random_seed": 42,
+      "split": {
+        "train": 0.6,
+        "calibration": 0.2,
+        "holdout": 0.2
+      },
+      "n_known_test": 64,
+      "n_unknown_test": 2736,
+      "auroc": 1.0,
+      "aupr_unknown_positive": 1.0,
+      "fpr_at_95_tpr": 0.0,
+      "open_set_accuracy": 0.9975,
+      "known_class_accuracy": 0.890625,
+      "unknown_recall": 1.0,
+      "unknown_precision": 0.997448049580751,
+      "f1_unknown": 0.9987223945975543,
+      "class_thresholds": [
+        9.71809584700257
+      ]
+    },
+    {
+      "openset_method": "knn",
+      "mahalanobis_method": null,
+      "knn_neighbors": 5,
+      "score_type": "normalized_class_knn_mean_euclidean",
+      "score_direction": "larger_is_more_unknown",
+      "threshold": 1.0,
+      "threshold_strategy": "known_calibration_class_quantile_0.95",
+      "calibration_source": "known-only 20% calibration split",
+      "random_seed": 42,
+      "split": {
+        "train": 0.6,
+        "calibration": 0.2,
+        "holdout": 0.2
+      },
+      "n_known_test": 64,
+      "n_unknown_test": 2736,
+      "auroc": 1.0,
+      "aupr_unknown_positive": 1.0,
+      "fpr_at_95_tpr": 0.0,
+      "open_set_accuracy": 0.9996428571428572,
+      "known_class_accuracy": 0.984375,
+      "unknown_recall": 1.0,
+      "unknown_precision": 0.999634636463281,
+      "f1_unknown": 0.9998172848529143,
+      "class_thresholds": [
+        8.016608072964978
+      ]
+    }
+  ],
+  "details": [
+    {
+      "openset_method": "mahalanobis",
+      "config": "8screws",
+      "kind": "known-holdout",
+      "n": 64,
+      "unknown_recall": 0.109375,
+      "median_score": 0.8594682627176564
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "7screws",
+      "kind": "unknown-fault",
+      "n": 322,
+      "unknown_recall": 1.0,
+      "median_score": 37.84187326835037
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "6screws",
+      "kind": "unknown-fault",
+      "n": 314,
+      "unknown_recall": 1.0,
+      "median_score": 50.176594306831696
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "5screws",
+      "kind": "unknown-fault",
+      "n": 212,
+      "unknown_recall": 1.0,
+      "median_score": 83.93218730852283
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "4screws",
+      "kind": "unknown-fault",
+      "n": 287,
+      "unknown_recall": 1.0,
+      "median_score": 86.97517325744982
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "3screws",
+      "kind": "unknown-fault",
+      "n": 241,
+      "unknown_recall": 1.0,
+      "median_score": 78.30403197416625
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "2screws",
+      "kind": "unknown-fault",
+      "n": 288,
+      "unknown_recall": 1.0,
+      "median_score": 69.4741008154952
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "1screws",
+      "kind": "unknown-fault",
+      "n": 349,
+      "unknown_recall": 1.0,
+      "median_score": 115.23018152025517
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "3_14screws",
+      "kind": "unknown-fault",
+      "n": 351,
+      "unknown_recall": 1.0,
+      "median_score": 45.61972884975094
+    },
+    {
+      "openset_method": "mahalanobis",
+      "config": "4_146screws",
+      "kind": "unknown-fault",
+      "n": 372,
+      "unknown_recall": 1.0,
+      "median_score": 13.206642384284105
+    },
+    {
+      "openset_method": "knn",
+      "config": "8screws",
+      "kind": "known-holdout",
+      "n": 64,
+      "unknown_recall": 0.015625,
+      "median_score": 0.8478577922477977
+    },
+    {
+      "openset_method": "knn",
+      "config": "7screws",
+      "kind": "unknown-fault",
+      "n": 322,
+      "unknown_recall": 1.0,
+      "median_score": 24.833955348354863
+    },
+    {
+      "openset_method": "knn",
+      "config": "6screws",
+      "kind": "unknown-fault",
+      "n": 314,
+      "unknown_recall": 1.0,
+      "median_score": 28.6528090308763
+    },
+    {
+      "openset_method": "knn",
+      "config": "5screws",
+      "kind": "unknown-fault",
+      "n": 212,
+      "unknown_recall": 1.0,
+      "median_score": 44.3155879870104
+    },
+    {
+      "openset_method": "knn",
+      "config": "4screws",
+      "kind": "unknown-fault",
+      "n": 287,
+      "unknown_recall": 1.0,
+      "median_score": 45.69170518811341
+    },
+    {
+      "openset_method": "knn",
+      "config": "3screws",
+      "kind": "unknown-fault",
+      "n": 241,
+      "unknown_recall": 1.0,
+      "median_score": 40.39549031339842
+    },
+    {
+      "openset_method": "knn",
+      "config": "2screws",
+      "kind": "unknown-fault",
+      "n": 288,
+      "unknown_recall": 1.0,
+      "median_score": 37.16500299891386
+    },
+    {
+      "openset_method": "knn",
+      "config": "1screws",
+      "kind": "unknown-fault",
+      "n": 349,
+      "unknown_recall": 1.0,
+      "median_score": 53.738611761964904
+    },
+    {
+      "openset_method": "knn",
+      "config": "3_14screws",
+      "kind": "unknown-fault",
+      "n": 351,
+      "unknown_recall": 1.0,
+      "median_score": 24.101575543371293
+    },
+    {
+      "openset_method": "knn",
+      "config": "4_146screws",
+      "kind": "unknown-fault",
+      "n": 372,
+      "unknown_recall": 1.0,
+      "median_score": 8.703718603037819
+    }
+  ],
+  "fairness": {
+    "same_random_seed": 42,
+    "same_split_ratios": {
+      "train": 0.6,
+      "calibration": 0.2,
+      "holdout": 0.2
+    },
+    "same_features": "RobustScaler-transformed 105-dimensional clean features",
+    "same_threshold_data": "known-only calibration split",
+    "unknown_positive": true
+  },
+  "dataset": {
+    "motor": "T1",
+    "rpm": "8000rpm"
+  }
+}

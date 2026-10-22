@@ -8,16 +8,16 @@
 |---|---|---:|---|---|---|
 | source train／cal | T1／8000rpm健康 | 187／62 | 各除以313 | scaler／LW／門檻 | 同source holdout互斥 |
 | 自身健康test | T1／8000rpm | 64 | 64/313 | 對角線接受率 | 列級互斥 |
-| 跨工況健康／fault test | T3／8000rpm | 272／2953 | 目標健康／fault各全池100% | 非對角線評估 | 同target會被多source重用 |
+| 跨工況健康／fault test | T3／8000rpm | 272／2949 | 目標健康／fault各全池100% | 非對角線評估 | 同target會被多source重用 |
 | 策略b的outer test | T1／8000rpm，seed42 | 64 | 64/313 | 三策略共用評估 | 三策略的train／cal只取其餘249列，與此64列互斥 |
 
-最後一列是[唯讀索引重播](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的可確認用途重疊，沒有改split或重跑分數。不同seed的數字另存`exp5_strategy_overlap`。本機六工況只能形成6×6=36格矩陣，不是完整9×9；配置與列數見[總表](README.md#資料用量與分母怎麼讀)。
+最後一列是[唯讀索引重播](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的可確認用途重疊，沒有改split或重跑分數。不同seed的數字另存`exp5_strategy_overlap`。現行`data`九工況齊全，形成9×9=81格矩陣（[summary.json](../../output/exp5_cross_condition/2026-10-23-01-32-51/summary.json)的`datasets`列出九個工況）；配置與列數見[總表](README.md#資料用量與分母怎麼讀)，`data`與`data/formal_local`的差異見[#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
 
 ## 發表與理解檢查
 
 口頭主軸：「先把source的健康範圍搬去target，觀察健康會不會被誤報、故障排序是否變差。逐格呈現才能看出哪種轉移失敗。策略b的三種基準共用同一份外層健康holdout，擬合都不含它。」沒有超參數選擇或新的final test。
 
-- 9工況等於9顆馬達嗎？不是，三馬達各三轉速；本機只有兩馬達各三轉速。
+- 9工況等於9顆馬達嗎？不是，三馬達各三轉速。
 - healthy_accept與fault_detect哪個是準確率？兩個分母不同，要分開報，均非配置分類率。
 - T3分數較高是否證明老化？不能排除馬達個體、安裝等差異。
 - 組員請指出source與target，並說出策略b三種基準各用哪些健康列擬合、哪些列評估。
@@ -59,7 +59,7 @@ main寫logs/exp5_cross_condition/{ts}.log、output/exp5_cross_condition/{ts}/env
 
 healthy_accept是健康score≤1比例，fault_detect是fault score>1比例，AUROC是故障分數高於健康的排序指標。不是九種故障配置分類準確率。各格先round4，再等格平均，不按視窗數加權；少工況或缺故障改變平均對象。健康score、p95等為無因次正規化量，不是故障嚴重度或時數。
 
-預期跨工況健康接受率可能下降，分工況基準是否改善需配合coverage與公平holdout判讀。程式沒有正式成功門檻。b三策略的評估列相同，但只有一個seed，差距要配合多seed再判讀；c只描述現有不同馬達分布。seed42、九工況的完整數字見[summary.json](../../output/exp5_cross_condition/2026-10-18-14-56-19/summary.json)：b的平均健康接受per_condition 91.87%、global 96.79%、per_rpm 94.94%，故障偵測100／99.27／100%。
+預期跨工況健康接受率可能下降，分工況基準是否改善需配合coverage與公平holdout判讀。程式沒有正式成功門檻。b三策略的評估列相同，但只有一個seed，差距要配合多seed再判讀；c只描述現有不同馬達分布。seed42、九工況的完整數字見[summary.json](../../output/exp5_cross_condition/2026-10-23-01-32-51/summary.json)（Aero、commit `46ed4d5`）：b的平均健康接受per_condition 91.87%、global 96.79%、per_rpm 94.94%，故障偵測100／99.27／100%。
 
 ## 方法來源與程式碼
 

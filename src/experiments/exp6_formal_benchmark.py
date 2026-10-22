@@ -41,7 +41,13 @@ from sklearn.preprocessing import RobustScaler
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
-from core.openset import OpenSetMethod, canonical_openset_method, create_openset_detector, resolve_openset_config
+from core.openset import (
+    OpenSetMethod,
+    canonical_openset_method,
+    create_openset_detector,
+    fpr_at_tpr,
+    resolve_openset_config,
+)
 from core.runner import save_json
 from core.provenance import CONTENT_VERSION, capture_source, write_private_context
 
@@ -107,8 +113,7 @@ def _fpr_at_tpr95(known_scores: np.ndarray, unknown_scores: np.ndarray) -> float
     predictions or calibration.  It is the standard post-hoc ROC operating
     point, calculated from held-out scores solely to report the metric.
     """
-    operating_threshold = float(np.quantile(unknown_scores, 0.05))
-    return float((known_scores >= operating_threshold).mean())
+    return fpr_at_tpr(known_scores, unknown_scores, 0.95)
 
 
 def _validate_datasets(datasets: list[dict], data_root: Path, require_nine: bool) -> None:
@@ -281,8 +286,8 @@ def _run_benchmark(
         "formal_condition_count": len(rows),
         "dataset_fingerprint": dataset_fingerprint(data_path),
         "fingerprint_version": CONTENT_VERSION,
-        # Keep committed summaries portable and free of user-specific absolute paths.
-        "dataset_root": "formal_features",
+        # 只記資料根目錄名稱（例如 data、formal_local），不記使用者絕對路徑（#248）
+        "dataset_root": data_path.name,
         "positive_class": "unknown",
         "score_direction": "higher_is_unknown",
         "polarmap_base_method": "mahalanobis",

@@ -16,10 +16,13 @@ def run(dataset: dict, seed: int = 42) -> dict:
         raise ValueError("展示資料池不足10筆，不能建立可重播的基準")
     configs = sorted(pools, key=config_sort_key)
     sources = {}
+    # 只記相對資料根的 source_id（Step-*/myfeature/...），不記主機絕對路徑（#252）
+    dataset_dir = Path(dataset["path"]).resolve()
+    data_root = next((p.parent for p in (dataset_dir, *dataset_dir.parents) if p.name.startswith("Step-")), dataset_dir)
     for config in configs:
         sources[config] = [
             {"sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
-             "path": str(p.resolve())}
+             "path": p.resolve().relative_to(data_root).as_posix()}
             for p in sorted((Path(dataset["path"]) / config).glob("*_Group_feature_data_clean.csv"))
         ]
     return {"schema": "navigation_data_v1", "motor": dataset["motor"],

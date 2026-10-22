@@ -1,0 +1,6 @@
+started=2026-10-22T17:33:35.924632+00:00
+condition=T2/11000rpm
+seed=2026
+method=mahalanobis
+status=completed
+duration_seconds=1.596398

@@ -71,7 +71,8 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 - `summary.json` 的 `discovery`：每個配置第一次成為某個新類事後多數的時點。`delay` 從該配置開始注入起算到那一筆，可能跨到後面的段；從未成為多數則 `discovered=false`。這才是「某配置多久被發現」。
 - `cluster_purity`是事後 truth 的叢多數比例，不是模型當時知道的故障名稱。
 - `own_holdout_acc`是新類自己的 holdout 有沒有被分回這個新類，`own_holdout_n`是它的筆數（群31筆時只有7筆，一筆差14.3個百分點）；`healthy_holdout_acc`是健康有沒有被保住。兩者都含拒絕造成的錯誤。
-- `eval_known_rate`／`eval_n`：當段注入配置的外部評估集，學會後被任一非健康已知類接受的比例與筆數。`summary.json` 的 `final_eval` 在全部段結束後，逐配置記錄外部評估集被判為未知、健康或某個新類的比例，以及最多被判成哪個新類。
+- `eval_known_rate`／`eval_matched_rate`／`eval_n`：當段注入配置的外部評估集，在這段學會當下被任一非健康已知類接受的比例、判進事後多數等於該配置之新類的比例，與筆數。`summary.json` 的 `final_eval` 在全部段結束後，逐配置記錄外部評估集被判為未知、健康、任一新類（`known_rate`）與對應新類（`matched_rate`）的比例，以及最多被判成哪個新類。兩者時點不同：seed 42 的 7screws 學會當下 `eval_known_rate` 是 56.9%，全部段結束後 `final_eval.known_rate` 是 53.8%，引用時寫明是哪一個。
+- `healthy_seen`／`healthy_quarantined`：`--healthy-mix` 大於 0 時，這段送進的健康窗筆數與其中進入隔離區的筆數；不混入時都是 0。
 - `known_after`、`final_known`和model逐類數量記錄擴張狀態。
 
 預期在600tick內發現配置且保持健康辨識；未預定獨立部署通過線。低純度支持混叢問題，未發現也可能是隔離／密度或資料不足，不能單憑一列確定原因。
@@ -99,7 +100,7 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 - 假設不成立：階梯組延遲沒有縮短，或純度、`matched==config` 段數明顯變差（較小的 mcs 把殘餘或混合樣本切成候選）。
 - 單一工況、三個 seed，只能說明這個工況下的方向，不能外推到其他工況。
 
-結果見 [reports/JW-Albert_20261022_exp2_density_ladder_ablation](../../reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)，不回填本節。
+結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，下兩節的清理、邊界退回與判進對應新類都已在內，`--fixed-density` 與預設各三個 seed），不回填本節。[reports/JW-Albert_20261022_exp2_density_ladder_ablation](../../reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md) 是加清理與邊界退回之前的消融。
 
 ## 隔離區清理、邊界退回與外部評估（issue #222）
 
@@ -124,6 +125,29 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 - 外部評估集只有每配置約 40～70 列，仍是同一馬達、同一轉速，不是跨個體驗證。
 
 結果見 [reports/JW-Albert_20261023_exp2_adopt_fix_aero](../../reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)（Aero）；macOS 版 [2026-10-22 報告](../../reports/JW-Albert_20261022_exp2_adopt_fix/README.md) 不作為數字來源（#224）。不回填本節。
+
+## 判進對應新類與健康混入（issue #243、#240）
+
+問題一（#243）：外部評估集的 `known_rate` 只要求被任一非健康已知類接受，不檢查是否判進「事後多數等於該配置」的新類，所以是認得率的上限。
+
+問題二（#240）：批次回放每段只抽當段注入配置，健康只在段末用 holdout 檢查；隔離線 2.0 擋健康誤報這件事，在回放中沒有被直接檢驗。
+
+方法（皆不讀 truth 做決策，truth 只進事後對照）：
+- `final_eval` 每個配置與每段列加 `matched_rate`／`eval_matched_rate`：外部評估集被判進「`matched` 等於該配置」的任一新類的比例。`matched` 是學成當下候選群的事後多數。
+- `--healthy-mix p`（預設 0，維持現狀）：每個 tick 以機率 p 改抽一筆健康 holdout 列送進 `process()`，rng 為 `default_rng(seed + 3)`。健康 holdout 不參與擬合與校準；段末的 `healthy_holdout_acc` 仍用同一份 holdout，兩者重疊，報告時寫明。每段記 `healthy_seen`（送進的健康筆數）與 `healthy_quarantined`（其中進入隔離區的筆數）。延遲計數含健康筆。
+- 其他參數不變。Aero 上跑 seed 42、123、2026，`--healthy-mix 0` 與 `0.3` 各一次。
+
+```bash
+uv run --locked python -m experiments.exp2_scale_growth --seed 42 --healthy-mix 0.3
+```
+
+預期：
+- `matched_rate` ≤ `known_rate`；兩者差距大的配置，代表被判成了別的新類。
+- 混入 0.3 時，健康窗進入隔離區的比例遠低於 5%（隔離線 2.0 遠高於健康誤報的 1.01–1.08）；不形成事後多數為 8screws 的新類。
+- 假設不成立：出現事後多數為 8screws 的 `discovered-N`，或 `healthy_holdout_acc` 明顯低於不混入時。
+- 學到當段配置的段數可能因延遲拉長而改變；比較時看同 seed 的 0 與 0.3。
+
+結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，輸出 `output/exp2_scale_growth/2026-10-23-01-30-54`～`01-32-23`），不回填本節。
 
 ## 來源與對應程式
 

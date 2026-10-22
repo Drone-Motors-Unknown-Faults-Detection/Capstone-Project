@@ -27,12 +27,8 @@ import numpy as np
 from core.data import HEALTHY, load_pools, make_split, discover_datasets
 from core.detectors import ALL_DETECTORS
 from core.logger import save_plot, setup_run
+from core.openset import fpr_at_tpr
 from core.runner import save_json
-
-
-def _fpr_at_tpr(healthy_scores, fault_scores, tpr: float = 0.95) -> float:
-    thr = float(np.quantile(fault_scores, 1 - tpr))  # 讓 95% 故障超過的門檻
-    return float((healthy_scores > thr).mean())
 
 
 def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> dict:
@@ -59,7 +55,7 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> di
                 "dataset": key,
                 "method": det.name,
                 "auroc": round(float(roc_auc_score(y, np.r_[h, f])), 4),
-                "fpr_at_tpr95": round(_fpr_at_tpr(h, f), 4),
+                "fpr_at_tpr95": round(fpr_at_tpr(h, f), 4),
                 "healthy_fp": round(float((h > 1).mean()), 4),
                 "fault_detect": round(float((f > 1).mean()), 4),
             })

@@ -1,0 +1,657 @@
+{
+  "rows": [
+    {
+      "dataset": "T1/11000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0556,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.6528,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0556,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1111,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0694,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0556,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0556,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/11000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0417,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1094,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.7812,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.125,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.125,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1094,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1562,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0469,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/6000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1406,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0469,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.8125,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0625,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0781,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0625,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0469,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0312,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T1/8000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0625,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0962,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.9808,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1346,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0962,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1154,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0769,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0385,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/11000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1154,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0455,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.8485,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0758,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0455,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0152,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0152,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0758,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/6000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0303,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0267,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.6667,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.04,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0667,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.04,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0267,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T2/8000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1167,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.8833,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1167,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0833,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.1333,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0833,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/11000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0667,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.125,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.8906,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0156,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0625,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0156,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0156,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.125,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/6000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0312,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "maha_ledoit_wolf",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0182,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "maha_legacy",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.9636,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "ocsvm",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0364,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "iforest",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0909,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "lof",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0727,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "knn_dist",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0364,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "pca_recon",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0909,
+      "fault_detect": 1.0
+    },
+    {
+      "dataset": "T3/8000",
+      "method": "mlp_autoencoder",
+      "auroc": 1.0,
+      "fpr_at_tpr95": 0.0,
+      "healthy_fp": 0.0364,
+      "fault_detect": 1.0
+    }
+  ],
+  "summary": [
+    {
+      "method": "maha_ledoit_wolf",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0711,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0385
+    },
+    {
+      "method": "maha_legacy",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.8311,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.1096
+    },
+    {
+      "method": "ocsvm",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0736,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0402
+    },
+    {
+      "method": "iforest",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0844,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0233
+    },
+    {
+      "method": "lof",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0667,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0355
+    },
+    {
+      "method": "knn_dist",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0596,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0508
+    },
+    {
+      "method": "pca_recon",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0638,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0306
+    },
+    {
+      "method": "mlp_autoencoder",
+      "auroc_mean": 1.0,
+      "fpr_at_tpr95_mean": 0.0,
+      "healthy_fp_mean": 0.0583,
+      "fault_detect_mean": 1.0,
+      "auroc_std": 0.0,
+      "healthy_fp_std": 0.0419
+    }
+  ],
+  "seed": 42,
+  "confidence": 0.95,
+  "n_datasets": 9
+}
