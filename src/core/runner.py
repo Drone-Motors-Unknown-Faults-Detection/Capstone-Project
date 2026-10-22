@@ -70,9 +70,15 @@ def execution_context(pools, source_context=None, *, seed=42, confidence=0.95,
                       method="ledoit_wolf", openset_method="mahalanobis", knn_neighbors=5,
                       **parameters) -> dict:
     """共用來源／環境與既有設定解析，不參與實驗數值計算。"""
+    source = source_for_pools(pools, source_context)
+    environment = collect_environment(
+        data_root=source_context.root if source_context is not None else None,
+        include_data=source_context is not None)
+    if source_context is not None and environment["data"]["dataset_fingerprint"] != source["dataset_fingerprint"]:
+        raise ProvenanceError("環境資料指紋與已驗證資料池不符")
     return {"schema_version": "experiment_provenance_v1",
-            "source": source_for_pools(pools, source_context),
-            "environment": collect_environment(),
+            "source": source,
+            "environment": environment,
             "resolved_config": resolve_openset_config(openset_method, confidence=confidence,
                 mahalanobis_method=method, knn_neighbors=knn_neighbors),
             "parameters": {"seed": seed, **parameters}}
@@ -85,6 +91,7 @@ def run_dataset(args, paths, callback, **parameters):
               "raw_session_independence": "UNKNOWN"}
     save_json(target, source)
     try:
+        save_json(paths.output_dir / "environment.json", collect_environment(data_root=args.data_root))
         ds = _dataset_info(args)
         pools, context = load_pool_source(args.data_root, ds["path"])
         source = source_for_pools(pools, context)
@@ -142,11 +149,14 @@ def run_root_sources(callback, data_root, *, output_dir=None, pool_cache=None, *
     target = Path(output_dir) / "source.json" if output_dir is not None else None
     source = {"status": "LOADING", "data_version": "UNKNOWN",
               "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}
-    environment = collect_environment()
+    environment = collect_environment(data_root=data_root)
     if target is not None:
+        save_json(target.parent / "environment.json", environment)
         save_json(target, source)
     try:
         tracker = RootSources(data_root, pool_cache=pool_cache)
+        if environment["data"]["dataset_fingerprint"] != tracker.initial["dataset_fingerprint"]:
+            raise ProvenanceError("環境資料指紋與跨工況起始來源不符")
         result = callback(data_root, source_run=tracker, **parameters)
         source = tracker.finish()
         result["provenance"] = {"schema_version": "experiment_provenance_v1",

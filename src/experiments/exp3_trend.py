@@ -191,7 +191,7 @@ def main() -> None:
     add_openset_args(parser)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp3_trend", unique=True)
+    log, paths = setup_run("exp3_trend", unique=True, data_root=args.data_root)
     ds, result = run_dataset(args, paths, run, n_trials=args.trials, seed=args.seed,
                  confidence=args.confidence, method=args.method,
                  openset_method=args.openset_method, knn_neighbors=args.knn_neighbors)

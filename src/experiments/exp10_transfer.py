@@ -140,7 +140,7 @@ def main() -> None:
 
     n_values = tuple(int(v) for v in args.n_values.split(","))
 
-    log, paths = setup_run("exp10_transfer", unique=True)
+    log, paths = setup_run("exp10_transfer", unique=True, data_root=args.data_root)
     log.info(f"實驗十：遷移學習（N={n_values}, method={args.method}, seed={args.seed}）")
     result = run(args.data_root, args.seed, args.confidence, args.method, n_values,
                  output_dir=paths.output_dir)

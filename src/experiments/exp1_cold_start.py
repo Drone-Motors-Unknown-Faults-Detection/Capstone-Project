@@ -157,7 +157,7 @@ def main() -> None:
     add_openset_args(parser)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp1_cold_start", unique=True)
+    log, paths = setup_run("exp1_cold_start", unique=True, data_root=args.data_root)
     ds, result = run_dataset(
         args, paths, run,
         seed=args.seed,

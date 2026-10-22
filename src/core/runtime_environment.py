@@ -69,7 +69,8 @@ def data_info(data_root: str | Path) -> dict:
         return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "UNKNOWN"}
 
 
-def collect_environment(root: Path | None = None, data_root: str | Path | None = None) -> dict:
+def collect_environment(root: Path | None = None, data_root: str | Path | None = None,
+                        *, include_data: bool = True) -> dict:
     """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
     root = Path.cwd() if root is None else Path(root)
     top = _git(root, "rev-parse", "--show-toplevel")
@@ -88,7 +89,9 @@ def collect_environment(root: Path | None = None, data_root: str | Path | None =
         "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
                "host": platform.node()},
         "numeric": blas_info(),
-        "data": data_info(data_root if data_root is not None else _argv_data_root(sys.argv)),
+        "data": (data_info(data_root if data_root is not None else _argv_data_root(sys.argv))
+                 if include_data else {"content_version": None, "dataset_fingerprint": None,
+                                       "n_files": 0, "status": "UNKNOWN", "reason": "UNVERIFIED_MEMORY"}),
         "packages": dict(sorted(packages.items())),
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},

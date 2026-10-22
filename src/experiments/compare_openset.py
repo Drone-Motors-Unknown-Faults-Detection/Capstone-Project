@@ -198,7 +198,7 @@ def main() -> None:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args()
 
-    log, paths = setup_run("openset_comparison", unique=True)
+    log, paths = setup_run("openset_comparison", unique=True, data_root=args.data_root)
     ds, result = run_dataset(
         args, paths, run,
         methods=tuple(args.openset_methods),

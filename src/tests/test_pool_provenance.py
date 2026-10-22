@@ -195,6 +195,24 @@ def test_existing_config_resolver_and_memory_context():
     assert np.array_equal(pools["8screws"], before["8screws"])
 
 
+def test_pool_environment_uses_verified_root_not_argv_or_default(tmp_path):
+    from core.runtime_environment import data_info
+
+    root = _fixture(tmp_path / "actual_features")
+    default = _fixture(Path.cwd() / "data")
+    csv = next(default.rglob("*_clean.csv"))
+    csv.write_bytes(csv.read_bytes() + b"\n")
+    pools, source = load_pool_source(root, discover_datasets(root)[0]["path"])
+    with patch("sys.argv", ["api", "--data-root", str(default)]):
+        traced = execution_context(pools, source)
+        memory = execution_context(pools)
+    assert data_info(default)["dataset_fingerprint"] != source.public["dataset_fingerprint"]
+    assert traced["environment"]["data"]["dataset_fingerprint"] == source.public["dataset_fingerprint"]
+    assert memory["environment"]["data"]["status"] == "UNKNOWN"
+    assert memory["environment"]["data"]["dataset_fingerprint"] is None
+    assert str(root) not in json.dumps(traced)
+
+
 @pytest.mark.parametrize("name", ["exp1_cold_start", "exp2_scale_growth", "exp3_trend"])
 def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
     import importlib

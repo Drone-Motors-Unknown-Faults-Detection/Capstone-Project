@@ -523,7 +523,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    log, paths = setup_run("exp2_scale_growth", unique=True)
+    log, paths = setup_run("exp2_scale_growth", unique=True, data_root=args.data_root)
     ds, result = run_dataset(
         args, paths, run, sequence=args.sequence, seed=args.seed,
         confidence=args.confidence, method=args.method,

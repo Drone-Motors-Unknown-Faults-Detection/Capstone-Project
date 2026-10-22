@@ -230,7 +230,7 @@ def main() -> None:
     parser.add_argument("--part", default="abc", help="要跑的子實驗（a/b/c 任意組合）")
     args = parser.parse_args()
 
-    log, paths = setup_run("exp4_polar_map", unique=True)
+    log, paths = setup_run("exp4_polar_map", unique=True, data_root=args.data_root)
     ds, result = run_dataset(args, paths, run, seed=args.seed, parts=args.part)
     log.info(f"實驗四：極座標健康地圖 — {ds['motor']}/{ds['rpm']}（part={args.part}, seed={args.seed}）")
 

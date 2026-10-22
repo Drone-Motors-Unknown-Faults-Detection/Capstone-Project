@@ -277,7 +277,7 @@ def main() -> None:
     parser.add_argument("--tsne-max-per-class", type=int, default=200)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp12_confusion_tsne", unique=True)
+    log, paths = setup_run("exp12_confusion_tsne", unique=True, data_root=args.data_root)
     log.info(f"實驗十二：混淆矩陣與 t-SNE（seed={args.seed}, perplexity={args.perplexity}）")
     result = run(args.data_root, args.seed, args.confidence, args.perplexity, args.tsne_max_per_class,
                  output_dir=paths.output_dir)

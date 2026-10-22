@@ -154,7 +154,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="allow output without temporal identity; trend remains insufficient_history when absent",
     )
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_monitor", unique=True)
+    log, paths = setup_run("exp8_health_monitor", unique=True, data_root=args.data_root)
     log.info("執行健康指數逐窗回放；來源絕對路徑僅留本機 sidecar")
     def collect(pools, *, source_context, **options):
         return [event["window"] for event in _iter_pools(pools, args.motor,

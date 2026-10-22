@@ -87,6 +87,28 @@ def test_root_rejects_late_mutation_and_saves_failure(tmp_path):
     assert json.loads((out / "source.json").read_text())["status"] == "FAILED"
 
 
+def test_root_environment_and_saved_run_use_actual_root(tmp_path):
+    from core.logger import setup_run
+    from core.runtime_environment import data_info
+
+    root = fixture(tmp_path / "actual_features")
+    default = _fixture(Path.cwd() / "data")
+    csv = next(default.rglob("*_clean.csv"))
+    csv.write_bytes(csv.read_bytes() + b"\n")
+    def compute(data_root, *, source_run):
+        source_run.load_all()
+        return {}
+    with patch("sys.argv", ["api", "--data-root", str(default)]):
+        _, paths = setup_run("root_fixture", unique=True)
+        result = run_root_sources(compute, root, output_dir=paths.output_dir)
+    expected = data_info(root)["dataset_fingerprint"]
+    assert result["provenance"]["source"]["dataset_fingerprint"] == expected
+    assert result["provenance"]["environment"]["data"]["dataset_fingerprint"] == expected
+    saved = json.loads((paths.output_dir / "environment.json").read_text())
+    assert saved["data"]["dataset_fingerprint"] == expected
+    assert str(root) not in json.dumps(result)
+
+
 def test_root_rejects_version_mixing_between_datasets(tmp_path):
     root = fixture(tmp_path)
     source = RootSources(root)

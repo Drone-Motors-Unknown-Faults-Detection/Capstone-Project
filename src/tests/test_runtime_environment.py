@@ -127,6 +127,13 @@ class RuntimeEnvironmentTests(unittest.TestCase):
                 self.assertEqual(runtime.collect_environment(Path(directory))["data"], {"root": "from_argv"})
                 self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
 
+    def test_memory_environment_does_not_inspect_default_data(self):
+        with patch.object(runtime, "data_info", side_effect=AssertionError("不得讀預設資料根")):
+            result = runtime.collect_environment(ROOT, include_data=False)
+        self.assertEqual(result["data"]["status"], "UNKNOWN")
+        self.assertIsNone(result["data"]["dataset_fingerprint"])
+        self.assertEqual(result["data"]["reason"], "UNVERIFIED_MEMORY")
+
     def test_setup_run_writes_json(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
             _, paths = setup_run("fixture_environment")

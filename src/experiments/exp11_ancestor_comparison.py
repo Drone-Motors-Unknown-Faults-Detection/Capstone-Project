@@ -200,7 +200,7 @@ def main() -> None:
     seeds = tuple(int(s) for s in args.seeds.split(","))
     methods = tuple(args.methods.split(","))
 
-    log, paths = setup_run("exp11_ancestor_comparison", unique=True)
+    log, paths = setup_run("exp11_ancestor_comparison", unique=True, data_root=args.data_root)
     log.info(f"實驗十一：原始論文對照（seeds={seeds}, methods={methods}）")
     result = run(args.data_root, seeds, args.confidence, methods, output_dir=paths.output_dir)
     save_json(paths.output_dir / "summary.json", result)

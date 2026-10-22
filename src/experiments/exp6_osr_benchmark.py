@@ -113,7 +113,7 @@ def main() -> None:
     parser.add_argument("--confidence", type=float, default=0.95)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp6_osr_benchmark", unique=True)
+    log, paths = setup_run("exp6_osr_benchmark", unique=True, data_root=args.data_root)
     log.info(f"實驗六：OSR 方法基準比較（seed={args.seed}）")
     result = run(args.data_root, args.seed, args.confidence, output_dir=paths.output_dir)
 

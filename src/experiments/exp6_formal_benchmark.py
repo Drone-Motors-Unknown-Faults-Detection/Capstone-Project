@@ -50,6 +50,7 @@ from core.openset import (
 )
 from core.runner import save_json
 from core.provenance import CONTENT_VERSION, capture_source, write_private_context
+from core.runtime_environment import collect_environment
 
 
 FORMAL_CONDITION_COUNT = 9
@@ -315,7 +316,8 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None, pool_cache=None) -> dict:
     """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。"""
     if evidence_paths is None:
-        _, evidence_paths = setup_run("exp6_formal_api", unique=True)
+        _, evidence_paths = setup_run("exp6_formal_api", unique=True, data_root=data_root)
+    save_json(evidence_paths.output_dir / "environment.json", collect_environment(data_root=data_root))
     try:
         recorded_method = canonical_openset_method(openset_method)
         recorded_requested_method = str(openset_method)
@@ -339,6 +341,8 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         if source != after:
             raise ValueError("評估期間來源內容或manifest變動，拒絕完成")
         result["environment"] = json.loads((evidence_paths.output_dir / "environment.json").read_text(encoding="utf-8"))
+        if result["environment"]["data"]["dataset_fingerprint"] != source["dataset_fingerprint"]:
+            raise ValueError("環境資料指紋與正式評估來源不符")
         result["source"] = source
         evidence["effective_configuration"] = result["config"]
         evidence["resolved_config"] = result["resolved_config"]
@@ -383,7 +387,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args(argv)
 
-    log, paths = setup_run("exp6_formal_benchmark", unique=True)
+    log, paths = setup_run("exp6_formal_benchmark", unique=True, data_root=args.data_root)
     started = datetime.now(timezone.utc).isoformat()
     log.info(
         f"正式 OSR benchmark method={args.openset_method}, seed={args.seed}, "

@@ -24,6 +24,10 @@
 
 `core.runner.execution_context()` 重用既有環境 collector 與 Open Set resolver；`run_dataset()` 必須在入口 `setup_run(..., unique=True)` 後呼叫，載入／執行失敗仍保存去敏 `source.json`，不輸出任意例外 payload。
 
+環境資料根必須與實際來源相同：`execution_context()` 先驗證 `PoolSource`，再把行程內的 `root` 傳給 `collect_environment(data_root=...)`；root API 直接傳實際的 `data_root`。CLI 的 `setup_run()` 明確帶 `args.data_root`，`run_dataset()` 與有輸出目錄的 root runner 也將同一實際根的環境寫回該次 `environment.json`。這只更新本次新建紀錄，不回寫歷史產物。公開環境只保留內容指紋，不序列化 `PoolSource` 或絕對根。
+
+純記憶體 pools 呼叫 `collect_environment(include_data=False)`：`environment.data.status=UNKNOWN`、指紋為空並標 `reason=UNVERIFIED_MEMORY`，不查工作目錄或命令列中的另一份 `data` 來背書。一般環境查核入口仍保留既有命令列預設；此選項僅供已知沒有可信檔案來源的呼叫者明確關閉資料蒐集。
+
 | 適用入口 | 來源現況與驗收邊界 |
 | --- | --- |
 | provenance／formal_data／exp6_formal 的 run/main | 已有內容來源、private 分離與環境；沿用既有規則 |
@@ -54,5 +58,5 @@ uv run --locked --extra test python -m pytest src/tests/test_provenance.py
 fixture涵蓋同stat不同bytes、同內容副本、不同root、無manifest、legacy讀取、損壞／不符manifest、private不進Git公開清冊、來源讀取失敗及無Git。預期同stat異bytes能區分、相同相對ID與內容的副本指紋一致、錯manifest拒絕，來源紀錄不改fixture的score／threshold／classify。實際平台支援與跳過案例以當次受測SHA及測試紀錄為準。
 入口遵循run/main、setup_run及logs/output，工程規則不占exp9–12。
 
-`setup_run(..., unique=True)` 同秒採 `_001` 等尾碼並以exclusive建立保留，避免來源紀錄覆寫；既有呼叫預設不變，不保證所有runner無碰撞。這項只影響新run的產物ID，不消耗模型rng。formal summary版本3，dataset_root固定 `formal_features` ID，真實解析根只留sidecar。
+`setup_run(..., unique=True)` 同秒採 `_001` 等尾碼並以exclusive建立保留，避免來源紀錄覆寫；既有呼叫預設不變，不保證所有runner無碰撞。這項只影響新run的產物ID，不消耗模型rng。formal summary版本3，dataset_root記實際根的名稱（例如 `data` 或 `formal_local`），真實解析根只留sidecar；名稱不是獨立採集身分。
 傳入參數與有效config一併記錄，不代表統一resolved設定schema已完成。standalone `materialize()` 回傳portable v3 manifest；只有 `core.formal_data.run/main` 額外保存本機sidecar，直接API呼叫者需自行保留其來源根。private sidecar失敗會使run失敗，但已物化的檔案可能保留，沿用非整批交易限制。

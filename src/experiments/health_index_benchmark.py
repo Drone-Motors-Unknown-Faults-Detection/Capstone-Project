@@ -219,7 +219,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_index_benchmark", unique=True)
+    log, paths = setup_run("exp8_health_index_benchmark", unique=True, data_root=args.data_root)
     log.info("執行實驗八健康指數比較；來源絕對路徑僅留本機 sidecar")
     result = run(
         args.data_root,

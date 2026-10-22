@@ -240,7 +240,7 @@ def main() -> None:
     parser.add_argument("--method", default="ledoit_wolf")
     args = parser.parse_args()
 
-    log, paths = setup_run("exp5_cross_condition", unique=True)
+    log, paths = setup_run("exp5_cross_condition", unique=True, data_root=args.data_root)
     log.info(f"實驗五：跨工況冷啟動泛化（part={args.part}, seed={args.seed}）")
     result = run(args.data_root, args.seed, args.part, args.confidence, args.method,
                  output_dir=paths.output_dir)
