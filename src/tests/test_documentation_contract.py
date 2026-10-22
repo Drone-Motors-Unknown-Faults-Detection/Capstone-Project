@@ -45,12 +45,37 @@ class DocumentationContractTests(unittest.TestCase):
     def test_report_new_chapter_uses_global_references_and_actual_book(self):
         text = (ROOT / "docs/FinalReport/畢業專題報告.md").read_text(encoding="utf-8")
         body, references = text.split("## 參考文獻\n", 1)
-        self.assertNotRegex(body, r"\[(?:Jardine|Lee|Taguchi|Schölkopf|Pimentel|Bendale|Scheirer|Tax|沈品志|Ledoit|Campello) \d{4}")
+        self.assertNotRegex(body, r"\[(?:Jardine|Lee|Taguchi|Schölkopf|Pimentel|Bendale|Scheirer|Tax|沈品志|Ledoit|Campello|Mahalanobis) \d{4}")
         books = references.split("### 書籍\n", 1)[1].split("### 期刊論文", 1)[0]
         self.assertIn("Taguchi", books)
         self.assertNotIn("未引用書籍", books)
-        self.assertIn("版次及出版地仍待", books)
-        self.assertIn("官方頁次", references)
+        self.assertIn("版次仍待原始版權頁核實", books)
+
+    def test_publication_fields_keep_sources_and_unverified_edition(self):
+        text = (ROOT / "docs/FinalReport/畢業專題報告.md").read_text(encoding="utf-8")
+        references = text.split("## 參考文獻\n", 1)[1]
+        entries = dict(re.findall(r'<a id="ref-(\d+)"></a>\[\d+\] ([^\n]+)', references))
+        support = next(value for value in entries.values()
+                       if "Estimating the Support" in value)
+        self.assertIn("July 2001", support)
+        self.assertIn("direct.mit.edu/neco/article/13/7/1443/6529", support)
+        lee = next(value for value in entries.values()
+                   if "A Simple Unified Framework" in value)
+        self.assertIn("pp. 7167–7177", lee)
+        self.assertIn("4–6 December 2018（主會議）", lee)
+        self.assertIn("Montréal, Canada", lee)
+        self.assertIn("-Metadata.json", lee)
+        self.assertIn("Conferences/2018/Dates", lee)
+        book = next(value for value in entries.values()
+                    if "The Mahalanobis–Taguchi Strategy" in value)
+        self.assertIn("New York: John Wiley & Sons", book)
+        self.assertIn("kansalliskirjasto.finna.fi/Record/vaari.1825773", book)
+        self.assertIn("版次尚未取得原始版權頁核實", book)
+        web_index = references.split("### 網頁\n", 1)[1].split("### 學位論文", 1)[0]
+        for title in ("OAS", "MLPRegressor"):
+            number = next(number for number, value in entries.items()
+                          if f'“{title},”' in value)
+            self.assertIn(f"{title} [{number}](#ref-{number})", web_index)
 
     def test_final_report_citations_follow_first_occurrence(self):
         text = (ROOT / "docs/FinalReport/畢業專題報告.md").read_text(encoding="utf-8")
