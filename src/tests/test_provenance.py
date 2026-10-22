@@ -251,7 +251,9 @@ class ProvenanceTests(unittest.TestCase):
 
     def test_source_run_and_main_save_public_records_without_git(self):
         from core import provenance
-        with tempfile.TemporaryDirectory() as directory:
+        # 無 Git 指程式版本查詢失敗；暫存工作目錄本身沒有 Git 不代表程式無版本。
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("core.runtime_environment._git", return_value=None):
             workspace = Path(directory)
             source = _fixture(workspace / "data")
             previous = Path.cwd()
@@ -268,6 +270,8 @@ class ProvenanceTests(unittest.TestCase):
                     self.assertNotIn(directory, json.dumps(public).replace("\\\\", "\\"))
                     environment = json.loads(path.with_name("environment.json").read_text(encoding="utf-8"))
                     self.assertEqual(environment["git"]["status"], "UNKNOWN")
+                    self.assertIsNone(environment["git"]["head"])
+                    self.assertIsNone(environment["git"]["tracked_dirty"])
                 self.assertEqual(len(list(workspace.glob(".lineage_private/*.json"))), 2)
             finally:
                 logger.remove()
