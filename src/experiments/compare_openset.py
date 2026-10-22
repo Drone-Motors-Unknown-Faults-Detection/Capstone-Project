@@ -192,7 +192,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("openset_comparison")
+    log, paths = setup_run("openset_comparison", data_root=args.data_root)
     result = run(
         pools,
         tuple(args.openset_methods),

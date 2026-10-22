@@ -263,7 +263,7 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95,
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -271,7 +271,7 @@ def main() -> None:
     parser.add_argument("--tsne-max-per-class", type=int, default=200)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp12_confusion_tsne")
+    log, paths = setup_run("exp12_confusion_tsne", data_root=args.data_root)
     log.info(f"實驗十二：混淆矩陣與 t-SNE（seed={args.seed}, perplexity={args.perplexity}）")
     result = run(args.data_root, args.seed, args.confidence, args.perplexity, args.tsne_max_per_class)
     tsne_by_dataset = result.pop("_tsne_by_dataset")

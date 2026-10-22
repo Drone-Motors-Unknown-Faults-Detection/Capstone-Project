@@ -123,11 +123,11 @@ def run(dataset, seed=42):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    log, paths = setup_run("navigation_regression")
+    log, paths = setup_run("navigation_regression", data_root=args.data_root)
     dataset = next(d for d in discover_datasets(args.data_root)
                    if d["motor"] == "T1" and d["rpm"] == "8000rpm")
     result = run(dataset, args.seed)

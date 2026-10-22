@@ -124,14 +124,14 @@ def run_matrix(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--output-root", help="續跑既有輸出根時才給；預設寫本次 output/exp8_health_index_matrix/{ts}/")
     parser.add_argument("--seed", action="append", type=int, dest="seeds")
     parser.add_argument("--method", action="append", dest="methods")
     parser.add_argument("--no-resume", action="store_true")
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_index_matrix")
+    log, paths = setup_run("exp8_health_index_matrix", data_root=args.data_root)
     output_root = Path(args.output_root) if args.output_root else paths.output_dir
     log.info(f"參數：{vars(args)}；輸出根 {output_root}")
     manifest = run_matrix(

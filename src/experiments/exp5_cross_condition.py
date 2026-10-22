@@ -232,7 +232,7 @@ def run(data_root: str = "data", seed: int = 42, parts: str = "abc",
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--part", default="abc")
@@ -240,7 +240,7 @@ def main() -> None:
     parser.add_argument("--method", default="ledoit_wolf")
     args = parser.parse_args()
 
-    log, paths = setup_run("exp5_cross_condition")
+    log, paths = setup_run("exp5_cross_condition", data_root=args.data_root)
     log.info(f"實驗五：跨工況冷啟動泛化（part={args.part}, seed={args.seed}）")
     result = run(args.data_root, args.seed, args.part, args.confidence, args.method)
     save_json(paths.output_dir / "summary.json", result)

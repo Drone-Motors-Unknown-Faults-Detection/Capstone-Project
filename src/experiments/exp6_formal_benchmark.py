@@ -374,7 +374,7 @@ def _figure(result: dict):
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -383,7 +383,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args(argv)
 
-    log, paths = setup_run("exp6_formal_benchmark", unique=True)
+    log, paths = setup_run("exp6_formal_benchmark", unique=True, data_root=args.data_root)
     started = datetime.now(timezone.utc).isoformat()
     log.info(
         f"正式 OSR benchmark method={args.openset_method}, seed={args.seed}, "

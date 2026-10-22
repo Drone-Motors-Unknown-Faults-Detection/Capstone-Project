@@ -184,7 +184,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp3_trend")
+    log, paths = setup_run("exp3_trend", data_root=args.data_root)
     log.info(f"實驗三：漸進 vs 突發判別 — {ds['motor']}/{ds['rpm']}"
              f"（trials={args.trials}, openset={args.openset_method}, "
              f"method={args.method}, seed={args.seed}）")

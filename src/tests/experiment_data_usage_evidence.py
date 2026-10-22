@@ -116,7 +116,7 @@ def inspect(data_root: Path | str, seeds: tuple[int, ...] = (42, 123, 2026)) -> 
 
 
 def run(data_root: Path | str, seeds: tuple[int, ...] = (42, 123, 2026)) -> dict:
-    log, paths = setup_run("experiment_data_usage_evidence")
+    log, paths = setup_run("experiment_data_usage_evidence", data_root=data_root)
     result = inspect(data_root, seeds)
     (paths.output_dir / "usage.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     log.info("唯讀 {} 工況、{} 有效列；模型擬合 0 次", result["n_datasets"], result["total_finite_rows"])

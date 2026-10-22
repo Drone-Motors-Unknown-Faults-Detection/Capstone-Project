@@ -192,7 +192,7 @@ def _dataset_fingerprint(data_path: Path) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--openset-method", default="mahalanobis")
@@ -201,7 +201,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_index_benchmark")
+    log, paths = setup_run("exp8_health_index_benchmark", data_root=args.data_root)
     log.info(f"參數：{vars(args)}")
     result = run(
         args.data_root,

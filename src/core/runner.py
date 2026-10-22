@@ -16,6 +16,9 @@ from core.openset import SUPPORTED_OPENSET_METHODS
 
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
+    """加入資料集選擇參數；同時關掉 argparse 的前綴縮寫，`--data-r` 這類寫法直接報錯，
+    不會變成另一個旗標或讓 environment.json 記到錯的資料根（#269）。"""
+    parser.allow_abbrev = False
     parser.add_argument("--data-root", default="data", help="資料根目錄（預設 data）")
     parser.add_argument("--motor", default="T1", help="馬達代碼（預設 T1）")
     parser.add_argument("--rpm", default="8000rpm", help="轉速目錄名（預設 8000rpm）")

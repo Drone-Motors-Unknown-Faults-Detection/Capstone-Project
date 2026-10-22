@@ -185,7 +185,7 @@ def _figure(summary: dict):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seeds", default="42,123,2026")
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -195,7 +195,7 @@ def main() -> None:
     seeds = tuple(int(s) for s in args.seeds.split(","))
     methods = tuple(args.methods.split(","))
 
-    log, paths = setup_run("exp11_ancestor_comparison")
+    log, paths = setup_run("exp11_ancestor_comparison", data_root=args.data_root)
     log.info(f"實驗十一：原始論文對照（seeds={seeds}, methods={methods}）")
     result = run(args.data_root, seeds, args.confidence, methods)
     save_json(paths.output_dir / "summary.json", result)

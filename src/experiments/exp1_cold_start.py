@@ -151,7 +151,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp1_cold_start")
+    log, paths = setup_run("exp1_cold_start", data_root=args.data_root)
     log.info(f"實驗一：冷啟動偵測 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
              f"confidence={args.confidence}, seed={args.seed}）")

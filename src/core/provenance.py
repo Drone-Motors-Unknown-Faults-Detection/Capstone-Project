@@ -138,7 +138,7 @@ def write_private_context(context: dict, *, directory: Path | str = ".lineage_pr
 def run(data_root: Path | str) -> dict:
     from core.logger import setup_run
 
-    log, paths = setup_run("source_provenance", unique=True)
+    log, paths = setup_run("source_provenance", unique=True, data_root=data_root)
     try:
         public, private = capture_source(data_root)
         public["private_context_id"] = write_private_context(private)

@@ -129,7 +129,7 @@ def _figure(summary: dict):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -139,7 +139,7 @@ def main() -> None:
 
     n_values = tuple(int(v) for v in args.n_values.split(","))
 
-    log, paths = setup_run("exp10_transfer")
+    log, paths = setup_run("exp10_transfer", data_root=args.data_root)
     log.info(f"實驗十：遷移學習（N={n_values}, method={args.method}, seed={args.seed}）")
     result = run(args.data_root, args.seed, args.confidence, args.method, n_values)
     save_json(paths.output_dir / "summary.json", result)
