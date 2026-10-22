@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
-from web.presentation import build_exp12, exp2_metric_contract, table_text
+from web.presentation import build_exp12, data_usage_contract, exp2_metric_contract, table_text
 from web.experiments import CATALOG
 from web.run_timing import timing_fields, utc_now
 
@@ -173,6 +173,7 @@ def _fill_result(st: dict, payload: dict) -> None:
               "started_at": st["started_at"], "params": st["params"], **st["result"]}
     if isinstance(payload.get("streamed"), bool):
         source["streamed"] = payload["streamed"]
+    st["usage_contract"] = data_usage_contract(payload.get("result"))
     if st["exp_id"] == "exp12":
         st["matrix_answer"] = _exp12_answer(payload.get("result"), RESULT_BUDGET, source)
         st["result_text"] = st["matrix_answer"]["text"]

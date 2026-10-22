@@ -174,6 +174,57 @@ def new_presentation(source, mode, title, subtitle, sections, status="complete")
             "status": status, "sections": sections}
 
 
+def data_usage_contract(result):
+    """只讀保存的模型角色筆數，不由比例、示例或其他實驗推算。"""
+    model = result.get("model") if isinstance(result, dict) else None
+    classes = model.get("classes") if isinstance(model, dict) else None
+    rows = []
+    if isinstance(classes, list):
+        for item in classes:
+            if not isinstance(item, dict) or not isinstance(item.get("config"), str):
+                continue
+            counts = [item.get(key) for key in ("n_train", "n_cal", "n_holdout")]
+            if all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in counts):
+                rows.append([item["config"], *counts])
+    return {"version": "saved_model_usage_v1", "rows": rows,
+            "status": "complete" if rows and len(rows) == len(classes) else "incomplete"}
+
+
+def data_usage_presentation(contract, source, sections):
+    """方法規則、文件示例與當次保存筆數分欄，不交給模型再改寫。"""
+    references = [s for s in sections if s["source"] == "methods.md"]
+    roles = [s for s in references if "60/20/20" in s["body"]]
+    confidence = [s for s in references if "不是每筆 95% 正確機率" in s["body"]]
+    rules = []
+    if roles:
+        rules += ["已知資料的共通切分約定是60/20/20（train／calibration／holdout）；整數筆數以make_split為準，不要求整數分配後比例恰好相等。",
+                  "187／62／64只屬T1／8000rpm健康池313列的指定示例，不是本次或所有工況的固定筆數。",
+                  "初始健康冷啟動的未知配置不參與擬合或校準；候選新類使用通過規則的群，不能套用完整配置池的示例筆數。",
+                  "實驗二每配置預留的20%外部評估，與健康資料20%校準的母群不同，不可互換。"]
+    if confidence:
+        rules.append("confidence=0.95是已知校準距離分位數，不是分類準確率，也不是每筆95%正確機率或跨馬達固定5%誤報保證；legacy的訓練距離門檻另按該方法定義。")
+    if not roles or not confidence:
+        rules.append("方法文件未提供完整可核對的切分／校準說明，未用一般常識或其他實驗補值。")
+    body = [section("rules", "規則與示例", "list", items=rules)]
+    rows = contract.get("rows", []) if source.get("status") == "done" else []
+    if rows:
+        body.append(section("usage", "本次已保存資料（模型摘要時點）", "table",
+                            headers=["模型類別", "train", "calibration", "holdout"], rows=rows))
+        if contract["status"] != "complete":
+            body.append(section("usage_partial", "保存筆數不足", "warning",
+                                items=["部分模型類別的角色筆數缺失或無效；只列欄位齊全的類別，不補值。"]))
+    else:
+        body.append(section("usage_missing", "本次已保存資料", "warning",
+                            items=["本次未保存可核對的模型切分筆數，或該次紀錄尚未完成；無法回答當次實際用量，未以手冊示例代入。"]))
+    body.append(section("limits", "限制", "list", items=[
+        "筆數只讀此來源的model.classes保存欄位；不從比例反推，也不從exp12示例、歷史回答或另一份run補入。",
+        "列級切分互斥不證明錄製、raw視窗或跨馬達獨立，也不證明可靠部署。"] ))
+    source_body, _ = source_sections(source)
+    body.extend(source_body)
+    return new_presentation(source, "data_usage", "資料切分與校準說明", "由程式讀取方法文件及同一筆保存欄位；不是模型自由生成。",
+                            body, "complete" if rows and contract["status"] == "complete" and roles and confidence else "incomplete")
+
+
 def timing_presentation(source):
     sections, warnings = source_sections(source)
     if warnings:

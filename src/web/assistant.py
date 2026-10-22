@@ -30,9 +30,9 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
 from experiments.exp3_trend import KIND_DISPLAY
-from web.presentation import markdown, select_view, timing_presentation
+from web.presentation import data_usage_presentation, markdown, select_view, timing_presentation
 from web.experiments import CATALOG
-from web.playback import ANSWER_SCHEMA
+from web.playback import ANSWER_SCHEMA, RESULT_BUDGET
 from web.assistant_budget import build_bounded_graph, fallback_answer
 from web.run_timing import timing_fields
 
@@ -253,10 +253,106 @@ def experiment_number(text: str) -> int | None:
 _SAVED_REFERENCE = re.compile(r"[^\s`\"'<>「」（）()，；]*exp\d+_\d{4}(?:-\d{2}){5}(?:_\d+)?\.json")
 _METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.*意思")
 _RESULT_QUESTION = re.compile(r"結果|矩陣|逐類|t.?sne|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d+(?:\.\d+)?%", re.I)
+_USAGE_QUESTION = re.compile(
+    r"資料.*(?:切分|切割|怎麼切|如何切|用量)|切分(?:筆數|用量|比例)|(?:訓練|校準|holdout|train|calibration).*?(?:筆|多少|比例|用量)|"
+    r"187\s*(?:[／/:、]\s*62|筆)|confidence|(?:95\s*%|0\.95|百分之九十五).*(?:正確|準確|機率|信心)|"
+    r"(?:那|所以|為何|為什麼).*校準|未知.*20\s*%|健康.*(?:cal\b|校準)", re.I)
 
 
 def _reference_number(reference: str) -> int | None:
     return experiment_number(reference.replace("\\", "/").rsplit("/", 1)[-1])
+
+
+def usage_request(snap, question, history, context):
+    """只攔截已知易錯的切分／校準問題；沿現有存檔識別與選取器。"""
+    if not _USAGE_QUESTION.search(question):
+        return None
+    context = context or {}
+    match = _SAVED_REFERENCE.search(question)
+    reference = match.group() if match else None
+    number = experiment_number(_SAVED_REFERENCE.sub("", question))
+    ref_number = _reference_number(reference) if reference else None
+    newest = bool(re.search(r"最新|新結果|重新.*結果", question))
+    context_number = experiment_number(context.get("experiment", ""))
+    saved = None if newest else context.get("saved")
+    saved_number = _reference_number(saved) if saved else None
+    choices = [value for value in (number, ref_number, saved_number,
+               None if newest else context_number) if value is not None]
+    if len(set(choices)) > 1:
+        raise ValueError("切分查詢的實驗、context與指定存檔不一致，未改取另一筆")
+    target = number or ref_number or (context_number if not newest else None)
+    target = target or saved_number
+    historical = None
+    if not newest and not reference and not saved:
+        for item in reversed(history[-MAX_HISTORY:]):
+            if isinstance(item, dict) and item.get("role") == "user" and isinstance(item.get("content"), str):
+                previous = _SAVED_REFERENCE.search(item["content"])
+                previous_number = experiment_number(_SAVED_REFERENCE.sub("", item["content"]))
+                if previous:
+                    previous_number = previous_number or _reference_number(previous.group())
+                if previous_number is not None:
+                    if target in (None, previous_number):
+                        target = previous_number
+                        historical = previous.group() if previous else None
+                    break
+    latest = latest_record(snap)
+    target = target or (experiment_number(latest["exp_id"]) if latest else None)
+    # 實驗十二既有核算與指定示例仍由原結果介面處理。
+    if target == 12:
+        return None
+    return {"experiment": f"exp{target}" if target else "", "mode": "data_usage",
+            "saved": reference or saved or historical}
+
+
+def _protected_record(snap, request, load_saved, load_selected):
+    if request.get("saved"):
+        if load_selected is None:
+            raise ValueError("目前介面無法定位指定保存檔，不能改讀最新一筆")
+        return load_selected(request["saved"], request["experiment"]), ""
+    return pick_record(snap, request.get("experiment", ""), load_saved)
+
+
+def _record_source(rec, request):
+    record = rec or {}
+    return {"exp_id": record.get("exp_id", request.get("experiment", "")),
+            "mode": record.get("mode"), "status": record.get("status", "missing"),
+            "params": record.get("params", {}), "updated_at": record.get("updated_at"),
+            **(record.get("result") or {})}
+
+
+def usage_frames(snap, request, sections, load_saved=None, load_selected=None):
+    rec, problem = None, ""
+    try:
+        rec, problem = _protected_record(snap, request, load_saved, load_selected)
+        if rec and request["experiment"] and rec.get("exp_id") != request["experiment"]:
+            raise ValueError("保存紀錄的實驗身分不符")
+    except ValueError as exc:
+        rec, problem = None, str(exc)
+    sources = [record_label(rec), *dict.fromkeys(
+        f"{s['source']} › {s['title']}" for s in sections if s["source"] == "methods.md")]
+    source = _record_source(rec, request)
+    contract = (rec or {}).get("usage_contract") or {"rows": [], "status": "incomplete"}
+    presentation = None
+    try:
+        presentation = data_usage_presentation(contract, source, sections)
+        text = markdown(presentation)
+        status = presentation["status"]
+        if len(text) > RESULT_BUDGET:
+            raise ValueError("切分來源與筆數超出摘要預算")
+    except (ValueError, TypeError) as exc:
+        presentation = None
+        text, status = f"【切分資料不完整】{type(exc).__name__}；未列數字，請核對指定來源。", "incomplete"
+    if problem:
+        text += "\n\n來源不足：" + problem
+    response_context = {"experiment": source["exp_id"], "mode": "result"}
+    if request.get("saved") or source.get("saved"):
+        response_context["saved"] = request.get("saved") or source["saved"]
+    frames = [{"event": "mode", "mode": "data_usage", "status": status,
+               "context": response_context, "sources": sources},
+              {"event": "tool", "name": "get_run_status", "label": "核對切分規則與保存用量", "sources": sources}]
+    if presentation:
+        frames.append({"event": "presentation", "presentation": presentation})
+    return [*frames, {"event": "delta", "text": text, "origin": "record"}]
 
 
 def result_request(snap: dict | None, question: str, history: list, context: dict | None) -> dict | None:
@@ -669,6 +765,7 @@ class Assistant:
             return saved_cache[exp_id]
 
         if (not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
+                and experiment_number(_SAVED_REFERENCE.sub("", question)) is None
                 and not _SAVED_REFERENCE.search(question) and not (isinstance(context, dict) and context.get("saved"))
                 and (not _METHOD_QUESTION.search(question) or re.search(r"結果|總結|摘要|誤報|誤拒|是否|是不是", question))):
             latest = frozen_saved(None)
@@ -677,6 +774,7 @@ class Assistant:
                 saved_cache[latest["exp_id"]] = latest
         try:
             request = result_request(snap, question, history or [], context)
+            usage = usage_request(snap, question, history or [], context) if request is None else None
         except ValueError as exc:
             yield {"event": "error", "error": str(exc)}
             return
@@ -687,6 +785,14 @@ class Assistant:
             return
         if request is not None:
             for frame in result_frames(snap, request, frozen_saved, load_selected):
+                yield frame
+            return
+        if usage is not None:
+            try:
+                sections = load_knowledge(self.knowledge_dir)
+            except OSError:
+                sections = []
+            for frame in usage_frames(snap, usage, sections, frozen_saved, load_selected):
                 yield frame
             return
         sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
