@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.feature_schema import CONFIG_ALIASES
 from core.logger import setup_run
 from experiments.exp11_ancestor_comparison import (
     _ANCESTOR_UNKNOWN_CANDIDATES,
@@ -61,6 +62,7 @@ def inspect(data_root: Path | str, seeds: tuple[int, ...] = (42, 123, 2026)) -> 
             files = sorted(folder.glob("*_Group_feature_data_clean.csv"))
             if not files:
                 continue
+            config = CONFIG_ALIASES.get(folder.name, folder.name)  # 池的 key 是正規名（#271）
             frames = []
             for file in files:
                 payload = file.read_bytes()
@@ -69,9 +71,10 @@ def inspect(data_root: Path | str, seeds: tuple[int, ...] = (42, 123, 2026)) -> 
                 frames.append(pd.read_csv(file))
             matrix = pd.concat(frames, ignore_index=True).select_dtypes("number").to_numpy(dtype=float)
             finite_n = int(np.isfinite(matrix).all(axis=1).sum())
-            if finite_n != len(pools.get(folder.name, [])):
+            if finite_n != len(pools.get(config, [])):
                 raise ValueError("數量與現行 loader 不一致")
-            config_rows.append({"config": folder.name, "files": len(files), "raw_feature_rows": len(matrix),
+            config_rows.append({"config": config, "directory": folder.name, "files": len(files),
+                                "raw_feature_rows": len(matrix),
                                 "numeric_columns": matrix.shape[1], "finite_rows": finite_n,
                                 "discarded_nonfinite": len(matrix) - finite_n})
         unknown = {c: len(p) for c, p in pools.items() if c != HEALTHY}
