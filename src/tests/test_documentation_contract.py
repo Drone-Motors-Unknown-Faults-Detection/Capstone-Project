@@ -42,6 +42,16 @@ def heading_anchors(text):
 
 
 class DocumentationContractTests(unittest.TestCase):
+    def test_report_new_chapter_uses_global_references_and_actual_book(self):
+        text = (ROOT / "docs/FinalReport/畢業專題報告.md").read_text(encoding="utf-8")
+        body, references = text.split("## 參考文獻\n", 1)
+        self.assertNotRegex(body, r"\[(?:Jardine|Lee|Taguchi|Schölkopf|Pimentel|Bendale|Scheirer|Tax|沈品志|Ledoit|Campello) \d{4}")
+        books = references.split("### 書籍\n", 1)[1].split("### 期刊論文", 1)[0]
+        self.assertIn("Taguchi", books)
+        self.assertNotIn("未引用書籍", books)
+        self.assertIn("版次及出版地仍待", books)
+        self.assertIn("官方頁次", references)
+
     def test_final_report_citations_follow_first_occurrence(self):
         text = (ROOT / "docs/FinalReport/畢業專題報告.md").read_text(encoding="utf-8")
         body, references = text.split("## 參考文獻\n", 1)
