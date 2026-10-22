@@ -12,6 +12,67 @@ from web.run_timing import timing_fields
 
 VERSION = "assistant_presentation_v1"
 
+EXP2_METRICS = {
+    "own_holdout_acc": ("群內保留列正確辨識模型新類的比例", "own_holdout_n"),
+    "eval_known_rate": ("本段配置外部評估列被任一新類接受的比例", "eval_n"),
+    "healthy_holdout_acc": ("健康保留列仍被判健康的比例", None),
+    "cluster_purity": ("候選群中真值多數配置的占比（事後對照）", "cluster_size"),
+}
+
+
+def exp2_metric_contract(result, budget=6000):
+    """只標示既有比例的資料角色與分母欄位；不重算統計或補推未知指標。"""
+    if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
+        raise ValueError("摘要預算必須為正整數")
+    contract = {"version": "exp2_metric_semantics_v1", "status": "complete", "rows": [],
+                "unknown_auroc": "NOT_PROVIDED", "unknown_recall": "NOT_PROVIDED"}
+    lines = ["【實驗二指標契約：保存結果的事後評估，不是即時配置辨識】",
+             "比例原值介於 0 與 1；分母只讀保存欄位，缺值不由示例或其他實驗補入。",
+             "own_holdout_acc 不等於未知召回；eval_known_rate 不要求判對自身配置；純度不參與線上病因判定。",
+             "本份彙總未提供可核算的未知 AUROC／未知召回，不能從群內準確率推估。"]
+    stages = result.get("stages") if isinstance(result, dict) else None
+    if not isinstance(stages, list) or not stages:
+        contract["status"] = "incomplete"
+        lines.append("缺少有效 stages，未列推測數字。")
+    else:
+        for index, stage in enumerate(stages):
+            if not isinstance(stage, dict):
+                contract["status"] = "incomplete"
+                continue
+            for key, (meaning, denominator_key) in EXP2_METRICS.items():
+                if key not in stage:
+                    continue
+                value = stage[key]
+                valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
+                         and math.isfinite(value) and 0 <= value <= 1)
+                denominator = stage.get(denominator_key) if denominator_key else None
+                count_valid = (isinstance(denominator, int) and not isinstance(denominator, bool)
+                               and denominator > 0)
+                status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
+                if denominator is not None and not count_valid:
+                    status, valid = "INVALID_DENOMINATOR", False
+                if status != "VERIFIED_SAVED_FIELDS":
+                    contract["status"] = "incomplete"
+                contract["rows"].append({"stage_index": index, "metric": key, "meaning": meaning,
+                    "value": value if valid else None,
+                    "denominator": denominator if count_valid else None, "status": status})
+        rows = [[r["stage_index"], r["metric"], r["value"], r["denominator"], r["meaning"], r["status"]]
+                for r in contract["rows"]]
+        if not rows:
+            contract["status"] = "incomplete"
+        lines.append(table_text(["階段（零起算）", "欄位", "保存比例", "保存分母", "意思", "欄位狀態"], rows))
+    lines += ["VERIFIED_SAVED_FIELDS 只表示保存欄位的型別與分母齊全，不表示採集獨立或模型可靠。",
+              "final_eval 的 known_rate 是外部列被任一新類接受的比例，unknown_rate 是仍被拒絕的比例；兩者都不是自身配置分類準確率。",
+              "confidence=0.95 是校準距離分位數，不是 95% 正確機率；187／62／64 只屬手冊的指定示例。",
+              "同池 20% 外部列未參與重播，仍不等於新採集或 fresh final；相對量尺不是損壞百分比或 RUL。"]
+    text = "\n\n".join(lines)
+    if len(text) > budget:
+        contract["status"] = "incomplete"
+        warning = "【摘要不完整】實驗二來源、指標及分母超出摘要預算；請讀指定原檔，不截出數字推估未知召回或 AUROC。"
+        text = warning if len(warning) <= budget else "不完整" if budget >= 3 else "略"
+    contract["text"] = text
+    return contract
+
 
 def string(value):
     if value is None:
