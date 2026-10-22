@@ -339,6 +339,18 @@ class CommittedHandler(_JSONHandler):
 
 
 ASSISTANT: Assistant | None = None
+# 提問與歷史的長度上限：前端 textarea maxlength=500、歷史最多帶 6 則；
+# 超過直接拒絕，問句解析不在 IOLoop 上處理長字串（#265）
+MAX_QUESTION_CHARS = 2000
+MAX_HISTORY_ITEMS = 20
+MAX_HISTORY_CHARS = 20000
+
+
+def _history_too_long(history: list) -> bool:
+    if len(history) > MAX_HISTORY_ITEMS:
+        return True
+    return any(isinstance(item, dict) and isinstance(item.get("content"), str)
+               and len(item["content"]) > MAX_HISTORY_CHARS for item in history)
 
 
 class AssistantStatusHandler(_JSONHandler):
@@ -377,6 +389,10 @@ class AssistantAskHandler(tornado.web.RequestHandler):
                 raise ValueError
         except (json.JSONDecodeError, ValueError):
             await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
+            return
+        if len(question) > MAX_QUESTION_CHARS or _history_too_long(history):
+            await self.send({"event": "error", "error": f"問題上限 {MAX_QUESTION_CHARS} 字、歷史最多 "
+                                                        f"{MAX_HISTORY_ITEMS} 則各 {MAX_HISTORY_CHARS} 字"})
             return
         snap = PLAYBACK.snapshot()
         logger.info(f"AI 問答（{record_label(latest_record(snap))}）：{question.strip()[:80]}")

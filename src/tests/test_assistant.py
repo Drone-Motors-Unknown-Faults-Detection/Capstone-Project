@@ -3,6 +3,7 @@ import asyncio
 import json
 import shutil
 import subprocess
+import time
 import unittest
 from pathlib import Path
 
@@ -25,8 +26,12 @@ from web.assistant import (
     latest_record,
     pick_record,
     record_label,
+    result_request,
+    saved_reference,
     search_knowledge,
     search_with_sources,
+    strip_saved_references,
+    timing_frames,
     to_messages,
     EXPERIMENTS_DIR,
     KNOWLEDGE_DIR,
@@ -454,6 +459,20 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
                 frames = self.frames(body)
                 self.assertEqual(frames[0]["event"], "error")
 
+    def test_oversized_question_or_history_rejected_before_parsing(self):
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
+        long_text = "參數" * 50000
+        for body in (json.dumps({"question": long_text}),
+                     json.dumps({"question": "q", "history": [{"role": "user", "content": long_text}]}),
+                     json.dumps({"question": "q", "history": [{"role": "user", "content": "q"}] * 21})):
+            with self.subTest(body=body[:40]):
+                t0 = time.perf_counter()
+                frames = self.frames(body)
+                self.assertLess(time.perf_counter() - t0, 1.0)
+                self.assertEqual(frames[0]["event"], "error")
+                self.assertIn("上限", frames[0]["error"])
+                self.assertEqual(len(frames), 1)
+
     def test_model_offline_reports_error(self):
         port = tornado.testing.bind_unused_port()
         port[0].close()
@@ -463,6 +482,33 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         frames = self.frames(json.dumps({"question": "目前狀況？"}))
         self.assertEqual(frames[-1]["event"], "error")
         self.assertIn("本地模型呼叫失敗", frames[-1]["error"])
+
+
+class QuestionParsingTests(unittest.TestCase):
+    """問句解析對長輸入保持線性（#265）；存檔路徑抓取與原本 regex 的結果一致。"""
+
+    def test_saved_reference_with_prefix_and_strip(self):
+        path = "output/web_server/2026-10-14-10-00-00/experiments/exp12_2026-10-14-10-00-00_1.json"
+        question = f"總結 `{path}` 的結果，再看 exp6_formal_2026-10-14-10-00-00.json"
+        self.assertEqual(saved_reference(question), path)
+        self.assertEqual(strip_saved_references(question),
+                         "總結 `` 的結果，再看 exp6_formal_2026-10-14-10-00-00.json")
+        self.assertIsNone(saved_reference("實驗十二的結果"))
+        self.assertEqual(saved_reference("看 exp1_2026-01-01-00-00-00.json 與 exp2_2026-01-01-00-00-00.json"),
+                         "exp1_2026-01-01-00-00-00.json")
+
+    def test_pathological_inputs_finish_quickly(self):
+        # 原 pattern 在 64k 字元上要 15～57 秒（Spark 實測）；現在各種 10 萬字輸入都要在 1 秒內結束
+        samples = ["a" * 100000 + "exp", "9" * 100000, "參數" * 50000, "重新" * 50000,
+                   "x/exp12_2026-10-14-10-00-00.json" * 3000, "何時" * 50000]
+        for text in samples:
+            with self.subTest(text=text[:12]):
+                t0 = time.perf_counter()
+                saved_reference(text)
+                strip_saved_references(text)
+                result_request(None, text, [{"role": "user", "content": text}], None)
+                timing_frames(None, text, None, None, None)
+                self.assertLess(time.perf_counter() - t0, 1.0)
 
 
 class ExperimentKnowledgeTests(unittest.TestCase):
