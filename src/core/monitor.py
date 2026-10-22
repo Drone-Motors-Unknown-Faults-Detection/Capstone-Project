@@ -10,6 +10,7 @@ from __future__ import annotations
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import RobustScaler
+from threadpoolctl import threadpool_limits
 
 from core.data import HEALTHY, Split, make_split
 from core.openset import OpenSetDetector, create_openset_detector, resolve_openset_config
@@ -61,6 +62,13 @@ class OpenSetMonitor:
         self._refit()
         return label
 
+    def add_classes(self, configs: list[str]) -> list[int]:
+        """一次註冊多個已知配置、只重擬合一次；結果與逐一 add_class 相同（切分 rng 順序不變）。"""
+        labels = [self._register(config) for config in configs]
+        if labels:
+            self._refit()
+        return labels
+
     def add_observed(self, name: str, samples: np.ndarray) -> int:
         """只用這批已到達樣本註冊新類並重擬合，不讀該配置的完整資料池。"""
         rows = np.atleast_2d(np.asarray(samples, dtype=float))
@@ -91,6 +99,11 @@ class OpenSetMonitor:
         return label
 
     def _refit(self) -> None:
+        # 105 維小矩陣在多執行緒 BLAS 下反而慢數十倍；單執行緒的數字逐位元相同
+        with threadpool_limits(limits=1):
+            self._refit_single_thread()
+
+    def _refit_single_thread(self) -> None:
         self._fitted = False
         X_tr, y_tr, X_ca, y_ca = [], [], [], []
         for config, label in self.known.items():
@@ -136,11 +149,19 @@ class OpenSetMonitor:
         self._require_fitted()
         return self.detector.score_samples(self.scaler.transform(np.atleast_2d(X_raw)))
 
+    def _configs(self, labels: np.ndarray) -> list[str | None]:
+        return [self._label_to_config.get(int(label)) if label >= 0 else None for label in labels]
+
     def classify(self, X_raw: np.ndarray) -> list[str | None]:
         """回傳最近的已知配置名稱；未知回傳 None。"""
         self._require_fitted()
-        labels = self.detector.predict_known_class(self.scaler.transform(np.atleast_2d(X_raw)))
-        return [self._label_to_config.get(int(label)) if label >= 0 else None for label in labels]
+        return self._configs(self.detector.predict_known_class(self.scaler.transform(np.atleast_2d(X_raw))))
+
+    def score_and_classify(self, X_raw: np.ndarray) -> tuple[np.ndarray, list[str | None]]:
+        """同時回傳分數與類別；距離只算一次，結果與 score()＋classify() 相同。"""
+        self._require_fitted()
+        scores, labels = self.detector.score_and_predict(self.scaler.transform(np.atleast_2d(X_raw)))
+        return scores, self._configs(labels)
 
     def project(self, X_raw: np.ndarray) -> np.ndarray:
         """投影到已知資料擬合出的 PCA 平面（僅供視覺化）。"""

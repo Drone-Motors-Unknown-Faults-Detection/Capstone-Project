@@ -79,8 +79,8 @@ class ScaleGrowthSession:
     def process(self, x_raw: np.ndarray, truth: str) -> dict:
         """處理一筆樣本。truth 只存入隔離區，供 confirm() 揭示或 adopt() 事後對照，不參與判定。"""
         self.n_seen += 1
-        score = float(self.monitor.score(x_raw)[0])
-        label = self.monitor.classify(x_raw)[0]
+        scores, labels = self.monitor.score_and_classify(x_raw)
+        score, label = float(scores[0]), labels[0]
         # 極座標判讀（方向熟悉度為連續參考指標；不影響既有的已知/未知判定）
         direction = self.polar.analyze(x_raw)[0]
         candidate_new = False

@@ -32,7 +32,10 @@ class ClassDistribution:
 
 def _distances(X: np.ndarray, location: np.ndarray, precision: np.ndarray) -> np.ndarray:
     delta = np.asarray(X, dtype=float) - location
-    squared = np.einsum("ij,jk,ik->i", delta, precision, delta, optimize=True)
+    # 拆成兩個兩運算元 einsum：兩運算元不跑路徑搜尋，數字與三運算元 optimize=True 的路徑逐位元相同
+    # （delta @ precision 會差 1 ulp，不採用）
+    weighted = np.einsum("ij,jk->ik", delta, precision, optimize=True)
+    squared = np.einsum("ij,ij->i", weighted, delta)
     return np.sqrt(np.maximum(squared, 0.0))
 
 
@@ -148,31 +151,39 @@ class MahalanobisOpenSetDetector:
             )
         return self
 
-    def score_samples(self, X: np.ndarray) -> np.ndarray:
-        """Return normalized open-set scores; values above one are unknown."""
+    def _normalized(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """每類正規化分數矩陣與轉換後特徵；兩個推論方法共用，距離只算一次。"""
         if not self.distributions_:
-            raise RuntimeError("fit must be called before score_samples")
-        X_t = self._transform(X)
-        normalized = [
-            _distances(X_t, item.location, item.precision) / max(item.threshold, np.finfo(float).eps)
-            for item in self.distributions_
-        ]
-        return np.min(np.column_stack(normalized), axis=1)
-
-    def predict_known_class(self, X: np.ndarray) -> np.ndarray:
-        """Return nearest known class, or -1 when the normalized score exceeds one."""
+            raise RuntimeError("fit must be called before scoring")
         X_t = self._transform(X)
         normalized = np.column_stack(
             [
-                _distances(X_t, item.location, item.precision)
-                / max(item.threshold, np.finfo(float).eps)
+                _distances(X_t, item.location, item.precision) / max(item.threshold, np.finfo(float).eps)
                 for item in self.distributions_
             ]
         )
+        return normalized, X_t
+
+    def _labels_from(self, normalized: np.ndarray, X_t: np.ndarray) -> np.ndarray:
         indices = np.argmin(normalized, axis=1)
         labels = np.array([self.distributions_[index].label for index in indices], dtype=int)
         labels[np.min(normalized, axis=1) > 1.0] = -1
         return labels
+
+    def score_samples(self, X: np.ndarray) -> np.ndarray:
+        """Return normalized open-set scores; values above one are unknown."""
+        normalized, _ = self._normalized(X)
+        return np.min(normalized, axis=1)
+
+    def predict_known_class(self, X: np.ndarray) -> np.ndarray:
+        """Return nearest known class, or -1 when the normalized score exceeds one."""
+        normalized, X_t = self._normalized(X)
+        return self._labels_from(normalized, X_t)
+
+    def score_and_predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """一次算距離，同時回傳正規化分數與已知類標籤（與分開呼叫結果相同）。"""
+        normalized, X_t = self._normalized(X)
+        return np.min(normalized, axis=1), self._labels_from(normalized, X_t)
 
     def class_summaries(self) -> list[dict]:
         """Return calibration metadata for the common Open Set detector API."""

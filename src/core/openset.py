@@ -117,6 +117,8 @@ class OpenSetDetector(Protocol):
 
     def predict_known_class(self, X: np.ndarray) -> np.ndarray: ...
 
+    def score_and_predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]: ...
+
     def class_summaries(self) -> list[dict]: ...
 
 
@@ -226,14 +228,23 @@ class KNNOpenSetDetector:
             return np.empty(0, dtype=float)
         return np.min(normalized, axis=1)
 
-    def predict_known_class(self, X: np.ndarray) -> np.ndarray:
-        normalized = self._normalized_scores(X)
+    def _labels_from(self, normalized: np.ndarray) -> np.ndarray:
         if len(normalized) == 0:
             return np.empty(0, dtype=int)
         indices = np.argmin(normalized, axis=1)
         labels = np.array([self.models_[index].label for index in indices], dtype=int)
         labels[np.min(normalized, axis=1) > 1.0] = -1
         return labels
+
+    def predict_known_class(self, X: np.ndarray) -> np.ndarray:
+        return self._labels_from(self._normalized_scores(X))
+
+    def score_and_predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """一次算鄰居距離，同時回傳分數與標籤（與分開呼叫結果相同）。"""
+        normalized = self._normalized_scores(X)
+        if len(normalized) == 0:
+            return np.empty(0, dtype=float), np.empty(0, dtype=int)
+        return np.min(normalized, axis=1), self._labels_from(normalized)
 
     def class_summaries(self) -> list[dict]:
         return [

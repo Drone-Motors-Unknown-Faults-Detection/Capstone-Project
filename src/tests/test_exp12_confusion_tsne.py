@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -56,6 +57,42 @@ class OpensetConfusionTests(unittest.TestCase):
         lw = np.array(_openset_confusion(all_pools, seed=42, confidence=0.95, method="ledoit_wolf")["matrix"])
         legacy = np.array(_openset_confusion(all_pools, seed=42, confidence=0.95, method="legacy")["matrix"])
         self.assertGreater(np.trace(lw), np.trace(legacy))
+
+
+class SharedMonitorTests(unittest.TestCase):
+    """#275：每個工況的 LW 祖先 monitor 只建一次；給定 monitor 與自行建立的結果相同。"""
+
+    def test_prebuilt_monitor_gives_same_matrix_and_is_not_rebuilt(self):
+        import experiments.exp12_confusion_tsne as mod
+
+        pools = synthetic_ancestor_pools()
+        all_pools = {"T1/8000": pools}
+        monitor = mod.build_ancestor_monitor(pools, seed=42, confidence=0.95, method="ledoit_wolf")
+        expected = _openset_confusion(all_pools, seed=42, confidence=0.95, method="ledoit_wolf")
+        with patch.object(mod, "build_ancestor_monitor", side_effect=AssertionError("rebuilt")):
+            shared = _openset_confusion(all_pools, seed=42, confidence=0.95, method="ledoit_wolf",
+                                        monitors={"T1/8000": monitor})
+            tsne = _tsne_one_dataset(pools, seed=42, confidence=0.95, perplexity=5.0, max_per_class=20,
+                                     monitor=monitor)
+        self.assertEqual(shared, expected)
+        self.assertEqual(len(tsne["verdicts"]), len(tsne["config_labels"]))
+
+    def test_run_builds_ledoit_wolf_monitor_once_per_dataset(self):
+        import experiments.exp12_confusion_tsne as mod
+
+        pools = synthetic_ancestor_pools()
+        calls = []
+        original = mod.build_ancestor_monitor
+
+        def counting(pools_, **kwargs):
+            calls.append(kwargs.get("method"))
+            return original(pools_, **kwargs)
+
+        with patch.object(mod, "discover_datasets", return_value=[{"motor": "T1", "rpm": "8000rpm", "path": "x"}]), \
+                patch.object(mod, "load_pools", return_value=pools), \
+                patch.object(mod, "build_ancestor_monitor", side_effect=counting):
+            mod.run(data_root="unused", seed=42, perplexity=5.0, tsne_max_per_class=20)
+        self.assertEqual(sorted(calls), ["ledoit_wolf", "legacy"])
 
 
 class TsneOneDatasetTests(unittest.TestCase):
