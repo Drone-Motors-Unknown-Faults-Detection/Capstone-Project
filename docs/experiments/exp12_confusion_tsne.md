@@ -97,7 +97,7 @@ main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_t
 
 legacy介面限制必須另核對來源版本：`fit()`固定label=-1、`classify()`將負標籤轉None，再由實驗記unknown。只憑矩陣全部unknown不足以確認該原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
 
-預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [exp12 輸出](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp12_confusion_tsne/2026-10-09-14-27-55)。
+預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [output/exp12_confusion_tsne/2026-10-23-01-36-16](../../output/exp12_confusion_tsne/2026-10-23-01-36-16/summary.json)（Aero、commit `46ed4d5`；與 2026-10-09 的舊輸出扣掉環境欄位後相同）。
 
 ## 方法來源與程式碼
 

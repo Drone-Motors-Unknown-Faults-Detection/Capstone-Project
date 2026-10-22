@@ -201,7 +201,7 @@ def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
     from web.experiments import jsonable
 
     root = Path(__file__).resolve().parents[2]
-    baseline = ("edc6a0f052379df52c6874b702badcc000ba742d" if name.startswith("exp2")
+    baseline = ("99f46327d6b7b6f58e45dd402fda6dc566a90b83" if name.startswith("exp2")
                 else "db47d244345e0263ff9101f0eeec4757ed92d0fe")
     text = subprocess.check_output(["git", "show", f"{baseline}:src/experiments/{name}.py"], cwd=root)
     old = types.ModuleType("_pool_provenance_" + name)
@@ -218,6 +218,34 @@ def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
     provenance = actual[-1]["result"].pop("provenance")
     assert provenance["source"]["status"] == "UNVERIFIED_MEMORY"
     assert actual == expected
+
+
+@pytest.mark.parametrize("healthy_mix", [0.0, 0.3])
+def test_growth_healthy_mix_keeps_source_and_current_main_results(tmp_path, healthy_mix):
+    from experiments.exp2_scale_growth import run, iter_playback
+    from web.experiments import jsonable
+
+    root, dataset = fixture(tmp_path)
+    pools, source = load_pool_source(root, dataset)
+    project = Path(__file__).resolve().parents[2]
+    text = subprocess.check_output(["git", "show",
+        "99f46327d6b7b6f58e45dd402fda6dc566a90b83:src/experiments/exp2_scale_growth.py"], cwd=project)
+    old = types.ModuleType("_growth_main_healthy_mix")
+    exec(compile(text, "exp2_scale_growth", "exec"), old.__dict__)
+    options = dict(sequence=["7screws"], seed=42, healthy_mix=healthy_mix, max_ticks_per_stage=5)
+    expected = jsonable(list(old.iter_playback(pools, **options)))
+    streamed = jsonable(list(iter_playback(pools, source_context=source, **options)))
+    _, paths = setup_run("exp2_scale_growth", unique=True)
+    args = argparse.Namespace(data_root=root, motor="T1", rpm="8000")
+    _, batch = run_dataset(args, paths, run, **options)
+    batch = jsonable(batch)
+    for result in (streamed[-1]["result"], batch):
+        context = result.pop("provenance")
+        assert context["source"]["status"] == "VERIFIED"
+        assert context["parameters"]["healthy_mix"] == healthy_mix
+        assert result["healthy_mix"] == healthy_mix
+    assert streamed == expected
+    assert batch == expected[-1]["result"]
 
 
 def test_web_batch_stream_and_file_edit_use_actual_source(tmp_path):
@@ -251,8 +279,11 @@ def test_cli_uses_traced_loader_and_same_run_environment(tmp_path, name):
     module = importlib.import_module("experiments." + name)
     result = {"rows": [], "stages": [], "trials": [], "summary": {}, "final_known": [],
               "healthy_fp_rate": 0, "macro_detect_rate": 0, "macro_auroc": 0}
+    argv = [name, "--data-root", str(root)]
+    if name.startswith("exp2"):
+        argv += ["--healthy-mix", "0.3"]
     with patch.object(module, "run", return_value=result) as callback, \
-            patch("sys.argv", [name, "--data-root", str(root)]):
+            patch("sys.argv", argv):
         if name.startswith("exp1"):
             with patch.object(module, "_make_figure"), patch.object(module, "save_plot"):
                 module.main()
@@ -260,6 +291,8 @@ def test_cli_uses_traced_loader_and_same_run_environment(tmp_path, name):
             module.main()
     source = callback.call_args.kwargs["source_context"]
     assert source.public["status"] == "VERIFIED"
+    if name.startswith("exp2"):
+        assert callback.call_args.kwargs["healthy_mix"] == 0.3
     files = list(Path("output").glob(name + "/*/source.json"))
     assert files and json.loads(files[-1].read_text())["status"] == "VERIFIED"
     assert (files[-1].parent / "environment.json").is_file()

@@ -1,0 +1,6 @@
+started=2026-10-22T17:33:57.444496+00:00
+condition=T3/6000rpm
+seed=42
+method=knn
+status=completed
+duration_seconds=0.452451

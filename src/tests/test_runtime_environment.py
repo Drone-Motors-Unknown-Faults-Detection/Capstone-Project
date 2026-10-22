@@ -97,6 +97,36 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertEqual(info["status"], "UNKNOWN")
         self.assertIsNone(info["blas"])
 
+    def test_data_root_from_argv(self):
+        self.assertEqual(runtime._argv_data_root(["x", "--seed", "1"]), "data")
+        self.assertEqual(runtime._argv_data_root(["x", "--data-root", "d2"]), "d2")
+        self.assertEqual(runtime._argv_data_root(["x", "--data-root=d3"]), "d3")
+
+    def test_data_info_unknown_without_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            info = runtime.data_info(Path(directory) / "missing")
+        self.assertEqual(info["status"], "UNKNOWN")
+        self.assertIsNone(info["dataset_fingerprint"])
+
+    def test_data_info_fingerprints_feature_csvs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            csv = Path(directory) / "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv"
+            csv.parent.mkdir(parents=True)
+            csv.write_text("a,b\n1,2\n", encoding="utf-8")
+            first = runtime.data_info(directory)
+            csv.write_text("a,b\n1,3\n", encoding="utf-8")
+            second = runtime.data_info(directory)
+        self.assertEqual(first["status"], "VERIFIED")
+        self.assertEqual(first["n_files"], 1)
+        self.assertNotEqual(first["dataset_fingerprint"], second["dataset_fingerprint"])
+        self.assertNotIn(directory, json.dumps(first))
+
+    def test_explicit_data_root_overrides_argv(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}):
+            with patch.object(runtime.sys, "argv", ["x", "--data-root", "from_argv"]):
+                self.assertEqual(runtime.collect_environment(Path(directory))["data"], {"root": "from_argv"})
+                self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
+
     def test_setup_run_writes_json(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
             _, paths = setup_run("fixture_environment")

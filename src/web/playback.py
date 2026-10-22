@@ -27,7 +27,7 @@ import re
 from pathlib import Path
 
 from experiments.exp3_trend import KIND_DISPLAY
-from web.presentation import build_exp12, table_text
+from web.presentation import build_exp12, exp2_metric_contract, table_text
 from web.experiments import CATALOG
 from web.run_timing import timing_fields, utc_now
 
@@ -136,6 +136,8 @@ def summarize_result(result, budget: int = RESULT_BUDGET, *, exp_id: str | None 
     """實驗結果轉成模型讀得完的文字：去掉畫圖座標與模型細節，矩陣轉表格，長清單截斷。"""
     if exp_id == "exp12":
         return _exp12_answer(result, budget, source)["text"]
+    if exp_id == "exp2":
+        return exp2_metric_contract(result, budget)["text"]
     out: list[str] = []
     _render("", result, 0, out)
     text = "\n".join(line for line in out if line.strip())
@@ -174,6 +176,10 @@ def _fill_result(st: dict, payload: dict) -> None:
     if st["exp_id"] == "exp12":
         st["matrix_answer"] = _exp12_answer(payload.get("result"), RESULT_BUDGET, source)
         st["result_text"] = st["matrix_answer"]["text"]
+        st["fact_text"] = st["result_text"]
+    elif st["exp_id"] == "exp2":
+        st["metric_contract"] = exp2_metric_contract(payload.get("result"), RESULT_BUDGET)
+        st["result_text"] = st["metric_contract"]["text"]
         st["fact_text"] = st["result_text"]
     else:
         st["result_text"] = summarize_result(payload.get("result"))
@@ -423,7 +429,7 @@ class PlaybackTracker:
                         k: _round(stage.get(k)) for k in ("discovered", "learned_display", "matched_display",
                                                         "samples_to_candidate", "cluster_size", "cluster_purity",
                                                         "matched_is_config", "own_holdout_acc", "own_holdout_n",
-                                                        "eval_known_rate", "eval_n", "healthy_holdout_acc")}})
+                                                        "eval_known_rate", "eval_matched_rate", "eval_n", "healthy_holdout_acc")}})
         self._event(st, f"播放完成（{payload.get('seconds')} 秒）")
 
     def _on_stopped(self, st, f):

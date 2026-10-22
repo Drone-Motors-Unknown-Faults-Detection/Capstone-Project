@@ -46,9 +46,11 @@
 Web（`src/web/`）呼叫同一份模組邏輯，兩邊數字一致。`venv/bin/python -m experiments.*`
 在專案根目錄執行（`build_uv.sh` 已把 `src/` 裝成套件）。
 
-實驗一～六的實測數字來自 2026-10-22 在 commit `37ae787`、本機 `data/` 九工況、seed 42 的重跑。
-每個結果連到該次 `output/` 目錄，其中的 `environment.json` 記錄 Git HEAD（`tracked_dirty=false`）、
-Python 與套件版本；`data/` 的內容指紋沒有寫進這些輸出。
+本節與「原創貢獻總覽」引用的實測數字來自 2026-10-23 在 Aero（aero01）以 commit `46ed4d5`、`--data-root data`
+（資料指紋 `source_content_v2:1b55b847…`，90 個特徵 CSV）的重跑。每個結果連到該次 `output/` 目錄，
+其中的 `environment.json` 記錄 Git HEAD（`tracked_dirty=false`）、主機、BLAS（scipy-openblas）、
+Python 與套件版本，以及資料指紋 `data.dataset_fingerprint`。新舊輸出的逐項比對見
+[Aero 重跑報告](reports/JW-Albert_20261023_aero_rerun/README.md)。
 
 ### 實驗一：冷啟動偵測能力（`exp1_cold_start`）
 
@@ -61,7 +63,7 @@ Python 與套件版本；`data/` 的內容指紋沒有寫進這些輸出。
 venv/bin/python -m experiments.exp1_cold_start --motor T1 --rpm 8000rpm
 ```
 
-**實測結果**（T1/8000rpm，seed=42，[output/exp1_cold_start/2026-10-22-21-45-32](output/exp1_cold_start/2026-10-22-21-45-32/results.csv)）：
+**實測結果**（T1/8000rpm，seed=42，[output/exp1_cold_start/2026-10-23-01-30-51](output/exp1_cold_start/2026-10-23-01-30-51/results.csv)）：
 
 | 注入配置 | 樣本數 | 偵測率 | AUROC | 分數中位數 |
 |---|---:|---:|---:|---:|
@@ -104,25 +106,33 @@ venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2
 ```
 
 **實測結果**（預設序列由輕到重注入，T1/8000rpm，seed=42，Aero，
-[output/exp2_scale_growth/2026-10-23-00-13-53](output/exp2_scale_growth/2026-10-23-00-13-53/summary.json)）。
+[output/exp2_scale_growth/2026-10-23-01-30-54](output/exp2_scale_growth/2026-10-23-01-30-54/summary.json)）。
 每個配置先切 20% 外部評估集不參與重播。「發現延遲」是該配置第一次成為某新類事後多數的筆數；
-「真值多數」與外部評估都是事後對照，不進模型：
+「真值多數」與外部評估都是事後對照，不進模型。兩欄外部評估都讀 `summary.json` 的 `final_eval`，
+是九段全部結束後的模型：「被任一新類接受」只要求判進任何一個非健康類（`known_rate`），
+「判進對應新類」要求判進事後多數等於該配置的新類（`matched_rate`）。`stages.csv` 的
+`eval_known_rate`／`eval_matched_rate` 是每段學會當下的值，時點不同，例如 7screws 學會當下是 56.9%、
+全部段結束後是 53.8%：
 
-| 注入配置 | 發現延遲（筆）| 學到的類 | 候選群真值多數 | 叢集大小 | 純度 | 清理移出 | 自類 holdout（筆數）| 外部評估集被認得（筆數）| 健康保持率 | 已知類別數 |
-|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|
-| 7screws | 75 | discovered-1 | 7screws | 45 | 100.0% | 6 | 100.0%（9） | 53.8%（65） | 89.1% | 2 |
-| 6screws | 51 | discovered-2 | 6screws | 51 | 100.0% | 0 | 100.0%（11） | 74.6%（63） | 89.1% | 3 |
-| 5screws | 51 | discovered-3 | 5screws | 29 | 100.0% | 6 | 71.4%（7） | 95.3%（43） | 96.9% | 4 |
-| 4screws | 52 | discovered-4 | 4screws | 60 | 68.3% | 0 | 66.7%（12） | 89.7%（58） | 100.0% | 5 |
-| 3screws | 55 | discovered-5 | 3screws | 54 | 100.0% | 0 | 66.7%（12） | 83.7%（49） | 100.0% | 6 |
-| 2screws | 54 | discovered-6 | 2screws | 54 | 100.0% | 5 | 100.0%（12） | 96.6%（58） | 100.0% | 7 |
-| 1screws | 59 | discovered-7 | 1screws | 59 | 100.0% | 0 | 100.0%（13） | 88.6%（70） | 100.0% | 8 |
-| 3_14screws | 59 | discovered-8 | 3_14screws | 59 | 100.0% | 0 | 76.9%（13） | 83.1%（71） | 96.9% | 9 |
-| 4_146screws | 59 | discovered-9 | 4_146screws | 59 | 100.0% | 0 | 61.5%（13） | 85.3%（75） | 96.9% | 10 |
+| 注入配置 | 發現延遲（筆）| 學到的類 | 候選群真值多數 | 叢集大小 | 純度 | 清理移出 | 自類 holdout（筆數）| 外部評估集被任一新類接受（全部段結束後，筆數）| 判進對應新類（全部段結束後）| 健康保持率 | 已知類別數 |
+|---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| 7screws | 75 | discovered-1 | 7screws | 45 | 100.0% | 6 | 100.0%（9） | 53.8%（65） | 53.8% | 89.1% | 2 |
+| 6screws | 51 | discovered-2 | 6screws | 51 | 100.0% | 0 | 100.0%（11） | 74.6%（63） | 74.6% | 89.1% | 3 |
+| 5screws | 51 | discovered-3 | 5screws | 29 | 100.0% | 6 | 71.4%（7） | 95.3%（43） | 51.2% | 96.9% | 4 |
+| 4screws | 52 | discovered-4 | 4screws | 60 | 68.3% | 0 | 66.7%（12） | 89.7%（58） | 89.7% | 100.0% | 5 |
+| 3screws | 55 | discovered-5 | 3screws | 54 | 100.0% | 0 | 66.7%（12） | 83.7%（49） | 83.7% | 100.0% | 6 |
+| 2screws | 54 | discovered-6 | 2screws | 54 | 100.0% | 5 | 100.0%（12） | 96.6%（58） | 96.6% | 100.0% | 7 |
+| 1screws | 59 | discovered-7 | 1screws | 59 | 100.0% | 0 | 100.0%（13） | 88.6%（70） | 88.6% | 100.0% | 8 |
+| 3_14screws | 59 | discovered-8 | 3_14screws | 59 | 100.0% | 0 | 76.9%（13） | 83.1%（71） | 83.1% | 96.9% | 9 |
+| 4_146screws | 59 | discovered-9 | 4_146screws | 59 | 100.0% | 0 | 61.5%（13） | 85.3%（75） | 85.3% | 96.9% | 10 |
 
 > 九段都學到當段注入的配置，沒有同一配置被學成兩個類，最終 10 類。4screws 段的群混了 5screws
-> （純度 68.3%）。外部評估集被認得的比例 53.8%～96.6%：7screws 學成新類後，仍有近半數外部樣本
-> 被判為未知。seed 123、2026 也都 9 段學到當段配置；seed 123 有一次邊界退回（擋下 7screws 殘餘）。
+> （純度 68.3%）。被任一新類接受的比例 53.8%～96.6%：7screws 學成新類後，仍有近半數外部樣本
+> 被判為未知。5screws 有 95.3% 被某個新類接受，但只有 51.2% 判進事後多數為 5screws 的新類，
+> 另外 44.2% 判進事後多數不是 5screws 的新類。seed 123、2026 也都 9 段學到當段配置，
+> 兩個指標的最低值都是 56.92%、63.49%；seed 123 有一次邊界退回（擋下 7screws 殘餘）。
+> 加 `--healthy-mix 0.3` 在串流中混入健康 holdout 窗：三個 seed 共送入 745 筆健康窗，0 筆進入隔離區，
+> 沒有形成事後多數為 8screws 的新類（[Aero 重跑報告](reports/JW-Albert_20261023_aero_rerun/README.md)）。
 > 關掉密度階梯時修正無效（只有 2～3 段學到當段配置），完整對照見
 > [Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)。
 > 欄位定義與判讀見 [實驗二手冊](docs/experiments/exp2_scale_growth.md)。
@@ -146,7 +156,7 @@ venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2
 venv/bin/python -m experiments.exp3_trend --motor T1 --rpm 8000rpm --trials 40
 ```
 
-**實測結果**（40 次隨機重複，T1/8000rpm，[output/exp3_trend/2026-10-22-21-46-58](output/exp3_trend/2026-10-22-21-46-58/trials.csv)）：
+**實測結果**（40 次隨機重複，T1/8000rpm，[output/exp3_trend/2026-10-23-01-32-36](output/exp3_trend/2026-10-23-01-32-36/trials.csv)）：
 
 | 劇本 | 警報率 | 判別正確率 | 平均警報延遲 | 平均中間帶停留 |
 |---|---:|---:|---:|---:|
@@ -170,7 +180,7 @@ venv/bin/python -m experiments.exp3_trend --motor T1 --rpm 8000rpm --trials 40
 venv/bin/python -m experiments.exp4_polar_map --motor T1 --rpm 8000rpm
 ```
 
-**實測結果**（T1/8000rpm，seed=42，[output/exp4_polar_map/2026-10-22-21-47-00](output/exp4_polar_map/2026-10-22-21-47-00/summary.json)）：
+**實測結果**（T1/8000rpm，seed=42，[output/exp4_polar_map/2026-10-23-01-32-39](output/exp4_polar_map/2026-10-23-01-32-39/summary.json)）：
 
 - **(a) 射線結構**：中段均勻鬆動（6~2screws）共享一束緊密射線（族內平均 cos
   0.92）；4_146 是明確的獨立方向（vs 均勻族 0.49）；3_14 介於其間（0.76）——
@@ -203,7 +213,7 @@ Web 端同步整合：即時極座標健康地圖（圓心=健康、✕=已知�
 venv/bin/python -m experiments.exp5_cross_condition
 ```
 
-**實測結果**（9 組資料集，seed=42，[output/exp5_cross_condition/2026-10-22-21-47-11](output/exp5_cross_condition/2026-10-22-21-47-11/summary.json)）：
+**實測結果**（9 組資料集，seed=42，[output/exp5_cross_condition/2026-10-23-01-32-51](output/exp5_cross_condition/2026-10-23-01-32-51/summary.json)）：
 
 - **(a) 9×9 遷移矩陣**：自身 AUROC 全部 1.0；跨工況平均 0.893、**最低僅 0.10**——
   健康基準不可任意搬移（同轉速跨壽命 0.921、同壽命跨轉速 0.928）。
@@ -229,7 +239,7 @@ MLP AutoEncoder 重建誤差。手冊見 [實驗六](docs/experiments/exp6_osr_b
 venv/bin/python -m experiments.exp6_osr_benchmark
 ```
 
-**實測結果**（[output/exp6_osr_benchmark/2026-10-22-21-47-21](output/exp6_osr_benchmark/2026-10-22-21-47-21/results.csv)）：
+**實測結果**（[output/exp6_osr_benchmark/2026-10-23-01-33-02](output/exp6_osr_benchmark/2026-10-23-01-33-02/results.csv)）：
 **八種方法 AUROC 全部 1.0000**——在 105 維特徵上偵測本身不是瓶頸，
 方法差異全在校準品質（健康誤報率）：AutoEncoder 5.8% ≲ kNN 6.0% ≲ PCA 6.4% ≲ LOF 6.7% ≲
 **主線 LW 馬氏 7.1%** < OC-SVM 7.4% < iForest 8.4% ≪ **legacy 83.1%（崩潰）**。
@@ -241,7 +251,17 @@ venv/bin/python -m experiments.exp6_osr_benchmark
 ### 實驗七：Open Set 方法切換與單工況公平比較（`compare_openset`）
 
 程式 `src/experiments/compare_openset.py`，技術報告 [docs/experiments/exp7_compare_openset.md](docs/experiments/exp7_compare_openset.md)。
-所有實驗及 Web server 都可用同一個 CLI 介面切換 detector：
+切換 detector 的 CLI 參數各入口不同（以各模組的 argparse 為準）：
+
+- 實驗一、二、三與 `web.server`、`web.guide` 經 `core.runner.add_openset_args`，有 `--openset-method`
+  （mahalanobis／knn）、`--method`（共變異數估計）、`--confidence`、`--knn-neighbors`。
+- 實驗六正式版 `exp6_formal_benchmark` 與實驗八 `health_index_benchmark` 自己宣告同名的四個參數；
+  `health_monitor` 有 `--openset-method`、`--method`、`--knn-neighbors`，沒有 `--confidence`。
+- 實驗七 `compare_openset` 用複數 `--openset-methods`，一次跑多個方法。
+- `exp6_matrix`、`health_index_matrix` 的 `--method` 是 detector 家族（mahalanobis／knn），可重複給。
+- 實驗四沒有 detector 參數；實驗五、十只有 `--method`（共變異數估計）與 `--confidence`；實驗六廣度版、
+  實驗十二只有 `--confidence`；實驗十一用 `--methods legacy,ledoit_wolf`。這些入口固定用 Mahalanobis。
+
 
 ```bash
 # 既有方法（預設）：逐類 Ledoit–Wolf Mahalanobis
@@ -269,15 +289,24 @@ AUPR、FPR@95TPR、Open Set accuracy、known-class accuracy、unknown precision�
 recall／F1、正規化 threshold、每類原始 threshold、校準策略、split 與 seed。
 unknown/test 樣本不參與 threshold 選擇。
 
+**實測結果**（T1/8000rpm，seed=42，[output/openset_comparison/2026-10-23-01-34-12](output/openset_comparison/2026-10-23-01-34-12/summary.json)）：
+兩方法 AUROC、AUPR 皆 1.0，FPR@95TPR 皆 0，未知召回皆 100%；64 筆健康 holdout 中 Mahalanobis 誤報 7 筆
+（健康接受 89.06%）、k-NN 誤報 1 筆（98.44%），Open Set accuracy 99.75% 對 99.96%。單一工況、單一 seed，
+不據此換預設方法；九工況三 seed 的比較見下方正式矩陣。
+
 實驗六正式版矩陣（`exp6_formal_benchmark` + `exp6_matrix` + `aggregate_exp6`）以 9 工況 ×
 3 seed（42/123/2026）比較 Mahalanobis 與 k-NN，並記錄資料指紋、commit 等 provenance：
 
 ```bash
-venv/bin/python -m experiments.exp6_matrix
+# --output-root 要給新目錄；預設的 output/exp6_formal_matrix 是 formal_local 的歷史封存
+venv/bin/python -m experiments.exp6_matrix --data-root data --output-root output/exp6_formal_matrix/<新目錄>
 ```
 
-結果見 `output/exp6_formal_matrix/aggregate/aggregate.md`；兩方法 AUROC 皆 1.0、Open Set
-accuracy 差異 < 0.00001。
+結果見 [output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md](output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md)
+（Aero、`--data-root data`，27 個工況-seed 列等權，std 為 ddof=1）：健康接受率 Mahalanobis 94.66% ± 3.97
+（最低 87.50%）、k-NN 94.67% ± 4.38（最低 84.38%）；兩方法 AUROC 皆 1.0、未知召回 100%，Open Set
+accuracy 99.886% 對 99.887%。`output/exp6_formal_matrix/aggregate/` 的 94.62%／94.57% 是讀
+`data/formal_local`（commit 07582ff、Python 3.12.14）的歷史結果；`formal_local` 不在 Aero／Spark 上。
 
 ### 實驗八：相對健康指數與健康監測（`health_index_*`、`health_monitor`）
 
@@ -286,13 +315,14 @@ accuracy 差異 < 0.00001。
 第 10／95 百分位映成 0～1 的相對健康指數，再分四段嚴重度、逐 session 追蹤趨勢告警。
 
 ```bash
-uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
+uv run --locked python -m experiments.health_index_matrix --data-root data --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
 ```
 
-9 工況 × 3 seed × 2 方法的封存摘要：known−unknown 健康差距 0.583（Mahalanobis）／0.602（k-NN），
+9 工況 × 3 seed × 2 方法（[output/exp8_health_index_matrix/2026-10-23-01-34-15](output/exp8_health_index_matrix/2026-10-23-01-34-15/matrix_manifest.json)，
+Aero、`--data-root data`）：已知健康指數平均 0.583337 ± 0.073589（Mahalanobis）／0.600457 ± 0.072595（k-NN），
 AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出輕重。現有資料沒有馬達
-編號、時間戳與真實損傷標記，不能把它當成損壞百分比或 RUL。結果在
-`reports/exp8_health_index_results/`，操作見
+編號、時間戳與真實損傷標記，不能把它當成損壞百分比或 RUL。`reports/exp8_health_index_results/`
+的 0.583144／0.601657 是讀 `data/formal_local` 的歷史結果，Web 實驗頁 8-2 封存卡讀的是這份。操作見
 [docs/experiments/exp8_health.md](docs/experiments/exp8_health.md)。
 
 ### 實驗說明
@@ -335,8 +365,9 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
 - **實驗一～實驗十二**：頁籤由 `src/web/experiments.py` 的 `CATALOG` 產生。每頁填參數（資料集、
   Open Set 方法、seed 等）按「▶ 執行」，伺服器呼叫該實驗模組的 `run()`，結果畫成表格、熱圖與線圖；
   實驗一～四與實驗八的逐窗監測（8-3）另可「⏵ 邊跑邊畫」。實驗九只有說明頁、沒有執行按鈕，
-  它的 AutoEncoder 結果在實驗六。實驗六、八另外顯示已提交的正式矩陣結果
-  （`output/exp6_formal_matrix/aggregate/`、`reports/exp8_health_index_results/`），唯讀、不從網頁重跑。
+  它的 AutoEncoder 結果在實驗六。實驗六、八另外顯示已提交的正式矩陣結果，唯讀、不從網頁重跑：
+  6-3 讀 Aero 重跑的 `output/exp6_formal_matrix/aero_2026-10-23/aggregate/`；8-2 讀 `reports/exp8_health_index_results/`，
+  卡片標明它是 `data/formal_local` 的歷史結果，Aero 重跑的矩陣在 `output/exp8_health_index_matrix/2026-10-23-01-34-15/`。
   每次執行的完整結果存到 `output/web_server/{ts}/experiments/{實驗}_{時間}.json`。
   實驗在另一個執行緒池跑，一次一個；跑實驗時即時展示照常串流。每次按「執行」都從頭擬合該實驗的
   模型（統計擬合，不用 GPU）；模型跑完即丟、不保存，同 seed 重跑結果相同。
@@ -564,7 +595,8 @@ repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也�
 4. **候選群會混入其他配置**：實驗二的候選群取自整個隔離區。學會後清理殘餘、加邊界退回之後，
    密度階梯開時三個 seed 九段都學到當段配置，但 seed 42 的 4screws 段仍混入 5screws（純度 68.3%）；
    關掉階梯時多數段仍落後一段（[Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)）。
-   學成新類也不代表之後都認得：外部評估集被認得的比例最低 53.85%（seed 42 的 7screws）。修正前的密度階梯消融見
+   學成新類也不代表之後都認得：全部段結束後，外部評估集被任一新類接受的比例最低 53.85%（seed 42 的 7screws），
+   判進對應新類的比例最低 51.16%（seed 42 的 5screws）。修正前的密度階梯消融見
    [報告](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)。
 5. **衰退曲線外插未實作**：T1/T2/T3 是不同馬達個體，個體與老化影響混雜；
    缺同個體連續歷程及失效終點，不能當作 run-to-failure 模板或估計RUL。

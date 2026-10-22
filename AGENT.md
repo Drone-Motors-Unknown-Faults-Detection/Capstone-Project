@@ -245,16 +245,17 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
      讀完整配置池重擬合；若叢集是已知類別邊界樣本，回傳 `action="rejected_known"`
      （退回、清叢、量尺不變）。
    web 偵測統計拆「學會前偵測率／學會後認出率」兩組，認出率天生 ≈ 90–95%。
-2. **實驗二的發現延遲量的是隔離區湊出一群要多少筆**：
-   [`output/exp2_scale_growth/2026-10-22-21-46-48/stages.csv`](output/exp2_scale_growth/2026-10-22-21-46-48/stages.csv)
-   （commit 37ae787，seed 42，T1/8000rpm，`adopt()` 自學）九段的 `samples_to_candidate`
-   落在 21～105 筆，最慢的是第一段 7screws（105 筆）。從 2screws 段起的四段
-   （2screws、1screws、3_14screws、4_146screws），學到的群多數都是前一段注入的配置；
-   3screws 段的群多數是 5screws，`cluster_purity` 為 0.5435（54.4%）。所以這個延遲不等於
-   該段配置自己成叢所需的筆數。自適應密度階梯（見參數表）的 `adopt()` 版消融見
-   [reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)：T1/8000rpm、seed 42/123/2026，
-   階梯組延遲合計 1131 筆、最大 105 筆，`--fixed-density` 組 1922 筆、最大 561 筆；但階梯組在
-   seed 42、2026 的 3screws 段學到純度 54.4%／53.3% 的混合群，固定組最低 83.8%。
+2. **實驗二的發現延遲讀 `summary.json` 的 `discovery`**：某配置從開始注入到第一次成為某新類事後多數的
+   到達筆數（含重複抽樣）。`stages.csv` 的 `samples_to_candidate` 是該段開始後任一群學成的筆數，
+   不等於當段配置被發現。現行 `adopt()` 版（學會後清殘餘、邊界退回）在 Aero 以 commit 46ed4d5、
+   T1/8000rpm 重跑：預設設定 seed 42／123／2026 九段都學到當段配置，發現延遲 51–75／52–105／51–118 筆，
+   seed 42 的 4screws 群混入 5screws（`cluster_purity` 68.33%），seed 123 有一次邊界退回
+   （[`output/exp2_scale_growth/2026-10-23-01-30-54`](output/exp2_scale_growth/2026-10-23-01-30-54/summary.json)、
+   `01-31-27`、`01-32-01`）。`--fixed-density` 關掉密度階梯時只有 3／2／2 段學到當段配置，
+   最慢 696 筆（`01-31-05`、`01-31-38`、`01-32-13`）。外部評估集在全部段結束後被任一新類接受最低 53.85%，
+   判進對應新類（`matched_rate`）最低 51.16%（seed 42 的 5screws）。`--healthy-mix 0.3` 三個 seed 送入
+   745 筆健康窗、0 筆進隔離區。完整數字見
+   [reports/JW-Albert_20261023_aero_rerun/README.md](reports/JW-Albert_20261023_aero_rerun/README.md)。
    隔離區還沒成群時，web 顯示「已試分群 N 次」。
 3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名。事後對照看
    `matched`／`matched_display`（候選群的真值多數）與 `matched_is_config`；候選叢集取自整個

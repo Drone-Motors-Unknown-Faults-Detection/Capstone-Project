@@ -331,16 +331,19 @@ def run_matrix(
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", default="data")
-    parser.add_argument("--output-root", default="output/exp6_formal_matrix")
+    # 預設開新的時間戳目錄；output/exp6_formal_matrix 本身是 formal_local 歷史封存，不得被續跑覆寫（#253）
+    parser.add_argument("--output-root", default=None,
+                        help="輸出目錄（預設 output/exp6_formal_matrix/<時間戳>；續跑時傳同一個目錄）")
     parser.add_argument("--seed", action="append", type=int, dest="seeds")
     parser.add_argument("--method", action="append", choices=FORMAL_METHODS, dest="methods")
     parser.add_argument("--no-resume", action="store_true")
     args = parser.parse_args(argv)
     log, _ = setup_run("exp6_formal_matrix", make_output=False)
     log.info(f"參數：{vars(args)}")
+    output_root = args.output_root or f"output/exp6_formal_matrix/{datetime.now():%Y-%m-%d-%H-%M-%S}"
     manifest = run_matrix(
         args.data_root,
-        args.output_root,
+        output_root,
         seeds=tuple(args.seeds or DEFAULT_SEEDS),
         methods=tuple(args.methods or FORMAL_METHODS),
         resume=not args.no_resume,

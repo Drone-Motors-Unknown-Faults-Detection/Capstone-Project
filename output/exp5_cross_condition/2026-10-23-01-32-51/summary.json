@@ -1,0 +1,649 @@
+{
+  "seed": 42,
+  "datasets": [
+    "T1/11000",
+    "T1/6000",
+    "T1/8000",
+    "T2/11000",
+    "T2/6000",
+    "T2/8000",
+    "T3/11000",
+    "T3/6000",
+    "T3/8000"
+  ],
+  "matrix": {
+    "keys": [
+      "T1/11000",
+      "T1/6000",
+      "T1/8000",
+      "T2/11000",
+      "T2/6000",
+      "T2/8000",
+      "T3/11000",
+      "T3/6000",
+      "T3/8000"
+    ],
+    "cells": {
+      "T1/11000->T1/11000": {
+        "healthy_accept": 0.9444,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/11000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.6189
+      },
+      "T1/11000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8679
+      },
+      "T1/11000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8556
+      },
+      "T1/11000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.5123
+      },
+      "T1/11000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9417
+      },
+      "T1/11000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9976
+      },
+      "T1/11000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.1165
+      },
+      "T1/11000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8396
+      },
+      "T1/6000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8873
+      },
+      "T1/6000->T1/6000": {
+        "healthy_accept": 0.9062,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/6000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/6000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.5176
+      },
+      "T1/6000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.6083
+      },
+      "T1/6000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.7669
+      },
+      "T1/6000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/6000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9998
+      },
+      "T1/6000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9112
+      },
+      "T1/8000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8118
+      },
+      "T1/8000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9012
+      },
+      "T1/8000->T1/8000": {
+        "healthy_accept": 0.8906,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/8000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.4233
+      },
+      "T1/8000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9997
+      },
+      "T1/8000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/8000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T1/8000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9911
+      },
+      "T1/8000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8926
+      },
+      "T2/11000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/11000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.1035
+      },
+      "T2/11000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.803
+      },
+      "T2/11000->T2/11000": {
+        "healthy_accept": 0.9231,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/11000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.7253
+      },
+      "T2/11000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8959
+      },
+      "T2/11000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.5004
+      },
+      "T2/11000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.6365
+      },
+      "T2/11000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9983
+      },
+      "T2/6000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/6000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9236
+      },
+      "T2/6000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/6000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/6000->T2/6000": {
+        "healthy_accept": 0.8788,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/6000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/6000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9994
+      },
+      "T2/6000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/6000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/8000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/8000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9147
+      },
+      "T2/8000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/8000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/8000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/8000->T2/8000": {
+        "healthy_accept": 0.9467,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T2/8000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9995
+      },
+      "T2/8000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.916
+      },
+      "T2/8000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9999
+      },
+      "T3/11000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9001
+      },
+      "T3/11000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T3/11000": {
+        "healthy_accept": 0.95,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/11000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/6000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8046
+      },
+      "T3/6000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9164
+      },
+      "T3/6000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/6000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/6000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.8844
+      },
+      "T3/6000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/6000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/6000->T3/6000": {
+        "healthy_accept": 0.9062,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/6000->T3/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T1/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T1/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 0.9142
+      },
+      "T3/8000->T1/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T2/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T2/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T2/8000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T3/11000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T3/6000": {
+        "healthy_accept": 0.0,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      },
+      "T3/8000->T3/8000": {
+        "healthy_accept": 0.9455,
+        "fault_detect": 1.0,
+        "auroc": 1.0
+      }
+    },
+    "summary": {
+      "diag_auroc_mean": 1.0,
+      "offdiag_auroc_mean": 0.893,
+      "offdiag_auroc_min": 0.1035,
+      "same_rpm_cross_motor_auroc_mean": 0.921,
+      "same_motor_cross_rpm_auroc_mean": 0.9282
+    }
+  },
+  "strategy": {
+    "strategies": {
+      "per_condition": {
+        "T1/11000": {
+          "healthy_accept": 0.8333333333333334,
+          "fault_detect": 1.0
+        },
+        "T1/6000": {
+          "healthy_accept": 0.890625,
+          "fault_detect": 1.0
+        },
+        "T1/8000": {
+          "healthy_accept": 0.96875,
+          "fault_detect": 1.0
+        },
+        "T2/11000": {
+          "healthy_accept": 0.9038461538461539,
+          "fault_detect": 1.0
+        },
+        "T2/6000": {
+          "healthy_accept": 0.8939393939393939,
+          "fault_detect": 1.0
+        },
+        "T2/8000": {
+          "healthy_accept": 0.9333333333333333,
+          "fault_detect": 1.0
+        },
+        "T3/11000": {
+          "healthy_accept": 0.9666666666666667,
+          "fault_detect": 1.0
+        },
+        "T3/6000": {
+          "healthy_accept": 0.96875,
+          "fault_detect": 1.0
+        },
+        "T3/8000": {
+          "healthy_accept": 0.9090909090909091,
+          "fault_detect": 1.0
+        }
+      },
+      "global_mixed": {
+        "T1/11000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T1/6000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 0.934739617666447
+        },
+        "T1/8000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T2/11000": {
+          "healthy_accept": 0.7115384615384616,
+          "fault_detect": 1.0
+        },
+        "T2/6000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T2/8000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T3/11000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T3/6000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T3/8000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        }
+      },
+      "per_rpm_mixed": {
+        "T1/11000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T2/11000": {
+          "healthy_accept": 0.8461538461538461,
+          "fault_detect": 1.0
+        },
+        "T3/11000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T1/6000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T2/6000": {
+          "healthy_accept": 0.8787878787878788,
+          "fault_detect": 1.0
+        },
+        "T3/6000": {
+          "healthy_accept": 0.984375,
+          "fault_detect": 1.0
+        },
+        "T1/8000": {
+          "healthy_accept": 1.0,
+          "fault_detect": 1.0
+        },
+        "T2/8000": {
+          "healthy_accept": 0.8533333333333334,
+          "fault_detect": 1.0
+        },
+        "T3/8000": {
+          "healthy_accept": 0.9818181818181818,
+          "fault_detect": 1.0
+        }
+      }
+    },
+    "summary": {
+      "per_condition": {
+        "healthy_accept_mean": 0.9187,
+        "fault_detect_mean": 1.0
+      },
+      "global_mixed": {
+        "healthy_accept_mean": 0.9679,
+        "fault_detect_mean": 0.9927
+      },
+      "per_rpm_mixed": {
+        "healthy_accept_mean": 0.9494,
+        "fault_detect_mean": 1.0
+      }
+    }
+  },
+  "drift": {
+    "rows": [
+      {
+        "rpm": "11000",
+        "motor": "T1",
+        "n": 72,
+        "median_score": 0.841,
+        "p90_score": 0.966,
+        "flagged_unknown": 0.0556
+      },
+      {
+        "rpm": "11000",
+        "motor": "T2",
+        "n": 253,
+        "median_score": 37.945,
+        "p90_score": 43.165,
+        "flagged_unknown": 1.0
+      },
+      {
+        "rpm": "11000",
+        "motor": "T3",
+        "n": 300,
+        "median_score": 14.5,
+        "p90_score": 17.35,
+        "flagged_unknown": 1.0
+      },
+      {
+        "rpm": "6000",
+        "motor": "T1",
+        "n": 64,
+        "median_score": 0.843,
+        "p90_score": 0.988,
+        "flagged_unknown": 0.0938
+      },
+      {
+        "rpm": "6000",
+        "motor": "T2",
+        "n": 324,
+        "median_score": 85.565,
+        "p90_score": 94.973,
+        "flagged_unknown": 1.0
+      },
+      {
+        "rpm": "6000",
+        "motor": "T3",
+        "n": 314,
+        "median_score": 50.077,
+        "p90_score": 55.903,
+        "flagged_unknown": 1.0
+      },
+      {
+        "rpm": "8000",
+        "motor": "T1",
+        "n": 64,
+        "median_score": 0.859,
+        "p90_score": 1.003,
+        "flagged_unknown": 0.1094
+      },
+      {
+        "rpm": "8000",
+        "motor": "T2",
+        "n": 368,
+        "median_score": 70.327,
+        "p90_score": 72.77,
+        "flagged_unknown": 1.0
+      },
+      {
+        "rpm": "8000",
+        "motor": "T3",
+        "n": 272,
+        "median_score": 45.063,
+        "p90_score": 48.404,
+        "flagged_unknown": 1.0
+      }
+    ]
+  }
+}

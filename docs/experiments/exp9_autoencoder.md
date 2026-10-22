@@ -64,7 +64,7 @@ writer沿exp6 main，logs/exp6_osr_benchmark/{ts}.log與output/exp6_osr_benchmar
 
 AUROC、健康誤報、fault_detect、事後FPR@TPR95與等工況mean／ddof0的定義見[實驗六](exp6_osr_benchmark.md#輸出與指標)。要支持AE優勢，需相同輸入／split／cal政策下排序與誤報的配對證據；某seed略優不是泛化成功。誤報高可能來自重建、校準或分布差異，不能單憑誤報確診過擬合。程式無通用PASS門檻。
 
-完整歷史分數查[固定實測包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_osr_benchmark/2026-10-09-14-07-53)。健康-only同工況分離不能回答known fault-type、跨馬達部署、fresh final、物理嚴重度或RUL。
+完整分數見 [output/exp6_osr_benchmark/2026-10-23-01-33-02](../../output/exp6_osr_benchmark/2026-10-23-01-33-02/results.csv)（Aero、commit `46ed4d5`、seed 42；與 2026-10-09 那份 `tracked_dirty=true` 的舊輸出扣掉環境欄位後相同）。健康-only同工況分離不能回答known fault-type、跨馬達部署、fresh final、物理嚴重度或RUL。
 
 ## 來源與程式碼
 

@@ -4,14 +4,14 @@
 
 流程：逐工況讀資料 → 同一健康切分交八方法 → 各自fit／cal → 同一test打分 → 比較排序與誤報。距離、邊界、隔離樹、密度及重建各抓不同偏離方式；單看模型名稱不能推定哪個會贏。
 
-| 資料角色 | 本機六工況 | 有效數量 | 比例與分母 | 用途 | 重疊 |
+| 資料角色 | 九工況 | 有效數量 | 比例與分母 | 用途 | 重疊 |
 |---|---|---:|---|---|---|
-| 健康train | 各工況健康池合計1877 | 1124 | 逐池floor(.6H)後加總 | scaler及模型 | 同工況八方法重用 |
-| 健康cal | 同上 | 373 | 逐池floor(.2H)後加總 | q95；legacy例外 | 不與holdout重疊 |
-| 健康test | 同上 | 380 | 各池剩餘；380/1877 | 健康誤報 | 非八倍獨立樣本 |
-| 未知test | 其餘配置全池 | 17176 | 17176/17176 | 拒絕與AUROC | 多方法重用，不fit |
+| 健康train | 各工況健康池合計2821 | 1689 | 逐池floor(.6H)後加總 | scaler及模型 | 同工況八方法重用 |
+| 健康cal | 同上 | 560 | 逐池floor(.2H)後加總 | q95；legacy例外 | 不與holdout重疊 |
+| 健康test | 同上 | 572 | 各池剩餘；572/2821 | 健康誤報 | 非八倍獨立樣本 |
+| 未知test | 其餘配置全池 | 26070 | 26070/26070 | 拒絕與AUROC | 多方法重用，不fit |
 
-依[用量總表](README.md#資料用量與分母怎麼讀)，沒有新訓練。跨工況共用連續RNG，這張表只共用數量，不能把逐模型重設seed的cold_start索引摘要套成exp6索引。六工況×八方法為48列／seed，不是九工況完成。AE內部分驗證另見[實驗九](exp9_autoencoder.md)。
+依[用量總表](README.md#資料用量與分母怎麼讀)，沒有新訓練。跨工況共用連續RNG，這張表只共用數量，不能把逐模型重設seed的cold_start索引摘要套成exp6索引。九工況×八方法為72列／seed（[results.csv](../../output/exp6_osr_benchmark/2026-10-23-01-33-02/results.csv)）。AE內部分驗證另見[實驗九](exp9_autoencoder.md)。
 
 ## 發表與理解檢查
 
@@ -62,7 +62,7 @@ Web依[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)啟動，選
 
 main經setup_run寫logs/exp6_osr_benchmark/{ts}.log、output/exp6_osr_benchmark/{ts}/environment.json、results.csv、summary.json及osr_benchmark.png。Web另存web_server的experiments子目錄。results每列是一工況×方法，非獨立馬達數。
 
-auroc衡量unknown分數是否較高；healthy_fp為健康score>1比例；fault_detect為所有fault合併後score>1比例，不是各配置等權macro。fpr_at_tpr95用**評估fault分數第5百分位**當診斷線，健康嚴格大於該線的比例；這不是部署用門檻，也不回寫模型。summary先對各列round4，再跨工況等權平均；auroc_std／healthy_fp_std用ddof=0，排序依AUROC再FPR。不是信賴區間或自動部署winner。
+auroc衡量unknown分數是否較高；healthy_fp為健康score>1比例；fault_detect為所有fault合併後score>1比例，不是各配置等權macro。fpr_at_tpr95用`core.openset.fpr_at_tpr`：unknown為正類，取ROC上TPR≥0.95的最小FPR（#235，實驗六廣度、正式版與實驗七共用）；這不是部署用門檻，也不回寫模型。summary先對各列round4，再跨工況等權平均；auroc_std／healthy_fp_std用ddof=0，排序依AUROC再FPR。不是信賴區間或自動部署winner。
 
 圖的AUROC座標從0.9開始，低分可能不顯眼，必須看JSON。預期未知排序高、健康誤報低；沒有預先固定可靠性成功門檻。完整歷史數字見[固定紀錄](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/1fa9431bb7b86959f29540d07b2b9290ab39ce42/docs/experiments/exp6_osr_benchmark.md)。同工況健康-only高分不能推論跨馬達known fault-type成功。
 

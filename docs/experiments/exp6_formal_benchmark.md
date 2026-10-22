@@ -8,9 +8,9 @@
 |---|---|---:|---|---|---|
 | 健康train／cal／test | 健康池313列 | 187／62／64 | 各除以313 | 模型／q95／誤報 | 列級互斥 |
 | 未知test | 九fault配置 | 2736 | 故障池100% | 拒絕與排序 | 不進fit／cal |
-| 全root合計 | 本機六工況 | 1124／373／380，未知17176 | 逐池取整後加總 | 可用量查核 | 方法／seed會重用 |
+| 全root合計 | 九工況 | 1689／560／572，未知26070 | 逐池取整後加總 | 可用量查核 | 方法／seed會重用 |
 
-來源為[用量產物](README.md#資料用量與分母怎麼讀)，不是新benchmark分數。此runner連續使用RNG；相同數量不表示與單工況monitor有相同索引。CLI正式coverage要求與Web的require_nine=False不同；六工況不能當九工況完整PASS。沒有validation選方法；unknown不調門檻。
+來源為[用量產物](README.md#資料用量與分母怎麼讀)，不是新benchmark分數。此runner連續使用RNG；相同數量不表示與單工況monitor有相同索引。CLI正式coverage要求與Web的require_nine=False不同；現行`data`九工況齊全；少於九工況時不能當完整PASS。沒有validation選方法；unknown不調門檻。
 
 ## 發表與理解檢查
 
@@ -39,8 +39,8 @@
 
 ```bash
 uv run --locked python -m experiments.exp6_formal_benchmark --help
-uv run --locked python -m experiments.exp6_formal_benchmark --data-root data/formal_local --seed 42 --openset-method mahalanobis --method ledoit_wolf --confidence 0.95
-uv run --locked python -m experiments.exp6_formal_benchmark --data-root data/formal_local --seed 42 --openset-method knn --knn-neighbors 5 --confidence 0.95
+uv run --locked python -m experiments.exp6_formal_benchmark --data-root data --seed 42 --openset-method mahalanobis --method ledoit_wolf --confidence 0.95
+uv run --locked python -m experiments.exp6_formal_benchmark --data-root data --seed 42 --openset-method knn --knn-neighbors 5 --confidence 0.95
 ```
 
 API run(data_root,seed=42,confidence=0.95,openset_method="mahalanobis",mahalanobis_method="ledoit_wolf",knn_neighbors=5,require_nine=True)回傳dict，並保存來源與環境紀錄；API不寫CLI的results.csv與圖。confidence須在0與1間；缺九工況、healthy、unknown或非有限score明確失敗，先查來源，不借test調門檻。
@@ -65,13 +65,15 @@ API未傳 evidence_paths 時，以 setup_run("exp6_formal_api", unique=True) 寫
 | known_accuracy／open_set_accuracy | 健康接受率／健康對fault二元正確率；後者受類別比例影響 |
 | auroc／aupr_unknown_positive | unknown為正類的排序／平均精確率；AUPR須同時看正類比例 |
 | unknown_precision／unknown_recall／unknown_f1 | 判未知的精確率／召回／調和平均，零分母按sklearn設0 |
-| fpr_at_tpr95 | fault分數5%分位數的事後診斷線，健康score≥該線比例；不是已校準部署線 |
+| fpr_at_tpr95 | `core.openset.fpr_at_tpr`：unknown為正類，取ROC上TPR≥0.95的最小FPR（#235，實驗六廣度、正式版與實驗七共用）；事後評估點，不是已校準部署線 |
 | raw_thresholds／threshold_strategy | cal的原距離線與政策，正規化threshold固定1 |
 | inference_seconds／peak_memory_mb | 兩次打分的耗秒，不含fit；記憶體未量測為null |
 
 dataset_fingerprint 預設為 `source_content_v2`，對排序的相對檔案ID與實際CSV內容SHA清冊取雜湊；有manifest時另驗清冊與已宣告輸出SHA，前後來源變動拒絕完成。相同內容副本不代表獨立採集。明確指定 `legacy_fingerprint_v1` 才使用舊stat／manifest指紋，不回寫舊結果。schema 3摘要包含 source、environment、provenance_record_id 與有效 config；未保存逐樣本預測或模型checkpoint。
 
-預期完整九列、有限指標且unknown排序高／健康誤報低；沒有通用可靠模型PASS門檻。舊完整結果查[固定矩陣](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/output/exp6_formal_matrix)，不把不同資料指紋或seed直接當改善。不保證5%現場誤報、錄製獨立或fresh final。
+預期完整九列、有限指標且unknown排序高／健康誤報低；沒有通用可靠模型PASS門檻。不把不同資料指紋或seed直接當改善。
+
+2026-10-23 在 Aero 以 commit `46ed4d5`、`--data-root data`（資料指紋 `1b55b847…`）跑完 54 格：健康接受率（known_accuracy）27 個工況-seed 列等權平均，LW 94.66% ± 3.97（最低 87.50%，T3／6000 seed 42）、k-NN 94.67% ± 4.38（最低 84.38%，T1／6000 seed 42），AUROC 與未知召回都是 1，見 [aggregate.md](../../output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md)。舊版 94.62% ± 4.01／94.57% ± 4.39 是 `data/formal_local` 的歷史結果（commit 07582ff、Python 3.12.14、無主機紀錄，[舊 aggregate](../../output/exp6_formal_matrix/aggregate/aggregate.md)）；`formal_local` 由階段 ZIP 物化，不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。不保證5%現場誤報、錄製獨立或fresh final。
 
 ## 方法來源與程式碼
 

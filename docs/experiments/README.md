@@ -89,20 +89,26 @@
 
 ## 資料用量與分母怎麼讀
 
-以下是[唯讀用量產物](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)的六工況資料版本：60 個 CSV、19,053 個有效105維特徵列，全部列有限。本機沒有 T2。它不等於研究分支90個CSV／28,910列的資料版本，也不能拿六工況代替九工況矩陣驗收。`source_inventory` 保存各檔原位元組 SHA，`content_inventory_sha256` 是這份排序清冊的摘要，不沿用歷史 stat-based fingerprint。
+現行 `data` 是九工況、90 個特徵 CSV、28,891 個有效105維特徵列，資料指紋 `source_content_v2:1b55b847…`。下表取自 2026-10-23 在 Aero 以 commit `46ed4d5` 跑的[實驗六正式矩陣](../../output/exp6_formal_matrix/aero_2026-10-23/matrix_manifest.json)：「全部有效列」是各 run `input_schema_audit` 十個檔的列數加總（rejected／discarded 皆 0），H 的三個角色與 U 是 seed 42 那次切分的 `n_train`／`n_calibration`／`n_known_test`／`n_unknown_test`；seed 123、2026 的數量相同。
 
 | 工況 | 全部有效列 | 健康池 H | 健康 train／H | 健康 cal／H | 健康 holdout／H | 故障全池 U |
 |---|---:|---:|---:|---:|---:|---:|
-| T1／11000rpm | 3352 | 358 | 214／358 | 71／358 | 73／358 | 2994 |
-| T1／6000rpm | 3358 | 320 | 192／320 | 64／320 | 64／320 | 3038 |
+| T1／11000rpm | 3349 | 357 | 214／357 | 71／357 | 72／357 | 2992 |
+| T1／6000rpm | 3354 | 320 | 192／320 | 64／320 | 64／320 | 3034 |
 | T1／8000rpm | 3049 | 313 | 187／313 | 62／313 | 64／313 | 2736 |
-| T3／11000rpm | 3128 | 300 | 180／300 | 60／300 | 60／300 | 2828 |
-| T3／6000rpm | 2941 | 314 | 188／314 | 62／314 | 64／314 | 2627 |
-| T3／8000rpm | 3225 | 272 | 163／272 | 54／272 | 55／272 | 2953 |
+| T2／11000rpm | 3417 | 253 | 151／253 | 50／253 | 52／253 | 3164 |
+| T2／6000rpm | 3186 | 324 | 194／324 | 64／324 | 66／324 | 2862 |
+| T2／8000rpm | 3249 | 368 | 220／368 | 73／368 | 75／368 | 2881 |
+| T3／11000rpm | 3127 | 300 | 180／300 | 60／300 | 60／300 | 2827 |
+| T3／6000rpm | 2939 | 314 | 188／314 | 62／314 | 64／314 | 2625 |
+| T3／8000rpm | 3221 | 272 | 163／272 | 54／272 | 55／272 | 2949 |
+| 合計 | 28891 | 2821 | 1689 | 560 | 572 | 26070 |
+
+這份 `data` 不是研究分支 90 個 CSV／28,910 列的資料版本，也不是 `data/formal_local`：`formal_local` 由階段 ZIP 物化，T1／11000rpm 健康池是 358 列，九工況健康 holdout 合計 573、故障 26,088（[#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)）。2026-10-14 的[唯讀用量產物](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/blob/17302e2ad1885ed8bb4f227401b6a4ca453e6bb4/output/experiment_data_usage_evidence/2026-10-14-19-36-34/usage.json)是當時某台本機沒有 T2 的六工況版本（60 個 CSV、19,053 列），只作歷史紀錄，數量不能和上表混用。
 
 H的三個角色互斥、合計H；U另列，不把未知全池混進「20%測試」。例如T1／8000rpm是健康池187+62+64=313，再加2736未知列；不是全部3049列的60/20/20。三個seeds為42／123／2026，數量相同但索引摘要不同，不能累加成三倍獨立資料。
 
-工具只呼叫既有loader與`make_split`，沒有fit、選參或算新分數；這些是實際可用列的配置量，不代表某次串流已消耗幾列。輸出另含多類原始論文 A、逐配置數量、監測截取上限、遷移support與exp5策略重疊。查其他資料版本時重新計數，不複製本表：
+要重新計數或看多類原始論文 A、逐配置數量、監測截取上限、遷移support與exp5策略重疊，在 Aero 或 Spark 跑下面的唯讀工具（只呼叫既有loader與`make_split`，沒有fit、選參或算新分數）；資料版本不同時重新計數，不複製本表：
 
 ```bash
 uv run --locked python -m tests.experiment_data_usage_evidence --data-root data --seeds 42,123,2026

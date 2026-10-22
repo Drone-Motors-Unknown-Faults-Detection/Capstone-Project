@@ -136,7 +136,7 @@ def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanob
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data-root", default="data/formal_local")
+    parser.add_argument("--data-root", default="data")
     parser.add_argument("--motor", required=True)
     parser.add_argument("--rpm", required=True)
     parser.add_argument("--config", default=HEALTHY)

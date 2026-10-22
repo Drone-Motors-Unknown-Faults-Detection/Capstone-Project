@@ -27,7 +27,7 @@ uv pip check --python venv/bin/python
 
 ## 執行主機
 
-提交前檢查（pytest、ruff）與所有實驗 CLI（會寫 `logs/`、`output/` 的程式）只在 Aero 或 Spark 執行（AGENT.md 鐵則 13）。兩台都是 Linux，numpy 連結 scipy-openblas 0.3.29：Aero 為 x86_64、Spark 為 aarch64。實驗二 seed 42 在兩台的 `stages.csv` 逐位元組相同；`summary.json` 裡的門檻、PCA 座標等連續值只在第 13 位有效數字之後不同（`output/exp2_scale_growth/2026-10-23-00-05-08` 對 `2026-10-23-00-05-22`）。macOS 的 numpy 連結 Apple Accelerate，同 seed、同套件版本，實驗二從第 4 段起分岔（#224），所以本機 Mac 的結果不作為文件或報告的數字來源。`environment.json` 的 `os.host` 與 `numeric.blas` 用來核對一份輸出是在哪台、用哪個 BLAS 跑的。
+提交前檢查（pytest、ruff）與所有實驗 CLI（會寫 `logs/`、`output/` 的程式）只在 Aero 或 Spark 執行（AGENT.md 鐵則 13）。兩台都是 Linux，numpy 連結 scipy-openblas 0.3.29：Aero 為 x86_64、Spark 為 aarch64。實驗二 seed 42 在兩台的 `stages.csv` 逐位元組相同；`summary.json` 裡的門檻、PCA 座標等連續值只在第 13 位有效數字之後不同（`output/exp2_scale_growth/2026-10-23-00-05-08` 對 `2026-10-23-00-05-22`）。macOS 的 numpy 連結 Apple Accelerate，同 seed、同套件版本，實驗二從第 4 段起分岔（#224），所以本機 Mac 的結果不作為文件或報告的數字來源。`environment.json` 的 `os.host` 與 `numeric.blas` 用來核對一份輸出是在哪台、用哪個 BLAS 跑的。`data` 欄記資料內容指紋：呼叫 `setup_run(..., data_root=...)` 時用傳入的資料根，否則從命令列的 `--data-root`（預設 `data`）推得；直接呼叫 API 而沒有傳入時，記錄的是推得的根目錄。
 
 前端測試（`test_ai_chat_frontend.py`、`test_guide_frontend.py`、`test_markdown_frontend.py`、`test_assistant_presentation.py`、`test_result_presentation.py`、`test_web_experiment_alignment.py`，以及 `test_assistant.py` 的 HTTP→前端案例）以 `shutil.which("node")` 找 Node.js，缺少時判失敗、不當通過。兩台主機以使用者權限安裝 Node.js 官方 LTS tarball，不用系統套件：
 

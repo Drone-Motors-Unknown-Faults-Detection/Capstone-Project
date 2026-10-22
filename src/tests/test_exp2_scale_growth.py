@@ -168,5 +168,38 @@ class EvalSplitTests(unittest.TestCase):
         self.assertEqual(result["rejections"][0]["config"], "7screws")
 
 
+class MatchedRateAndHealthyMixTests(unittest.TestCase):
+    """#243 判進對應新類比例；#240 健康混入。"""
+
+    def test_matched_rate_bounded_by_known_rate(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        ev = result["final_eval"]["7screws"]
+        self.assertLessEqual(ev["matched_rate"], ev["known_rate"])
+        self.assertEqual(result["stages"][0]["eval_matched_rate"], ev["matched_rate"])
+
+    def test_breakdown_counts_only_classes_matched_to_config(self):
+        labels = ["discovered-1", "discovered-2", None, "8screws"]
+        ev = exp2._eval_breakdown(labels, "7screws", {"discovered-1": "7screws", "discovered-2": "6screws"})
+        self.assertEqual(ev["known_rate"], 0.5)
+        self.assertEqual(ev["matched_rate"], 0.25)
+
+    def test_zero_mix_matches_default(self):
+        a = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        b = exp2.run(_pools(), seed=42, max_ticks_per_stage=300, healthy_mix=0.0)
+        self.assertEqual(a["stages"], b["stages"])
+        self.assertEqual(a["stages"][0]["healthy_seen"], 0)
+
+    def test_healthy_mix_feeds_healthy_windows_without_quarantine(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300, healthy_mix=0.3)
+        stage = result["stages"][0]
+        self.assertGreater(stage["healthy_seen"], 0)
+        self.assertEqual(stage["healthy_quarantined"], 0)
+        self.assertEqual(result["healthy_mix"], 0.3)
+
+    def test_mix_out_of_range_rejected(self):
+        with self.assertRaises(ValueError):
+            exp2.run(_pools(), seed=42, max_ticks_per_stage=5, healthy_mix=1.5)
+
+
 if __name__ == "__main__":
     unittest.main()

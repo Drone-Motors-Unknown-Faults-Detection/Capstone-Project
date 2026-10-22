@@ -13,7 +13,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 ## 資料角色用量表
 
-四個入口共用同一套切分：健康池 60/20/20 分成 train、calibration、healthy test，其他配置整池當 unknown test。下表以 T1／8000rpm 為例，健康池 313 列、故障池 2736 列；本機其他工況的數量見[六工況總表](README.md#資料用量與分母怎麼讀)。
+四個入口共用同一套切分：健康池 60/20/20 分成 train、calibration、healthy test，其他配置整池當 unknown test。下表以 T1／8000rpm 為例，健康池 313 列、故障池 2736 列；其他工況的數量見[九工況總表](README.md#資料用量與分母怎麼讀)。
 
 | 入口 | 資料角色 | 有效數量 | 比例與分母 | 用途 | 重疊 |
 |---|---|---:|---|---|---|
@@ -27,7 +27,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 | 封存重算 | 唯讀來源 | 16 檔 | 檔案數，不是樣本數 | SHA 與 schema 規範 | 不修改來源 |
 | 封存重算 | 摘要輸入 | 54 列 | 每方法 27 列等權 | 全域 mean／std | 同 motor／RPM／seed 有資料依賴 |
 
-沒有獨立 validation，也沒有用 unknown 選參。本機缺 T2，不能把六工況補成封存的九工況 54 列；封存包是另一個資料版本，不和本機數量混用。
+沒有獨立 validation，也沒有用 unknown 選參。`reports/exp8_health_index_results/` 封存包讀的是 `data/formal_local`，和現行 `data` 不是同一份檔案，數量不混用。
 
 ## 發表與理解檢查
 
@@ -46,7 +46,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 正式資料目前到相對健康基準、開集未知、相對健康指數、依筆數的監測與告警。有 motor×RPM 工況與 105 維 clean features，沒有可靠 timestamp、實體 motor ID、session ID、failure endpoint、維修事件、物理 fault cause 或正式嚴重度標籤。本頁不把指數說成損傷百分比、真實故障類型、真實嚴重階段或剩餘壽命。
 
-本機用量見 [六工況總表](README.md#資料用量與分母怎麼讀)：缺 T2，不能把六工況補成封存的九工況。封存包是另一個資料版本，指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`。T1／T2／T3 是不同馬達，不能串成一條壽命。
+現行 `data` 用量見 [九工況總表](README.md#資料用量與分母怎麼讀)，指紋 `1b55b847…`。封存包讀 `data/formal_local`，指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`。T1／T2／T3 是不同馬達，不能串成一條壽命。
 
 ## 模組資料流
 
@@ -76,21 +76,23 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 `rows` 逐工況記筆數、方法、seed、原 score 與健康分布。組內平均的 std 用 ddof=0。`health_gap_known_minus_unknown` 是兩組健康平均差。`open_set_accuracy`、AUROC、AUPR、unknown recall／F1 用原 score。benchmark 只報 health `>=0.8` 與 `<0.2` 的比例。未知全貼 0 只說明映射超過 critical 錨點，排不出故障輕重。
 
-CLI 經 `core.logger.setup_run("exp8_health_index_benchmark")` 初始化。日誌寫 `logs/exp8_health_index_benchmark/{ts}.log`，完整結果寫 `output/exp8_health_index_benchmark/{ts}/` 的 `result.json` 與 `rows.csv`，另有 `environment.json`。stdout 只印 status、列數、方法、seed 與 output_dir。結果是逐工況彙總，不含逐窗預測。Web 8-1 允許部分工況，完成後由 `ExperimentRunner` 寫到 `output/web_server/{ts}/experiments/`。歷史九工況結果見 [固定封存包](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/tree/1fa9431bb7b86959f29540d07b2b9290ab39ce42/reports/exp8_health_index_results)。
+CLI 經 `core.logger.setup_run("exp8_health_index_benchmark")` 初始化。日誌寫 `logs/exp8_health_index_benchmark/{ts}.log`，完整結果寫 `output/exp8_health_index_benchmark/{ts}/` 的 `result.json` 與 `rows.csv`，另有 `environment.json`。stdout 只印 status、列數、方法、seed 與 output_dir。結果是逐工況彙總，不含逐窗預測。Web 8-1 允許部分工況，完成後由 `ExperimentRunner` 寫到 `output/web_server/{ts}/experiments/`。歷史九工況結果見 `reports/exp8_health_index_results/`。
 
-封存摘要（9 工況 × seed 42／123／2026 × 兩方法，54 列；健康 train／cal 只用 `8screws`）：
+2026-10-23 在 Aero 以 commit `46ed4d5`、`--data-root data`（資料指紋 `1b55b847…`）跑的矩陣在 [output/exp8_health_index_matrix/2026-10-23-01-34-15](../../output/exp8_health_index_matrix/2026-10-23-01-34-15/matrix_manifest.json)（9 工況 × seed 42／123／2026 × 兩方法，54 列；健康 train／cal 只用 `8screws`）。這個根沒有 `aggregate_summary.json`，下表是讀六個 CSV、每方法 27 列等權、std 用 ddof=1 算出：
 
 | method | health gap known−unknown | Open Set accuracy | AUROC | unknown recall |
 |---|---:|---:|---:|---:|
-| Mahalanobis + Ledoit–Wolf | 0.583144 ± 0.073301 | 0.998849 ± 0.000887 | 1.000000 | 1.000000 |
-| k-NN | 0.601657 ± 0.071637 | 0.998842 ± 0.000937 | 1.000000 | 1.000000 |
+| Mahalanobis + Ledoit–Wolf | 0.583337 ± 0.073589 | 0.998860 ± 0.000873 | 1.000000 | 1.000000 |
+| k-NN | 0.600457 ± 0.072595 | 0.998867 ± 0.000932 | 1.000000 | 1.000000 |
 
-k-NN 的 health gap 高 0.018513，Mahalanobis accuracy 高 0.000007。重算時這兩欄有 0.018513 對 0.018512 的差異，見下方封存重算。event-level recall、每小時誤報、偵測延遲沒有時間軸，回報 unavailable。
+k-NN 的 health gap 高 0.017120，accuracy 高 0.000007。未知列的健康指數全為 0，所以 health gap 等於已知健康指數平均。event-level recall、每小時誤報、偵測延遲沒有時間軸，回報 unavailable。
+
+`reports/exp8_health_index_results/` 是 `data/formal_local`（指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`、無主機紀錄）的歷史結果：Mahalanobis 0.583144 ± 0.073301、k-NN 0.601657 ± 0.071637；重算時 health gap 差有 0.018513 對 0.018512 的差異，見下方封存重算。`formal_local` 不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
 
 ```bash
 uv run --locked python -m experiments.health_index_benchmark --help
-uv run --locked python -m experiments.health_index_benchmark --data-root data/formal_local --seed 42 --openset-method mahalanobis --method ledoit_wolf --confidence 0.95
-uv run --locked python -m experiments.health_index_benchmark --data-root data/formal_local --seed 42 --openset-method knn --knn-neighbors 5
+uv run --locked python -m experiments.health_index_benchmark --data-root data --seed 42 --openset-method mahalanobis --method ledoit_wolf --confidence 0.95
+uv run --locked python -m experiments.health_index_benchmark --data-root data --seed 42 --openset-method knn --knn-neighbors 5
 ```
 
 API：`run(data_root, seed=42, openset_method="mahalanobis", mahalanobis_method="ledoit_wolf", confidence=0.95, knn_neighbors=5, require_nine=True)`。
@@ -103,8 +105,8 @@ CLI 經 `core.logger.setup_run("exp8_health_index_matrix")` 初始化，日誌�
 
 ```bash
 uv run --locked python -m experiments.health_index_matrix --help
-uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
-uv run --locked python -m experiments.health_index_matrix --data-root data/formal_local --output-root output/exp8_health_index_matrix/2026-10-17-10-00-00
+uv run --locked python -m experiments.health_index_matrix --data-root data --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
+uv run --locked python -m experiments.health_index_matrix --data-root data --output-root output/exp8_health_index_matrix/2026-10-17-10-00-00
 ```
 
 API：`run_matrix(data_root, output_root, seeds=(42, 123, 2026), methods=("mahalanobis", "knn"), resume=True)`。`data_root` 與 `output_root` 都必須明確給。沒有 `run(pools)`，也沒有 Web 重跑入口。
@@ -139,8 +141,8 @@ normal 下 smoothed `<0.5` 為 warning 候選、`<0.2` 為 critical 候選，連
 
 ```bash
 uv run --locked python -m experiments.health_monitor --help
-uv run --locked python -m experiments.health_monitor --data-root data/formal_local --motor T1 --rpm 8000rpm --config 8screws --openset-method mahalanobis --method ledoit_wolf --motor-id demo-T1 --session-id demo-001 --max-windows 20 --output-mode full
-uv run --locked python -m experiments.health_monitor --data-root data/formal_local --motor T1 --rpm 8000rpm --config 5screws --openset-method knn --knn-neighbors 5 --max-windows 5 --output-mode binary --allow-no-identity
+uv run --locked python -m experiments.health_monitor --data-root data --motor T1 --rpm 8000rpm --config 8screws --openset-method mahalanobis --method ledoit_wolf --motor-id demo-T1 --session-id demo-001 --max-windows 20 --output-mode full
+uv run --locked python -m experiments.health_monitor --data-root data --motor T1 --rpm 8000rpm --config 5screws --openset-method knn --knn-neighbors 5 --max-windows 5 --output-mode binary --allow-no-identity
 ```
 
 `motor`／`rpm` 必填，rpm 可寫 `8000` 或 `8000rpm`。`config` 須存在，`max_windows` 須為正整數。API `run(...)` 回傳逐窗列表，`iter_run` 先 yield fitted 再 yield window。CLI 先收集完再逐行印 JSON。`full` 含全部欄位，`health` 含指數與狀態，`binary` 只有 `is_fault`。CLI 經 `core.logger.setup_run("exp8_health_monitor")` 初始化：日誌寫 `logs/exp8_health_monitor/{ts}.log`，逐窗結果依 output-mode 寫 `output/exp8_health_monitor/{ts}/windows.jsonl`，一行一窗，與 stdout 相同，另有 `environment.json`。Web 8-3 可批次或 SSE；停止後沒有 done 就不算完整。展示用的 session ID 不能當採集身分。

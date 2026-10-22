@@ -487,7 +487,8 @@ class ExperimentRunner:
 
 
 def _load_exp6_matrix() -> dict:
-    path = ROOT / "output/exp6_formal_matrix/aggregate/aggregate.json"
+    # Aero 重跑（data 資料根）的正式矩陣彙總；formal_local 歷史封存在 output/exp6_formal_matrix/aggregate（#255）
+    path = ROOT / "output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.json"
     if not path.is_file():
         return {"available": False, "path": str(path.relative_to(ROOT))}
     data = json.loads(path.read_text(encoding="utf-8"))
@@ -523,6 +524,9 @@ def _load_exp8_results() -> dict:
         "available": True,
         "path": str(base.relative_to(ROOT)),
         "producer": "src/experiments/health_index_matrix.py",
+        # 這份彙總來自 data/formal_local（07582ff）；Aero 以 data 重跑的矩陣在 #255 註明的路徑，沒有對應彙總檔
+        "data_version": "formal_local 歷史結果",
+        "aero_rerun": "output/exp8_health_index_matrix/2026-10-23-01-34-15",
         "seeds": data.get("seeds"),
         "rows": data.get("rows"),
         "overall": data.get("overall", {}),

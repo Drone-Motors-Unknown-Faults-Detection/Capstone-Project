@@ -1,0 +1,11 @@
+config,display,kind,n,flagged,detect_rate,auroc,median_score
+8screws,Healthy（8 螺絲全鎖）,healthy-holdout,64,7,0.109375,,0.8594682627176564
+7screws,7 螺絲（最輕微鬆動）,unknown-fault,322,322,1.0,1.0,37.84187326835037
+6screws,6 螺絲（輕微鬆動）,unknown-fault,314,314,1.0,1.0,50.176594306831696
+5screws,5 螺絲（中度鬆動）,unknown-fault,212,212,1.0,1.0,83.93218730852283
+4screws,4 螺絲（明顯鬆動）,unknown-fault,287,287,1.0,1.0,86.97517325744982
+3screws,3 螺絲（嚴重鬆動）,unknown-fault,241,241,1.0,1.0,78.30403197416625
+2screws,2 螺絲（很嚴重鬆動）,unknown-fault,288,288,1.0,1.0,69.4741008154952
+1screws,1 螺絲（最嚴重鬆動）,unknown-fault,349,349,1.0,1.0,115.23018152025517
+3_14screws,3_14（複合不均勻鬆動）,unknown-fault,351,351,1.0,1.0,45.61972884975094
+4_146screws,4_146（複合不均勻鬆動）,unknown-fault,372,372,1.0,1.0,13.206642384284105
