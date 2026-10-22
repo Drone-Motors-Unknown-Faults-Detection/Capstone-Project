@@ -1,5 +1,7 @@
 # 實驗二 adopt() 修正：隔離區清理、邊界退回與外部評估
 
+> 2026-10-23 補註：本報告的數字在 macOS 上跑出，不符合 AGENT.md 鐵則 13；數字來源改用 [Aero 重跑報告](../JW-Albert_20261023_exp2_adopt_fix_aero/README.md)。兩者結論方向相同，但外部評估集等數字不同（例如 seed 2026 的 4_146screws：macOS 18.67%、Aero 93.33%）。
+
 2026-10-22，JW-Albert。問題見 issue #222；方法與事前預期見[實驗二手冊](../../docs/experiments/exp2_scale_growth.md#隔離區清理邊界退回與外部評估issue-222)。
 
 ## 條件
