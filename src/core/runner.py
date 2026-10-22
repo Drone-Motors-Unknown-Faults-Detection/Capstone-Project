@@ -98,6 +98,11 @@ def run_dataset(args, paths, callback, **parameters):
     return ds, result
 
 
+def finish_execution(context, pools, source_context=None):
+    """回傳結果前再驗來源；保留執行開始時的環境快照。"""
+    return {**context, "source": source_for_pools(pools, source_context)}
+
+
 def save_json(path: Path, obj) -> None:
     def _default(o):
         if isinstance(o, (np.integer,)):

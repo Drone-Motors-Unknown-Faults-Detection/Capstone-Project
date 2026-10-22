@@ -40,6 +40,14 @@ class PairedStreamTests(unittest.TestCase):
         cls.data = pools()
 
     def same(self, old, new):
+        # 來源環境與 opaque sidecar ID 不屬科學輸出；其他每個欄位仍精確比較。
+        for value in (old, new):
+            metadata = value.get("provenance")
+            if metadata:
+                self.assertEqual(metadata["schema_version"], "experiment_provenance_v1")
+                self.assertEqual(metadata["source"]["status"], "UNVERIFIED_MEMORY")
+        old = {k: v for k, v in old.items() if k != "provenance"}
+        new = {k: v for k, v in new.items() if k != "provenance"}
         self.assertEqual(json.dumps(jsonable(old), sort_keys=True),
                          json.dumps(jsonable(new), sort_keys=True))
 
@@ -113,7 +121,7 @@ class PairedStreamTests(unittest.TestCase):
         runner = ExperimentRunner(
             [{"motor": "T1", "rpm": "8000rpm", "path": "unused"}], "unused",
         )
-        with patch.object(runner, "_pools", return_value=self.data):
+        with patch("web.experiments.load_pool_source", return_value=(self.data, None)):
             frames = [frame for frame, _units in runner.stream("exp3", {
                 "dataset": "T1/8000rpm", "seed": 42, "n_trials": 1,
                 "openset_method": "mahalanobis", "scenario": "B",
@@ -131,7 +139,7 @@ class PairedStreamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             runner = ExperimentRunner([{"motor": "T1", "rpm": "8000rpm", "path": "unused"}],
                                       "unused", out_dir=folder)
-            with patch.object(runner, "_pools", return_value=self.data):
+            with patch("web.experiments.load_pool_source", return_value=(self.data, None)):
                 frames = list(runner.stream("exp1", {}))
                 batch = runner.run("exp1", {})
             self.same(frames[-1][0]["payload"]["result"], batch["result"])

@@ -23,7 +23,8 @@ import numpy as np
 from core.data import HEALTHY, CycleSampler
 from core.logger import setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import add_dataset_args, add_openset_args, resolve_dataset, save_json
+from core.runner import (add_dataset_args, add_openset_args, run_dataset, save_json,
+                         execution_context, finish_execution)
 from core.trend import TrendMonitor
 
 # phase = (fault_config, 故障混入比例, ticks)；比例 < 1 時其餘機率抽健康 holdout
@@ -77,9 +78,11 @@ def run(
     method: str = "ledoit_wolf",
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
+    source_context=None,
 ) -> dict:
     """批次介面：把 iter_run 跑完，回傳最後的結果。"""
-    for event in iter_run(pools, n_trials, seed, confidence, method, openset_method, knn_neighbors):
+    for event in iter_run(pools, n_trials, seed, confidence, method, openset_method, knn_neighbors,
+                          source_context=source_context):
         pass
     return event["result"]
 
@@ -93,6 +96,7 @@ def iter_run(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     scenarios: tuple[str, ...] | None = None,
+    source_context=None,
 ):
     """逐步產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
@@ -104,6 +108,9 @@ def iter_run(
     if unknown:
         raise ValueError(f"scenario: unknown {unknown[0]!r}; choose A or B")
     selected = SCENARIOS if scenarios is None else {key: SCENARIOS[key] for key in scenarios}
+    provenance = execution_context(pools, source_context, seed=seed, confidence=confidence,
+        method=method, openset_method=openset_method, knn_neighbors=knn_neighbors,
+        n_trials=n_trials, scenarios=list(selected))
     monitor = OpenSetMonitor(
         pools,
         seed=seed,
@@ -165,6 +172,7 @@ def iter_run(
         "model": model,
         "seed": seed,
         "n_trials": n_trials,
+        "provenance": finish_execution(provenance, pools, source_context),
         "openset_method": openset_method,
         "method": method,
         "score_type": model["score_type"],
@@ -183,15 +191,11 @@ def main() -> None:
     add_openset_args(parser)
     args = parser.parse_args()
 
-    ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp3_trend")
-    log.info(f"實驗三：漸進 vs 突發判別 — {ds['motor']}/{ds['rpm']}"
-             f"（trials={args.trials}, openset={args.openset_method}, "
-             f"method={args.method}, seed={args.seed}）")
-
-    result = run(pools, n_trials=args.trials, seed=args.seed,
+    log, paths = setup_run("exp3_trend", unique=True)
+    ds, result = run_dataset(args, paths, run, n_trials=args.trials, seed=args.seed,
                  confidence=args.confidence, method=args.method,
                  openset_method=args.openset_method, knn_neighbors=args.knn_neighbors)
+    log.info("實驗三：漸進／突發判別 — {}/{}", ds["motor"], ds["rpm"])
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
 
     import pandas as pd

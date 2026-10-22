@@ -4,6 +4,8 @@ from unittest.mock import patch
 import argparse
 import copy
 import json
+import subprocess
+import types
 
 import numpy as np
 import pytest
@@ -108,3 +110,88 @@ def test_existing_config_resolver_and_memory_context():
     assert result["resolved_config"]["effective"]["knn_neighbors"] == 3
     assert result["resolved_config"]["ignored"][0]["parameter"] == "mahalanobis_method"
     assert np.array_equal(pools["8screws"], before["8screws"])
+
+
+@pytest.mark.parametrize("name", ["exp1_cold_start", "exp2_scale_growth", "exp3_trend"])
+def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
+    import importlib
+    from web.experiments import jsonable
+
+    root = Path(__file__).resolve().parents[2]
+    baseline = "db47d244345e0263ff9101f0eeec4757ed92d0fe"
+    text = subprocess.check_output(["git", "show", f"{baseline}:src/experiments/{name}.py"], cwd=root)
+    old = types.ModuleType("_pool_provenance_" + name)
+    exec(compile(text, name, "exec"), old.__dict__)
+    current = importlib.import_module("experiments." + name)
+    rng = np.random.default_rng(100)
+    pools = {config: rng.normal(center, .3, (40, 105)) for config, center in
+             (("8screws", 0), ("7screws", 2), ("6screws", 3), ("5screws", 4), ("4screws", 5))}
+    iterator = "iter_playback" if name.startswith("exp2") else "iter_run"
+    kwargs = {"max_ticks_per_stage": 5} if name.startswith("exp2") else (
+        {"n_trials": 1} if name.startswith("exp3") else {})
+    expected = jsonable(list(getattr(old, iterator)(pools, seed=42, **kwargs)))
+    actual = jsonable(list(getattr(current, iterator)(pools, seed=42, **kwargs)))
+    provenance = actual[-1]["result"].pop("provenance")
+    assert provenance["source"]["status"] == "UNVERIFIED_MEMORY"
+    assert actual == expected
+
+
+def test_web_batch_stream_and_file_edit_use_actual_source(tmp_path):
+    from web.experiments import ExperimentRunner
+
+    root, dataset = fixture(tmp_path)
+    runner = ExperimentRunner(discover_datasets(root), str(root), out_dir=tmp_path / "output")
+    batch = runner.run("exp1", {"seed": 42})
+    frames = list(runner.stream("exp1", {"seed": 42}))
+    streamed = frames[-1][0]["payload"]
+    one = batch["result"]["provenance"]["source"]
+    two = streamed["result"]["provenance"]["source"]
+    assert one["dataset_fingerprint"] == two["dataset_fingerprint"]
+    assert one["row_mapping"] == two["row_mapping"]
+    assert runner._source_cache.hits == 1
+    source = next(dataset.rglob("*_clean.csv"))
+    lines = source.read_text(encoding="utf-8").splitlines()
+    fields = lines[1].split(",")
+    fields[0] = str(float(fields[0]) + 1)
+    lines[1] = ",".join(fields)
+    source.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    changed = runner.run("exp1", {})
+    assert changed["result"]["provenance"]["source"]["data_version"] != one["data_version"]
+
+
+@pytest.mark.parametrize("name", ["exp1_cold_start", "exp2_scale_growth", "exp3_trend"])
+def test_cli_uses_traced_loader_and_same_run_environment(tmp_path, name):
+    import importlib
+
+    root, _ = fixture(tmp_path)
+    module = importlib.import_module("experiments." + name)
+    result = {"rows": [], "stages": [], "trials": [], "summary": {}, "final_known": [],
+              "healthy_fp_rate": 0, "macro_detect_rate": 0, "macro_auroc": 0}
+    with patch.object(module, "run", return_value=result) as callback, \
+            patch("sys.argv", [name, "--data-root", str(root)]):
+        if name.startswith("exp1"):
+            with patch.object(module, "_make_figure"), patch.object(module, "save_plot"):
+                module.main()
+        else:
+            module.main()
+    source = callback.call_args.kwargs["source_context"]
+    assert source.public["status"] == "VERIFIED"
+    files = list(Path("output").glob(name + "/*/source.json"))
+    assert files and json.loads(files[-1].read_text())["status"] == "VERIFIED"
+    assert (files[-1].parent / "environment.json").is_file()
+    assert "source_context" not in json.dumps(result)
+
+
+@pytest.mark.parametrize("stream", [False, True])
+def test_web_source_failure_is_saved_without_private_payload(tmp_path, stream):
+    from web.experiments import ExperimentRunner
+
+    root, dataset = fixture(tmp_path)
+    runner = ExperimentRunner(discover_datasets(root), str(root), out_dir=tmp_path / "output")
+    next(dataset.rglob("*_clean.csv")).write_text("私人損壞內容", encoding="utf-8")
+    with pytest.raises(ProvenanceError):
+        list(runner.stream("exp1", {})) if stream else runner.run("exp1", {})
+    files = list((tmp_path / "output/experiments").glob("exp1_*.json"))
+    saved = files[0].read_text(encoding="utf-8")
+    assert json.loads(saved)["status"] == "FAILED"
+    assert str(root) not in saved and "私人損壞內容" not in saved

@@ -20,7 +20,8 @@ import numpy as np
 from core.data import HEALTHY, display_name
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import add_dataset_args, add_openset_args, resolve_dataset, save_json
+from core.runner import (add_dataset_args, add_openset_args, run_dataset, save_json,
+                         execution_context, finish_execution)
 
 
 def run(
@@ -30,9 +31,11 @@ def run(
     method: str = "ledoit_wolf",
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
+    source_context=None,
 ) -> dict:
     """批次介面：把 iter_run 跑完，回傳最後的結果。"""
-    for event in iter_run(pools, seed, confidence, method, openset_method, knn_neighbors):
+    for event in iter_run(pools, seed, confidence, method, openset_method, knn_neighbors,
+                          source_context=source_context):
         pass
     return event["result"]
 
@@ -44,12 +47,15 @@ def iter_run(
     method: str = "ledoit_wolf",
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
+    source_context=None,
 ):
     """逐步產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
     事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數）與 row
     （該配置的統計列），最後一個是 result（與 run() 回傳值相同）。
     """
+    provenance = execution_context(pools, source_context, seed=seed, confidence=confidence,
+        method=method, openset_method=openset_method, knn_neighbors=knn_neighbors)
     monitor = OpenSetMonitor(
         pools,
         seed=seed,
@@ -114,6 +120,7 @@ def iter_run(
         "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
         "seed": seed,
+        "provenance": finish_execution(provenance, pools, source_context),
     }}
 
 
@@ -150,20 +157,16 @@ def main() -> None:
     add_openset_args(parser)
     args = parser.parse_args()
 
-    ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp1_cold_start")
-    log.info(f"實驗一：冷啟動偵測 — {ds['motor']}/{ds['rpm']}"
-             f"（openset={args.openset_method}, method={args.method}, "
-             f"confidence={args.confidence}, seed={args.seed}）")
-
-    result = run(
-        pools,
+    log, paths = setup_run("exp1_cold_start", unique=True)
+    ds, result = run_dataset(
+        args, paths, run,
         seed=args.seed,
         confidence=args.confidence,
         method=args.method,
         openset_method=args.openset_method,
         knn_neighbors=args.knn_neighbors,
     )
+    log.info("實驗一：冷啟動偵測 — {}/{}", ds["motor"], ds["rpm"])
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
 
     import pandas as pd
