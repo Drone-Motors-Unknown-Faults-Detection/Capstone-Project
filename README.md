@@ -251,7 +251,17 @@ venv/bin/python -m experiments.exp6_osr_benchmark
 ### 實驗七：Open Set 方法切換與單工況公平比較（`compare_openset`）
 
 程式 `src/experiments/compare_openset.py`，技術報告 [docs/experiments/exp7_compare_openset.md](docs/experiments/exp7_compare_openset.md)。
-所有實驗及 Web server 都可用同一個 CLI 介面切換 detector：
+切換 detector 的 CLI 參數各入口不同（以各模組的 argparse 為準）：
+
+- 實驗一、二、三與 `web.server`、`web.guide` 經 `core.runner.add_openset_args`，有 `--openset-method`
+  （mahalanobis／knn）、`--method`（共變異數估計）、`--confidence`、`--knn-neighbors`。
+- 實驗六正式版 `exp6_formal_benchmark` 與實驗八 `health_index_benchmark` 自己宣告同名的四個參數；
+  `health_monitor` 有 `--openset-method`、`--method`、`--knn-neighbors`，沒有 `--confidence`。
+- 實驗七 `compare_openset` 用複數 `--openset-methods`，一次跑多個方法。
+- `exp6_matrix`、`health_index_matrix` 的 `--method` 是 detector 家族（mahalanobis／knn），可重複給。
+- 實驗四沒有 detector 參數；實驗五、十只有 `--method`（共變異數估計）與 `--confidence`；實驗六廣度版、
+  實驗十二只有 `--confidence`；實驗十一用 `--methods legacy,ledoit_wolf`。這些入口固定用 Mahalanobis。
+
 
 ```bash
 # 既有方法（預設）：逐類 Ledoit–Wolf Mahalanobis

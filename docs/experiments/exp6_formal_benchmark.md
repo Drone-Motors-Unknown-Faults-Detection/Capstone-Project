@@ -8,9 +8,9 @@
 |---|---|---:|---|---|---|
 | 健康train／cal／test | 健康池313列 | 187／62／64 | 各除以313 | 模型／q95／誤報 | 列級互斥 |
 | 未知test | 九fault配置 | 2736 | 故障池100% | 拒絕與排序 | 不進fit／cal |
-| 全root合計 | 本機六工況 | 1124／373／380，未知17176 | 逐池取整後加總 | 可用量查核 | 方法／seed會重用 |
+| 全root合計 | 九工況 | 1689／560／572，未知26070 | 逐池取整後加總 | 可用量查核 | 方法／seed會重用 |
 
-來源為[用量產物](README.md#資料用量與分母怎麼讀)，不是新benchmark分數。此runner連續使用RNG；相同數量不表示與單工況monitor有相同索引。CLI正式coverage要求與Web的require_nine=False不同；六工況不能當九工況完整PASS。沒有validation選方法；unknown不調門檻。
+來源為[用量產物](README.md#資料用量與分母怎麼讀)，不是新benchmark分數。此runner連續使用RNG；相同數量不表示與單工況monitor有相同索引。CLI正式coverage要求與Web的require_nine=False不同；現行`data`九工況齊全；少於九工況時不能當完整PASS。沒有validation選方法；unknown不調門檻。
 
 ## 發表與理解檢查
 
@@ -65,7 +65,7 @@ API未傳 evidence_paths 時，以 setup_run("exp6_formal_api", unique=True) 寫
 | known_accuracy／open_set_accuracy | 健康接受率／健康對fault二元正確率；後者受類別比例影響 |
 | auroc／aupr_unknown_positive | unknown為正類的排序／平均精確率；AUPR須同時看正類比例 |
 | unknown_precision／unknown_recall／unknown_f1 | 判未知的精確率／召回／調和平均，零分母按sklearn設0 |
-| fpr_at_tpr95 | fault分數5%分位數的事後診斷線，健康score≥該線比例；不是已校準部署線 |
+| fpr_at_tpr95 | `core.openset.fpr_at_tpr`：unknown為正類，取ROC上TPR≥0.95的最小FPR（#235，實驗六廣度、正式版與實驗七共用）；事後評估點，不是已校準部署線 |
 | raw_thresholds／threshold_strategy | cal的原距離線與政策，正規化threshold固定1 |
 | inference_seconds／peak_memory_mb | 兩次打分的耗秒，不含fit；記憶體未量測為null |
 

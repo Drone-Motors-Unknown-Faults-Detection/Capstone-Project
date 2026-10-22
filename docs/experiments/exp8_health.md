@@ -13,7 +13,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 ## 資料角色用量表
 
-四個入口共用同一套切分：健康池 60/20/20 分成 train、calibration、healthy test，其他配置整池當 unknown test。下表以 T1／8000rpm 為例，健康池 313 列、故障池 2736 列；本機其他工況的數量見[六工況總表](README.md#資料用量與分母怎麼讀)。
+四個入口共用同一套切分：健康池 60/20/20 分成 train、calibration、healthy test，其他配置整池當 unknown test。下表以 T1／8000rpm 為例，健康池 313 列、故障池 2736 列；其他工況的數量見[九工況總表](README.md#資料用量與分母怎麼讀)。
 
 | 入口 | 資料角色 | 有效數量 | 比例與分母 | 用途 | 重疊 |
 |---|---|---:|---|---|---|
@@ -27,7 +27,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 | 封存重算 | 唯讀來源 | 16 檔 | 檔案數，不是樣本數 | SHA 與 schema 規範 | 不修改來源 |
 | 封存重算 | 摘要輸入 | 54 列 | 每方法 27 列等權 | 全域 mean／std | 同 motor／RPM／seed 有資料依賴 |
 
-沒有獨立 validation，也沒有用 unknown 選參。本機缺 T2，不能把六工況補成封存的九工況 54 列；封存包是另一個資料版本，不和本機數量混用。
+沒有獨立 validation，也沒有用 unknown 選參。`reports/exp8_health_index_results/` 封存包讀的是 `data/formal_local`，和現行 `data` 不是同一份檔案，數量不混用。
 
 ## 發表與理解檢查
 
@@ -46,7 +46,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 正式資料目前到相對健康基準、開集未知、相對健康指數、依筆數的監測與告警。有 motor×RPM 工況與 105 維 clean features，沒有可靠 timestamp、實體 motor ID、session ID、failure endpoint、維修事件、物理 fault cause 或正式嚴重度標籤。本頁不把指數說成損傷百分比、真實故障類型、真實嚴重階段或剩餘壽命。
 
-本機用量見 [六工況總表](README.md#資料用量與分母怎麼讀)：缺 T2，不能把六工況補成封存的九工況。封存包是另一個資料版本，指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`。T1／T2／T3 是不同馬達，不能串成一條壽命。
+現行 `data` 用量見 [九工況總表](README.md#資料用量與分母怎麼讀)，指紋 `1b55b847…`。封存包讀 `data/formal_local`，指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`。T1／T2／T3 是不同馬達，不能串成一條壽命。
 
 ## 模組資料流
 

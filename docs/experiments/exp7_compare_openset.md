@@ -48,7 +48,7 @@ main經setup_run寫logs/openset_comparison/{ts}.log、output/openset_comparison/
 
 results的auroc／aupr_unknown_positive是unknown正類排序／平均精確率；AUPR與open_set_accuracy受fault比例影響。unknown_recall／precision／f1_unknown按score>1算，零分母為0；known_class_accuracy按classify是否回healthy算。details的healthy列unknown_recall其實是健康誤報率，fault列才是未知召回率，並列n與無因次median_score。
 
-fpr_at_95_tpr取ROC上TPR≥0.95的最小FPR，是事後評估點，不修改門檻；與正式版用unknown分位數的近似算法不同，有ties時不應要求兩入口完全同值。class_thresholds是原距離線，正規化線為1。
+fpr_at_95_tpr取ROC上TPR≥0.95的最小FPR，是事後評估點，不修改門檻；實驗六廣度、正式版與本入口都呼叫`core.openset.fpr_at_tpr`（#235），定義相同。class_thresholds是原距離線，正規化線為1。
 
 預期兩法產生有限分數，unknown高於healthy且誤報低；沒有通用成功數字。不按這張圖自動換預設；同工況好分數不代表跨馬達、fresh final或真實損壞辨識。九工況三seed的比較見[實驗六矩陣](exp6_matrix.md#輸出怎麼看)，不是本單工況實測。
 
