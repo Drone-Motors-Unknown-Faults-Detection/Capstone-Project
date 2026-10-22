@@ -1,0 +1,20 @@
+2026-10-22 21:47:00 | INFO    | Logger initialized: exp4_polar_map
+2026-10-22 21:47:00 | INFO    | log_file=logs/exp4_polar_map/2026-10-22-21-47-00.log
+2026-10-22 21:47:00 | INFO    | output_dir=output/exp4_polar_map/2026-10-22-21-47-00
+2026-10-22 21:47:00 | INFO    | 實驗四：極座標健康地圖 — T1/8000rpm（part=abc, seed=42）
+2026-10-22 21:47:10 | INFO    | (a) 射線結構：中段均勻族內 cos=0.9209, 均勻 vs 3_14=0.7586, 均勻 vs 4_146=0.4875
+2026-10-22 21:47:10 | INFO    | (b) 已知=7screws: AUROC(家族 vs 4_146)=0.9968｜家族中位 0.7058｜4_146 中位 0.4857｜3_14 中位 0.7185
+2026-10-22 21:47:10 | INFO    | (b) 已知=1screws: AUROC(家族 vs 4_146)=0.1463｜家族中位 0.441｜4_146 中位 0.5302｜3_14 中位 0.5968
+2026-10-22 21:47:10 | INFO    | (b) 已知=7screws+1screws: AUROC(家族 vs 4_146)=0.8893｜家族中位 0.6293｜4_146 中位 0.5888｜3_14 中位 0.6252
+2026-10-22 21:47:10 | INFO    | (b) 已知=5screws: AUROC(家族 vs 4_146)=1.0｜家族中位 0.6823｜4_146 中位 0.2118｜3_14 中位 0.4896
+2026-10-22 21:47:10 | INFO    | (b) 已知=3_14screws: AUROC(家族 vs 4_146)=0.8686｜家族中位 0.6937｜4_146 中位 0.5066｜3_14 中位 None
+2026-10-22 21:47:10 | INFO    | (c) 嚴重度 Spearman：{'radius': 0.8766, 'best_ray': 0.1944, 'bundle': 0.8083}
+2026-10-22 21:47:10 | INFO    |     7screws    radius=0.499 best_ray=0.999 bundle=0.490
+2026-10-22 21:47:10 | INFO    |     6screws    radius=0.554 best_ray=0.738 bundle=0.468
+2026-10-22 21:47:10 | INFO    |     5screws    radius=0.704 best_ray=0.893 bundle=0.549
+2026-10-22 21:47:10 | INFO    |     4screws    radius=0.705 best_ray=0.868 bundle=0.525
+2026-10-22 21:47:10 | INFO    |     3screws    radius=0.649 best_ray=0.875 bundle=0.534
+2026-10-22 21:47:10 | INFO    |     2screws    radius=0.756 best_ray=0.900 bundle=0.602
+2026-10-22 21:47:10 | INFO    |     1screws    radius=1.012 best_ray=1.004 bundle=1.002
+2026-10-22 21:47:11 | INFO    | 圖表已儲存：output/exp4_polar_map/2026-10-22-21-47-00/polar_map.png
+2026-10-22 21:47:11 | INFO    | 輸出：output/exp4_polar_map/2026-10-22-21-47-00
