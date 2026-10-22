@@ -23,7 +23,7 @@ uv pip check --python venv/bin/python
 
 `core.runtime_environment.collect_environment()` 收集 Python、OS、架構、套件版本、Git HEAD／tracked dirty 與鎖版 SHA。`constraints_sha256` 沿用欄位名稱，現行值取自 uv.lock；不保存環境變數、token、使用者名稱或絕對 executable／資料路徑。Git 無法讀取時記 UNKNOWN。
 
-`core.logger.setup_run()` 將紀錄寫入該 run 的 `environment.json`；`make_output=False` 則寫 log。安裝入口呼叫 `python -m core.runtime_environment`，寫入 `logs/environment_install/` 與 `output/environment_install/`。直接呼叫未初始化的 API，或未使用 setup_run 的入口，沒有自動保存 sidecar 的保證；缺口見 [#24](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/24)。
+`core.logger.setup_run()` 將紀錄寫入該 run 的 `environment.json`；`make_output=False` 則寫 log。安裝入口呼叫 `python -m core.runtime_environment`，寫入 `logs/environment_install/` 與 `output/environment_install/`。健康 CLI（`experiments.health_index_benchmark`、`health_index_matrix`、`health_monitor`、`health_index_aggregate`）都經 `setup_run` 寫 sidecar；直接呼叫、未經 `setup_run` 初始化的 API 不會自動保存 sidecar。
 
 ## 更新與支援邊界
 
