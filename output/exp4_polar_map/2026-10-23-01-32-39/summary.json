@@ -1,0 +1,504 @@
+{
+  "seed": 42,
+  "geometry": {
+    "ray_names": [
+      "7screws",
+      "6screws",
+      "5screws",
+      "4screws",
+      "3screws",
+      "2screws",
+      "1screws",
+      "3_14screws",
+      "4_146screws"
+    ],
+    "cos_matrix": [
+      [
+        1.0,
+        0.687,
+        0.6539,
+        0.6472,
+        0.637,
+        0.6121,
+        0.4564,
+        0.5721,
+        0.4799
+      ],
+      [
+        0.687,
+        1.0,
+        0.9534,
+        0.9495,
+        0.9393,
+        0.8715,
+        0.7324,
+        0.8152,
+        0.4968
+      ],
+      [
+        0.6539,
+        0.9534,
+        1.0,
+        0.9674,
+        0.9413,
+        0.8933,
+        0.742,
+        0.7723,
+        0.4762
+      ],
+      [
+        0.6472,
+        0.9495,
+        0.9674,
+        1.0,
+        0.9727,
+        0.8432,
+        0.7218,
+        0.7866,
+        0.4509
+      ],
+      [
+        0.637,
+        0.9393,
+        0.9413,
+        0.9727,
+        1.0,
+        0.8773,
+        0.7531,
+        0.8507,
+        0.4542
+      ],
+      [
+        0.6121,
+        0.8715,
+        0.8933,
+        0.8432,
+        0.8773,
+        1.0,
+        0.7319,
+        0.8012,
+        0.4491
+      ],
+      [
+        0.4564,
+        0.7324,
+        0.742,
+        0.7218,
+        0.7531,
+        0.7319,
+        1.0,
+        0.7122,
+        0.6052
+      ],
+      [
+        0.5721,
+        0.8152,
+        0.7723,
+        0.7866,
+        0.8507,
+        0.8012,
+        0.7122,
+        1.0,
+        0.5245
+      ],
+      [
+        0.4799,
+        0.4968,
+        0.4762,
+        0.4509,
+        0.4542,
+        0.4491,
+        0.6052,
+        0.5245,
+        1.0
+      ]
+    ],
+    "group_stats": {
+      "uniform_all_mean": 0.7897,
+      "uniform_mid_mean": 0.9209,
+      "mid_vs_7screws": 0.6474,
+      "mid_vs_1screws": 0.7362,
+      "uniform_vs_3_14": 0.7586,
+      "uniform_vs_4_146": 0.4875
+    },
+    "polar": {
+      "polarmap_base_method": "mahalanobis",
+      "tau_percentile": 5.0,
+      "rays": [
+        {
+          "config": "7screws",
+          "radius": 102.572506,
+          "tau": 0.974679
+        },
+        {
+          "config": "6screws",
+          "radius": 96.124721,
+          "tau": 0.987446
+        },
+        {
+          "config": "5screws",
+          "radius": 109.266244,
+          "tau": 0.99364
+        },
+        {
+          "config": "4screws",
+          "radius": 103.765817,
+          "tau": 0.99287
+        },
+        {
+          "config": "3screws",
+          "radius": 106.785833,
+          "tau": 0.992993
+        },
+        {
+          "config": "2screws",
+          "radius": 117.713094,
+          "tau": 0.984357
+        },
+        {
+          "config": "1screws",
+          "radius": 284.118194,
+          "tau": 0.988015
+        },
+        {
+          "config": "3_14screws",
+          "radius": 101.603261,
+          "tau": 0.989307
+        },
+        {
+          "config": "4_146screws",
+          "radius": 57.906587,
+          "tau": 0.956316
+        }
+      ]
+    }
+  },
+  "direction": {
+    "scenarios": [
+      {
+        "known": [
+          "7screws"
+        ],
+        "auroc_family_vs_4_146": 0.9968,
+        "median_family": 0.7058,
+        "median_4_146": 0.4857,
+        "median_3_14": 0.7185,
+        "per_config": {
+          "6screws": {
+            "median": 0.7528,
+            "p10": 0.7395,
+            "p90": 0.7646
+          },
+          "5screws": {
+            "median": 0.705,
+            "p10": 0.6946,
+            "p90": 0.7221
+          },
+          "4screws": {
+            "median": 0.6891,
+            "p10": 0.6799,
+            "p90": 0.7092
+          },
+          "3screws": {
+            "median": 0.7418,
+            "p10": 0.7269,
+            "p90": 0.7519
+          },
+          "2screws": {
+            "median": 0.7072,
+            "p10": 0.6692,
+            "p90": 0.7399
+          },
+          "1screws": {
+            "median": 0.6098,
+            "p10": 0.585,
+            "p90": 0.6372
+          },
+          "3_14screws": {
+            "median": 0.7185,
+            "p10": 0.6913,
+            "p90": 0.7443
+          },
+          "4_146screws": {
+            "median": 0.4857,
+            "p10": 0.3929,
+            "p90": 0.5648
+          }
+        }
+      },
+      {
+        "known": [
+          "1screws"
+        ],
+        "auroc_family_vs_4_146": 0.1463,
+        "median_family": 0.441,
+        "median_4_146": 0.5302,
+        "median_3_14": 0.5968,
+        "per_config": {
+          "7screws": {
+            "median": 0.1819,
+            "p10": 0.1407,
+            "p90": 0.2287
+          },
+          "6screws": {
+            "median": 0.4393,
+            "p10": 0.4062,
+            "p90": 0.4835
+          },
+          "5screws": {
+            "median": 0.4349,
+            "p10": 0.4219,
+            "p90": 0.4691
+          },
+          "4screws": {
+            "median": 0.4303,
+            "p10": 0.4092,
+            "p90": 0.4524
+          },
+          "3screws": {
+            "median": 0.4832,
+            "p10": 0.4626,
+            "p90": 0.5025
+          },
+          "2screws": {
+            "median": 0.5462,
+            "p10": 0.535,
+            "p90": 0.5641
+          },
+          "3_14screws": {
+            "median": 0.5968,
+            "p10": 0.5819,
+            "p90": 0.6129
+          },
+          "4_146screws": {
+            "median": 0.5302,
+            "p10": 0.4925,
+            "p90": 0.5558
+          }
+        }
+      },
+      {
+        "known": [
+          "7screws",
+          "1screws"
+        ],
+        "auroc_family_vs_4_146": 0.8893,
+        "median_family": 0.6293,
+        "median_4_146": 0.5888,
+        "median_3_14": 0.6252,
+        "per_config": {
+          "6screws": {
+            "median": 0.6512,
+            "p10": 0.629,
+            "p90": 0.678
+          },
+          "5screws": {
+            "median": 0.6204,
+            "p10": 0.61,
+            "p90": 0.648
+          },
+          "4screws": {
+            "median": 0.608,
+            "p10": 0.5977,
+            "p90": 0.6218
+          },
+          "3screws": {
+            "median": 0.6643,
+            "p10": 0.6469,
+            "p90": 0.6803
+          },
+          "2screws": {
+            "median": 0.6061,
+            "p10": 0.5779,
+            "p90": 0.6355
+          },
+          "3_14screws": {
+            "median": 0.6252,
+            "p10": 0.6105,
+            "p90": 0.6388
+          },
+          "4_146screws": {
+            "median": 0.5888,
+            "p10": 0.5644,
+            "p90": 0.6132
+          }
+        }
+      },
+      {
+        "known": [
+          "5screws"
+        ],
+        "auroc_family_vs_4_146": 1.0,
+        "median_family": 0.6823,
+        "median_4_146": 0.2118,
+        "median_3_14": 0.4896,
+        "per_config": {
+          "7screws": {
+            "median": 0.3676,
+            "p10": 0.3415,
+            "p90": 0.4011
+          },
+          "6screws": {
+            "median": 0.7507,
+            "p10": 0.6861,
+            "p90": 0.8897
+          },
+          "4screws": {
+            "median": 0.9087,
+            "p10": 0.8761,
+            "p90": 0.9227
+          },
+          "3screws": {
+            "median": 0.736,
+            "p10": 0.706,
+            "p90": 0.8146
+          },
+          "2screws": {
+            "median": 0.6679,
+            "p10": 0.6324,
+            "p90": 0.7091
+          },
+          "1screws": {
+            "median": 0.4372,
+            "p10": 0.4098,
+            "p90": 0.4795
+          },
+          "3_14screws": {
+            "median": 0.4896,
+            "p10": 0.4523,
+            "p90": 0.5263
+          },
+          "4_146screws": {
+            "median": 0.2118,
+            "p10": 0.1732,
+            "p90": 0.2555
+          }
+        }
+      },
+      {
+        "known": [
+          "3_14screws"
+        ],
+        "auroc_family_vs_4_146": 0.8686,
+        "median_family": 0.6937,
+        "median_4_146": 0.5066,
+        "median_3_14": null,
+        "per_config": {
+          "7screws": {
+            "median": 0.4595,
+            "p10": 0.4129,
+            "p90": 0.5058
+          },
+          "6screws": {
+            "median": 0.7041,
+            "p10": 0.6805,
+            "p90": 0.7242
+          },
+          "5screws": {
+            "median": 0.7225,
+            "p10": 0.7134,
+            "p90": 0.7449
+          },
+          "4screws": {
+            "median": 0.6866,
+            "p10": 0.6757,
+            "p90": 0.6964
+          },
+          "3screws": {
+            "median": 0.7614,
+            "p10": 0.7475,
+            "p90": 0.7732
+          },
+          "2screws": {
+            "median": 0.8092,
+            "p10": 0.7806,
+            "p90": 0.8165
+          },
+          "1screws": {
+            "median": 0.642,
+            "p10": 0.6166,
+            "p90": 0.679
+          },
+          "4_146screws": {
+            "median": 0.5066,
+            "p10": 0.4603,
+            "p90": 0.5472
+          }
+        }
+      }
+    ]
+  },
+  "severity": {
+    "anchors": [
+      "7screws",
+      "1screws"
+    ],
+    "rows": [
+      {
+        "config": "7screws",
+        "rank": 0,
+        "n": 322,
+        "sev_radius_median": 0.4994,
+        "sev_best_ray_median": 0.9993,
+        "sev_bundle_median": 0.4904
+      },
+      {
+        "config": "6screws",
+        "rank": 1,
+        "n": 314,
+        "sev_radius_median": 0.554,
+        "sev_best_ray_median": 0.7381,
+        "sev_bundle_median": 0.4684
+      },
+      {
+        "config": "5screws",
+        "rank": 2,
+        "n": 212,
+        "sev_radius_median": 0.7044,
+        "sev_best_ray_median": 0.8935,
+        "sev_bundle_median": 0.5495
+      },
+      {
+        "config": "4screws",
+        "rank": 3,
+        "n": 287,
+        "sev_radius_median": 0.705,
+        "sev_best_ray_median": 0.8678,
+        "sev_bundle_median": 0.525
+      },
+      {
+        "config": "3screws",
+        "rank": 4,
+        "n": 241,
+        "sev_radius_median": 0.6486,
+        "sev_best_ray_median": 0.875,
+        "sev_bundle_median": 0.5338
+      },
+      {
+        "config": "2screws",
+        "rank": 5,
+        "n": 288,
+        "sev_radius_median": 0.7562,
+        "sev_best_ray_median": 0.9,
+        "sev_bundle_median": 0.6024
+      },
+      {
+        "config": "1screws",
+        "rank": 6,
+        "n": 349,
+        "sev_radius_median": 1.0124,
+        "sev_best_ray_median": 1.004,
+        "sev_bundle_median": 1.0016
+      }
+    ],
+    "spearman": {
+      "radius": 0.8766,
+      "best_ray": 0.1944,
+      "bundle": 0.8083
+    }
+  },
+  "dataset": {
+    "motor": "T1",
+    "rpm": "8000rpm"
+  }
+}

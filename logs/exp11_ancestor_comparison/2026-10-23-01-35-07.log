@@ -1,0 +1,12 @@
+2026-10-23 01:35:07 | INFO    | Logger initialized: exp11_ancestor_comparison
+2026-10-23 01:35:07 | INFO    | log_file=logs/exp11_ancestor_comparison/2026-10-23-01-35-07.log
+2026-10-23 01:35:07 | INFO    | output_dir=output/exp11_ancestor_comparison/2026-10-23-01-35-07
+2026-10-23 01:35:07 | INFO    | 實驗十一：原始論文對照（seeds=(42, 123, 2026), methods=('legacy', 'ledoit_wolf')）
+2026-10-23 01:36:14 | INFO    | Protocol A legacy       Accuracy=0.8300  BalancedAcc=0.1667  macroF1=0.1512  unknownF1=0.9071
+2026-10-23 01:36:14 | INFO    | Protocol A ledoit_wolf  Accuracy=0.9898  BalancedAcc=0.9505  macroF1=0.9730  unknownF1=0.9939
+2026-10-23 01:36:14 | INFO    | Protocol B legacy       Accuracy=0.9784  BalancedAcc=0.5000  macroF1=0.4946  unknownF1=0.9891
+2026-10-23 01:36:14 | INFO    | Protocol B ledoit_wolf  Accuracy=0.9988  BalancedAcc=0.9714  macroF1=0.9847  unknownF1=0.9994
+2026-10-23 01:36:14 | INFO    | protocol_A_macro_f1: Δ=82.18pp  W=0.0  p=0.0  n=27
+2026-10-23 01:36:14 | INFO    | protocol_B_macro_f1: Δ=49.02pp  W=0.0  p=6e-06  n=27
+2026-10-23 01:36:14 | INFO    | 圖表已儲存：output/exp11_ancestor_comparison/2026-10-23-01-35-07/ancestor_comparison.png
+2026-10-23 01:36:14 | INFO    | 輸出：output/exp11_ancestor_comparison/2026-10-23-01-35-07

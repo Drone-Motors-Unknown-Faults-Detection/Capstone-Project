@@ -1,0 +1,13 @@
+2026-10-23 01:34:24 | INFO    | Logger initialized: exp10_transfer
+2026-10-23 01:34:24 | INFO    | log_file=logs/exp10_transfer/2026-10-23-01-34-24.log
+2026-10-23 01:34:24 | INFO    | output_dir=output/exp10_transfer/2026-10-23-01-34-24
+2026-10-23 01:34:24 | INFO    | 實驗十：遷移學習（N=(10, 25, 50), method=ledoit_wolf, seed=42）
+2026-10-23 01:35:05 | INFO    | direct   N=0   AUROC=0.8930  健康接受=0.0%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | adapted  N=10  AUROC=0.9992  健康接受=7.3%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | adapted  N=25  AUROC=0.9992  健康接受=8.8%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | adapted  N=50  AUROC=0.9994  健康接受=9.3%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | scratch  N=10  AUROC=1.0000  健康接受=65.7%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | scratch  N=25  AUROC=1.0000  健康接受=83.6%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | scratch  N=50  AUROC=1.0000  健康接受=87.9%  故障偵測=100.0%
+2026-10-23 01:35:05 | INFO    | 圖表已儲存：output/exp10_transfer/2026-10-23-01-34-24/transfer_curve.png
+2026-10-23 01:35:05 | INFO    | 輸出：output/exp10_transfer/2026-10-23-01-34-24

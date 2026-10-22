@@ -1,0 +1,4 @@
+2026-10-23 01:37:14 | INFO    | Logger initialized: navigation_data_contract
+2026-10-23 01:37:14 | INFO    | log_file=logs/navigation_data_contract/2026-10-23-01-37-14.log
+2026-10-23 01:37:14 | INFO    | output_dir=output/navigation_data_contract/2026-10-23-01-37-14
+2026-10-23 01:37:15 | INFO    | 唯讀資料規範完成；沒有訓練或評估
