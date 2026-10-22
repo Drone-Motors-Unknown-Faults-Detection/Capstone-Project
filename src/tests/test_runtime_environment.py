@@ -84,6 +84,19 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertNotIn("executable", result)
         self.assertNotIn("environ", result)
 
+    def test_records_blas_and_host(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = runtime.collect_environment(Path(directory))
+        self.assertIn("host", result["os"])
+        self.assertLessEqual({"blas", "blas_version", "lapack"}, set(result["numeric"]))
+        self.assertIsNotNone(result["numeric"]["blas"])
+
+    def test_blas_unavailable_is_unknown(self):
+        with patch("numpy.show_config", side_effect=RuntimeError("no config")):
+            info = runtime.blas_info()
+        self.assertEqual(info["status"], "UNKNOWN")
+        self.assertIsNone(info["blas"])
+
     def test_setup_run_writes_json(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
             _, paths = setup_run("fixture_environment")
