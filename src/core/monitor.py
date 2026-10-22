@@ -151,6 +151,10 @@ class OpenSetMonitor:
         """已知配置的保留集（未參與擬合與校準）。"""
         return self._pool(config)[self.splits[config].holdout]
 
+    def calibration(self, config: str) -> np.ndarray:
+        """已知配置的校準集（定門檻用，未參與擬合）。"""
+        return self._pool(config)[self.splits[config].cal]
+
     def summary(self) -> dict:
         """目前擬合狀態的可序列化摘要（保存用：逐類閾值與樣本數）。"""
         self._require_fitted()

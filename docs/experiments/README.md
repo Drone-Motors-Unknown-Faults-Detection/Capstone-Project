@@ -38,7 +38,7 @@
 | 編號 | 報告 | 程式 | 在問什麼 |
 |---|---|---|---|
 | 實驗一 | [exp1_cold_start](exp1_cold_start.md) | `src/experiments/exp1_cold_start.py` | 只用 `8screws` 建基準，九種故障抓不抓得到 |
-| 實驗二 | [exp2_scale_growth](exp2_scale_growth.md) | `src/experiments/exp2_scale_growth.py` | 未知樣本能否分群、經確認後擴張量尺 |
+| 實驗二 | [exp2_scale_growth](exp2_scale_growth.md) | `src/experiments/exp2_scale_growth.py` | 未知樣本能否分群、成群後只用該群自學擴張量尺 |
 | 實驗三 | [exp3_trend](exp3_trend.md) | `src/experiments/exp3_trend.py` | 漸進鬆脫與突發切換能否從分數序列分開 |
 | 實驗四 | [exp4_polar_map](exp4_polar_map.md) | `src/experiments/exp4_polar_map.py` | 故障方向與半徑能不能對上配置 |
 | 實驗五 | [exp5_cross_condition](exp5_cross_condition.md) | `src/experiments/exp5_cross_condition.py` | 某一工況的健康基準能否搬到別的工況 |
@@ -192,7 +192,7 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 | 編號 | 入口 | 邏輯 | 測試 | Web | 已提交的紀錄與結果 | 其他文件 |
 |---|---|---|---|---|---|---|
 | 實驗一 | `src/experiments/exp1_cold_start.py` | `src/core/monitor.py`、`src/core/openset.py`、`src/core/mahalanobis.py`、`src/core/data.py` | 無專屬（`src/tests/test_openset.py` 測共用偵測器） | `src/web/live.py`、`src/web/static/index.html` 分數串流圖；`src/web/experiments.py` 實驗頁 | `logs/`、`output/exp1_cold_start/` | 本頁「名詞」 |
-| 實驗二 | `src/experiments/exp2_scale_growth.py` | `ScaleGrowthSession`、`src/core/monitor.py`、`src/core/geometry.py` | 無專屬 | `src/web/live.py`、`src/web/server.py`、`src/web/static/index.html` 候選卡；`src/web/experiments.py` 實驗頁 | `logs/`、`output/exp2_scale_growth/`；`output/web_server/` | 本頁「名詞」 |
+| 實驗二 | `src/experiments/exp2_scale_growth.py` | `ScaleGrowthSession`、`src/core/monitor.py`、`src/core/geometry.py` | `src/tests/test_exp2_scale_growth.py` | `src/web/live.py`、`src/web/server.py`、`src/web/static/index.html` 候選卡；`src/web/experiments.py` 實驗頁 | `logs/`、`output/exp2_scale_growth/`；`output/web_server/` | 本頁「名詞」 |
 | 實驗三 | `src/experiments/exp3_trend.py` | `src/core/trend.py` | 無專屬 | `src/web/live.py`、`src/web/static/index.html` 變化點卡；`src/web/experiments.py` 實驗頁 | `logs/`、`output/exp3_trend/` | 本頁「即時展示畫面」 |
 | 實驗四 | `src/experiments/exp4_polar_map.py` | `src/core/geometry.py`、`src/core/mahalanobis.py` | `src/tests/test_geometry.py` | `src/web/live.py`、`src/web/static/index.html` 極座標地圖；`src/web/experiments.py` 實驗頁 | `logs/`、`output/exp4_polar_map/` | 本頁「即時展示畫面」 |
 | 實驗五 | `src/experiments/exp5_cross_condition.py` | `src/core/data.py`、`src/core/monitor.py` | 無專屬 | `src/web/static/index.html` 資料集下拉；`src/web/experiments.py` 實驗頁 | `logs/`、`output/exp5_cross_condition/` | 本頁「即時展示畫面」 |
