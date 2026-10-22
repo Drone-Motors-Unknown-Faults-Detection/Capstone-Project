@@ -106,16 +106,17 @@ def finish_execution(context, pools, source_context=None):
 class RootSources:
     """同一次跨工況執行的內容版本；不參與切分或消耗模型 RNG。"""
 
-    def __init__(self, data_root):
+    def __init__(self, data_root, *, pool_cache=None):
         self.root = Path(data_root).resolve()
         self.initial, _ = capture_source(self.root)
         self.loaded = {}
+        self.pool_cache = pool_cache
 
     def load(self, dataset):
         key = f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}"
         if key in self.loaded:
             raise ProvenanceError("跨工況來源鍵重複")
-        pools, context = load_pool_source(self.root, dataset["path"])
+        pools, context = load_pool_source(self.root, dataset["path"], cache=self.pool_cache)
         if context.public["data_version"] != self.initial["data_version"]:
             raise ProvenanceError("跨工況載入混用資料版本")
         self.loaded[key] = (pools, context)
@@ -136,7 +137,7 @@ class RootSources:
                              for key, (pools, context) in self.loaded.items()}}
 
 
-def run_root_sources(callback, data_root, *, output_dir=None, **parameters):
+def run_root_sources(callback, data_root, *, output_dir=None, pool_cache=None, **parameters):
     """root 入口共用前後核對；API 不另建 run，CLI 在 setup_run 後傳輸出目錄。"""
     target = Path(output_dir) / "source.json" if output_dir is not None else None
     source = {"status": "LOADING", "data_version": "UNKNOWN",
@@ -145,7 +146,7 @@ def run_root_sources(callback, data_root, *, output_dir=None, **parameters):
     if target is not None:
         save_json(target, source)
     try:
-        tracker = RootSources(data_root)
+        tracker = RootSources(data_root, pool_cache=pool_cache)
         result = callback(data_root, source_run=tracker, **parameters)
         source = tracker.finish()
         result["provenance"] = {"schema_version": "experiment_provenance_v1",

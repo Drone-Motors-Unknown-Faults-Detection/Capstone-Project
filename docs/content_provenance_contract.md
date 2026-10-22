@@ -32,7 +32,8 @@
 | Web exp1／exp2／exp3 批次與串流 | 共用 core 的內容快取與來源；回傳前再驗，來源／計算失敗保存 FAILED，不回覆 done 成功 |
 | exp4／exp7 CLI、run API；exp4 iterator；Web 相同入口 | 重用 PoolSource 與 run_dataset；exp7 各方法的結果各保存有效設定與 provenance；純記憶體 API 保留 UNVERIFIED_MEMORY |
 | exp5／廣度 exp6／exp10／exp11／exp12 run、CLI、Web 批次 | 共用 run_root_sources；逐工況 load_pool_source，前後核對全根版本及各池；CLI 同 run 保存 source.json 成功／失敗。結果參數記實際資料角色規則；列映射只到 clean CSV，不保證獨立錄製 |
-| exp8 批次／逐窗、matrix／aggregate | 仍有入口級或父產物來源缺口；setup_run 環境與 resolved config 不等於來源鏈完整 |
+| exp8 health_index_benchmark run／CLI／Web 批次 | 同一來源核對器支援內容快取；fit_audit 保存各工況健康 train／cal／holdout 列及未知評估配置，與 row_mapping 合讀 |
+| exp8 逐窗、matrix／aggregate | 仍有入口級或父產物來源缺口；setup_run 環境與 resolved config 不等於來源鏈完整 |
 | exp9 | 無獨立 runner，沿廣度 exp6 的支援範圍 |
 | exp13／首頁／guide | 有自己的契約／落盤，但不由此推論所有執行已具有完整 source_content_v2 鏈 |
 
