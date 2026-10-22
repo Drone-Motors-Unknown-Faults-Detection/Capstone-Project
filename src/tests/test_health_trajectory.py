@@ -123,8 +123,9 @@ class SessionTrajectoryTests(unittest.TestCase):
             predictor,
             config=TrajectoryConfig(min_history=2, ewma_alpha=1.0, enter_persistence=2, clear_persistence=2),
         )
-        states = self._stream(monitor, (0.4, 0.4, 0.1, 0.1))
-        self.assertEqual(states, ["normal", "warning", "warning", "critical"])
+        # the 3-window rolling median delays the drop by one window
+        states = self._stream(monitor, (0.4, 0.4, 0.1, 0.1, 0.1))
+        self.assertEqual(states, ["normal", "warning", "warning", "warning", "critical"])
 
     def test_warning_does_not_escalate_on_isolated_drop(self):
         def predictor(features, **kwargs):
@@ -144,12 +145,14 @@ class SessionTrajectoryTests(unittest.TestCase):
             return _result(float(features[0]), kwargs["timestamp"])
         monitor = SessionTrajectoryMonitor(
             predictor,
-            config=TrajectoryConfig(min_history=2, ewma_alpha=1.0, enter_persistence=3, clear_persistence=3),
+            config=TrajectoryConfig(min_history=2, ewma_alpha=1.0, enter_persistence=4, clear_persistence=3),
         )
-        states = self._stream(monitor, (0.4, 0.4, 0.4, 0.9, 0.9, 0.1, 0.9, 0.9, 0.9))
-        self.assertEqual(states[2], "warning")
-        self.assertEqual(states[5:8], ["warning", "warning", "warning"])
-        self.assertEqual(states[8], "normal")
+        # rolling medians: 0.4×5, 0.9, 0.9 (clear 2), 0.1, 0.1 (clear reset), 0.9×3 → normal
+        # without the reset the alarm would clear two windows earlier
+        states = self._stream(monitor, (0.4, 0.4, 0.4, 0.4, 0.9, 0.9, 0.1, 0.1, 0.9, 0.9, 0.9, 0.9))
+        self.assertEqual(states[:3], ["normal"] * 3)
+        self.assertEqual(states[3:11], ["warning"] * 8)
+        self.assertEqual(states[11], "normal")
 
     def test_alarm_hysteresis_requires_persistent_clear(self):
         def predictor(features, **kwargs):

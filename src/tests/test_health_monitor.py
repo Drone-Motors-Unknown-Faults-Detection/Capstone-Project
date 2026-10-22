@@ -83,7 +83,7 @@ class HealthMonitorWindows(unittest.TestCase):
         for c, items in events.items():
             calibration = items[0]["model"]["calibration"]
             self.assertEqual(calibration["confidence"], c)
-            self.assertEqual(items[0]["model"]["resolved_config"]["confidence"], c)
+            self.assertEqual(items[0]["model"]["resolved_config"]["effective"]["confidence"], c)
         self.assertNotEqual([e["window"]["openset_score"] for e in events[0.8][1:]],
                             [e["window"]["openset_score"] for e in events[0.95][1:]])
         self.assertEqual(self.call(run, "8screws", max_windows=5, confidence=0.8),
