@@ -75,6 +75,13 @@ class HealthMonitorWindows(unittest.TestCase):
             self.assertEqual(json.dumps(old, sort_keys=True), json.dumps(new, sort_keys=True))
             self.assertEqual(len(new), kwargs.get("max_windows", 60))
 
+    def test_confidence_changes_calibration_and_defaults_to_0_95(self):
+        default = self.call(run, "5screws", max_windows=10)
+        self.assertEqual(json.dumps(self.call(run, "5screws", max_windows=10, confidence=0.95), sort_keys=True),
+                         json.dumps(default, sort_keys=True))
+        loose = self.call(run, "5screws", max_windows=10, confidence=0.5)
+        self.assertNotEqual([r["openset_score"] for r in loose], [r["openset_score"] for r in default])
+
     def test_iter_run_matches_run(self):
         for config in ("8screws", "5screws"):
             events = list(iter_run(self.root, "T1", "8000rpm", config, seed=5,

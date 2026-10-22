@@ -347,8 +347,7 @@ class ExperimentRunner:
         if exp_id == "exp6_formal":
             run = getattr(importlib.import_module("experiments.exp6_formal_benchmark"), entry)
             return run(self.data_root, seed=seed, confidence=conf, openset_method=method,
-                       mahalanobis_method="ledoit_wolf" if mahal == "legacy" else mahal,
-                       knn_neighbors=k, require_nine=False)
+                       mahalanobis_method=mahal, knn_neighbors=k, require_nine=False)
         if exp_id == "exp7":
             run = getattr(importlib.import_module("experiments.compare_openset"), entry)
             return run(self._pools(p["dataset"]), seed=seed, confidence=conf,
@@ -364,7 +363,7 @@ class ExperimentRunner:
             if p["config"] not in self._pools(p["dataset"]):
                 raise ValueError(f"資料集 {p['dataset']} 沒有配置 {p['config']}")
             return run(self.data_root, ds["motor"], ds["rpm"], p["config"], seed=seed,
-                       openset_method=method, mahalanobis_method=mahal, knn_neighbors=k,
+                       openset_method=method, mahalanobis_method=mahal, confidence=conf, knn_neighbors=k,
                        motor_id="web-demo", session_id=f"{p['dataset']}-{p['config']}",
                        max_windows=p["max_windows"], require_identity=True)
         if exp_id == "exp9":

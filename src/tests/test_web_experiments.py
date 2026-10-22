@@ -2,6 +2,7 @@ import json
 import math
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -41,6 +42,24 @@ class CatalogTests(unittest.TestCase):
     def test_ids_are_unique(self):
         ids = [entry["id"] for entry in CATALOG]
         self.assertEqual(len(ids), len(set(ids)))
+
+
+class DispatchOptionTests(unittest.TestCase):
+    """伺服器的 --method／--confidence 原樣傳給實驗模組：不在實驗頁各自替換（#266、#267）。"""
+
+    def test_formal_benchmark_receives_server_method_unchanged(self):
+        runner = ExperimentRunner(FAKE_DATASETS, "data", detector_options={"mahalanobis_method": "legacy"})
+        with patch("experiments.exp6_formal_benchmark.run", return_value={}) as run:
+            runner._dispatch("exp6_formal", {"seed": 42, "openset_method": "mahalanobis"})
+        self.assertEqual(run.call_args.kwargs["mahalanobis_method"], "legacy")
+
+    def test_health_monitor_receives_server_confidence(self):
+        runner = ExperimentRunner(FAKE_DATASETS, "data", detector_options={"confidence": 0.9})
+        runner._pools_cache["T1/8000rpm"] = {"8screws": None}
+        with patch("experiments.health_monitor.run", return_value=[]) as run:
+            runner._dispatch("exp8_monitor", {"seed": 42, "openset_method": "mahalanobis", "dataset": "T1/8000rpm",
+                                              "config": "8screws", "max_windows": 5})
+        self.assertEqual(run.call_args.kwargs["confidence"], 0.9)
 
 
 class ParameterTests(unittest.TestCase):
