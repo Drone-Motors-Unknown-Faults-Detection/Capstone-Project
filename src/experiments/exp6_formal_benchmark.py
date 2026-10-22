@@ -286,8 +286,8 @@ def _run_benchmark(
         "formal_condition_count": len(rows),
         "dataset_fingerprint": dataset_fingerprint(data_path),
         "fingerprint_version": CONTENT_VERSION,
-        # Keep committed summaries portable and free of user-specific absolute paths.
-        "dataset_root": "formal_features",
+        # 只記資料根目錄名稱（例如 data、formal_local），不記使用者絕對路徑（#248）
+        "dataset_root": data_path.name,
         "positive_class": "unknown",
         "score_direction": "higher_is_unknown",
         "polarmap_base_method": "mahalanobis",

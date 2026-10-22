@@ -121,6 +121,12 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertNotEqual(first["dataset_fingerprint"], second["dataset_fingerprint"])
         self.assertNotIn(directory, json.dumps(first))
 
+    def test_explicit_data_root_overrides_argv(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}):
+            with patch.object(runtime.sys, "argv", ["x", "--data-root", "from_argv"]):
+                self.assertEqual(runtime.collect_environment(Path(directory))["data"], {"root": "from_argv"})
+                self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
+
     def test_setup_run_writes_json(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
             _, paths = setup_run("fixture_environment")
