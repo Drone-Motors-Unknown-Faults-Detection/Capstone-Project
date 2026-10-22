@@ -85,3 +85,56 @@ def test_monitor_cli_failure_preserves_environment(tmp_path):
     source = next(Path("output").glob("exp8_health_monitor/*/source.json"))
     assert json.loads(source.read_text())["status"] == "FAILED"
     assert (source.parent / "environment.json").is_file()
+
+
+@pytest.mark.parametrize("mode", ["binary", "health", "full"])
+@pytest.mark.parametrize("seed", [17, 23])
+def test_monitor_health_calibration_is_persisted_in_every_cli_mode(tmp_path, capsys, mode, seed):
+    from experiments.health_monitor import iter_run, main
+
+    root = _fixture(tmp_path / "features")
+    options = dict(seed=seed, openset_method="k-nn", mahalanobis_method="oas",
+                   knn_neighbors=3, max_windows=2, require_identity=False)
+    events = list(iter_run(root, "T1", "8000rpm", "7screws", **options))
+    calibration = events[0]["model"]["calibration"]
+    windows = [event["window"] for event in events if event["event"] == "window"]
+    assert main(["--data-root", str(root), "--motor", "T1", "--rpm", "8000rpm",
+                 "--config", "7screws", "--seed", str(seed), "--openset-method", "k-nn",
+                 "--method", "oas", "--knn-neighbors", "3", "--max-windows", "2",
+                 "--allow-no-identity", "--output-mode", mode]) == 0
+    saved = json.loads(next(Path("output/exp8_health_monitor").glob("*/metadata.json")).read_text())
+    assert saved["provenance"]["health_calibration"] == calibration
+    assert calibration["n_calibration"] == 6
+    assert calibration["confidence"] == .95
+    assert calibration["critical_anchor"] > calibration["healthy_anchor"]
+    resolved = saved["provenance"]["resolved_config"]
+    assert resolved["requested_method"] == "k-nn"
+    assert resolved["effective"]["knn_neighbors"] == 3
+    assert resolved["ignored"][0]["value"] == "oas"
+    printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    for actual, expected in zip(printed, windows, strict=True):
+        for key, value in actual.items():
+            if key != "provenance":
+                assert value == expected[key]
+    assert all(row["provenance"]["health_calibration"] == calibration for row in windows)
+    assert str(root) not in json.dumps(saved)
+
+
+def test_monitor_calibration_metadata_keeps_all_scientific_windows(tmp_path):
+    from experiments import health_monitor
+
+    project = Path(__file__).resolve().parents[2]
+    code = subprocess.check_output(["git", "show",
+        "720cf7a110d6ebdc448259ac8a091b646387d850:src/experiments/health_monitor.py"], cwd=project)
+    old = types.ModuleType("_paired_calibration_metadata")
+    exec(compile(code, "health_monitor", "exec"), old.__dict__)
+    root = _fixture(tmp_path / "features")
+    options = dict(seed=23, openset_method="knn", knn_neighbors=3, max_windows=4, require_identity=False)
+    expected = list(old.iter_run(root, "T1", "8000rpm", "8screws", **options))
+    actual = list(health_monitor.iter_run(root, "T1", "8000rpm", "8screws", **options))
+    assert actual[0]["model"] == expected[0]["model"]
+    for left, right in zip(actual, expected, strict=True):
+        assert left["event"] == right["event"]
+        if left["event"] == "window":
+            assert {key: value for key, value in left["window"].items() if key != "provenance"} == {
+                key: value for key, value in right["window"].items() if key != "provenance"}

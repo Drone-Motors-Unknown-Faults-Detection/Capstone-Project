@@ -108,7 +108,9 @@ def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanob
         knn_neighbors=knn_neighbors,
     )
     monitor = SessionTrajectoryMonitor(model, require_identity=require_identity)
-    yield {"event": "fitted", "model": model.metadata(), "provenance": context}
+    metadata = model.metadata()
+    context["health_calibration"] = metadata["calibration"]
+    yield {"event": "fitted", "model": metadata, "provenance": context}
     # 8screws 取與擬合不重疊的 holdout；其他配置沒參與擬合，依原順序取整池
     indices = split.holdout if config == HEALTHY else np.arange(len(pools[config]))
     samples = pools[config][indices]
