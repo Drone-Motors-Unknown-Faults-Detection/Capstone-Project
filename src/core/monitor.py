@@ -125,6 +125,7 @@ class OpenSetMonitor:
             confidence=effective["confidence"],
             mahalanobis_method=self.method,
             knn_neighbors=self.knn_neighbors,
+            random_state=self.seed,  # MCD 與其 PCA 的亂數來源跟著 seed 走（鐵則 7）
         ).fit(X_tr_s, y_tr, self.scaler.transform(X_ca), y_ca)
 
         self.pca = PCA(n_components=2, random_state=0).fit(X_tr_s)

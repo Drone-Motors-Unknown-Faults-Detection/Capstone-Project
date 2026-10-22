@@ -89,5 +89,13 @@ class SinglePassAndThreadTests(unittest.TestCase):
         np.testing.assert_array_equal(monitor.detector.predict_known_class(query), reference.predict_known_class(query))
 
 
+class SeedTests(unittest.TestCase):
+    def test_seed_reaches_mcd_detector(self):
+        monitor = OpenSetMonitor(_pools(), seed=123, method="mcd")
+        monitor.fit_initial()
+        self.assertEqual(monitor.detector.random_state, 123)
+        self.assertEqual(monitor.detector.pca_.random_state, 123)
+
+
 if __name__ == "__main__":
     unittest.main()

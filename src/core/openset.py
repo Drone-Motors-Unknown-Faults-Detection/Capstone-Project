@@ -264,21 +264,23 @@ def create_openset_detector(
     confidence: float = 0.95,
     mahalanobis_method: MahalanobisMethod = "ledoit_wolf",
     knn_neighbors: int = 5,
+    random_state: int = 42,
 ) -> OpenSetDetector:
     """建立 detector；所有實作的正規化 unknown threshold 都固定為 1。"""
     resolved = resolve_openset_config(openset_method, confidence=confidence,
                                       mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
-    return create_detector_from_config(resolved)
+    return create_detector_from_config(resolved, random_state=random_state)
 
 
-def create_detector_from_config(resolved: dict) -> OpenSetDetector:
-    """依 resolve_openset_config() 的結果建立 detector。"""
+def create_detector_from_config(resolved: dict, random_state: int = 42) -> OpenSetDetector:
+    """依 resolve_openset_config() 的結果建立 detector；random_state 只有 MCD（含其 PCA）會用到。"""
     openset_method = resolved["openset_method"]
     effective = resolved["effective"]
     if openset_method == "mahalanobis":
         return MahalanobisOpenSetDetector(
             method=effective["mahalanobis_method"],
             confidence=effective["confidence"],
+            random_state=random_state,
         )
     if openset_method == "knn":
         return KNNOpenSetDetector(confidence=effective["confidence"], n_neighbors=effective["knn_neighbors"])

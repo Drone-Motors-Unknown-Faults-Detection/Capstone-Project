@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 
 from core.mahalanobis import MahalanobisOpenSetDetector, _distances
+from core.openset import create_detector_from_config, create_openset_detector, resolve_openset_config
 
 
 def _data(seed: int = 3, n: int = 40, dim: int = 6):
@@ -43,6 +44,21 @@ class ScoreAndPredictTests(unittest.TestCase):
                 scores, labels = detector.score_and_predict(query)
                 np.testing.assert_array_equal(scores, detector.score_samples(query))
                 np.testing.assert_array_equal(labels, detector.predict_known_class(query))
+
+
+class SeedForwardingTests(unittest.TestCase):
+    def test_factory_forwards_random_state_to_mcd(self):
+        resolved = resolve_openset_config("mahalanobis", mahalanobis_method="mcd")
+        self.assertEqual(create_detector_from_config(resolved, random_state=2026).random_state, 2026)
+        self.assertEqual(create_openset_detector("mahalanobis", mahalanobis_method="mcd", random_state=7).random_state, 7)
+        self.assertEqual(create_detector_from_config(resolved).random_state, 42)
+
+    def test_mcd_with_same_seed_reproduces_and_pca_takes_seed(self):
+        X_train, y_train, X_cal, y_cal = _data(n=60, dim=5)
+        a = MahalanobisOpenSetDetector(method="mcd", random_state=5).fit(X_train, y_train, X_cal, y_cal)
+        b = MahalanobisOpenSetDetector(method="mcd", random_state=5).fit(X_train, y_train, X_cal, y_cal)
+        np.testing.assert_array_equal(a.score_samples(X_cal), b.score_samples(X_cal))
+        self.assertEqual(a.pca_.random_state, 5)
 
 
 if __name__ == "__main__":

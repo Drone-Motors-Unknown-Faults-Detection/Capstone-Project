@@ -203,3 +203,17 @@ class MatchedRateAndHealthyMixTests(unittest.TestCase):
 if __name__ == "__main__":
     unittest.main()
 
+
+class ResultProvenanceTests(unittest.TestCase):
+    """#273：結果欄位取自 monitor.summary()，別名呼叫與 model 區塊一致。"""
+
+    def test_alias_openset_method_is_canonical_in_result(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=5, openset_method="k-nn", knn_neighbors=3)
+        self.assertEqual(result["openset_method"], "knn")
+        self.assertEqual(result["knn_neighbors"], 3)
+        self.assertEqual(result["model"]["openset_method"], "knn")
+        default = exp2.run(_pools(), seed=42, max_ticks_per_stage=5)
+        self.assertEqual(default["openset_method"], "mahalanobis")
+        self.assertIsNone(default["knn_neighbors"])
+        self.assertEqual(default["calibration_source"], "known-only 20% calibration split")
+        self.assertEqual(default["split"], {"train": 0.6, "calibration": 0.2, "holdout": 0.2})
