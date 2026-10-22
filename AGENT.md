@@ -110,6 +110,11 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
     `[tool.ruff.lint] select`（`E4`／`E7`／`E9`／`F`），不依賴 ruff 版本的預設集合。
     CI 用 `.github/workflows/ci.yml` 的獨立 `Ruff` step 跑這關；提交前本機先跑
     `./scripts/quantity/run_ruff.sh`，有錯就地修掉，不要用 `# noqa` 繞過真正的問題。
+13. **測試與實驗只在 Aero 或 Spark 主機執行。** 提交前檢查（`./scripts/quantity/run_pytest.sh`、
+    `./scripts/quantity/run_ruff.sh`）與所有會寫 `logs/`／`output/` 的實驗 CLI，都在 `ssh aero` 或 `ssh spark`
+    上跑，不在個人筆電（macOS）跑。
+    原因：macOS 的 numpy 連結 Apple Accelerate，同 seed 數字與兩台 Linux（scipy-openblas）不同（#224）；
+    Aero 與 Spark 彼此一致。引用的輸出要能從 `environment.json` 的 `os.host`、`numeric.blas` 對回這兩台。
 
 ---
 
