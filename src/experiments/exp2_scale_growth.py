@@ -3,8 +3,10 @@
 ScaleGrowthSession 是核心狀態機（首頁即時展示由操作員呼叫 confirm()）：
     1. 每筆樣本以 OpenSetMonitor 打分；判為未知且分數 > quarantine_margin 者進隔離區
     2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
-    3. adopt() 不請操作員指出故障程度：只用這一群已到達樣本切分並重擬合，
-       類名是 discovered-N。真實配置只留在事後對照，不進模型。
+    3. adopt() 不請操作員指出故障程度：群沒有比已知校準資料更遠就退回；否則只用這一群
+       已到達樣本切分並重擬合，類名是 discovered-N，再把隔離區中已被新模型接受的殘餘移出。
+       真實配置只留在事後對照，不進模型。
+    批次重播先從每個未知配置池切出 20% 外部評估集，重播只抽其餘列。
 
 兩段閾值設計：
     - 偵測線 1.0：正規化分數 > 1 即判「未知」（逐樣本判定與警報用）
@@ -46,6 +48,7 @@ class ScaleGrowthSession:
         min_samples: int = 3,
         recluster_every: int = 10,
         quarantine_margin: float = 2.0,
+        adaptive_density: bool = True,
     ) -> None:
         self.pools = pools
         self.monitor = OpenSetMonitor(
@@ -58,6 +61,7 @@ class ScaleGrowthSession:
         )
         self.monitor.fit_initial()
         self.min_cluster_size = min_cluster_size
+        self.adaptive_density = adaptive_density
         self.min_samples = min_samples
         self.recluster_every = recluster_every
         self.quarantine_margin = quarantine_margin
@@ -110,6 +114,8 @@ class ScaleGrowthSession:
         放寬的只是 HDBSCAN 的密度要求，純度不受影響（mcs 越小切得越細）。
         """
         ladder = [(self.min_cluster_size, self.min_samples)]
+        if not self.adaptive_density:  # 消融對照：只用最嚴格的一階
+            return ladder
         if n >= 3 * self.min_cluster_size:
             ladder.append((max(15, self.min_cluster_size // 2), self.min_samples))
         if n >= 4 * self.min_cluster_size:
@@ -187,8 +193,34 @@ class ScaleGrowthSession:
         self._since_cluster = self.recluster_every
         return result
 
+    def _drop_quarantine(self, drop: set[int]) -> None:
+        keep = [i for i in range(len(self.quarantine_X)) if i not in drop]
+        self.quarantine_X = [self.quarantine_X[i] for i in keep]
+        self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
+        self.quarantine_t = [self.quarantine_t[i] for i in keep]
+
+    def known_cal_max(self) -> float:
+        """目前所有已知類校準列的最大正規化分數：已知資料最遠能到哪裡。"""
+        cal = np.vstack([self.monitor.calibration(c) for c in self.monitor.known])
+        return float(self.monitor.score(cal).max())
+
+    def _prune_explained(self) -> int:
+        """重擬合後，隔離區中已被任一已知類接受的列移出，不再參與分群。不讀 truth。"""
+        if not self.quarantine_X:
+            return 0
+        labels = self.monitor.classify(np.vstack(self.quarantine_X))
+        explained = {i for i, label in enumerate(labels) if label is not None}
+        self._drop_quarantine(explained)
+        return len(explained)
+
     def adopt(self) -> dict:
-        """候選一成形就用該群樣本自學。不讀完整配置池，也不等操作員命名。"""
+        """候選一成形就用該群樣本自學。不讀完整配置池，也不等操作員命名。
+
+        三種結果，都不讀 truth（matched／purity 只放事後對照）：
+        - ``rejected_boundary``：群的中位分數沒有超過已知類校準最大值，與已知邊界無從區分 → 清掉該群。
+        - ``insufficient``：群不足 5 筆，切不出 train／cal。
+        - ``learned``：註冊成 discovered-N 並重擬合，再把隔離區中已被新模型接受的殘餘移出。
+        """
         if self.candidate is None:
             raise RuntimeError("目前沒有可納入的候選叢集")
         indices = list(self.candidate["indices"])
@@ -204,22 +236,24 @@ class ScaleGrowthSession:
             "purity": self.candidate["purity"],
             "source": "cluster_only",
         }
+        samples = np.vstack([self.quarantine_X[i] for i in indices])
+        cal_max = self.known_cal_max()
+        median_score = float(np.median(self.monitor.score(samples)))
+        result.update({"median_score": median_score, "known_cal_max": cal_max})
+        self.candidate = None
+        self._since_cluster = self.recluster_every
+        if median_score <= cal_max:
+            result["action"] = "rejected_boundary"
+            self._drop_quarantine(set(indices))
+            return result
         if len(indices) < 5:
             result["action"] = "insufficient"
-            self.candidate = None
-            self._since_cluster = self.recluster_every
             return result
-        samples = np.vstack([self.quarantine_X[i] for i in indices])
         result["action"] = "learned"
         result["label"] = self.monitor.add_observed(name, samples)
         self.polar = PolarMap(self.monitor)
-        drop = set(indices)
-        keep = [i for i in range(len(self.quarantine_X)) if i not in drop]
-        self.quarantine_X = [self.quarantine_X[i] for i in keep]
-        self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
-        self.quarantine_t = [self.quarantine_t[i] for i in keep]
-        self.candidate = None
-        self._since_cluster = self.recluster_every
+        self._drop_quarantine(set(indices))
+        result["pruned"] = self._prune_explained()
         return result
 
     def state(self) -> dict:
@@ -245,6 +279,33 @@ def _verdict(label: str | None) -> str:
     return "known"
 
 
+EVAL_FRACTION = 0.2
+
+
+def split_stream_eval(pools: dict[str, np.ndarray], configs: list[str], seed: int) -> dict:
+    """每個未知配置池切出外部評估集（20%，向上取整），重播只抽其餘列，兩者互斥。"""
+    rng = np.random.default_rng(seed + 2)
+    out = {}
+    for config in configs:
+        order = rng.permutation(len(pools[config]))
+        n_eval = int(np.ceil(EVAL_FRACTION * len(order)))
+        out[config] = {"stream": np.sort(order[n_eval:]), "eval": np.sort(order[:n_eval])}
+    return out
+
+
+def _eval_breakdown(labels: list[str | None]) -> dict:
+    """外部評估集被判成什麼：未知、健康、某個新類（比例），及最多被判成哪一類。"""
+    n = len(labels)
+    named = [label for label in labels if label not in (None, HEALTHY)]
+    return {
+        "n": n,
+        "unknown_rate": sum(label is None for label in labels) / n,
+        "healthy_rate": sum(label == HEALTHY for label in labels) / n,
+        "known_rate": len(named) / n,
+        "top_class": max(set(named), key=named.count) if named else None,
+    }
+
+
 def iter_playback(
     pools: dict[str, np.ndarray],
     sequence: list[str] | None = None,
@@ -254,6 +315,7 @@ def iter_playback(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
+    adaptive_density: bool = True,
 ):
     """依序注入未知配置。候選出現時立刻用該群樣本自學，不等操作員確認。"""
     if sequence is None:
@@ -265,6 +327,7 @@ def iter_playback(
         method=method,
         openset_method=openset_method,
         knn_neighbors=knn_neighbors,
+        adaptive_density=adaptive_density,
     )
     rng = np.random.default_rng(seed + 1)
     yield {
@@ -273,11 +336,20 @@ def iter_playback(
         "known": list(session.monitor.known),
     }
 
+    parts = split_stream_eval(pools, sequence, seed)
+    # 事後對照：某配置第一次成為新類多數的時點（從該配置開始注入起算，可跨段）
+    discovery = {c: {"discovered": False} for c in sequence}
+    started: dict[str, int] = {}
+    global_tick = 0
+    rejections = []  # 未學成的候選（rejected_boundary／insufficient）
+
     stages = []
     for config in sequence:
-        sampler = CycleSampler(pools[config], np.arange(len(pools[config])), rng)
+        sampler = CycleSampler(pools[config], parts[config]["stream"], rng)
+        started[config] = global_tick
         res, found_at = None, None
         for tick in range(1, max_ticks_per_stage + 1):
+            global_tick += 1
             out = session.process(sampler.draw(), config)
             yield {
                 "event": "tick",
@@ -305,7 +377,15 @@ def iter_playback(
                 "known": list(session.monitor.known),
             }
             if outcome["action"] != "learned":
+                rejections.append({"config": config, "t": tick, "action": outcome["action"],
+                                   "size": outcome["size"], "matched": outcome["matched"],
+                                   "median_score": outcome.get("median_score"),
+                                   "known_cal_max": outcome.get("known_cal_max")})
                 continue
+            m = outcome["matched"]
+            if m in discovery and not discovery[m]["discovered"]:
+                discovery[m] = {"discovered": True, "learned": outcome["config"],
+                                "delay": global_tick - started[m]}
             res, found_at = outcome, tick
             break
         row = {
@@ -316,25 +396,40 @@ def iter_playback(
         if res is not None:
             own = session.monitor.classify(session.monitor.holdout(res["config"]))
             healthy = session.monitor.classify(session.monitor.holdout(HEALTHY))
+            ev = _eval_breakdown(session.monitor.classify(pools[config][parts[config]["eval"]]))
             row.update(
                 {
                     "learned": res["config"],
                     "learned_display": res["display"],
                     "matched": res["matched"],
                     "matched_display": res["matched_display"],
+                    "matched_is_config": res["matched"] == config,
                     "samples_to_candidate": found_at,
                     "cluster_size": res["size"],
                     "cluster_purity": res["purity"],
+                    "pruned": res["pruned"],
                     "own_holdout_acc": float(np.mean([label == res["config"] for label in own])),
+                    "own_holdout_n": len(own),
+                    "eval_known_rate": ev["known_rate"],
+                    "eval_n": ev["n"],
                     "healthy_holdout_acc": float(np.mean([label == HEALTHY for label in healthy])),
                     "known_after": len(session.monitor.known),
                 }
             )
         stages.append(row)
 
+    final_eval = {
+        c: _eval_breakdown(session.monitor.classify(pools[c][parts[c]["eval"]])) for c in sequence
+    }
+
     model = session.monitor.summary()
     yield {"event": "result", "result": {
         "stages": stages,
+        "discovery": discovery,
+        "rejections": rejections,
+        "final_eval": final_eval,
+        "eval_fraction": EVAL_FRACTION,
+        "known_cal_max": session.known_cal_max(),
         "final_known": list(session.monitor.known),
         "model": model,
         "seed": seed,
@@ -347,6 +442,7 @@ def iter_playback(
         "calibration_source": "known-only 20% calibration split",
         "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "adaptive_density": adaptive_density,
     }}
 
 
@@ -359,12 +455,13 @@ def run(
     openset_method: str = "mahalanobis",
     knn_neighbors: int = 5,
     max_ticks_per_stage: int = 600,
+    adaptive_density: bool = True,
 ) -> dict:
     """依序注入各未知配置：量測發現延遲 → 用候選群自學 → 檢查新類與健康是否還認得。"""
     for event in iter_playback(
         pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
         openset_method=openset_method, knn_neighbors=knn_neighbors,
-        max_ticks_per_stage=max_ticks_per_stage,
+        max_ticks_per_stage=max_ticks_per_stage, adaptive_density=adaptive_density,
     ):
         if event["event"] == "result":
             return event["result"]
@@ -379,18 +476,24 @@ def main() -> None:
         "--sequence", nargs="*", default=None,
         help="注入順序（預設：所有未知配置由輕到重）",
     )
+    parser.add_argument(
+        "--fixed-density", action="store_true",
+        help="關掉 HDBSCAN 密度階梯，只用 (min_cluster_size, min_samples)；消融對照用",
+    )
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
     log, paths = setup_run("exp2_scale_growth")
     log.info(f"實驗二：量尺擴張重播 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
-             f"confidence={args.confidence}, seed={args.seed}）")
+             f"confidence={args.confidence}, seed={args.seed}, "
+             f"adaptive_density={not args.fixed_density}）")
 
     result = run(
         pools, sequence=args.sequence, seed=args.seed,
         confidence=args.confidence, method=args.method,
         openset_method=args.openset_method, knn_neighbors=args.knn_neighbors,
+        adaptive_density=not args.fixed_density,
     )
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
 

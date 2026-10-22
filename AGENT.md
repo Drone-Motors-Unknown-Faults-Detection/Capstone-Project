@@ -173,9 +173,11 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
 | k-NN 鄰居數 | 5 | `--knn-neighbors` |
 | 校準信心水準 | 0.95（校準距離分位數）| `--confidence` |
 | 開集判定 | 正規化分數 > 1 = 未知 | `core.openset` / `core.mahalanobis` |
-| HDBSCAN | (25,3)，自適應階梯：隔離區 ≥75 加試 (15,3)、≥100 加試 (10,2)；候選仍需叢 ≥25 筆 | `experiments.exp2_scale_growth` |
+| HDBSCAN | (25,3)，自適應階梯：隔離區 ≥75 加試 (15,3)、≥100 加試 (10,2)；候選仍需叢 ≥25 筆；`--fixed-density` 關閉階梯 | `experiments.exp2_scale_growth` |
 | 重分群節流 | 每 10 筆新未知樣本試一次 | 同上 `recluster_every` |
 | 隔離線 | 分數 > 2.0 才進隔離區（偵測線仍為 1.0）| 同上 `quarantine_margin` |
+| 邊界退回 | 候選群中位分數 ≤ 已知類校準列最大分數 → `rejected_boundary` | 同上 `known_cal_max` |
+| 外部評估集 | 每個未知配置池 20%（向上取整）不參與重播，rng = seed+2 | 同上 `split_stream_eval` |
 | 趨勢 EWMA | alpha=0.08（window=120、warmup=10）| `core.trend.TrendMonitor` |
 | 中間帶 / 警報線 | [0.2, 0.5) / 0.5 | 同上 |
 | 突發判定 | 中間帶停留 ≤ 12 筆 | 同上 `sudden_max` |
@@ -230,19 +232,30 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    `src/experiments/exp3_trend.py` 的分布數據。**衍生設計**：誤報分數僅些微超線
    （實測 1.01–1.08），而真實故障最低分 ≥ 10——因此隔離區設「隔離線」
    `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現。新類納入分兩條路徑：
-   - 實驗二批次 `run()` 與實驗頁「⏵ 邊跑邊畫」：候選一成群就呼叫 `adopt()`，群至少 5 筆
-     就 `learned`，否則 `insufficient`。不讀真值，也不因真值多數是已知類而退回，
-     所以批次 stage 列沒有退回次數欄。
+   - 實驗二批次 `run()` 與實驗頁「⏵ 邊跑邊畫」：候選一成群就呼叫 `adopt()`。群中位分數
+     不超過已知類校準最大值就 `rejected_boundary`（退回、清群）；否則群至少 5 筆就 `learned`，
+     不足 `insufficient`。學會後用新模型重判隔離區，已被接受的殘餘移出（`pruned`）。
+     全程不讀真值；未學成的候選記在 `summary.json` 的 `rejections`。
    - 首頁即時展示（`web/live.py`）與獨立導覽（`web/guide.py`）：按確認才呼叫 `confirm()`，
      讀完整配置池重擬合；若叢集是已知類別邊界樣本，回傳 `action="rejected_known"`
      （退回、清叢、量尺不變）。
    web 偵測統計拆「學會前偵測率／學會後認出率」兩組，認出率天生 ≈ 90–95%。
-2. **發散故障（嚴重鬆動、複合配置）成叢較慢**：固定 (25,3) 下 2screws 要 225 筆、
-   3_14 在 600 筆內失敗——自適應密度階梯（見參數表）已把發現延遲壓到 65~265 筆，
-   但這類故障仍天生比輕度鬆動需要更多累積；web 會顯示「已試分群 N 次」而非卡死。
+2. **實驗二的發現延遲量的是隔離區湊出一群要多少筆**：
+   [`output/exp2_scale_growth/2026-10-22-21-46-48/stages.csv`](output/exp2_scale_growth/2026-10-22-21-46-48/stages.csv)
+   （commit 37ae787，seed 42，T1/8000rpm，`adopt()` 自學）九段的 `samples_to_candidate`
+   落在 21～105 筆，最慢的是第一段 7screws（105 筆）。從 2screws 段起的四段
+   （2screws、1screws、3_14screws、4_146screws），學到的群多數都是前一段注入的配置；
+   3screws 段的群多數是 5screws，`cluster_purity` 為 0.5435（54.4%）。所以這個延遲不等於
+   該段配置自己成叢所需的筆數。自適應密度階梯（見參數表）的 `adopt()` 版消融見
+   [reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)：T1/8000rpm、seed 42/123/2026，
+   階梯組延遲合計 1131 筆、最大 105 筆，`--fixed-density` 組 1922 筆、最大 561 筆；但階梯組在
+   seed 42、2026 的 3screws 段學到純度 54.4%／53.3% 的混合群，固定組最低 83.8%。
+   隔離區還沒成群時，web 顯示「已試分群 N 次」。
 3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名。事後對照看
-   `matched`／`matched_display`（候選群的真值多數）；它可能不等於該段注入配置，
-   因為候選叢集取自整個隔離區，多數可能是前一階段的殘餘。
+   `matched`／`matched_display`（候選群的真值多數）與 `matched_is_config`；候選叢集取自整個
+   隔離區，關掉密度階梯時多數常是前一段的配置。「某配置多久被發現」讀 `summary.json` 的
+   `discovery`，「學會後認不認得」讀外部評估集 `final_eval`（每配置 20% 不參與重播），
+   不要只看群內 6～19 筆的 `own_holdout_acc`。同 seed 在 Linux 與 macOS 數字不同（#224）。
 4. **量尺擴張後 PCA 投影會變**：web 前端在已知類別數改變時清空散佈圖，這是刻意行為。
 5. **目錄名陷阱**：螺絲配置目錄可能是 `1screw` 或 `1screws`（既有資料兩種都出現過），
    `core.data` 以掃描目錄迴避硬編碼——不要寫死配置清單去讀資料。
