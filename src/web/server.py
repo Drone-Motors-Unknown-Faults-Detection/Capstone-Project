@@ -343,7 +343,7 @@ ASSISTANT: Assistant | None = None
 
 class AssistantStatusHandler(_JSONHandler):
     async def get(self) -> None:
-        git = collect_environment(Path(__file__).resolve().parents[2])["git"]
+        git = collect_environment(include_data=False)["git"]
         self.reply({**await ASSISTANT.status(), "app": {
             "git_head": git["head"], "tracked_dirty": git["tracked_dirty"], "answer_schema": ANSWER_SCHEMA}})
 

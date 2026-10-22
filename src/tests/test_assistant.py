@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import tornado.testing
 import tornado.web
@@ -392,6 +394,99 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(set(status["app"]), {"git_head", "tracked_dirty", "answer_schema"})
         self.assertEqual(status["app"]["answer_schema"], "exp12_standard_answer_v2")
         self.assertNotIn("packages", status["app"])
+
+    def status_snapshot(self):
+        model_status = {"reachable": True, "model": "fixture-model"}
+        server.ASSISTANT = SimpleNamespace(status=AsyncMock(return_value=model_status))
+        response = self.fetch("/api/assistant/status")
+        self.assertEqual(response.code, 200)
+        status = json.loads(response.body)
+        server.ASSISTANT.status.assert_awaited_once_with()
+        self.assertEqual({k: v for k, v in status.items() if k != "app"}, model_status)
+        self.assertEqual(set(status["app"]), {"git_head", "tracked_dirty", "answer_schema"})
+        self.assertEqual(status["app"]["answer_schema"], server.ANSWER_SCHEMA)
+        return status
+
+    def test_status_origin_matches_loaded_repo_across_cwds(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        program = Path(runtime.__file__).resolve().parents[2]
+        expected = runtime.collect_environment(include_data=False)["git"]
+        self.assertIsNotNone(expected["head"])
+        caller = Path("caller").resolve()
+        fixture_repository(caller, "caller")
+        outside = Path("outside").resolve()
+        outside.mkdir()
+        for cwd in (program, caller, outside):
+            with self.subTest(cwd=cwd.name), working_directory(cwd):
+                status = self.status_snapshot()
+            self.assertEqual(status["app"]["git_head"], expected["head"])
+            self.assertEqual(status["app"]["tracked_dirty"], expected["tracked_dirty"])
+
+    def test_status_export_inside_parent_repo_keeps_unknown(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        caller = Path("caller").resolve()
+        fixture_repository(caller, "caller")
+        self.assertIsNotNone(runtime._git(caller, "rev-parse", "HEAD"))
+        exported = caller / "exported"
+        module = fixture_repository(exported, "exported", commit=False)
+        with working_directory(caller), patch.object(runtime, "__file__", str(module)), \
+                patch.object(server, "__file__", str(exported / "src/web/server.py")), \
+                patch.object(runtime, "data_info", return_value={}) as data:
+            status = self.status_snapshot()
+        self.assertIsNone(status["app"]["git_head"])
+        self.assertIsNone(status["app"]["tracked_dirty"])
+        self.assertNotIn(str(caller), json.dumps(status))
+        data.assert_not_called()
+
+    def test_status_installed_program_root_unavailable_keeps_unknown(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        caller = Path("caller").resolve()
+        fixture_repository(caller, "caller")
+        installed = caller / "site-packages/core/runtime_environment.py"
+        installed.parent.mkdir(parents=True)
+        installed.touch()
+        with working_directory(caller), patch.object(runtime, "__file__", str(installed)):
+            status = self.status_snapshot()
+        self.assertIsNone(status["app"]["git_head"])
+        self.assertIsNone(status["app"]["tracked_dirty"])
+
+    def test_status_git_missing_or_timeout_keeps_unknown(self):
+        from core import runtime_environment as runtime
+        for error in (OSError("私人路徑與測試secret"), subprocess.TimeoutExpired("git", 3)):
+            with self.subTest(error=type(error).__name__), patch.object(runtime.subprocess, "run", side_effect=error):
+                status = self.status_snapshot()
+            self.assertIsNone(status["app"]["git_head"])
+            self.assertIsNone(status["app"]["tracked_dirty"])
+            self.assertNotIn("secret", json.dumps(status))
+
+    def test_status_does_not_scan_data_or_expose_environment(self):
+        from core import runtime_environment as runtime
+        with patch.object(runtime, "data_info", return_value={}) as data, \
+                patch("core.provenance.capture_source", side_effect=AssertionError("不得掃描資料")) as capture, \
+                patch.dict("os.environ", {"CAPSTONE_TEST_SECRET": "private-status-sentinel"}):
+            status = self.status_snapshot()
+        data.assert_not_called()
+        capture.assert_not_called()
+        self.assertNotIn("private-status-sentinel", json.dumps(status))
+        self.assertNotIn(str(Path(runtime.__file__).resolve().parents[2]), json.dumps(status))
+
+    def test_status_fixture_program_reports_dirty_without_using_caller(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        program, caller = Path("program").resolve(), Path("caller").resolve()
+        module = fixture_repository(program, "program")
+        fixture_repository(caller, "caller")
+        (program / "uv.lock").write_text('identity = "dirty"\n', encoding="utf-8")
+        expected = runtime._git(program, "rev-parse", "HEAD")
+        self.assertNotEqual(expected, runtime._git(caller, "rev-parse", "HEAD"))
+        with working_directory(caller), patch.object(runtime, "__file__", str(module)), \
+                patch.object(server, "__file__", str(program / "src/web/server.py")):
+            status = self.status_snapshot()
+        self.assertEqual(status["app"]["git_head"], expected)
+        self.assertIs(status["app"]["tracked_dirty"], True)
 
     def test_http_result_works_with_real_offline_model_endpoint(self):
         port = tornado.testing.bind_unused_port()
