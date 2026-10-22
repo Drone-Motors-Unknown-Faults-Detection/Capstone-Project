@@ -29,7 +29,8 @@ class RunPaths:
     _plot_index: int = field(default=0, repr=False)
 
 
-def setup_run(program: str, make_output: bool = True, *, unique: bool = False, data_root=None):
+def setup_run(program: str, make_output: bool = True, *, unique: bool = False, data_root=None,
+              include_data: bool = True):
     """初始化本次執行的 loguru logger 與輸出目錄，回傳 (logger, RunPaths)。"""
     timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
     log_dir = Path("logs") / program
@@ -80,7 +81,7 @@ def setup_run(program: str, make_output: bool = True, *, unique: bool = False, d
     logger.info(f"log_file={log_file}")
     if output_dir is not None:
         logger.info(f"output_dir={output_dir}")
-    environment = collect_environment(data_root=data_root)
+    environment = collect_environment(data_root=data_root, include_data=include_data)
     if output_dir is not None:
         (output_dir / "environment.json").write_text(
             json.dumps(environment, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

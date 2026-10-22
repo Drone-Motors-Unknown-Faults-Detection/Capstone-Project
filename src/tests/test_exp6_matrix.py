@@ -44,6 +44,37 @@ class MatrixTests(unittest.TestCase):
         self.assertEqual(validate_run(self.run_dir, EXPECTED, "abc"), [])
         self.assertTrue(_is_complete(self.run_dir / "summary.json", EXPECTED, "abc"))
 
+    def test_malformed_contract_shapes_are_rejected_explicitly(self):
+        from core.provenance import CONTENT_VERSION, canonical_sha
+
+        path = write_verified_matrix(Path(self.tmp.name) / "verified")
+        original = json.loads(path.read_bytes())["contract"]
+        for field in ("source", "files", "execution", "git", "code", "configs", "keys", "identity", "duplicate"):
+            with self.subTest(field=field):
+                contract = copy.deepcopy(original)
+                if field == "source":
+                    contract["source"] = None
+                elif field == "execution":
+                    contract["execution"] = None
+                elif field in {"git", "code"}:
+                    contract["execution"]["git" if field == "git" else "code_sha256"] = None
+                elif field == "configs":
+                    contract["method_configs"] = ["knn"]
+                elif field == "keys":
+                    contract["run_keys"] = [None]
+                else:
+                    source = contract["source"]
+                    if field == "files":
+                        source["files"] = {"not": "a_list"}
+                    elif field == "identity":
+                        source["files"][0]["source_id"] = "../private_source"
+                    else:
+                        source["files"].append(dict(source["files"][0]))
+                    source["dataset_fingerprint"] = canonical_sha(source["files"])
+                    source["data_version"] = CONTENT_VERSION + ":" + source["dataset_fingerprint"]
+                with self.assertRaises(ValueError):
+                    exp6_matrix.validate_contract(contract)
+
     def test_missing_csv_or_log_is_rejected(self) -> None:
         for name, reason in (("results.csv", "missing results.csv"), ("run.log", "missing run.log")):
             with self.subTest(name=name):

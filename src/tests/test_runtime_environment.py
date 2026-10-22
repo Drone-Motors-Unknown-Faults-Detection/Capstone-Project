@@ -142,6 +142,14 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             self.assertIn("python", result)
             self.assertTrue(paths.log_file.is_file())
 
+    def test_setup_run_can_skip_unrelated_raw_data(self):
+        with tempfile.TemporaryDirectory() as directory, working_directory(directory), \
+                patch.object(runtime, "data_info", side_effect=AssertionError("不得掃描無關data")):
+            _, paths = setup_run("artifact_only", include_data=False)
+            result = json.loads((paths.output_dir / "environment.json").read_text())
+            self.assertEqual(result["data"]["status"], "UNKNOWN")
+            self.assertIsNone(result["data"]["dataset_fingerprint"])
+
     def test_no_output_records_environment_in_log(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
             _, paths = setup_run("fixture_log_only", make_output=False)

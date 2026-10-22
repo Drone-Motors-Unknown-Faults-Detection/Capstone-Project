@@ -37,7 +37,8 @@ MATRIX_CONTRACT = "formal_matrix_provenance_v2"
 RUN_CONTRACT = "formal_matrix_run_v2"
 ARTIFACT_NAMES = ("summary.json", "results.csv", "run.log")
 PROJECT = Path(__file__).resolve().parents[2]
-CODE_FILES = ("src/core/data.py", "src/core/openset.py", "src/core/mahalanobis.py",
+CODE_FILES = ("src/core/data.py", "src/core/feature_schema.py", "src/core/logger.py",
+              "src/core/openset.py", "src/core/mahalanobis.py",
               "src/core/runner.py", "src/core/provenance.py", "src/core/runtime_environment.py",
               "src/experiments/exp6_formal_benchmark.py", "src/experiments/exp6_matrix.py")
 
@@ -87,21 +88,45 @@ def validate_contract(contract: dict) -> None:
             or source.get("dataset_fingerprint") != canonical_sha(source["files"])
             or source.get("data_version") != f"{CONTENT_VERSION}:{source.get('dataset_fingerprint')}"):
         raise ValueError("矩陣資料版本或指紋契約不符")
+    files = source["files"]
+    if (not isinstance(files, list) or any(not isinstance(row, dict)
+            or not isinstance(row.get("source_id"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", str(row.get("sha256", ""))) for row in files)):
+        raise ValueError("矩陣檔案清冊欄位不合法")
+    identities = [row["source_id"] for row in files]
+    if (len(set(identities)) != len(identities) or any(
+            "\\" in identity or ":" in identity or len(identity.split("/")) != 6
+            or any(part in {"", ".", ".."} for part in identity.split("/"))
+            or not identity.startswith("Step-") or identity.split("/")[1] != "myfeature"
+            for identity in identities)):
+        raise ValueError("矩陣source ID不是唯一portable正式檔案路徑")
     execution = contract.get("execution", {})
+    if not isinstance(execution, dict) or not isinstance(execution.get("git"), dict):
+        raise ValueError("矩陣執行身分欄位缺少")
     git = execution.get("git", {})
+    code = execution.get("code_sha256")
+    if not isinstance(code, dict):
+        raise ValueError("矩陣程式內容SHA清冊缺少")
     if (git.get("status") != "VERIFIED" or not re.fullmatch(r"[0-9a-f]{40}", str(git.get("head", "")))
             or not isinstance(git.get("tracked_dirty"), bool)
             or not re.fullmatch(r"[0-9a-f]{64}", str(execution.get("constraints_sha256", "")))
-            or set(execution.get("code_sha256", {})) != set(CODE_FILES)
+            or set(code) != set(CODE_FILES)
             or any(not re.fullmatch(r"[0-9a-f]{64}", str(value))
-                   for value in execution.get("code_sha256", {}).values())):
+                   for value in code.values())):
         raise ValueError("矩陣缺少可信 Git／鎖版／程式內容身分")
+    if (not all(isinstance(execution.get(key), dict) and execution[key]
+                for key in ("python", "numeric", "packages", "platform"))
+            or not execution["python"].get("version") or not execution["numeric"].get("blas")):
+        raise ValueError("矩陣Python／數值環境證據不足")
     configs = contract.get("method_configs", {})
-    if (not configs or set(configs) - set(FORMAL_METHODS)
+    if (not isinstance(configs, dict) or not configs or set(configs) - set(FORMAL_METHODS)
             or any(value != method_configuration(method) for method, value in configs.items())):
         raise ValueError("矩陣有效設定契約不符")
     keys = contract.get("run_keys")
-    if not isinstance(keys, list) or not keys or len({row["run_id"] for row in keys}) != len(keys):
+    if (not isinstance(keys, list) or not keys
+            or any(not isinstance(row, dict) or not {"run_id", "motor", "rpm", "seed", "method"}.issubset(row)
+                   for row in keys)
+            or len({row["run_id"] for row in keys}) != len(keys)):
         raise ValueError("矩陣預期鍵缺少或重複")
     for row in keys:
         if row["method"] not in configs or row["run_id"] != run_key(row["motor"], row["rpm"], row["seed"], row["method"]):
@@ -140,7 +165,30 @@ def artifact_hashes(payloads: dict[str, bytes]) -> dict[str, str]:
     return {name: hashlib.sha256(payload).hexdigest() for name, payload in sorted(payloads.items())}
 
 
-def validate_manifest_contract(manifest: dict) -> dict:
+def run_contract_problems(summary: dict, expected: dict, contract: dict) -> list[str]:
+    """版本／資料／程式／有效設定不相容不能用partial掩蓋。"""
+    source = contract["source"]
+    config = contract["method_configs"].get(expected["method"])
+    if config is None:
+        return ["summary方法不在固定契約內"]
+    proof = {"version": RUN_CONTRACT, "contract_sha256": canonical_sha(contract),
+             "fingerprint_version": source["schema_version"], "data_version": source["data_version"],
+             "effective_config_sha256": canonical_sha(config), "execution": contract["execution"]}
+    reasons = []
+    if summary.get("matrix_provenance") != proof:
+        reasons.append("summary來源／版本／程式契約不符")
+    if (summary.get("source") != source or summary.get("fingerprint_version") != source["schema_version"]
+            or summary.get("commit_sha") != contract["execution"]["git"]["head"]):
+        reasons.append("summary資料或執行程式身分不符")
+    if (summary.get("resolved_config") != config["resolved_config"]
+            or summary.get("config") != config["benchmark_config"]):
+        reasons.append("summary實際有效設定不符")
+    if summary.get("environment", {}).get("data", {}).get("dataset_fingerprint") != source["dataset_fingerprint"]:
+        reasons.append("summary環境來源與固定資料不符")
+    return reasons
+
+
+def validate_manifest_contract(manifest: dict, *, allow_missing_runs: bool = False) -> dict:
     """新契約不能降級成 legacy；固定部分不得由進度欄位覆寫。"""
     if not isinstance(manifest, dict) or manifest.get("schema_version") != MATRIX_SCHEMA:
         raise ValueError("legacy矩陣只讀，請使用新輸出根")
@@ -159,7 +207,11 @@ def validate_manifest_contract(manifest: dict) -> dict:
         raise ValueError("矩陣來源狀態或固定coverage不符")
     actual = [{key: row.get(key) for key in ("run_id", "motor", "rpm", "seed", "method")}
               for row in manifest.get("runs", [])]
-    if sorted(actual, key=lambda x: x["run_id"]) != sorted(contract["run_keys"], key=lambda x: x["run_id"]):
+    if allow_missing_runs:
+        expected = {row["run_id"]: row for row in contract["run_keys"]}
+        if any(row != expected.get(row["run_id"]) for row in actual):
+            raise ValueError("矩陣run身分不符固定coverage")
+    elif sorted(actual, key=lambda x: x["run_id"]) != sorted(contract["run_keys"], key=lambda x: x["run_id"]):
         raise ValueError("矩陣run清單不符固定coverage")
     return contract
 
@@ -317,21 +369,7 @@ def validate_run(run_dir: Path, expected: dict, fingerprint: str | None = None,
         for line in sorted(required - lines):
             reasons.append(f"run.log lacks '{line}'")
     if contract is not None:
-        source = contract["source"]
-        config = contract["method_configs"].get(expected["method"])
-        proof = {"version": RUN_CONTRACT, "contract_sha256": canonical_sha(contract),
-                 "fingerprint_version": source["schema_version"], "data_version": source["data_version"],
-                 "effective_config_sha256": canonical_sha(config), "execution": contract["execution"]}
-        if summary.get("matrix_provenance") != proof:
-            reasons.append("summary來源／版本／程式契約不符")
-        if (summary.get("source") != source or summary.get("fingerprint_version") != source["schema_version"]
-                or summary.get("commit_sha") != contract["execution"]["git"]["head"]):
-            reasons.append("summary資料或執行程式身分不符")
-        if (summary.get("resolved_config") != config["resolved_config"]
-                or summary.get("config") != config["benchmark_config"]):
-            reasons.append("summary實際有效設定不符")
-        if summary.get("environment", {}).get("data", {}).get("dataset_fingerprint") != source["dataset_fingerprint"]:
-            reasons.append("summary環境來源與固定資料不符")
+        reasons.extend(run_contract_problems(summary, expected, contract))
         if expected.get("artifact_sha256") != artifact_hashes(payloads):
             reasons.append("run原始bytes SHA不符或缺少")
     return reasons
