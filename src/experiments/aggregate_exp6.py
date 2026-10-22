@@ -69,8 +69,8 @@ def _format_rejections(rejected: list[dict]) -> str:
     return "; ".join(f"{item['run_id']}: {' | '.join(item['reasons'])}" for item in rejected)
 
 
-def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False) -> tuple[dict, pd.DataFrame, list[dict]]:
-    """核對矩陣 manifest 與每格產物，回傳 (manifest, 列表, 被拒格)。
+def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False) -> tuple[dict, pd.DataFrame, list[dict], str]:
+    """核對矩陣 manifest 與每格產物，回傳 (manifest, 列表, 被拒格, 接受格共同的 dataset fingerprint)。
 
     每格先以 _entry_problems 核對 manifest 欄位，再以 exp6_matrix.validate_run
     核對產物，最後確認 summary 指標皆為有限值。預設任何矩陣層或單格不符就丟
@@ -148,11 +148,12 @@ def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False) -> tu
     for problem in matrix_problems:
         rejected.insert(0, {"run_id": "<matrix>", "reasons": [problem]})
     frame = pd.DataFrame(rows).sort_values("run_id", kind="mergesort").reset_index(drop=True)
-    return manifest, frame, rejected
+    (fingerprint,) = fingerprints
+    return manifest, frame, rejected, fingerprint
 
 
 def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict:
-    manifest, frame, rejected = load_matrix(manifest_path, allow_partial=allow_partial)
+    manifest, frame, rejected, fingerprint = load_matrix(manifest_path, allow_partial=allow_partial)
     partial = bool(rejected)
     methods = [str(method) for method in manifest.get("methods", sorted(frame["method"].unique()))]
     methods = [method for method in methods if method in set(frame["method"])]
@@ -205,7 +206,8 @@ def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict
         "status": "PARTIAL" if partial else "completed",
         "source_manifest": "matrix_manifest.json",
         "dataset_root": manifest.get("data_root"),
-        "dataset_fingerprint": manifest.get("runs", [{}])[0].get("dataset_fingerprint"),
+        # 只用 load_matrix 核對過、所有接受格一致的指紋；不取 runs[0]（它可能是被拒的格，#269 C07）
+        "dataset_fingerprint": fingerprint,
         "expected_runs": int(manifest["expected_runs"]),
         "completed_runs": int(manifest.get("completed_runs", 0)),
         "methods": methods,
@@ -215,7 +217,6 @@ def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict
         "paired_differences": paired_rows,
     }
     if partial:
-        result["dataset_fingerprint"] = frame.iloc[0].get("dataset_fingerprint", result["dataset_fingerprint"])
         result["accepted_runs"] = int(frame["run_id"].nunique())
         result["rejected_runs"] = rejected
     return result
