@@ -123,7 +123,7 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 - 修正不成立：`matched_is_config` 段數沒有增加，或 `discovery` 裡從未被發現的配置變多（清理把當段樣本也移出隔離區）。
 - 外部評估集只有每配置約 40～70 列，仍是同一馬達、同一轉速，不是跨個體驗證。
 
-結果見 [reports/JW-Albert_20261022_exp2_adopt_fix](../../reports/JW-Albert_20261022_exp2_adopt_fix/README.md)，不回填本節。
+結果見 [reports/JW-Albert_20261023_exp2_adopt_fix_aero](../../reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)（Aero）；macOS 版 [2026-10-22 報告](../../reports/JW-Albert_20261022_exp2_adopt_fix/README.md) 不作為數字來源（#224）。不回填本節。
 
 ## 來源與對應程式
 

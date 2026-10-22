@@ -31,6 +31,18 @@ def _git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
+def blas_info() -> dict:
+    """numpy 連結的 BLAS／LAPACK。同 seed 的數字會因 BLAS 不同而分岔（macOS Accelerate vs OpenBLAS，#224）。"""
+    try:
+        import numpy as np
+
+        deps = np.show_config(mode="dicts")["Build Dependencies"]
+        return {"blas": deps["blas"].get("name"), "blas_version": deps["blas"].get("version"),
+                "lapack": deps["lapack"].get("name")}
+    except Exception:  # 取不到時以 UNKNOWN 保留，不中斷執行
+        return {"blas": None, "blas_version": None, "lapack": None, "status": "UNKNOWN"}
+
+
 def collect_environment(root: Path | None = None) -> dict:
     """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
     root = Path.cwd() if root is None else Path(root)
@@ -47,7 +59,9 @@ def collect_environment(root: Path | None = None) -> dict:
     return {
         "schema_version": "runtime_environment_v1",
         "python": {"version": platform.python_version(), "implementation": platform.python_implementation()},
-        "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine()},
+        "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
+               "host": platform.node()},
+        "numeric": blas_info(),
         "packages": dict(sorted(packages.items())),
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},

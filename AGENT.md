@@ -110,6 +110,11 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
     `[tool.ruff.lint] select`（`E4`／`E7`／`E9`／`F`），不依賴 ruff 版本的預設集合。
     CI 用 `.github/workflows/ci.yml` 的獨立 `Ruff` step 跑這關；提交前本機先跑
     `./scripts/quantity/run_ruff.sh`，有錯就地修掉，不要用 `# noqa` 繞過真正的問題。
+13. **測試與實驗只在 Aero 或 Spark 主機執行。** 提交前檢查（`./scripts/quantity/run_pytest.sh`、
+    `./scripts/quantity/run_ruff.sh`）與所有會寫 `logs/`／`output/` 的實驗 CLI，都在 `ssh aero` 或 `ssh spark`
+    上跑，不在個人筆電（macOS）跑。
+    原因：macOS 的 numpy 連結 Apple Accelerate，同 seed 數字與兩台 Linux（scipy-openblas）不同（#224）；
+    Aero 與 Spark 彼此一致。引用的輸出要能從 `environment.json` 的 `os.host`、`numeric.blas` 對回這兩台。
 
 ---
 
@@ -255,7 +260,7 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    `matched`／`matched_display`（候選群的真值多數）與 `matched_is_config`；候選叢集取自整個
    隔離區，關掉密度階梯時多數常是前一段的配置。「某配置多久被發現」讀 `summary.json` 的
    `discovery`，「學會後認不認得」讀外部評估集 `final_eval`（每配置 20% 不參與重播），
-   不要只看群內 6～19 筆的 `own_holdout_acc`。同 seed 在 Linux 與 macOS 數字不同（#224）。
+   不要只看群內 7～18 筆的 `own_holdout_acc`。數字一律取自 Aero／Spark 的輸出（鐵則 13）。
 4. **量尺擴張後 PCA 投影會變**：web 前端在已知類別數改變時清空散佈圖，這是刻意行為。
 5. **目錄名陷阱**：螺絲配置目錄可能是 `1screw` 或 `1screws`（既有資料兩種都出現過），
    `core.data` 以掃描目錄迴避硬編碼——不要寫死配置清單去讀資料。
