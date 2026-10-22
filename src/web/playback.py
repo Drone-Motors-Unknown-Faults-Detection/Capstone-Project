@@ -26,6 +26,7 @@ import json
 import re
 from pathlib import Path
 
+from core.data import HEALTHY
 from experiments.exp3_trend import KIND_DISPLAY
 from web.presentation import build_exp12, exp2_metric_contract, table_text
 from web.experiments import CATALOG
@@ -40,7 +41,7 @@ _SPEC = {e["id"]: e for e in CATALOG}
 _SEQ = itertools.count(1)     # 紀錄先後順序：同一編號有多張卡（6-1／6-2）時取最近的
 _SAVED_NAME = re.compile(r"(.+)_(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})(?:_(\d+))?\.json")
 
-# 實驗八逐窗輸出中屬於系統判定的欄位（is_fault 是真值，不在此列）
+# 實驗八逐窗輸出中屬於系統判定的欄位（is_fault 是模型的二元判定，不當真值也不進 current）
 WINDOW_FIELDS = ("window_index", "health_index", "severity_stage", "trend", "degradation_rate",
                  "openset_score", "is_unknown_fault", "fault_type", "prediction_confidence",
                  "uncertainty", "alarm_state", "alarm_reason", "change_point_state", "data_quality")
@@ -162,6 +163,7 @@ def _split_params(st: dict, params: dict) -> None:
     st["params"] = params
     if source is not None:
         st["source_config"] = source
+        st["source_is_fault"] = source != HEALTHY   # 真值只來自注入配置，不讀模型輸出
 
 
 def _fill_result(st: dict, payload: dict) -> None:
@@ -336,11 +338,10 @@ class PlaybackTracker:
         st["samples"] += len(scores)
         if f.get("offset", 0) == 0:
             st["segment"] = st.get("segment", 0) + 1
-        st["current"] = {
+        st["current"] = {   # 段落是健康 holdout 還是故障配置屬真值，不進 current
             "segment": st.get("segment", 1),
-            "segment_kind": "健康 holdout" if f.get("kind") == "healthy-holdout" else "未知配置",
             "last_scores": [_round(s) for s in scores[-5:]],
-            "flagged_in_chunk": sum(1 for s in scores if s > 1),
+            "flagged_in_chunk": sum(1 for flag in f.get("unknown") or [] if flag),   # 實驗端算好的旗標
             "chunk_size": len(scores),
         }
 
@@ -399,8 +400,6 @@ class PlaybackTracker:
         if prev is not None and w.get("severity_stage") != prev:
             self._event(st, f"第 {w.get('window_index')} 窗嚴重度 {prev} → {w.get('severity_stage')}"
                             f"（{w.get('alarm_reason') or '—'}）")
-        if "is_fault" in w:          # 真值：這段資料是否來自故障配置
-            st["source_is_fault"] = bool(w["is_fault"])
 
     def _on_part_start(self, st, f):  # 實驗四：子實驗開始
         st["current"] = {"part": f.get("name"), "state": "計算中"}

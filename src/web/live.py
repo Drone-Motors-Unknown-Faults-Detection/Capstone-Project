@@ -270,10 +270,11 @@ class LiveDemo:
         ])
 
         dd = r["direction"]
-        direction = {
+        direction = {   # verdict 由 PolarMap 依各射線校準的 τ 判定，前端只呈現
             "ray": dd["best_ray"],
             "ray_display": display_name(dd["best_ray"]) if dd["best_ray"] else None,
             "cos": dd["best_cos"],
+            "verdict": dd["verdict"],
             "radius": round(dd["radius"], 2),
         }
 

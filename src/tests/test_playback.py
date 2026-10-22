@@ -82,6 +82,7 @@ class StreamedPlaybackTests(unittest.TestCase):
         self.assertIn("macro_detect_rate：", snap["result_text"])
         self.assertNotIn("resolved_config", snap["result_text"])   # 模型細節不進摘要
         self.assertEqual(snap["current"]["segment"], 5)
+        self.assertEqual(set(snap["current"]), {"segment", "last_scores", "flagged_in_chunk", "chunk_size"})
         self.assertNoTruth(snap)
 
     def test_exp8_source_config_kept_out_of_params(self):
@@ -110,6 +111,28 @@ class TrackerLifecycleTests(unittest.TestCase):
         snap = tracker.snapshot()["records"]["exp2"]
         self.assertEqual(snap["status"], "stopped")
         self.assertEqual(snap["samples"], 1)
+
+    def test_exp1_flags_come_from_experiment_not_recomputed(self):
+        tracker = PlaybackTracker()
+        tracker.start("exp1", {"dataset": "T1/8000rpm"})
+        # 旗標與分數故意不一致：current 只抄實驗端的 unknown，不在 Web 層用 score > 1 重算
+        tracker.update({"event": "scores", "config": "8screws", "kind": "healthy-holdout", "offset": 0,
+                        "scores": [0.5, 2.0, 1.5], "unknown": [False, True, False]})
+        current = tracker.snapshot()["records"]["exp1"]["current"]
+        self.assertEqual(current["flagged_in_chunk"], 1)
+        self.assertNotIn("segment_kind", current)
+
+    def test_exp8_truth_is_injected_config_not_model_is_fault(self):
+        for config, expected in (("8screws", False), ("5screws", True)):
+            with self.subTest(config=config):
+                tracker = PlaybackTracker()
+                tracker.start("exp8_monitor", {"dataset": "T1/8000rpm", "config": config})
+                # 模型的 is_fault 與真值相反也不影響事後對照
+                tracker.update({"event": "window", "window": {"window_index": 0, "health_index": 0.3,
+                                                              "severity_stage": "degraded", "is_fault": not expected}})
+                rec = tracker.snapshot()["records"]["exp8_monitor"]
+                self.assertEqual(rec["source_is_fault"], expected)
+                self.assertNotIn("is_fault", rec["current"])
 
     def test_error_frame_and_exp4_parts(self):
         tracker = PlaybackTracker()

@@ -408,9 +408,10 @@ class ExperimentRunner:
                 result = event["result"]
             elif kind == "scores":
                 scores = event.pop("scores")
+                flags = event.pop("unknown")
                 for i in range(0, len(scores), SCORE_CHUNK):
                     chunk = scores[i:i + SCORE_CHUNK]
-                    yield {**event, "offset": i, "scores": chunk}, len(chunk)
+                    yield {**event, "offset": i, "scores": chunk, "unknown": flags[i:i + SCORE_CHUNK]}, len(chunk)
             elif kind == "tick":
                 # 每個劇本只播第一次重複；其餘重複照算，只送 trial 結果。
                 # 實驗二的 tick 沒有 trial，全部播放。

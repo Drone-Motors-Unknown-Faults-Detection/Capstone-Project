@@ -505,10 +505,9 @@ function onSample(m){
       di.textContent = m.direction.cos === null ? "—（尚無已知故障射線）" : "—";
       di.className = "";
     } else {
-      const c = m.direction.cos;
-      const tag = c >= 0.6 ? "接近已知家族" : c <= 0.45 ? "新方向" : "不明確";
-      di.textContent = `cos ${c.toFixed(2)} → ${tag}（最近：${m.direction.ray_display}）`;
-      di.className = c >= 0.6 ? "verdict-known" : c <= 0.45 ? "verdict-unknown" : "";
+      const same = m.direction.verdict === "same_ray";   // PolarMap 依射線 τ 判定（實驗四）
+      di.textContent = `cos ${m.direction.cos.toFixed(2)} → ${same ? "接近已知家族" : "新方向"}（最近：${m.direction.ray_display}）`;
+      di.className = same ? "verdict-known" : "verdict-unknown";
     }
   }
 
@@ -516,7 +515,7 @@ function onSample(m){
   const v = $("verdict");
   v.textContent = m.verdict === "unknown" ? "⚠ 未知（不在量尺上）" : m.cls;
   v.className = "verdict-" + m.verdict;
-  $("score").textContent = m.score.toFixed(2) + (m.score > 1 ? "（> 1 未知）" : "");
+  $("score").textContent = m.score.toFixed(2) + (m.verdict === "unknown" ? "（> 1 未知）" : "");
   $("healthPct").textContent = m.health.toFixed(0) + "%";
   const hb = $("healthBar");
   hb.style.width = m.health + "%";

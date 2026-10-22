@@ -87,6 +87,8 @@ class ExperimentContracts(unittest.TestCase):
         self.assertTrue(all(len(row["scores"]) == 120 for row in scores[1:]))
         for score, row in zip(scores, events[-1]["result"]["rows"]):
             self.assertEqual(row["flagged"], int((np.asarray(score["scores"]) > 1).sum()))
+            self.assertEqual(score["unknown"], [s > 1 for s in score["scores"]])   # 旗標由實驗端給，Web 不重算
+            self.assertEqual(row["flagged"], sum(score["unknown"]))
 
     def test_exp2_learns_cluster_without_operator_or_full_pool(self):
         session = exp2.ScaleGrowthSession(pools(), seed=42, recluster_every=10000)

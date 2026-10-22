@@ -97,7 +97,7 @@ FIELD_DISPLAY = {
     "t": "樣本序號 t", "score": "開集分數（> 1 為未知）", "verdict": "判定", "predicted": "模型判成的類別",
     "quarantine": "隔離區筆數", "n_known": "已知類別數", "scenario": "劇本", "trial": "第幾次重複（0 起算）",
     "ewma": "EWMA 異常比例（≥ 0.5 警報）", "cusum": "CUSUM", "alarm_kind": "警報判別",
-    "segment": "第幾段", "segment_kind": "段落類型", "last_scores": "最近分數", "flagged_in_chunk": "本批判未知筆數",
+    "segment": "第幾段", "last_scores": "最近分數", "flagged_in_chunk": "本批判未知筆數",
     "chunk_size": "本批筆數", "window_index": "窗序號", "health_index": "相對健康指數（1 健康、0 最差）",
     "severity_stage": "嚴重度", "trend": "趨勢", "degradation_rate": "退化速率", "openset_score": "開集分數",
     "is_unknown_fault": "判為未知故障", "fault_type": "故障類型", "prediction_confidence": "信心",

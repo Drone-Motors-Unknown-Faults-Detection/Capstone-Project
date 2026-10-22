@@ -14,8 +14,11 @@ from web.presentation import exp2_metric_contract
 def fixture():
     return {"stages": [{"config": "7screws", "learned": "discovered-1",
         "own_holdout_acc": 0.9, "own_holdout_n": 10,
-        "eval_known_rate": 0.6, "eval_n": 65, "cluster_purity": 0.8, "cluster_size": 50,
-        "healthy_holdout_acc": 0.95}], "seed": 42, "confidence": 0.95}
+        "eval_known_rate": 0.6, "eval_matched_rate": 0.55, "eval_n": 65, "cluster_purity": 0.8, "cluster_size": 50,
+        "healthy_holdout_acc": 0.95}],
+        "final_eval": {"7screws": {"n": 65, "unknown_rate": 0.3, "healthy_rate": 0.1, "known_rate": 0.6,
+                                   "matched_rate": 0.5, "top_class": "discovered-1"}},
+        "seed": 42, "confidence": 0.95}
 
 
 def test_contract_keeps_values_but_separates_four_populations():
@@ -26,10 +29,26 @@ def test_contract_keeps_values_but_separates_four_populations():
     assert (rows["own_holdout_acc"]["value"], rows["own_holdout_acc"]["denominator"]) == (0.9, 10)
     assert (rows["eval_known_rate"]["value"], rows["eval_known_rate"]["denominator"]) == (0.6, 65)
     assert rows["healthy_holdout_acc"]["denominator"] is None
+    assert (rows["eval_matched_rate"]["value"], rows["eval_matched_rate"]["denominator"]) == (0.55, 65)
+    assert contract["status"] == "complete"
     assert contract["unknown_auroc"] == contract["unknown_recall"] == "NOT_PROVIDED"
     assert "不是未知召回" in contract["text"] or "不等於未知召回" in contract["text"]
     assert "不要求判對自身配置" in contract["text"]
     assert result == before
+
+
+def test_final_eval_matched_rate_rows_are_listed_per_config():
+    contract = exp2_metric_contract(fixture())
+    final = {row["metric"]: row for row in contract["rows"] if row.get("stage_index") == "final_eval"}
+    assert set(final) == {"known_rate", "matched_rate"}
+    assert (final["matched_rate"]["config"], final["matched_rate"]["value"], final["matched_rate"]["denominator"]) == ("7screws", 0.5, 65)
+    assert "final_eval：7screws" in contract["text"]
+    assert "matched_rate 才要求判進事後多數等於該配置的新類" in contract["text"]
+    broken = fixture()
+    broken["final_eval"]["7screws"]["n"] = 0
+    bad = exp2_metric_contract(broken)
+    assert bad["status"] == "incomplete"
+    assert all(row["value"] is None for row in bad["rows"] if row.get("stage_index") == "final_eval")
 
 
 @pytest.mark.parametrize("value", [None, True, float("nan"), float("inf"), -0.1, 1.1, "0.9"])

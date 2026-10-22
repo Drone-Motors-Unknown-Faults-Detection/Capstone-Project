@@ -80,13 +80,24 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(saved["flushed_t"], len(self.rows()))
         self.assertEqual({row["truth"] for row in self.rows()}, {saved["source"]})
 
+    def test_sample_direction_carries_polar_map_verdict(self):
+        # 方向判定由 PolarMap 的射線 τ 給出，前端不再用寫死的 cos 門檻重算（#270）
+        self.ticks(1)
+        self.hub.clients.add(Client())
+        client = next(iter(self.hub.clients))
+        self.ticks(2)
+        sample = [m for m in client.messages if m["type"] == "sample"][-1]
+        self.assertEqual(set(sample["direction"]), {"ray", "ray_display", "cos", "verdict", "radius"})
+        # 階段 0 沒有故障射線：PolarMap 一律判 new_direction，cos 為 None
+        self.assertEqual((sample["direction"]["verdict"], sample["direction"]["cos"]), ("new_direction", None))
+
     def test_dataset_changes_keep_prior_csv_metadata_and_model(self):
         self.ticks(3)
         self.hub.pause()
         saved = {path.name: path.read_bytes() for path in self.out.iterdir()}
         self.hub.datasets.append({**self.ds, "motor": "T3"})
         with patch("web.server.HUB", self.hub):
-            WSHandler._do_dataset("T3", self.ds["rpm"])
+            WSHandler._do_dataset(self.hub.datasets[-1])
             self.demo = self.hub.demo
             self.assertEqual(self.demo.epoch, 2)
             self.ticks(2)

@@ -294,7 +294,7 @@ const LIVE = {
     on(st, f, el){
       if (f.event === "scores"){
         if (f.offset === 0) st.marks.push({i: st.pts.length, label: f.config});
-        for (const s of f.scores) st.pts.push({s});
+        f.scores.forEach((s, i) => st.pts.push({s, color: f.unknown[i] ? "#ef4444" : "#22c55e"}));   // 判定旗標由實驗端給
         scheduleDraw(() => drawScoreStrip(el.querySelector(".live-canvas"), st.pts, {marks: st.marks, n: Math.max(st.pts.length, 200)}));
       } else if (f.event === "row"){
         st.rows.push(f.row); el.querySelector(".live-rows").innerHTML = exp1Table(st.rows);
