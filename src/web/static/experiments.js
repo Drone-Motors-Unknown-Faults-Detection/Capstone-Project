@@ -67,7 +67,7 @@ const RENDER = {
                ["cluster_size", "叢大小", int], ["cluster_purity", "純度", v => pct(v, 0)],
                ["matched_is_config", "學到當段配置", bool],
                ["own_holdout_acc", "本類 holdout 認出率", v => pct(v)], ["own_holdout_n", "本類 holdout 筆數", int],
-               ["eval_known_rate", "外部評估集被任一新類接受", v => pct(v)], ["eval_matched_rate", "判進對應新類", v => pct(v)], ["eval_n", "外部評估筆數", int],
+               ["eval_known_rate", "外部評估被任一新類接受（學會當下）", v => pct(v)], ["eval_matched_rate", "判進對應新類（學會當下）", v => pct(v)], ["eval_n", "外部評估筆數", int],
                ["healthy_holdout_acc", "健康 holdout 認出率", v => pct(v)],
                ["known_after", "之後已知類別數", int]], r.stages);
   },

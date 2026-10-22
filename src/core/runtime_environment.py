@@ -55,7 +55,10 @@ def _argv_data_root(argv: list[str]) -> str:
 
 
 def data_info(data_root: str | Path) -> dict:
-    """資料內容指紋（core.provenance 的 source_content 版本）；只記相對 source_id 數量，不記絕對路徑（#242）。"""
+    """資料內容指紋（core.provenance 的 source_content 版本）；只記相對 source_id 數量，不記絕對路徑（#242）。
+
+    呼叫端沒有傳入 data_root 時，才從命令列的 --data-root 推得（#249）。
+    """
     try:
         from core.provenance import capture_source
 
@@ -66,7 +69,7 @@ def data_info(data_root: str | Path) -> dict:
         return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "UNKNOWN"}
 
 
-def collect_environment(root: Path | None = None) -> dict:
+def collect_environment(root: Path | None = None, data_root: str | Path | None = None) -> dict:
     """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
     root = Path.cwd() if root is None else Path(root)
     top = _git(root, "rev-parse", "--show-toplevel")
@@ -85,7 +88,7 @@ def collect_environment(root: Path | None = None) -> dict:
         "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
                "host": platform.node()},
         "numeric": blas_info(),
-        "data": data_info(_argv_data_root(sys.argv)),
+        "data": data_info(data_root if data_root is not None else _argv_data_root(sys.argv)),
         "packages": dict(sorted(packages.items())),
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},
