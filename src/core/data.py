@@ -137,7 +137,10 @@ class PoolCache:
 
 
 def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:
+    """池的 key 一律是正規配置名（`1screw` 目錄讀成 `1screws`，CONFIG_ALIASES）；
+    原目錄名留在 audit 的 ``configuration_dirs`` 與每個檔案的 file_id，實驗端不再各自處理別名（#271）。"""
     pools: dict[str, np.ndarray] = {}
+    report["configuration_dirs"] = {}
     if not dataset_path.is_dir():
         raise FeatureSchemaError("missing_dataset")
     config_dirs = sorted(
@@ -153,12 +156,16 @@ def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:
             continue
         if not files:
             raise FeatureSchemaError("empty_configuration", config_dir.name)
+        if canonical in pools:
+            raise FeatureSchemaError("ambiguous_configuration_alias", config_dir.name,
+                                     detail=f"{report['configuration_dirs'][canonical]} 與 {config_dir.name} 同時存在")
         matrices = []
         for path in files:
             values, record = read_feature_csv(path, path.relative_to(dataset_path).as_posix())
             report["files"].append(record)
             matrices.append(values)
-        pools[config_dir.name] = np.concatenate(matrices, axis=0)
+        pools[canonical] = np.concatenate(matrices, axis=0)
+        report["configuration_dirs"][canonical] = config_dir.name
     return pools
 
 

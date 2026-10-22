@@ -40,7 +40,7 @@
 | b 方向 | known依序為7、1、7+1、5、3_14配置；其餘配置全池計算最大餘弦 | 其他均勻配置為正組、4_146為負組的方向AUROC；3_14另列，不是全部fault的開集AUROC |
 | c 排序 | 7與1配置當方向錨點；7至1的均勻配置全池評估 | 距離或投影是否隨指定配置順序增加；包含錨點已用於fit／cal的樣本 |
 
-表中7／1等指7screws／1screws，不是編碼成數值特徵。程式硬列UNIFORM與COMPOUND名單，未全面兼容1screw別名；缺配置可能KeyError，應核對資料名稱，不改名冒充來源。
+表中7／1等指7screws／1screws，不是編碼成數值特徵。程式硬列UNIFORM與COMPOUND名單，名稱是 `core.data` 的正規配置名（`1screw` 目錄在載入時已讀成 `1screws`，#271）；缺配置仍可能KeyError，應核對資料名稱，不改名冒充來源。
 
 c部分比較radius、best_ray、bundle三種數值。radius以嚴重錨點距離作除數；best_ray沿選中射線投影；bundle沿均勻配置平均方向投影。Spearman相關使用**逐樣本**分數與重複的配置rank（7至1列為0至6），不是只對七個median計算。rank是本專案排序約定，沒有實測磨損量。投影可為負或超過1。
 

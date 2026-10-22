@@ -14,7 +14,7 @@ from experiments.exp12_confusion_tsne import (
 def synthetic_ancestor_pools(seed: int = 7) -> dict[str, np.ndarray]:
     rng = np.random.default_rng(seed)
     centers = {
-        "8screws": 0.0, "1screw": 2.0, "2screws": 4.0, "3screws": 6.0, "4screws": 8.0,
+        "8screws": 0.0, "1screws": 2.0, "2screws": 4.0, "3screws": 6.0, "4screws": 8.0,
         "5screws": 10.0, "6screws": 12.0, "3_14screws": 14.0,
     }
     return {name: rng.normal(center, 0.2, size=(30, 5)) for name, center in centers.items()}
@@ -41,14 +41,9 @@ class OpensetConfusionTests(unittest.TestCase):
         result = _openset_confusion(all_pools, seed=42, confidence=0.95, method="ledoit_wolf")
         matrix = np.array(result["matrix"])
         self.assertEqual(matrix.shape, (6, 6))
-        self.assertEqual(result["labels"], ["8screws", "1screw", "2screws", "3screws", "4screws", "unknown"])
-
-    def test_1screws_directory_name_merges_into_canonical_label(self):
-        pools = synthetic_ancestor_pools()
-        pools["1screws"] = pools.pop("1screw")
-        all_pools = {"T1/8000": pools}
-        result = _openset_confusion(all_pools, seed=42, confidence=0.95, method="ledoit_wolf")
-        self.assertEqual(result["labels"], ["8screws", "1screw", "2screws", "3screws", "4screws", "unknown"])
+        self.assertEqual(result["labels"], ["8screws", "1screws", "2screws", "3screws", "4screws", "unknown"])
+        # 1screws 真值列是該類的 holdout（30 筆的 20%）；標籤跟池 key 對得上才會非零
+        self.assertEqual(matrix[1].sum(), 6)
 
     def test_legacy_matrix_has_lower_diagonal_concentration_than_ledoit_wolf(self):
         pools = synthetic_ancestor_pools()
