@@ -341,6 +341,7 @@ def iter_playback(
     discovery = {c: {"discovered": False} for c in sequence}
     started: dict[str, int] = {}
     global_tick = 0
+    rejections = []  # 未學成的候選（rejected_boundary／insufficient）
 
     stages = []
     for config in sequence:
@@ -376,6 +377,10 @@ def iter_playback(
                 "known": list(session.monitor.known),
             }
             if outcome["action"] != "learned":
+                rejections.append({"config": config, "t": tick, "action": outcome["action"],
+                                   "size": outcome["size"], "matched": outcome["matched"],
+                                   "median_score": outcome.get("median_score"),
+                                   "known_cal_max": outcome.get("known_cal_max")})
                 continue
             m = outcome["matched"]
             if m in discovery and not discovery[m]["discovered"]:
@@ -421,6 +426,7 @@ def iter_playback(
     yield {"event": "result", "result": {
         "stages": stages,
         "discovery": discovery,
+        "rejections": rejections,
         "final_eval": final_eval,
         "eval_fraction": EVAL_FRACTION,
         "known_cal_max": session.known_cal_max(),

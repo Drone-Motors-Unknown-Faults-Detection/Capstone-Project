@@ -136,6 +136,25 @@ class EvalSplitTests(unittest.TestCase):
         self.assertEqual(result["discovery"]["7screws"]["delay"], stage["samples_to_candidate"])
         self.assertEqual(result["final_eval"]["7screws"]["n"], 16)
         self.assertAlmostEqual(result["final_eval"]["7screws"]["known_rate"], stage["eval_known_rate"])
+        self.assertEqual(result["rejections"], [])
+
+    def test_run_records_rejected_candidates(self):
+        real_adopt = exp2.ScaleGrowthSession.adopt
+        calls = []
+
+        def reject_first(session):
+            if not calls:
+                calls.append(1)
+                session.candidate = None
+                return {"action": "rejected_boundary", "size": 30, "matched": "7screws",
+                        "median_score": 0.9, "known_cal_max": 1.2}
+            return real_adopt(session)
+
+        with patch.object(exp2.ScaleGrowthSession, "adopt", reject_first):
+            result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        self.assertEqual(len(result["rejections"]), 1)
+        self.assertEqual(result["rejections"][0]["action"], "rejected_boundary")
+        self.assertEqual(result["rejections"][0]["config"], "7screws")
 
 
 if __name__ == "__main__":
