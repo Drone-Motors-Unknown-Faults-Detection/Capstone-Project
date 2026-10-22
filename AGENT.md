@@ -173,7 +173,7 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
 | k-NN 鄰居數 | 5 | `--knn-neighbors` |
 | 校準信心水準 | 0.95（校準距離分位數）| `--confidence` |
 | 開集判定 | 正規化分數 > 1 = 未知 | `core.openset` / `core.mahalanobis` |
-| HDBSCAN | (25,3)，自適應階梯：隔離區 ≥75 加試 (15,3)、≥100 加試 (10,2)；候選仍需叢 ≥25 筆 | `experiments.exp2_scale_growth` |
+| HDBSCAN | (25,3)，自適應階梯：隔離區 ≥75 加試 (15,3)、≥100 加試 (10,2)；候選仍需叢 ≥25 筆；`--fixed-density` 關閉階梯 | `experiments.exp2_scale_growth` |
 | 重分群節流 | 每 10 筆新未知樣本試一次 | 同上 `recluster_every` |
 | 隔離線 | 分數 > 2.0 才進隔離區（偵測線仍為 1.0）| 同上 `quarantine_margin` |
 | 趨勢 EWMA | alpha=0.08（window=120、warmup=10）| `core.trend.TrendMonitor` |
@@ -243,8 +243,11 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    落在 21～105 筆，最慢的是第一段 7screws（105 筆）。從 2screws 段起的四段
    （2screws、1screws、3_14screws、4_146screws），學到的群多數都是前一段注入的配置；
    3screws 段的群多數是 5screws，`cluster_purity` 為 0.5435（54.4%）。所以這個延遲不等於
-   該段配置自己成叢所需的筆數。自適應密度階梯（見參數表）的消融數字只在 `confirm()`
-   重擬合版本量過，`adopt()` 版本還沒重做。隔離區還沒成群時，web 顯示「已試分群 N 次」。
+   該段配置自己成叢所需的筆數。自適應密度階梯（見參數表）的 `adopt()` 版消融見
+   [reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)：T1/8000rpm、seed 42/123/2026，
+   階梯組延遲合計 1131 筆、最大 105 筆，`--fixed-density` 組 1922 筆、最大 561 筆；但階梯組在
+   seed 42、2026 的 3screws 段學到純度 54.4%／53.3% 的混合群，固定組最低 83.8%。
+   隔離區還沒成群時，web 顯示「已試分群 N 次」。
 3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名。事後對照看
    `matched`／`matched_display`（候選群的真值多數）；它可能不等於該段注入配置，
    因為候選叢集取自整個隔離區，多數可能是前一階段的殘餘。
