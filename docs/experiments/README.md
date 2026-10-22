@@ -181,7 +181,7 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 前端呈現規則另由 `src/tests/test_web_experiment_alignment.py` 呼叫 Node.js 執行真正的 `experiments.js`，驗證舊設定結果標示、空資料、失敗後重試與欄位映射；執行測試的 PATH 需有 Node.js。這是合成 DOM 工程測試，不能代替實際瀏覽器操作或組員理解驗收。頁面顯示保存結果的時間與參數；選項改變但尚未重跑時，下方明標舊設定結果，封存矩陣不隨新選項變動。
 
-獨立導覽另用 [UI 操作腳本](../navigation/exp13_UI操作腳本.md) 的 WebSocket session：重連不自動播放，模型失敗須明確重設或重建。兩個入口均為 CSV 重播，不保證實體時間、原始視窗獨立或部署誤報率。現行 server／guide 的部分錯誤會把例外文字傳給 client，可能包含私人路徑；這項限制仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤，不能宣稱全部錯誤回應已去敏。
+獨立導覽另用 [UI 操作腳本](../navigation/exp13_UI操作腳本.md) 的 WebSocket session：重連不自動播放，模型失敗須明確重設或重建。兩個入口均為 CSV 重播，不保證實體時間、原始視窗獨立或部署誤報率。現行 server／guide 的部分錯誤會把例外文字傳給 client，可能包含私人路徑；這項限制仍在，不能宣稱全部錯誤回應已去敏。[#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 已關閉（NOT_PLANNED）：系統只在封閉實驗室網路使用，不處理；要部署到非封閉網路時另開 issue。
 
 ## 各實驗的檔案位置
 
