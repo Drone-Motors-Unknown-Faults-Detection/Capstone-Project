@@ -12,6 +12,7 @@ import numpy as np
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
 from core.logger import setup_run
 from experiments.health.index import CalibratedHealthIndex
+from experiments.health.schema import HEALTH_FIELDS
 from experiments.health.trajectory import SessionTrajectoryMonitor
 
 
@@ -153,18 +154,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     lines = []
     for result in results:
-        # iter_run 已輸出 full 模式；此處依 --output-mode 篩欄，health 欄位須與
-        # HealthMonitoringResult.to_dict("health") 一致（另加 window_index）。
+        # iter_run 已輸出 full 模式；此處依 --output-mode 篩欄，health 模式取
+        # HEALTH_FIELDS 另加 window_index。
         if args.output_mode == "binary":
             lines.append(json.dumps({"is_fault": result["is_fault"]}, ensure_ascii=False))
         elif args.output_mode == "health":
-            lines.append(json.dumps({key: result[key] for key in (
-                "is_fault", "health_index", "degradation_score", "severity_stage", "trend",
-                "degradation_rate", "openset_method", "openset_score", "is_unknown_fault",
-                "prediction_confidence", "uncertainty", "timestamp", "condition", "data_quality",
-                "alarm_state", "alarm_reason", "severity_basis", "raw_health_index",
-                "smoothed_health_index", "change_point_state", "window_index",
-            )}, ensure_ascii=False))
+            lines.append(json.dumps({key: result[key] for key in (*HEALTH_FIELDS, "window_index")},
+                                    ensure_ascii=False))
         else:
             lines.append(json.dumps(result, ensure_ascii=False))
     (paths.output_dir / "windows.jsonl").write_text("".join(line + "\n" for line in lines), encoding="utf-8")
