@@ -1,4 +1,4 @@
-> 📌 **歷史文件**：本文撰於論文版（Step 1–6）管線時期。文中提及的程式路徑、notebook 與執行紀錄以 [原始論文 repo](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) 與本 repo 的 git 歷史為準，並不對應目前的 `core/ experiments/ web/` 架構；新專案說明見 [README](../README.md)、文件索引見 [docs/README.md](README.md)。
+> 📌 **歷史文件**：本文撰於論文版（Step 1–6）管線時期。文中提及的程式路徑、notebook 與執行紀錄以 [原始論文 repo](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) 與本 repo 的 git 歷史為準，並不對應目前的 `src/core`、`src/experiments`、`src/web` 架構；新專案說明見 [README](../README.md)、文件索引見 [docs/README.md](README.md)。
 
 # 以開放集辨識取代馬氏距離閾值
 
@@ -172,4 +172,4 @@ cl = hdbscan.HDBSCAN(min_cluster_size=25, min_samples=3,
 - [Unknown-class recognition adversarial network for open set domain adaptation fault diagnosis of rotating machinery](https://link.springer.com/article/10.1007/s10845-024-02395-2), J. Intelligent Manufacturing 2024
 - [Diagnostics for Mechanical Systems with Unknown Fault Modes: A Novel Open Set Recognition Approach](https://papers.phmsociety.org/index.php/phme/article/view/5015), PHM Society European Conference
 
-> 文中的量化數字（FPR 降低 18.03%、閾值 7.55–18.40、特徵維度 176/128/48、模型準確率）分別來自上列論文與 2026-08-05 全流程執行的實測紀錄（見 [logs/claude/Result.md](../logs/claude/Result.md)）。跨基準的比較請以原論文的實驗設定為準——能量分數與馬氏距離的優劣會隨資料集與骨幹網路而變。
+> 文中的量化數字（FPR 降低 18.03%、閾值 7.55–18.40、特徵維度 176/128/48、模型準確率）分別來自上列論文與 2026-08-05 全流程執行的實測紀錄（見 [原始論文 logs/claude/Result.md](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor/blob/1ef4a891ae02dc95910f747a5163bb2edd608f28/logs/claude/Result.md)）。跨基準的比較請以原論文的實驗設定為準——能量分數與馬氏距離的優劣會隨資料集與骨幹網路而變。

@@ -1,4 +1,4 @@
-> 📌 **歷史文件**：本文撰於論文版（Step 1–6）管線時期。文中提及的程式路徑、notebook 與執行紀錄以 [原始論文 repo](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) 與本 repo 的 git 歷史為準，並不對應目前的 `core/ experiments/ web/` 架構；新專案說明見 [README](../README.md)、文件索引見 [docs/README.md](README.md)。
+> 📌 **歷史文件**：本文撰於論文版（Step 1–6）管線時期。文中提及的程式路徑、notebook 與執行紀錄以 [原始論文 repo](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor) 與本 repo 的 git 歷史為準，並不對應目前的 `src/core`、`src/experiments`、`src/web` 架構；新專案說明見 [README](../README.md)、文件索引見 [docs/README.md](README.md)。
 
 # 固定馬氏距離流程下，換模型／調參數能改善什麼
 
@@ -176,7 +176,7 @@ VGG16    48 維  →  閾值  8.45
 
 ## 附註：資料來源與限制
 
-**資料來源**　2026-08-05 全流程執行紀錄（見 [logs/claude/Result.md](../logs/claude/Result.md)）。Step 3 的 45 份訓練 log、Step 6 的 27 份、Step 4 的 26 份偵測 log（Model_01 的輸出格式與其餘 26 個不同，無法解析）、共 291 個偵測批次。
+**資料來源**　2026-08-05 全流程執行紀錄（見 [原始論文 logs/claude/Result.md](https://github.com/Drone-Motors-Unknown-Faults-Detection/Ancestor/blob/1ef4a891ae02dc95910f747a5163bb2edd608f28/logs/claude/Result.md)）。Step 3 的 45 份訓練 log、Step 6 的 27 份、Step 4 的 26 份偵測 log（Model_01 的輸出格式與其餘 26 個不同，無法解析）、共 291 個偵測批次。
 
 **配對方式**　Step 4/5 載入的是 OneStage 產物（帶 `_1` 的模型檔），因此準確率一律取 `Step3_Model_N_OneStage`，而非 TwoStage。Model 01~09 沒有階段變體，直接取用。
 

@@ -24,6 +24,6 @@ Actions 成功或失敗都上傳白名單 public_summary.json，保存14天。ar
 
 ## 支援邊界與預期成果
 
-現行 CI 只有 Ubuntu。安裝入口是 `scripts/opt/build_uv.sh`，沒有 Windows／macOS 腳本。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 任意 Origin 測試描述既有不安全行為，缺口仍由 [#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 追蹤。
+現行 CI 只有 Ubuntu。安裝入口是 `scripts/opt/build_uv.sh`，沒有 Windows／macOS 腳本。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 任意 Origin 測試描述既有不安全行為（`src/web/server.py` 的 `check_origin` 一律回 True，預設 `--bind-address 0.0.0.0`）。[#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 已關閉（NOT_PLANNED）：系統只在封閉實驗室網路使用，這項行為不處理，也沒有追蹤中的 issue。
 
 預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。

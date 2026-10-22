@@ -1,6 +1,6 @@
 # 拆分大型 orchestration 的回歸規範
 
-給要拆 `src/experiments/exp6_formal_benchmark.py:_run_benchmark` 與 `src/experiments/exp6_matrix.py:run_matrix` 的組員：先讓 `src/tests/test_orchestration_contract.py` 固定下面的行為，再每次抽一個 helper、單獨 commit。這個測試把現行程式和固定基準 commit 的同名函數放在同一份 fixture 上配對執行；任何一步讓配對不相等，那一步就要退回。
+給要拆 `src/experiments/exp6_formal_benchmark.py:_run_benchmark` 與 `src/experiments/exp6_matrix.py:run_matrix` 的組員：`src/tests/test_orchestration_contract.py` 固定下面的行為，每次抽一個 helper、單獨 commit。這個測試把現行程式和固定基準 commit 的同名函數放在同一份 fixture 上配對執行；任何一步讓配對不相等，那一步就要退回。
 
 基準 commit 是 `39d3993`（PR #84 合併後的 main），用 `git show` 讀當時的原始碼執行，不另存一份副本。
 
@@ -18,12 +18,14 @@
 
 failed-refit 由 `src/tests/test_monitor_guard.py` 涵蓋，Web 串流的事件順序由 `src/tests/test_stream_integration.py` 對照整合前的 main，本規範不重複。
 
-## 拆分範圍與順序
+## 已抽出的 helper
 
-1. `_condition_metrics(known_scores, unknown_scores)`：從 `_run_benchmark` 抽出八個指標與兩個中位數的計算。純函數，輸入兩組分數，輸出 dict。
-2. `_condition_result(result, entry)`：從 `run_matrix` 抽出「只留目標工況那一列」的步驟。純函數，找不到或多於一列時丟出原本的 `ValueError`。
+1. `src/experiments/exp6_formal_benchmark.py:_condition_metrics(known_scores, unknown_scores)`：`_run_benchmark` 的八個指標與兩個中位數。純函數，輸入兩組分數，輸出 dict。
+2. `src/experiments/exp6_matrix.py:_condition_result(result, entry)`：`run_matrix` 裡「只留目標工況那一列」的步驟。純函數，找不到或多於一列時丟出 `ValueError`。
 
-科學計算留在 `experiments/` 與 `core/`，`web/` 只做編排，不新增 detector 或改變判定。`web/live.py` 的 `tick()` 本輪不拆，要拆時先替它補一份同樣的配對測試。
+再從這兩支函數拆出其他 helper 時，沿用同一份配對測試：每抽一個就跑一次，配對不相等就退回。
+
+科學計算留在 `src/experiments/` 與 `src/core/`，`src/web/` 只做編排，不新增 detector 或改變判定。`src/web/live.py` 的 `tick()` 目前沒有配對測試，要拆時先替它補一份。
 
 ## 怎麼跑
 
