@@ -38,7 +38,7 @@
 | exp5／廣度 exp6／exp10／exp11／exp12 run、CLI、Web 批次 | 共用 run_root_sources；逐工況 load_pool_source，前後核對全根版本及各池；CLI 同 run 保存 source.json 成功／失敗。結果參數記實際資料角色規則；列映射只到 clean CSV，不保證獨立錄製 |
 | exp8 health_index_benchmark run／CLI／Web 批次 | 同一來源核對器支援內容快取；fit_audit 保存各工況健康 train／cal／holdout 列及未知評估配置，與 row_mapping 合讀 |
 | exp8 health_monitor run／iterator／CLI／Web | 共用 PoolSource；fitted 與逐窗結果保存來源及環境，耗盡 iterator 前再驗版本；CLI 載入失敗仍保存同 run FAILED。window_index 是回放順序，原列位置另由 source_pool_index 指向 clean CSV |
-| matrix／aggregate | 仍有父產物來源與 resume 版本缺口；setup_run 環境與 resolved config 不等於來源鏈完整 |
+| matrix／aggregate | 新矩陣採 formal_matrix_provenance_v2 固定來源、執行身分及逐法設定，彙總綁實際父檔 bytes SHA；舊 schema 只讀並標 LEGACY_UNVERIFIED，不允許補欄位後原根續跑 |
 | exp9 | 無獨立 runner，沿廣度 exp6 的支援範圍 |
 | exp13／首頁／guide | 有自己的契約／落盤，但不由此推論所有執行已具有完整 source_content_v2 鏈 |
 
@@ -54,6 +54,12 @@ uv run --locked --extra test python -m pytest src/tests/test_provenance.py
 唯讀核對入口經 setup_run("source_provenance", unique=True) 寫 logs/source_provenance/{ts}.log、output/source_provenance/{ts}/environment.json 與 source.json。成功的 VERIFIED 只證實所讀內容與適用manifest；raw/session與fresh test仍UNKNOWN。失敗保存error_type並拋出例外，不輸出假成功。
 
 ## 預期成果與驗證
+
+### 矩陣與彙總的父產物
+
+新 matrix manifest schema 2 的 `contract.version=formal_matrix_provenance_v2`，保存起始 source_content_v2 清冊、data_version、環境、程式檔 SHA、Git HEAD／dirty、uv.lock SHA、逐方法有效設定及預期 run 鍵。`contract_sha256` 只雜湊這份不含自身 hash 的固定內容；完成格 summary 綁同一 contract。三個必備產物的 `artifact_sha256` 是完整原始 bytes，不是排序後 JSON。
+
+新彙總 schema 2 的 `provenance` 保存實際讀取 manifest 的 bytes SHA、接受格的三檔 SHA、portable run ID、彙總執行環境及來源驗證狀態，均不參與八項科學平均。completed／PARTIAL 描述工程 coverage，VERIFIED／LEGACY_UNVERIFIED 描述證據契約；checksum 不是作者簽章，也不證明採集或視窗獨立。缺原始採集事實繼續 UNKNOWN。
 
 fixture涵蓋同stat不同bytes、同內容副本、不同root、無manifest、legacy讀取、損壞／不符manifest、private不進Git公開清冊、來源讀取失敗及無Git。預期同stat異bytes能區分、相同相對ID與內容的副本指紋一致、錯manifest拒絕，來源紀錄不改fixture的score／threshold／classify。實際平台支援與跳過案例以當次受測SHA及測試紀錄為準。
 入口遵循run/main、setup_run及logs/output，工程規則不占exp9–12。

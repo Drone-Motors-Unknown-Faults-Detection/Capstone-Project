@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import patch
 
+import numpy as np
 import pandas as pd
 
 from experiments.exp6_matrix import METRIC_COLUMNS, run_key
@@ -46,3 +48,52 @@ def write_matrix(root: Path, conditions=(("T1", "6000rpm"),), seeds=(42, 123), m
     path = matrix / "matrix_manifest.json"
     path.write_text(json.dumps(manifest), encoding="utf-8")
     return path
+
+
+def source_fixture(root: Path, conditions=(("T1", "6000rpm"),)) -> Path:
+    from core.feature_schema import SCHEMAS
+
+    rng = np.random.default_rng(17)
+    for motor, rpm in conditions:
+        for config, center in (("8screws", 0.0), ("7screws", 2.0)):
+            target = root / "Step-1/myfeature" / motor / rpm / config
+            target.mkdir(parents=True, exist_ok=True)
+            pd.DataFrame(rng.normal(center, .1, (20, 105)), columns=SCHEMAS["historical_clean_v1"]).to_csv(
+                target / f"{motor}_Group_feature_data_clean.csv", index=False)
+    return root
+
+
+def producer_result(data_root: Path, row: dict) -> dict:
+    """來源工程合成回傳，不訓練模型、不當成研究成績。"""
+    from core.provenance import capture_source
+    from core.runtime_environment import collect_environment
+    from experiments.exp6_matrix import PROJECT, method_configuration
+
+    source, _ = capture_source(data_root)
+    environment = collect_environment(PROJECT, data_root=data_root)
+    config = method_configuration(row["method"])
+    return {"schema_version": 3, "status": "completed", "method": row["method"], "seed": row["seed"],
+            "dataset_fingerprint": source["dataset_fingerprint"], "fingerprint_version": source["schema_version"],
+            "commit_sha": environment["git"]["head"], "source": source, "environment": environment,
+            "config": config["benchmark_config"], "resolved_config": config["resolved_config"],
+            "formal_condition_count": 1, "rows": [row]}
+
+
+def write_verified_matrix(root: Path, conditions=(("T1", "6000rpm"),), seeds=(42, 123),
+                          methods=("mahalanobis", "knn")) -> Path:
+    from experiments import exp6_matrix as matrix
+
+    data = source_fixture(root / "features", conditions)
+    entries = [{"run_id": run_key(motor, rpm, seed, method), "condition": f"{motor}/{rpm}",
+                "motor": motor, "rpm": rpm, "seed": seed, "method": method, "status": "pending"}
+               for motor, rpm in conditions for seed in seeds for method in methods]
+    def benchmark(data_path, *, seed, openset_method, **kwargs):
+        rows = [condition_row(motor, rpm, seed, openset_method, .05 if openset_method == "knn" else 0)
+                for motor, rpm in conditions]
+        return dict(producer_result(data_path, rows[0]), rows=rows)
+    with patch.object(matrix, "expected_run_matrix", return_value=entries), \
+            patch.object(matrix, "run", side_effect=benchmark):
+        result = matrix.run_matrix(data, root / "matrix", seeds=seeds, methods=methods)
+    if result["status"] != "completed":
+        raise AssertionError("來源fixture矩陣未完成")
+    return root / "matrix/matrix_manifest.json"
