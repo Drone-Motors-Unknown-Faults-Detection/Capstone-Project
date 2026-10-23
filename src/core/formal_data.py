@@ -38,7 +38,7 @@ from scipy.fftpack import fft
 from scipy.stats import kurtosis, skew
 
 from core.feature_schema import CONFIG_ALIASES
-from core.provenance import sha256_bytes, sha256_file
+from core.provenance import MATERIALIZATION_VERSION, sha256_bytes, sha256_file
 
 
 FEATURE_DIM = 105
@@ -61,6 +61,8 @@ BASE_FREQUENCY = {"6000rpm": 100, "8000rpm": 133, "11000rpm": 183}
 HARMONIC_BANDWIDTHS = (5, 8, 10, 12, 12, 12, 15, 15, 15, 15)
 RAW_LENGTH = 10_000
 SAMPLE_RATE = 10_000
+# 特徵公式版本，寫進 manifest 的 formal_contract；改 _statistical_features／_fft_features 的公式時一併改名並升 manifest 版本
+CLEARANCE_FORMULA = "max_over_mean_sqrt_abs_squared"
 
 
 def _feature_names() -> list[str]:
@@ -561,7 +563,7 @@ def materialize(
     if archive_sha != {stage: sha256_file(path) for stage, path in archives.items()}:
         raise FormalDataError("讀取期間來源 SHA 改變，拒絕物化")
     manifest = {
-        "schema_version": "formal_materialization_v3",
+        "schema_version": MATERIALIZATION_VERSION,
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "source_id": "formal_archive_source",
         "output_id": "formal_materialized_features",
@@ -574,6 +576,7 @@ def materialize(
             "sample_rate_hz": SAMPLE_RATE,
             "window_policy": "equal_window_counts_v1",
             "alignment_status": "UNKNOWN",
+            "clearance_formula": CLEARANCE_FORMULA,
         },
         "files": [dict(asdict(record), output=Path(record.output).relative_to(output).as_posix(),
                        output_sha256=record.source_sha256) for record in records],

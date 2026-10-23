@@ -17,7 +17,8 @@ from datetime import datetime
 import numpy as np
 from loguru import logger
 
-from core.provenance import (CONTENT_VERSION, MATERIALIZATION_VERSION, ProvenanceError,
+from core.provenance import (CONTENT_VERSION, LEGACY_FORMULA, MATERIALIZATION_VERSION, PORTABLE_MATERIALIZATIONS,
+                             ProvenanceError,
                              capture_source, file_sha, run, sha256_bytes, sha256_file, write_private_context)
 from core import formal_data
 from core.logger import setup_run
@@ -41,10 +42,11 @@ def old_module():
 
 def manifest(root, version=MATERIALIZATION_VERSION):
     public, _ = capture_source(root)
-    legacy = version != MATERIALIZATION_VERSION
+    legacy = version not in PORTABLE_MATERIALIZATIONS
     records = [{"output": str(root / item["source_id"]) if legacy else item["source_id"],
                 "source_sha256" if legacy else "output_sha256": item["sha256"]} for item in public["files"]]
-    result = {"schema_version": version, "files": records, "archive_sha256": {}, "formal_contract": {}}
+    contract = {"clearance_formula": formal_data.CLEARANCE_FORMULA} if version == MATERIALIZATION_VERSION else {}
+    result = {"schema_version": version, "files": records, "archive_sha256": {}, "formal_contract": contract}
     if version is None:
         result.pop("schema_version")
     path = root / "formal_materialization_manifest.json"
@@ -109,7 +111,7 @@ class ProvenanceTests(unittest.TestCase):
             self.assertTrue(Path(private["resolved_data_root"]).is_relative_to(root.resolve(strict=True)))
 
     def test_legacy_manifests_are_readonly_and_portable(self):
-        for version in (None, 1, "formal_materialization_v1", "formal_materialization_v2", MATERIALIZATION_VERSION):
+        for version in (None, 1, "formal_materialization_v1", "formal_materialization_v2", *PORTABLE_MATERIALIZATIONS):
             with self.subTest(version=version), tempfile.TemporaryDirectory() as directory:
                 root = _fixture(Path(directory))
                 path = manifest(root, version)
@@ -118,6 +120,28 @@ class ProvenanceTests(unittest.TestCase):
                 self.assertEqual(public["manifest_validation"], "VERIFIED_OUTPUT_BYTES_ONLY")
                 self.assertEqual(path.read_bytes(), before)
                 self.assertNotIn(directory, json.dumps(public))
+
+    def test_v3_archive_is_verified_but_marked_legacy_formula(self):
+        """#304 F5-04：v3 manifest 仍以 output SHA 核對，但公開摘要標公式未記錄；v4 照抄 clearance_formula，
+        缺這欄就拒絕；沒有 manifest 時為 None。"""
+        self.assertEqual(MATERIALIZATION_VERSION, "formal_materialization_v4")
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            self.assertIsNone(capture_source(root)[0]["clearance_formula"])
+            manifest(root, "formal_materialization_v3")
+            public, _ = capture_source(root)
+            self.assertEqual(public["manifest_schema"], "formal_materialization_v3")
+            self.assertEqual(public["manifest_validation"], "VERIFIED_OUTPUT_BYTES_ONLY")
+            self.assertEqual(public["clearance_formula"], LEGACY_FORMULA)
+            path = manifest(root)
+            self.assertEqual(capture_source(root)[0]["clearance_formula"], "max_over_mean_sqrt_abs_squared")
+            for contract in ({}, {"clearance_formula": ""}, None):
+                with self.subTest(contract=contract):
+                    value = json.loads(path.read_text())
+                    value["formal_contract"] = contract
+                    path.write_text(json.dumps(value))
+                    with self.assertRaisesRegex(ProvenanceError, "clearance_formula"):
+                        capture_source(root)
 
     def test_windows_absolute_legacy_manifest_relocates_without_leaking_root(self):
         with tempfile.TemporaryDirectory() as directory:

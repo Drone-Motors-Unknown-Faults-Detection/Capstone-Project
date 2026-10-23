@@ -15,7 +15,10 @@ import uuid
 import numpy as np
 
 CONTENT_VERSION = "source_content_v2"
-MATERIALIZATION_VERSION = "formal_materialization_v3"
+MATERIALIZATION_VERSION = "formal_materialization_v4"
+# v3 與 v4 欄位相同（portable output ID＋output_sha256）；v4 另在 formal_contract 記 clearance_formula（#304 F5-04）
+PORTABLE_MATERIALIZATIONS = ("formal_materialization_v3", MATERIALIZATION_VERSION)
+LEGACY_FORMULA = "legacy_unrecorded"   # v4 以前沒記特徵公式：可能是 #277 以前 clearance 等於 impulse 的舊式
 
 
 class ProvenanceError(ValueError):
@@ -78,7 +81,7 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
     if not files:
         raise FileNotFoundError("找不到正式特徵CSV；不能對空清冊宣稱來源已驗證")
     manifest_path = root / "formal_materialization_manifest.json"
-    manifest_schema, manifest_sha, validation = None, None, "ABSENT"
+    manifest_schema, manifest_sha, validation, clearance_formula = None, None, "ABSENT", None
     if manifest_path.is_file():
         try:
             payload = manifest_path.read_bytes()
@@ -89,8 +92,15 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
             raise ProvenanceError("manifest必須為object")
         manifest_schema = manifest.get("schema_version")
         if (not isinstance(manifest_schema, (type(None), int, str)) or isinstance(manifest_schema, bool)
-                or manifest_schema not in {None, 1, "formal_materialization_v1", "formal_materialization_v2", MATERIALIZATION_VERSION}):
+                or manifest_schema not in {None, 1, "formal_materialization_v1", "formal_materialization_v2",
+                                           *PORTABLE_MATERIALIZATIONS}):
             raise ProvenanceError("未知materialization schema")
+        clearance_formula = LEGACY_FORMULA
+        if manifest_schema == MATERIALIZATION_VERSION:
+            contract = manifest.get("formal_contract")
+            clearance_formula = contract.get("clearance_formula") if isinstance(contract, dict) else None
+            if not isinstance(clearance_formula, str) or not clearance_formula:
+                raise ProvenanceError("v4 manifest缺少clearance_formula")
         if manifest_schema is None:
             if not all(key in manifest for key in ("archive_sha256", "formal_contract", "files")):
                 raise ProvenanceError("未版本化manifest缺少歷史識別欄位")
@@ -98,14 +108,15 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
         records = manifest.get("files")
         if not isinstance(records, list) or not records:
             raise ProvenanceError("manifest缺少非空files清冊")
+        portable = manifest_schema in PORTABLE_MATERIALIZATIONS
         declared = {}
         for record in records:
             if not isinstance(record, dict):
                 raise ProvenanceError("manifest file不是object")
-            identity = _manifest_id(record.get("output"), legacy=manifest_schema != MATERIALIZATION_VERSION)
+            identity = _manifest_id(record.get("output"), legacy=not portable)
             if identity in declared:
                 raise ProvenanceError("manifest重複output ID")
-            checksum = record.get("output_sha256") if manifest_schema == MATERIALIZATION_VERSION else record.get("source_sha256")
+            checksum = record.get("output_sha256") if portable else record.get("source_sha256")
             if not isinstance(checksum, str) or len(checksum) != 64:
                 raise ProvenanceError("manifest缺少已宣告的output SHA")
             declared[identity] = checksum
@@ -120,7 +131,7 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
     public = {"schema_version": CONTENT_VERSION, "dataset_fingerprint": canonical_sha(files),
               "data_version": f"{CONTENT_VERSION}:{canonical_sha(files)}",
               "files": files, "manifest_schema": manifest_schema, "manifest_sha256": manifest_sha,
-              "manifest_validation": validation,
+              "manifest_validation": validation, "clearance_formula": clearance_formula,
               "content_aliases": [ids for _, ids in sorted(aliases.items()) if len(ids) > 1],
               "sample_source": "relative_file_id_plus_original_row_index",
               "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}

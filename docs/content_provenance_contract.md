@@ -6,7 +6,7 @@
 
 `source_content_v2`：對實際正式CSV bytes逐檔SHA256，以排序的POSIX相對ID＋內容SHA清冊作canonical JSON（sort_keys=True，UTF-8，compact separators），整體SHA作新資料指紋。size／mtime不進內容身分。無manifest仍檢查真實bytes；同內容異root副本可得到相同指紋，但不視為獨立錄製。同dataset內副本列為alias，不自行去重或當新馬達。
 明確拒絕空清冊、無法讀取、損壞manifest／未知schema、不匹配已宣告輸出SHA／檔案清冊；前後來源變動拒絕完成。既有stat與manifest指紋只透過明確legacy入口讀取並標 `legacy_fingerprint_v1`；不回寫歷史輸出，不把舊指紋與新版本混為同資料ID。
-物化新manifest `formal_materialization_v3`：來源根改固定portable ID，output為根內相對ID；每筆明記output SHA（歷史source_sha256實為寫出CSV bytes的欄位保留相容：Stage1／3複製檔就是原member，Stage2是轉換後的衍生CSV），archive內容SHA與member ID另存；Stage2另記 `source_member_sha256`（通道名current／x／y／z／delta_t → 原始通道member bytes的SHA），複製檔此欄為null。採集session／時間／原始同步仍UNKNOWN。v1／v2可唯讀讀取；其絕對path只在本機解析成相對清冊，不複製到公共摘要。
+物化新manifest `formal_materialization_v4`：`formal_contract.clearance_formula` 記特徵公式版本（現為 `max_over_mean_sqrt_abs_squared`，#277 修正後的 clearance）；公開摘要的 `clearance_formula` 照抄，v4 manifest 缺這欄就拒絕。`formal_materialization_v3` 的欄位與 v4 相同但沒有公式紀錄，照樣以output SHA核對，公開摘要的 `clearance_formula` 標 `legacy_unrecorded`；沒有manifest時為null。v3／v4 的來源根改固定portable ID，output為根內相對ID；每筆明記output SHA（歷史source_sha256實為寫出CSV bytes的欄位保留相容：Stage1／3複製檔就是原member，Stage2是轉換後的衍生CSV），archive內容SHA與member ID另存；Stage2另記 `source_member_sha256`（通道名current／x／y／z／delta_t → 原始通道member bytes的SHA），複製檔此欄為null。採集session／時間／原始同步仍UNKNOWN。v1／v2可唯讀讀取；其絕對path只在本機解析成相對清冊，不複製到公共摘要。
 
 ## 公開與私人資料
 

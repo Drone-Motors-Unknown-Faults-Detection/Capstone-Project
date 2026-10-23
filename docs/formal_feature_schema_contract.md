@@ -12,6 +12,8 @@
 105個位置依序為 Current15、Vibration_X25、Vibration_Y25、Vibration_Z25、Delta_T15；各通道先15統計量，振動再10倍頻幅值。完整計算差異已由研究分支 `b3d68f1` 的 `reports/fault_type_openset/provenance_followup.md` 記錄，本項不重做公式研究、不修歷史命名。
 採樣率、物理單位、安裝軸向、負載與 session／raw-window獨立性仍 UNKNOWN；schema通過僅證格式，不證量測一致。
 
+欄名相同不代表公式相同。`clearance_indicator` 在 `src/core/formal_data.py:_statistical_features` 算 max/(mean sqrt|x|)²，與歷史特徵 CSV 相同；#277 以前的轉接器少了外層平方，該欄等於 impulse。兩種公式寫出的 CSV 都通過 `adapter_generated_v1`，所以公式版本記在物化 manifest：`formal_materialization_v4` 的 `formal_contract.clearance_formula` 為 `max_over_mean_sqrt_abs_squared`。`formal_materialization_v3` 以前的 manifest 沒有這一欄，`core.provenance.capture_source` 照常核對其輸出 SHA，但公開摘要的 `clearance_formula` 標 `legacy_unrecorded`：不能確定是哪一版公式，引用前要當成可能等於 impulse 的舊式。
+
 ## 拒絕政策與用途分層
 
 缺／多／重複／錯序欄、任意 f0…f104、混合兩版本欄名皆拒絕；非數值、NaN／Inf、空檔／空列／空配置皆拒絕，不靜默刪列。允許 UTF-8 BOM 作編碼標記。錯誤提供 reason、portable file ID、實際 rows、拒絕 rows 與總計；不把私人絕對路徑寫入摘要。
