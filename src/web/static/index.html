@@ -29,7 +29,6 @@ button{background:var(--panel2); border:1px solid var(--border); border-radius:8
 button:hover{border-color:var(--blue);}
 button.primary{background:#1d4ed8; border-color:#1d4ed8;}
 button.warn{background:#7f1d1d; border-color:#991b1b;}
-button.confirm{background:#166534; border-color:#16a34a;}
 button:disabled{opacity:.4; cursor:not-allowed;}
 .controls{display:flex; align-items:center; gap:10px; padding:8px 16px; background:var(--panel); border-bottom:1px solid var(--border); flex-wrap:wrap;}
 .controls label{color:var(--muted); font-size:12px;}
@@ -63,8 +62,8 @@ canvas{width:100%; display:block;}
 .chip.fault{border-color:var(--blue); color:var(--blue);}
 .chip.new{animation:pop .6s;}
 @keyframes pop{0%{transform:scale(1.4);}100%{transform:scale(1);}}
-/* 候選卡 */
-#candidateCard{border-color:var(--yellow);}
+/* 自學結果卡 */
+#adoptionCard{border-color:var(--yellow);}
 /* 事件日誌 */
 #log{max-height:220px; overflow-y:auto; font-size:12.5px; line-height:1.65;}
 #log .info{color:var(--muted);}
@@ -254,8 +253,8 @@ footer a:hover{color:var(--blue);}
         <div class="step" id="st0"><span class="n">1</span><br>即時監測</div>
         <div class="step" id="st1"><span class="n">2</span><br>異常隔離累積<br><span id="qCount" class="mini"></span></div>
         <div class="step" id="st2"><span class="n">3</span><br>HDBSCAN 分群</div>
-        <div class="step" id="st3"><span class="n">4</span><br>操作員確認</div>
-        <div class="step" id="st4"><span class="n">5</span><br>擴張重訓</div>
+        <div class="step" id="st3"><span class="n">4</span><br>只用該群自學</div>
+        <div class="step" id="st4"><span class="n">5</span><br>擴張重擬合</div>
       </div>
     </div>
     <div class="panel">
@@ -275,16 +274,15 @@ footer a:hover{color:var(--blue);}
       <div class="gauge"><div id="healthBar"></div></div>
       <div class="mini">此量尺由 1／score 截取為百分比，只供展示；不是損壞百分比、壽命或實驗八的校準健康指數。具名注入來源是展示真值，不是模型診斷答案。</div>
     </div>
-    <div class="panel" id="candidateCard" style="display:none">
-      <h2 style="color:var(--yellow)">⚠ 候選新故障（待確認）</h2>
-      <div class="kv"><span class="k">叢集大小</span><span id="candSize">—</span></div>
-      <div class="kv"><span class="k">叢集純度</span><span id="candPurity">—</span></div>
-      <div class="kv"><span class="k">樣本蒐集區間</span><span id="candRange">—</span></div>
-      <div class="kv"><span class="k">揭示真實身分</span><span id="candMajority">—</span></div>
-      <div id="candHint" class="mini" style="display:none; margin-top:6px; color:#fde68a">
-        此叢多數屬於<b>已知類別的邊界樣本</b>（例如健康期零星誤報的累積，注意蒐集區間偏舊）——
-        確認後將退回清除，量尺不變。</div>
-      <button id="btnConfirm" class="confirm" style="width:100%; margin-top:8px">✔ 操作員確認 → 納入並重訓練</button>
+    <div class="panel" id="adoptionCard" style="display:none">
+      <h2 style="color:var(--yellow)">◎ 最近一次新類自學（與實驗二相同的 adopt()）</h2>
+      <div class="kv"><span class="k">結果</span><span id="adoptAction">—</span></div>
+      <div class="kv"><span class="k">模型類名</span><span id="adoptName">—</span></div>
+      <div class="kv"><span class="k">叢集大小</span><span id="adoptSize">—</span></div>
+      <div class="kv"><span class="k">群中位分數／已知校準最大</span><span id="adoptScore">—</span></div>
+      <div class="kv"><span class="k">事後對照：真實多數（純度）</span><span id="adoptMatched">—</span></div>
+      <div class="mini" style="margin-top:6px">成群即納入，不等操作員、不讀真實配置；類名只有「模型新類 N」。
+        真實多數與純度由注入真值事後算出，只供展示者對照，不是系統判定。</div>
     </div>
     <div class="panel">
       <h2>健康量尺（已知類別）</h2>
@@ -297,7 +295,7 @@ footer a:hover{color:var(--blue);}
       <div class="kv" style="margin-top:6px"><span class="k">CUSUM 偏移能量（展示統計，無門檻）</span><span id="cusumVal">0</span></div>
       <div class="kv"><span class="k">最近判別</span><span id="trendKind">—</span></div>
       <div class="mini" style="margin-top:6px">本卡只負責警報與漸進／突發判別；
-        「候選新故障 → 操作員確認」由隔離區累積 ≥ 25 筆成叢觸發（見流程列進度）。</div>
+        「成群 → 自學新類」由隔離區累積 ≥ 25 筆成叢觸發（見流程列進度）。</div>
     </div>
     <div class="panel">
       <h2>極座標健康地圖（實驗四：方向 = 故障類型、半徑 = 嚴重度）</h2>
@@ -310,12 +308,12 @@ footer a:hover{color:var(--blue);}
       <canvas id="scatter" height="230"></canvas>
     </div>
     <div class="panel">
-      <h2>偵測統計（學會前 = 該被判未知；學會後 = 該被認出）</h2>
+      <h2>偵測統計（擴張前 = 量尺只有健康，該被判未知；擴張後 = 已學到新類，看被任一已知接受的比例）</h2>
       <table id="metricsTable">
-        <thead><tr><th>注入配置</th><th>學會前</th><th>偵測率</th><th>學會後</th><th>認出率</th></tr></thead>
+        <thead><tr><th>注入配置</th><th>擴張前</th><th>判未知率</th><th>擴張後</th><th>接受率</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="mini" style="margin-top:6px">認出率天生 ≈ 90–95%：校準閾值取第 95 百分位，已知樣本本來就有少數落在線外。</div>
+      <div class="mini" style="margin-top:6px">分段只看模型狀態（學到第一個新類之後，所有來源都算擴張後），不看注入真值。接受率不要求判對自身配置；已學會的來源天生 ≈ 90–95%：校準閾值取第 95 百分位，已知樣本本來就有少數落在線外。</div>
     </div>
   </div>
 </main>
@@ -422,7 +420,7 @@ function onState(m){
     $("methodBadge").textContent = "Open Set：" + method;
   }
   const rb = $("runBadge");
-  if (busy){ rb.className = "badge busy"; rb.textContent = "⚙ 重訓練中…"; }
+  if (busy){ rb.className = "badge busy"; rb.textContent = "⚙ 重設／載入中…"; }
   else if (running){ rb.className = "badge run"; rb.textContent = "▶ 串流中"; }
   else { rb.className = "badge stop"; rb.textContent = "⏸ 暫停"; }
   $("btnRun").textContent = running ? "⏸ 暫停" : "▶ 開始串流";
@@ -455,41 +453,34 @@ function onState(m){
   $("knownChips").innerHTML = chips;
   knownChipsLast = m.known.length;
 
-  // 候選卡
-  if (m.candidate){
-    $("candidateCard").style.display = "";
-    $("candSize").textContent = m.candidate.size + " 筆";
-    $("candPurity").textContent = (m.candidate.purity * 100).toFixed(0) + "%";
-    $("candRange").textContent = m.candidate.t_range
-      ? `#${m.candidate.t_range[0]} ~ #${m.candidate.t_range[1]}` : "—";
-    $("candMajority").textContent = m.candidate.majority_display || m.candidate.majority;
-    const known = !!m.candidate.is_known;
-    $("candHint").style.display = known ? "" : "none";
-    const btn = $("btnConfirm");
-    btn.textContent = known ? "✋ 操作員退回（已知類別邊界樣本）" : "✔ 操作員確認 → 納入並重訓練";
-    btn.className = known ? "warn" : "confirm";
-    btn.style.width = "100%"; btn.style.marginTop = "8px";
-    btn.disabled = busy;
+  // 最近一次自學（成群當拍就 adopt()，沒有待確認狀態）
+  const a = m.adoption;
+  if (a){
+    const ACTION = {learned: "✔ 納入為新類（量尺擴張）", rejected_boundary: "✋ 退回：與已知邊界無從區分", insufficient: "✋ 退回：群太小"};
+    $("adoptionCard").style.display = "";
+    $("adoptAction").textContent = (ACTION[a.action] || a.action) + `（第 ${a.t} 筆）`;
+    $("adoptName").textContent = a.action === "learned" ? `${escapeHtml(a.display)}（${escapeHtml(a.config)}）` : "—";
+    $("adoptSize").textContent = a.size + " 筆";
+    $("adoptScore").textContent = `${a.median_score.toFixed(2)} ／ ${a.known_cal_max.toFixed(2)}`;
+    $("adoptMatched").textContent = `${escapeHtml(a.matched_display)}（${(a.purity * 100).toFixed(0)}%）`;
   } else {
-    $("candidateCard").style.display = "none";
+    $("adoptionCard").style.display = "none";
   }
-  setSteps(m.phase, m.quarantine, m.min_cluster_size);
+  setSteps(m.phase, m.quarantine, m.min_cluster_size, a && a.action === "learned");
   drawScatter(); drawPolar();
   if(m.metrics)onMetrics(m.metrics);
 }
 let knownChipsLast = 1;
 
-function setSteps(phase, q, need){
+function setSteps(phase, q, need, learned){
   const steps = [ $("st0"), $("st1"), $("st2"), $("st3"), $("st4") ];
   steps.forEach(s => s.className = "step");
   $("qCount").textContent = q > 0 ? `${q} / ${need} 筆` : "";
   if (busy){ steps[4].classList.add("active"); steps.slice(0,4).forEach(s=>s.classList.add("done")); return; }
   if (phase === "monitoring"){ steps[0].classList.add("active"); }
   else if (phase === "accumulating"){ steps[0].classList.add("done"); steps[1].classList.add("active"); }
-  else if (phase === "pending"){
-    steps[0].classList.add("done"); steps[1].classList.add("done");
-    steps[2].classList.add("done"); steps[3].classList.add("alert");
-  }
+  // 這個 session 已自學過至少一個新類：步驟 3～5 都走過了
+  if (learned) steps.slice(2).forEach(s => s.classList.add("done"));
 }
 
 function onSample(m){
@@ -703,7 +694,6 @@ $("rate").onchange = e => send({cmd:"rate", value:+e.target.value});
 $("sourceSel").onchange = e => send({cmd:"set_source", config:e.target.value});
 $("btnScA").onclick = () => send({cmd:"scenario", name:"A"});
 $("btnScB").onclick = () => send({cmd:"scenario", name:"B"});
-$("btnConfirm").onclick = () => send({cmd:"confirm"});
 $("datasetSel").onchange = e => {
   const [motor, rpm] = e.target.value.split("|");
   send({cmd:"dataset", motor, rpm});

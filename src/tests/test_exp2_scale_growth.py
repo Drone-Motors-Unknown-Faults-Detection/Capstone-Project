@@ -1,5 +1,8 @@
-"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證、待確認不加列）。"""
+"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證）；
+#286 形成新類與對上本段配置分開計數；#287 沒有 confirm()，批次數字與移除前一致。"""
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -59,7 +62,7 @@ class DensityLadderTests(unittest.TestCase):
 
         def fake_run(pools, **kwargs):
             captured.update(kwargs)
-            return {"stages": [], "final_known": [], "model": {}}
+            return {"stages": [], "n_stages": 0, "n_learned": 0, "n_matched_config": 0, "final_known": [], "model": {}}
 
         with patch("core.runner._dataset_info", return_value={"motor": "T1", "rpm": "8000rpm", "path": "unused"}), \
                 patch("core.runner.load_pool_source", return_value=(_pools(), None)), \
@@ -253,15 +256,6 @@ class QuarantineRuleTests(unittest.TestCase):
         session.process(row + 0.01, "7screws")
         self.assertEqual(len(session.quarantine_X), 2)
 
-    def test_pending_candidate_blocks_new_quarantine_rows(self):
-        session = exp2.ScaleGrowthSession(_pools(), seed=42)
-        session.candidate = {"indices": [], "size": 0, "majority": "7screws", "majority_display": "7screws",
-                             "purity": 1.0}
-        out = session.process(np.full(6, 6.0), "7screws")
-        self.assertIsNone(out["label"])
-        self.assertEqual(out["quarantine"], 0)
-        self.assertEqual(session.quarantine_X, [])
-
     def test_run_reports_duplicate_count_and_learned_class_has_no_duplicate_rows(self):
         result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
         self.assertEqual(result["quarantine_duplicates"], 0)  # 240 筆不同的列在 225 tick 內成群，還沒循環到重抽
@@ -302,3 +296,137 @@ class ResultProvenanceTests(unittest.TestCase):
         self.assertIsNone(default["knn_neighbors"])
         self.assertEqual(default["calibration_source"], "known-only 20% calibration split")
         self.assertEqual(default["split"], {"train": 0.6, "calibration": 0.2, "holdout": 0.2})
+
+
+def _three_pools() -> dict[str, np.ndarray]:
+    """golden fixture 用的池：src/tests/fixtures/exp2_run_synthetic_seed42.json 由同一組池在 origin/main b6e2b97 產出（#287 golden 比對用）。"""
+    rng = np.random.default_rng(5)
+    return {
+        "8screws": rng.normal(0.0, 0.3, (120, 6)),
+        "7screws": rng.normal(6.0, 0.3, (300, 6)),
+        "6screws": rng.normal(-6.0, 0.3, (300, 6)),
+    }
+
+
+def _rounded(obj):
+    if isinstance(obj, float):
+        return round(obj, 6)
+    if isinstance(obj, dict):
+        return {k: _rounded(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_rounded(v) for v in obj]
+    return obj
+
+
+def _assert_close(test, expected, actual, path="result"):
+    """浮點容許 1e-4（golden 在 Spark 產出，其他 Linux 主機的 BLAS 可能差最後幾位）；其餘欄位要完全相同。"""
+    if isinstance(expected, float) or isinstance(actual, float):
+        test.assertAlmostEqual(expected, actual, delta=1e-4, msg=path)
+    elif isinstance(expected, dict):
+        test.assertIsInstance(actual, dict, path)
+        test.assertEqual(sorted(expected), sorted(actual), path)
+        for key in expected:
+            _assert_close(test, expected[key], actual[key], f"{path}.{key}")
+    elif isinstance(expected, list):
+        test.assertEqual(len(expected), len(actual), path)
+        for i, (e, a) in enumerate(zip(expected, actual)):
+            _assert_close(test, e, a, f"{path}[{i}]")
+    else:
+        test.assertEqual(expected, actual, path)
+
+
+class SemanticsTests(unittest.TestCase):
+    """#286：discovered 只表示該段形成新類；是否對上本段配置看 matched_is_config，總數由實驗層給。"""
+
+    NEW_KEYS = ("n_stages", "n_learned", "n_matched_config")
+
+    def test_every_stage_has_matched_is_config_and_totals(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=5)
+        stage = result["stages"][0]
+        self.assertFalse(stage["discovered"])
+        self.assertFalse(stage["matched_is_config"])
+        self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (1, 0, 0))
+
+    def test_learning_another_config_counts_as_formed_but_not_matched(self):
+        real_adopt = exp2.ScaleGrowthSession.adopt
+
+        def adopt_as_other(session):
+            out = real_adopt(session)
+            if out["action"] == "learned":
+                out["matched"], out["matched_display"] = "6screws", "6screws"
+            return out
+
+        with patch.object(exp2.ScaleGrowthSession, "adopt", adopt_as_other):
+            result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        stage = result["stages"][0]
+        self.assertTrue(stage["discovered"])
+        self.assertEqual(stage["matched"], "6screws")
+        self.assertFalse(stage["matched_is_config"])
+        self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (1, 1, 0))
+        self.assertFalse(result["discovery"]["7screws"]["discovered"])
+
+    def test_totals_count_matched_stages(self):
+        result = exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300)
+        self.assertEqual([s["matched_is_config"] for s in result["stages"]], [True, True])
+        self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (2, 2, 2))
+
+
+class RowSourceTests(unittest.TestCase):
+    """#296 R3-02／R3-03：隔離區記來源池列號，adopt() 回報候選群列與其中拿去擬合的列；不改判定。"""
+
+    def test_process_tracks_row_ids_and_adopt_reports_fitted_rows(self):
+        pools = _pools()
+        session = exp2.ScaleGrowthSession(pools, seed=42, recluster_every=10 ** 6)
+        for row_id in range(40):
+            session.process(pools["7screws"][row_id], "7screws", row_id)
+        self.assertEqual(session.quarantine_row, list(range(40)))
+        session.candidate = {"indices": list(range(30)), "size": 30, "majority": "7screws",
+                             "majority_display": "7screws", "purity": 1.0}
+        out = session.adopt()
+        self.assertEqual(out["action"], "learned")
+        self.assertEqual(out["rows"], [["7screws", i] for i in range(30)])
+        split = session.monitor.splits["discovered-1"]
+        self.assertEqual(len(out["fitted_rows"]), len(split.train) + len(split.cal))
+        self.assertTrue(set(map(tuple, out["fitted_rows"])) < set(map(tuple, out["rows"])))
+        self.assertEqual(session.learned_rows["discovered-1"], {"rows": out["rows"], "fitted": out["fitted_rows"]})
+        # 清理殘餘後列號仍與隔離區對齊
+        self.assertEqual(len(session.quarantine_row), len(session.quarantine_X))
+        self.assertTrue(all(r >= 30 for r in session.quarantine_row))
+
+    def test_candidate_rows_follow_cluster_order_and_batch_passes_pool_row_ids(self):
+        events = list(exp2.iter_playback(_pools(), seed=42, max_ticks_per_stage=300))
+        candidate = next(e for e in events if e["event"] == "candidate")["candidate"]
+        self.assertEqual(len(candidate["rows"]), candidate["size"])
+        parts = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]
+        self.assertTrue(all(truth == "7screws" and row in set(parts["stream"].tolist()) for truth, row in candidate["rows"]))
+        outcome = next(e for e in events if e["event"] == "adopted")["outcome"]
+        self.assertEqual(outcome["rows"], candidate["rows"])
+
+    def test_rows_filled_without_ids_still_adopt(self):
+        rows = np.random.default_rng(11).normal(6.0, 0.3, (40, 6))
+        session = _session_with_quarantine(rows, "7screws", cluster=30)
+        out = session.adopt()
+        self.assertEqual(out["rows"], [["7screws", None]] * 30)
+
+
+class NoConfirmTests(unittest.TestCase):
+    """#287：session 只剩 adopt() 一條納入路徑；批次 run() 的數字與移除 confirm() 前相同。"""
+
+    def test_confirm_and_pending_state_are_gone(self):
+        self.assertFalse(hasattr(exp2.ScaleGrowthSession, "confirm"))
+        events = list(exp2.iter_playback(_pools(), seed=42, max_ticks_per_stage=300))
+        candidate = next(e for e in events if e["event"] == "candidate")["candidate"]
+        self.assertNotIn("is_known", candidate)   # 真值只在 majority／purity 的事後對照欄
+        self.assertEqual(sorted(candidate), ["cluster_params", "majority", "majority_display", "purity", "rows", "size", "t_range"])
+        # 候選剛成形、還沒 adopt() 時也照常收列：沒有「待確認」守門
+        session = exp2.ScaleGrowthSession(_pools(), seed=42)
+        session.candidate = {"indices": [], "size": 0, "majority": "7screws", "majority_display": "7screws", "purity": 1.0}
+        session.process(np.full(6, 6.0), "7screws")
+        self.assertEqual(len(session.quarantine_X), 1)
+
+    def test_run_output_matches_golden_from_before_removal(self):
+        golden = json.loads((Path(__file__).parent / "fixtures" / "exp2_run_synthetic_seed42.json").read_text(encoding="utf-8"))
+        result = _rounded(exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300))
+        for key in SemanticsTests.NEW_KEYS:
+            result.pop(key)
+        _assert_close(self, golden, result)

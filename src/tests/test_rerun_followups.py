@@ -59,10 +59,12 @@ class MatrixDefaultTests(unittest.TestCase):
 
 class StagesCsvIntegerTests(unittest.TestCase):
     def test_missing_stage_keeps_integer_columns(self):
-        stages = [{"config": "7screws", "discovered": True, "samples_to_candidate": 215, "cluster_size": 31,
+        stages = [{"config": "7screws", "discovered": True, "matched": "7screws", "matched_is_config": True,
+                   "samples_to_candidate": 215, "cluster_size": 31,
                    "cluster_purity": 1.0, "own_holdout_acc": 1.0, "healthy_holdout_acc": 1.0, "known_after": 2},
-                  {"config": "6screws", "discovered": False}]
-        result = {"stages": stages, "final_known": ["8screws"], "model": {}}
+                  {"config": "6screws", "discovered": False, "matched_is_config": False}]
+        result = {"stages": stages, "n_stages": 2, "n_learned": 1, "n_matched_config": 1,
+                  "final_known": ["8screws"], "model": {}}
         with tempfile.TemporaryDirectory() as directory:
             cwd = os.getcwd()
             os.chdir(directory)

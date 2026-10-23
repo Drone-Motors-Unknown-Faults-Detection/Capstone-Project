@@ -72,6 +72,13 @@ def exp2_metric_contract(result, budget=6000):
                 if key in breakdown:
                     contract["rows"].append(_metric_row(breakdown, key, meaning, denominator_key,
                                                         stage_index="final_eval", config=str(config)))
+        totals = {k: result.get(k) for k in ("n_stages", "n_learned", "n_matched_config")}
+        if all(isinstance(v, int) and not isinstance(v, bool) for v in totals.values()):
+            # #286：形成新類（discovered）不等於辨識出該段配置；兩個總數由實驗層算好，這裡只轉述
+            contract["totals"] = totals
+            lines.append(f"形成新類 {totals['n_learned']}／{totals['n_stages']} 段；對上本段配置 "
+                         f"{totals['n_matched_config']}／{totals['n_stages']} 段（matched_is_config，事後對照）。"
+                         "形成新類只表示該段學到一個 discovered-N，不表示辨識出該段配置。")
         if any(r["status"] != "VERIFIED_SAVED_FIELDS" for r in contract["rows"]):
             contract["status"] = "incomplete"
         rows = [[r["stage_index"] if "config" not in r else f"final_eval：{r['config']}",

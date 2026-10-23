@@ -1,11 +1,11 @@
 """實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 自行納入。
 
-ScaleGrowthSession 是核心狀態機（首頁即時展示由操作員呼叫 confirm()）：
+ScaleGrowthSession 是核心狀態機，批次、實驗頁、首頁即時展示與導覽都走同一條路：
     1. 每筆樣本以 OpenSetMonitor 打分；判為未知且分數 > quarantine_margin 者進隔離區
     2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
-    3. adopt() 不請操作員指出故障程度：群沒有比已知校準資料更遠就退回；否則只用這一群
-       已到達樣本切分並重擬合，類名是 discovered-N，再把隔離區中已被新模型接受的殘餘移出。
-       真實配置只留在事後對照，不進模型。
+    3. 候選一成形，呼叫端立刻 adopt()。不請操作員指出故障程度：群沒有比已知校準資料更遠就退回；
+       否則只用這一群已到達樣本切分並重擬合，類名是 discovered-N，再把隔離區中已被新模型
+       接受的殘餘移出。真實配置只留在事後對照，不進模型。
     批次重播先從每個未知配置池切出 20% 外部評估集，重播只抽其餘列。
 
 兩段閾值設計：
@@ -43,7 +43,7 @@ def _majority(items: list[str]) -> str:
 
 
 class ScaleGrowthSession:
-    """從健康基準起步、每納入一個候選叢集（adopt 或 confirm）就擴張的開放集監測 session。
+    """從健康基準起步、每 adopt() 一個候選叢集就擴張的開放集監測 session。
 
     min_cluster_size 至少 5：候選群至少這麼多筆，adopt() 才切得出 train／cal（add_observed 的下限）。
     """
@@ -81,7 +81,9 @@ class ScaleGrowthSession:
         self.quarantine_margin = quarantine_margin
         self.quarantine_X: list[np.ndarray] = []
         self.quarantine_truth: list[str] = []
+        self.quarantine_row: list[int | None] = []  # 來源池列號（呼叫端給；只供事後對照與串流排除擬合列）
         self.quarantine_t: list[int] = []
+        self.learned_rows: dict[str, dict] = {}  # discovered-N → 候選群列來源與其中拿去擬合（train／cal）的列
         self.quarantine_duplicates = 0  # 與隔離區既有列完全相同、未再存入的筆數
         self.candidate: dict | None = None
         self._since_cluster = 0
@@ -91,14 +93,18 @@ class ScaleGrowthSession:
 
     # -- 串流 ------------------------------------------------------------------
 
+    def _row_id(self, i: int) -> int | None:
+        """隔離區第 i 列的來源池列號；呼叫端沒給（或測試直接塞列）時是 None。"""
+        return self.quarantine_row[i] if i < len(self.quarantine_row) else None
+
     def _is_duplicate(self, row: np.ndarray) -> bool:
         """隔離區已有完全相同的原始特徵向量（循環重播會重抽同一列）；只比特徵，不讀 truth。"""
         return any(np.array_equal(row, kept) for kept in self.quarantine_X)
 
-    def process(self, x_raw: np.ndarray, truth: str) -> dict:
-        """處理一筆樣本。truth 只存入隔離區，供 confirm() 揭示或 adopt() 事後對照，不參與判定。
+    def process(self, x_raw: np.ndarray, truth: str, row_id: int | None = None) -> dict:
+        """處理一筆樣本。truth 與 row_id（來源池列號）只存入隔離區，供 adopt() 事後對照與列來源紀錄，不參與判定。
 
-        候選待確認期間（confirm() 路徑）不再往隔離區加列；批次與實驗頁成群後立刻 adopt()，不受影響。
+        回傳 candidate_new=True 時呼叫端在同一拍就 adopt()，沒有待確認狀態。
         """
         self.n_seen += 1
         scores, labels = self.monitor.score_and_classify(x_raw)
@@ -107,13 +113,14 @@ class ScaleGrowthSession:
         direction = self.polar.analyze(x_raw)[0]
         candidate_new = False
         # 隔離線：分數明顯超線才參與新類發現，邊界誤報（如健康的 1.0x）僅警報不進隔離區
-        if label is None and score > self.quarantine_margin and self.candidate is None:
+        if label is None and score > self.quarantine_margin:
             row = np.asarray(x_raw, dtype=float).ravel()
             if self._is_duplicate(row):
                 self.quarantine_duplicates += 1
             else:
                 self.quarantine_X.append(row)
                 self.quarantine_truth.append(truth)
+                self.quarantine_row.append(None if row_id is None else int(row_id))
                 self.quarantine_t.append(self.n_seen)
                 self._since_cluster += 1
                 if (
@@ -177,51 +184,19 @@ class ScaleGrowthSession:
             "purity": round(truths.count(majority) / len(truths), 4),
             # 叢集樣本的蒐集時間區間——區分「舊帳」（如健康期累積的誤報）與現行串流
             "t_range": [int(min(ts)), int(max(ts))],
-            "is_known": majority in self.monitor.known,
             "cluster_params": list(used),
+            # 列來源 [truth, 池列號]，與候選群矩陣同序；只供事後對照／串流排除，不進模型
+            "rows": [[self.quarantine_truth[i], self._row_id(i)] for i in idx],
         }
         return True
 
     # -- 擴張 ------------------------------------------------------------------
 
-    def confirm(self) -> dict:
-        """操作員確認候選叢集（此步驟才揭示真實標籤）。兩種結果：
-
-        - ``learned``：叢集多數是尚未學過的故障 → 納入已知並重新擬合（量尺擴張）。
-        - ``rejected_known``：叢集多數其實是**已知類別的邊界樣本**（例如健康誤報
-          ——95% 校準閾值天生會讓 ~5–11% 的已知樣本被判未知，累積夠多就會自己
-          聚成一叢）→ 操作員退回：清除該叢，不擴張量尺。
-        """
-        if self.candidate is None:
-            raise RuntimeError("目前沒有待確認的候選叢集")
-        config = self.candidate["majority"]
-        result = {
-            "config": config,
-            "display": display_name(config),
-            "size": self.candidate["size"],
-            "purity": self.candidate["purity"],
-        }
-        if config in self.monitor.known:
-            cluster = set(self.candidate["indices"])
-            keep = [i for i in range(len(self.quarantine_truth)) if i not in cluster]
-            result["action"] = "rejected_known"
-        else:
-            result["action"] = "learned"
-            result["label"] = self.monitor.add_class(config)
-            self.polar = PolarMap(self.monitor)  # 量尺擴張 → 重建極座標幾何
-            keep = [i for i, t in enumerate(self.quarantine_truth) if t != config]
-        self.quarantine_X = [self.quarantine_X[i] for i in keep]
-        self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
-        self.quarantine_t = [self.quarantine_t[i] for i in keep]
-        self.candidate = None
-        # 殘餘的未知樣本（可能屬於另一種故障）在下一筆未知樣本進來時即可再分群
-        self._since_cluster = self.recluster_every
-        return result
-
     def _drop_quarantine(self, drop: set[int]) -> None:
         keep = [i for i in range(len(self.quarantine_X)) if i not in drop]
         self.quarantine_X = [self.quarantine_X[i] for i in keep]
         self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
+        self.quarantine_row = [self._row_id(i) for i in keep]
         self.quarantine_t = [self.quarantine_t[i] for i in keep]
 
     def known_cal_max(self) -> float:
@@ -281,6 +256,12 @@ class ScaleGrowthSession:
             return result
         result["action"] = "learned"
         result["label"] = self.monitor.add_observed(name, samples)
+        # 候選群矩陣的列來源，以及其中切成 train／cal 的列：串流端據此不再重抽擬合列（#296 R3-02）
+        rows = [[self.quarantine_truth[i], self._row_id(i)] for i in indices]
+        split = self.monitor.splits[name]
+        fitted = [rows[i] for i in np.concatenate([split.train, split.cal])]
+        self.learned_rows[name] = {"rows": rows, "fitted": fitted}
+        result.update({"rows": rows, "fitted_rows": fitted})
         self.polar = PolarMap(self.monitor)
         self._drop_quarantine(set(indices))
         result["pruned"] = self._prune_explained()
@@ -405,10 +386,12 @@ def iter_playback(
             global_tick += 1
             if healthy_mix > 0 and mix_rng.random() < healthy_mix:
                 x, truth = healthy_sampler.draw(), HEALTHY
+                row_id = healthy_sampler.last_index
             else:
                 x, truth = sampler.draw(), config
+                row_id = sampler.last_index
             before = len(session.quarantine_X)
-            out = session.process(x, truth)
+            out = session.process(x, truth, row_id)
             if truth == HEALTHY:
                 healthy_seen += 1
                 healthy_quarantined += len(session.quarantine_X) > before
@@ -450,10 +433,12 @@ def iter_playback(
                                 "delay": global_tick - started[m]}
             res, found_at = outcome, tick
             break
+        # discovered 只表示這段形成了新類；是否對上本段注入配置看 matched_is_config（#286）
         row = {
             "config": config,
             "display": display_name(config),
             "discovered": res is not None,
+            "matched_is_config": res is not None and res["matched"] == config,
             "healthy_seen": healthy_seen,
             "healthy_quarantined": int(healthy_quarantined),
         }
@@ -467,7 +452,6 @@ def iter_playback(
                     "learned_display": res["display"],
                     "matched": res["matched"],
                     "matched_display": res["matched_display"],
-                    "matched_is_config": res["matched"] == config,
                     "samples_to_candidate": found_at,
                     "cluster_size": res["size"],
                     "cluster_purity": res["purity"],
@@ -490,6 +474,9 @@ def iter_playback(
     model = session.monitor.summary()
     yield {"event": "result", "result": {
         "stages": stages,
+        "n_stages": len(stages),
+        "n_learned": sum(s["discovered"] for s in stages),
+        "n_matched_config": sum(s["matched_is_config"] for s in stages),
         "discovery": discovery,
         "rejections": rejections,
         "final_eval": final_eval,
@@ -579,16 +566,19 @@ def main() -> None:
     frame.to_csv(paths.output_dir / "stages.csv", index=False)
     save_json(paths.output_dir / "summary.json", result)
 
-    log.info(f"{'注入配置':<14}{'發現(筆)':>9}{'叢集':>6}{'純度':>8}{'自類準確':>10}{'健康保持':>10}{'已知數':>8}")
+    log.info(f"{'注入配置':<14}{'學成(筆)':>9}{'叢集':>6}{'純度':>8}{'事後多數':<14}{'對上':>4}"
+             f"{'自類準確':>10}{'健康保持':>10}{'已知數':>8}")
     for s in result["stages"]:
         if not s["discovered"]:
-            log.info(f"{s['config']:<14}{'未發現':>9}")
+            log.info(f"{s['config']:<14}{'未學成':>9}")
             continue
         log.info(
             f"{s['config']:<14}{s['samples_to_candidate']:>9}{s['cluster_size']:>6}"
-            f"{s['cluster_purity']*100:>7.1f}%{s['own_holdout_acc']*100:>9.1f}%"
-            f"{s['healthy_holdout_acc']*100:>9.1f}%{s['known_after']:>8}"
+            f"{s['cluster_purity']*100:>7.1f}%{s['matched']:<14}{'✓' if s['matched_is_config'] else '✗':>4}"
+            f"{s['own_holdout_acc']*100:>9.1f}%{s['healthy_holdout_acc']*100:>9.1f}%{s['known_after']:>8}"
         )
+    log.info(f"形成新類 {result['n_learned']}／{result['n_stages']} 段；"
+             f"對上本段配置 {result['n_matched_config']}／{result['n_stages']} 段")
     log.info(f"最終已知類別：{' → '.join(result['final_known'])}")
     log.info(f"輸出：{paths.output_dir}")
 
