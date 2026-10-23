@@ -11,7 +11,7 @@ from pathlib import Path
 
 import numpy as np
 
-from core.data import discover_datasets, load_pools
+from core.data import dataset_key, discover_datasets, load_pools
 from core.openset import SUPPORTED_OPENSET_METHODS, resolve_openset_config
 from core.provenance import capture_source, load_pool_source, ProvenanceError, source_for_pools
 from core.runtime_environment import collect_environment, source_data_info
@@ -122,7 +122,7 @@ class RootSources:
         self.pool_cache = pool_cache
 
     def load(self, dataset):
-        key = f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}"
+        key = dataset_key(dataset["motor"], dataset["rpm"])
         if key in self.loaded:
             raise ProvenanceError("跨工況來源鍵重複")
         pools, context = load_pool_source(self.root, dataset["path"], cache=self.pool_cache)
@@ -132,7 +132,7 @@ class RootSources:
         return pools
 
     def load_all(self):
-        return {f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}": self.load(ds)
+        return {dataset_key(ds["motor"], ds["rpm"]): self.load(ds)
                 for ds in discover_datasets(self.root)}
 
     def finish(self):

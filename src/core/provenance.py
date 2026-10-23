@@ -151,12 +151,11 @@ def write_private_context(context: dict, *, directory: Path | str = ".lineage_pr
 
 def pools_sha(pools: dict) -> str:
     """僅用於綁定已載入陣列；不當成原始錄製或檔案 SHA。"""
-    digest = hashlib.sha256()
+    parts = []
     for name, values in pools.items():
         array = np.asarray(values, dtype="<f8", order="C")
-        digest.update(canonical_sha([name, list(array.shape)]).encode())
-        digest.update(array.tobytes())
-    return digest.hexdigest()
+        parts.append([name, list(array.shape), sha256_bytes(array.tobytes())])
+    return canonical_sha(parts)
 
 
 @dataclass(frozen=True)

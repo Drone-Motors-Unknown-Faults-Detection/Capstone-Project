@@ -329,3 +329,18 @@ def test_web_source_failure_is_saved_without_private_payload(tmp_path, stream):
     saved = files[0].read_text(encoding="utf-8")
     assert json.loads(saved)["status"] == "FAILED"
     assert str(root) not in saved and "私人損壞內容" not in saved
+
+
+def test_pools_sha_reuses_shared_hash_helpers():
+    from core.provenance import canonical_sha, pools_sha, sha256_bytes
+
+    pools = {"8screws": np.arange(6.0).reshape(2, 3), "5screws": np.ones((1, 3))}
+    expected = canonical_sha([[name, list(values.shape), sha256_bytes(np.asarray(values, dtype="<f8").tobytes())]
+                              for name, values in pools.items()])
+    assert pools_sha(pools) == expected
+    assert pools_sha(copy.deepcopy(pools)) == expected
+    changed = copy.deepcopy(pools)
+    changed["8screws"][0, 0] += 1
+    assert pools_sha(changed) != expected
+    assert pools_sha({"8screws": pools["8screws"].reshape(3, 2), "5screws": pools["5screws"]}) != expected
+    assert pools_sha({"7screws": pools["8screws"], "5screws": pools["5screws"]}) != expected

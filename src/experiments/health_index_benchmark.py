@@ -99,7 +99,7 @@ def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
         X_cal = healthy_pool[split.cal]
         X_known = healthy_pool[split.holdout]
         unknown_configs = [config for config in sorted(pools) if config != HEALTHY]
-        fit_audit[f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}"] = {
+        fit_audit[dataset_key(dataset["motor"], dataset["rpm"])] = {
             "known_configuration": HEALTHY, "train": split.train.tolist(),
             "calibration": split.cal.tolist(), "known_test": split.holdout.tolist(),
             "unknown_test": {config: {"pool_start": 0, "pool_stop": len(pools[config])}
