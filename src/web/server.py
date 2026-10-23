@@ -513,9 +513,6 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             for m in HUB.demo.start_scenario(name):
                 HUB.broadcast(m)
             HUB.running = True   # 劇本驗證並啟動後才開始串流
-        elif cmd == "confirm":
-            await self._heavy(self._do_confirm, "重訓練")
-            return
         elif cmd == "reset":
             await self._heavy(self._do_reset, "重置")
             return
@@ -550,21 +547,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         HUB.broadcast(HUB.full_state())
         HUB.broadcast(HUB.demo.metrics_msg())
 
-    # 下列三個在執行緒池中執行，回傳完成訊息文字
-    @staticmethod
-    def _do_confirm() -> str:
-        res = HUB.demo.confirm()
-        if res["action"] == "rejected_known":
-            return (
-                f"✋ 操作員辨識：候選叢集其實是已知類別「{res['display']}」的邊界樣本"
-                f"（{res['size']} 筆——校準閾值天生會讓少量已知樣本被判未知，累積後自成一叢）"
-                f"→ 已退回並清出隔離區，量尺不變"
-            )
-        return (
-            f"✔ 操作員確認：叢集多數為「{res['display']}」（純度 {res['purity']*100:.0f}%）"
-            f"→ 已納入為類別 {res['label']}，量尺擴張、監測器重新擬合完成"
-        )
-
+    # 下列兩個在執行緒池中執行，回傳完成訊息文字
     @staticmethod
     def _do_reset() -> str:
         HUB.demo._build()

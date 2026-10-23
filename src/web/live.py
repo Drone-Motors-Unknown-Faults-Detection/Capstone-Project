@@ -3,7 +3,7 @@
 把三個實驗模組串成可互動的即時串流——本模組只做編排、訊息組裝與 session 持久化，
 實驗邏輯全部住在 experiments / core：
     實驗一（冷啟動監測）  → ScaleGrowthSession 內的 OpenSetMonitor 階段 0
-    實驗二（量尺擴張）    → ScaleGrowthSession（隔離、分群、確認、擴張）
+    實驗二（量尺擴張）    → ScaleGrowthSession（隔離、分群、成群即 adopt() 自學擴張）
     實驗三（變化點判別）  → TrendMonitor + exp3 的 SCENARIOS 劇本定義
 
 session 持久化（out_dir 通常是 output/web_server/{ts}/，重置一次算一個 epoch）：
@@ -88,6 +88,8 @@ class LiveDemo:
             for c in self.pools
         }
         self.alarms: list[dict] = []
+        self.adoption: dict | None = None      # 最近一次 adopt() 的結果（含事後對照欄位）
+        self.learned_by_truth: dict[str, str] = {}  # 事後對照：真值配置 → 對上的模型新類；只供展示統計，不進模型
         self.samplers: dict[str, CycleSampler] = {}
         self._refresh_samplers()
         self._open_sample_log()
@@ -201,15 +203,38 @@ class LiveDemo:
         self.flush()
         return [_event("info", f"▶ 啟動{scen['name']}（先回到健康基線）", self.t)]
 
-    def confirm(self) -> dict:
-        """操作員確認候選（重擬合在執行緒池中跑）。兩種結果：learned / rejected_known。"""
-        result = self.session.confirm()
+    def _adopt(self) -> list[dict]:
+        """候選一成形就走與實驗二批次相同的 adopt()：不等操作員、不讀真值；真值只進事後對照訊息。"""
+        result = self.session.adopt()
+        self.adoption = {"t": self.t, **result}
         if result["action"] == "learned":
-            self._refresh_samplers()
+            self.learned_by_truth.setdefault(result["matched"], result["config"])
             self._snapshot_model(f"learned_{result['config']}")
             self.switch_t = self.t
+            msgs = [_event(
+                "success",
+                f"✔ 自動納入為「{result['display']}」（{result['size']} 筆，群中位分數 {result['median_score']:.1f}"
+                f" > 已知校準最大 {result['known_cal_max']:.2f}）→ 量尺擴張、重擬合完成；"
+                f"清理移出隔離區 {result['pruned']} 筆",
+                self.t,
+            )]
+        elif result["action"] == "rejected_boundary":
+            msgs = [_event(
+                "warn",
+                f"✋ 退回：群中位分數 {result['median_score']:.2f} 沒有超過已知校準最大 {result['known_cal_max']:.2f}，"
+                f"與已知類邊界無從區分 → 清出隔離區（{result['size']} 筆），量尺不變",
+                self.t,
+            )]
+        else:
+            msgs = [_event("warn", f"✋ 群只有 {result['size']} 筆，切不出 train／cal → 清出隔離區，量尺不變", self.t)]
         self.trend.rearm()
-        return result
+        msgs.append(_event(
+            "info",
+            f"事後對照（展示者可見，不進模型）：這一群的真實多數是「{result['matched_display']}」，"
+            f"純度 {result['purity']*100:.0f}%",
+            self.t,
+        ))
+        return msgs
 
     # -- 串流 ------------------------------------------------------------------
 
@@ -240,7 +265,8 @@ class LiveDemo:
         if self._closed or self._write_error is not None:
             raise RuntimeError("session 已關閉或寫入失敗，不接受新樣本")
         config, msgs = self._draw_config()
-        was_known = config in self.session.monitor.known
+        # 學會前／後的統計以事後對照分段：真值配置已對上某個模型新類就算「學會後」
+        was_known = config in self.session.monitor.known or config in self.learned_by_truth
         prev_attempts = self.session.cluster_attempts
         x = self.samplers[config].draw()
         r = self.session.process(x, config)
@@ -324,18 +350,17 @@ class LiveDemo:
             c = self.session.candidate
             out.append(_event(
                 "warn",
-                f"◎ HDBSCAN 在隔離區發現穩定叢集（{c['size']} 筆、純度 {c['purity']*100:.0f}%）"
-                f"→ 產生候選新故障，等待操作員確認",
+                f"◎ HDBSCAN 在隔離區發現穩定叢集（{c['size']} 筆，蒐集區間 #{c['t_range'][0]}～#{c['t_range'][1]}）"
+                f"→ 不等操作員，只用這一群樣本自學",
                 self.t,
             ))
+            out += self._adopt()
             out.append(self.state_msg())
         return out
 
     # -- 狀態 ------------------------------------------------------------------
 
     def phase(self) -> str:
-        if self.session.candidate is not None:
-            return "pending"
         if len(self.session.quarantine_X) > 0:
             return "accumulating"
         return "monitoring"
@@ -361,14 +386,12 @@ class LiveDemo:
             ],
             "configs": [
                 {"config": c, "display": display_name(c), "n": int(len(p)),
-                 "known": c in mon.known}
+                 "known": c in mon.known or c in self.learned_by_truth}   # 事後對照，供下拉標記
                 for c, p in sorted(self.pools.items(), key=lambda kv: config_sort_key(kv[0]))
             ],
             "quarantine": len(self.session.quarantine_X),
             "min_cluster_size": self.session.min_cluster_size,
-            "candidate": None if self.session.candidate is None else {
-                k: v for k, v in self.session.candidate.items() if k != "indices"
-            },
+            "adoption": self.adoption,
             "centroids": [
                 {"config": c, "display": display_name(c),
                  "x": round(xy[0], 3), "y": round(xy[1], 3)}

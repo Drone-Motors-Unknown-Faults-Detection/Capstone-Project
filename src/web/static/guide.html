@@ -29,9 +29,8 @@
 <label>重播速度 <select id="rate"><option value="4">4 筆／秒</option><option value="10">10 筆／秒</option><option value="1">1 筆／秒</option></select></label></div>
 <div id="learning"><label>訊號來源 <select id="source" disabled></select></label><button id="inject" disabled>輸入所選來源</button>
 <p id="sourceStatus" role="status">尚無已套用來源；選項須按「輸入所選來源」才會套用。</p>
-<p id="quarantine">隔離 0 筆；分群連續失敗 0 次（成功歸零，非總嘗試）；沒有候選</p>
-<button id="confirm" disabled>模擬操作員確認</button>
-<p class="limit">至少 25 筆不保證有群。確認才顯示配置答案；既有後端有 truth 快取，分群幾何不讀 truth。確認後使用完整標記配置池重擬合，不是只學剛到達的叢集。</p></div>
+<p id="quarantine">隔離 0 筆；分群連續失敗 0 次（成功歸零，非總嘗試）；尚未成群</p>
+<p class="limit">至少 25 筆不保證有群。成群當拍就只用這一群樣本自學（與實驗二批次相同的 adopt()），不等操作員、不讀配置答案；類名只有 discovered-N。導覽不顯示真值多數與純度。</p></div>
 <div id="trend" hidden><button id="scenarioA" disabled>漸進劇本 A</button><button id="scenarioB" disabled>突發劇本 B</button>
 <p>比較時先重設基準，再各自播放。A 260 筆、B 160 筆後暫停；EWMA α=.08，帶 [.2,.5)，停留≤12筆判突發。不是物理磨損或壽命。</p></div>
 <figure><canvas id="chart" width="960" height="240" aria-label="正規化分數或 EWMA 隨筆數的折線圖"></canvas>

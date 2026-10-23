@@ -34,7 +34,7 @@
 
 ## 候選如何出現與自學
 
-1. `ScaleGrowthSession.process(x, truth)`一次算出分數與類別（`OpenSetMonitor.score_and_classify`）。score嚴格大於1才未知；未知且嚴格大於隔離線2.0才存隔離區。1～2的邊界未知不分群。與隔離區既有列完全相同的原始特徵向量不再存第二份（比對特徵值，不讀 truth），次數記在 `quarantine_duplicates`。候選待確認（首頁 `confirm()` 路徑）期間不再往隔離區加列；批次與實驗頁成群後立刻 `adopt()`，不會處於待確認狀態。truth 只存起來供事後對照，不參與要不要學。
+1. `ScaleGrowthSession.process(x, truth)`一次算出分數與類別（`OpenSetMonitor.score_and_classify`）。score嚴格大於1才未知；未知且嚴格大於隔離線2.0才存隔離區。1～2的邊界未知不分群。與隔離區既有列完全相同的原始特徵向量不再存第二份（比對特徵值，不讀 truth），次數記在 `quarantine_duplicates`。成群當拍呼叫端就 `adopt()`，沒有待確認狀態。truth 只存起來供事後對照，不參與要不要學。
 2. 隔離區至少25筆、距上次嘗試至少10筆新隔離樣本，才在縮放後特徵跑HDBSCAN。先(25,3)，累積75筆加試(15,3)，100筆加試(10,2)；候選仍至少25筆，噪聲-1不當新類。
 3. 選足夠大的叢。HDBSCAN fit只收特徵。`_try_cluster` 會順便算出 truth 多數與純度，但 `adopt()` 不拿它當類名，也不拿它決定是否納入。多數平手時取配置名字串排序最小者（`_majority`），同 seed 不同行程結果相同。
 4. 邊界退回：先用目前模型重打這一群的分數。群的中位分數若不超過已知類校準資料的最大分數（`known_cal_max`），表示這群沒有比已知資料更遠，回 `rejected_boundary`，清掉這一群、不擴張。這一步不讀 truth。
@@ -42,7 +42,7 @@
 6. 學會後清理隔離區：用重擬合後的模型重打隔離區剩下的列，再套一次進入規則——被任一已知類接受（分數 ≤ 1）或分數 ≤ 隔離線 2.0 的列都移出隔離區，數量記在 `pruned`。留下的列在新模型下仍滿足「未知且超過隔離線」。這一步也不讀 truth。
 7. 批次與邊跑邊畫都在第一個 learned 結束該段。每段最多 600 tick。API 可設 max_ticks_per_stage，CLI 沒有這個選項。`learned` 是模型新類，`matched` 才是事後多數配置，兩者不必相同。
 
-這不是完整配置池的 oracle 更新。首頁即時展示的 `confirm()` 仍是另一條手動確認路徑。
+這不是完整配置池的 oracle 更新。首頁即時展示與獨立導覽走同一個 `adopt()`，見下方「單一納入路徑」節。
 
 ## 怎麼執行與操作
 
@@ -54,11 +54,11 @@ uv run --locked python -m experiments.exp2_scale_growth --data-root data --motor
 uv run --locked python -m experiments.exp2_scale_growth --data-root data --sequence 5screws 3_14screws --openset-method knn --knn-neighbors 5
 ```
 
-`run(pools, sequence=None, seed=42, max_ticks_per_stage=600, adaptive_density=True)`回傳dict、不自行存檔；`ScaleGrowthSession(pools)`供逐筆 process，成群後呼叫 `adopt()`。共用CLI支援confidence0.95、method預設ledoit_wolf；`--fixed-density` 關掉密度階梯、只用 (25,3)。隔離線須用API，CLI未暴露。
+`run(pools, sequence=None, seed=42, max_ticks_per_stage=600, adaptive_density=True)`回傳dict、不自行存檔；`ScaleGrowthSession(pools)`供逐筆 process，`candidate_new=True` 的同一拍呼叫 `adopt()`。共用CLI支援confidence0.95、method預設ledoit_wolf；`--fixed-density` 關掉密度階梯、只用 (25,3)。隔離線須用API，CLI未暴露。
 
-Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「實驗二」卡選資料集／方法／seed，按「▶ 執行」會跑整個自學劇本。「⏵ 邊跑邊畫」依序自動注入各配置並逐筆畫分數，成群後立刻用該群自學並繼續；「■ 停止」取消後續串流。首頁即時展示仍是另一個持續 session，確認按鈕留在那一頁，不代表實驗二還在等操作員命名。
+Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「實驗二」卡選資料集／方法／seed，按「▶ 執行」會跑整個自學劇本。「⏵ 邊跑邊畫」依序自動注入各配置並逐筆畫分數，成群後立刻用該群自學並繼續；「■ 停止」取消後續串流。首頁即時展示是另一個持續 session，但成群後同樣在當拍 `adopt()`，沒有確認按鈕。
 
-缺配置時核對實際資料夾名（1screw／1screws可能不同），不要自行猜名稱。沒有candidate時confirm會RuntimeError。重擬合失敗沒有原子回滾：停止使用、重建健康基準，不以舊scaler與新模型混用。每次CLI建立時間戳目錄，勿同秒並行；沒有此實驗續跑旗標。
+缺配置時核對實際資料夾名（1screw／1screws可能不同），不要自行猜名稱。沒有candidate時 `adopt()` 會RuntimeError。重擬合失敗沒有原子回滾：停止使用、重建健康基準，不以舊scaler與新模型混用。每次CLI建立時間戳目錄，勿同秒並行；沒有此實驗續跑旗標。
 
 ## 輸出怎麼看與判斷
 
@@ -158,7 +158,7 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --healthy-mix 
 - 隔離區不收重複列：`process()` 以 `np.array_equal` 比對原始特徵向量，已有相同列就不再存，`quarantine_duplicates` 計數寫進 `summary.json`。
 - 多數決平手取字串排序最小的配置名；外部評估的 `top_class` 同規則。
 - `ScaleGrowthSession(min_cluster_size < 5)` 直接 `ValueError`；`insufficient` 分支保留為防呆。
-- 候選待確認期間 `process()` 不往隔離區加列（只影響 `confirm()` 路徑；批次立刻 `adopt()`，不受影響）。
+- 候選待確認期間 `process()` 不往隔離區加列（只影響當時的 `confirm()` 路徑；批次立刻 `adopt()`，不受影響）。這條在 #287 移除 `confirm()` 後一併拿掉，批次數字不變。
 - 其他參數不變：T1／8000rpm、預設序列、隔離線 2.0、候選至少 25 筆、每段最多 600 tick；seed 42、123、2026，預設與 `--fixed-density` 各跑一次。
 
 ```bash
@@ -175,8 +175,25 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 
 結果在 Aero 重跑後另記，不回填本節。
 
+## 單一納入路徑與形成新類計數（issue #286、#287）
+
+問題一（#287）：首頁即時展示與獨立導覽原本等操作員按「確認」才呼叫 `confirm()`，而 `confirm()` 以候選群的真值多數命名並讀該配置完整池重擬合。實際部署時操作員不可能知道某一群是哪個鬆動等級，真值也不該進入學習流程。
+
+問題二（#286）：實驗頁的 KPI 用 `discovered` 段數當「發現的新故障 9／9」，「發現」欄也直接顯示 `discovered`；但 `discovered` 只表示該段形成了新類，seed 42 的 6screws 段學到的群事後多數是 7screws、3screws 段是 5screws（純度 54%），畫面把它們算成辨識成功。
+
+方法：
+- `ScaleGrowthSession` 只剩 `adopt()` 一條納入路徑；`confirm()`、候選的 `is_known` 欄與「候選待確認期間不往隔離區加列」的守門一併移除。首頁 `LiveDemo.tick()` 在 `candidate_new=True` 的同一拍呼叫 `adopt()`，結果放在 `state["adoption"]`（含 `matched`／`purity` 事後對照欄）與事件日誌；導覽 `GuideHub.public_adoption()` 只公開 `t`／`action`／`config`／`display`／`size`／`median_score`／`known_cal_max`。WebSocket 不再有 `confirm` 指令。
+- 每段都寫 `matched_is_config`（未學成為 false）；`summary.json` 頂層新增 `n_stages`、`n_learned`、`n_matched_config`。實驗頁 KPI 改為「對上本階段配置 n / N」與「形成新類 m 次」，欄位改名「形成新類」並加「對上本階段配置」。
+- 其他參數不變。
+
+預期：
+- 批次 `run()` 的數字與移除 `confirm()` 前完全相同（`src/tests/test_exp2_scale_growth.py` 以 `src/tests/fixtures/exp2_run_synthetic_seed42.json` 比對，golden 在 Spark 以 origin/main `b6e2b97` 產出）。
+- `n_matched_config <= n_learned <= n_stages`；三個 seed 的 T1／8000rpm 重跑中 `n_matched_config` 與逐段 `matched_is_config` 的和相同。
+- 首頁與導覽的事件、狀態在學習前後都不含真值配置名（導覽連事後對照也不給）。
+- 不成立：任何路徑的新類名出現配置名，或 golden 比對失敗。
+
 ## 來源與對應程式
 
 Campello、Moulavi與Sander（2013），*Density-Based Clustering Based on Hierarchical Density Estimates*，PAKDD／LNCS7819,160–172，[DOI](https://doi.org/10.1007/978-3-642-37456-2_14)。隔離2.0、密度階梯、25筆候選與成群後只用該群自學是Lineage約定，不是論文保證；密度階梯的消融也是本專案的操作約定。LW／k-NN來源同實驗一，原始論文來源註記在Mahalanobis檔頭。
 
-[ScaleGrowthSession與run](../../src/experiments/exp2_scale_growth.py)管理隔離／確認；[monitor](../../src/core/monitor.py)管理完整池fit；[src/web/live.py](../../src/web/live.py)管理即時session；[test_exp2_scale_growth](../../src/tests/test_exp2_scale_growth.py)、[test_monitor_guard](../../src/tests/test_monitor_guard.py)、[test_geometry](../../src/tests/test_geometry.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)測狀態與編排，不證明候選物理真值、獨立採集或長期部署。
+[ScaleGrowthSession與run](../../src/experiments/exp2_scale_growth.py)管理隔離／自學；[monitor](../../src/core/monitor.py)管理完整池fit；[src/web/live.py](../../src/web/live.py)管理即時session；[test_exp2_scale_growth](../../src/tests/test_exp2_scale_growth.py)、[test_monitor_guard](../../src/tests/test_monitor_guard.py)、[test_geometry](../../src/tests/test_geometry.py)、[test_web_experiments](../../src/tests/test_web_experiments.py)測狀態與編排，不證明候選物理真值、獨立採集或長期部署。

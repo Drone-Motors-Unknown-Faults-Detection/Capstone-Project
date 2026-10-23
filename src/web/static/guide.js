@@ -5,7 +5,7 @@ const guidePrefix = document.body?.dataset?.guidePrefix || "";
 function guideUrl(path) { return guidePrefix + path; }
 let pendingSource = null;
 let lastMetrics = {};
-const names = {cold:"冷啟動：只有健康基準",learning:"未知學習：候選需要確認",trend:"趨勢：比較兩種 CSV 劇本"};
+const names = {cold:"冷啟動：只有健康基準",learning:"未知學習：成群後只用該群自學",trend:"趨勢：比較兩種 CSV 劇本"};
 function send(cmd, extra={}) {if(ws && ws.readyState===1) ws.send(JSON.stringify({cmd,...extra}));}
 function selectedData(){const v=el("dataset").value.split("|");return {motor:v[0],rpm:v[1]};}
 function eventText(text){const li=document.createElement("li");li.textContent=text;el("events").prepend(li);if(el("events").children.length>80)el("events").lastChild.remove();}
@@ -47,8 +47,8 @@ function nextStep(ready,busy,online,matches,selected){
  const checked=state.preview?.motor===selected.motor&&state.preview?.rpm===selected.rpm;
  if(!ready||!matches)return checked?"資料已檢查；下一步可按「建立健康基準」。換工況需明確重建。":
    "下一步：按「確認所選資料」；檢查成功後才可建立健康基準。";
- if(flow==="trend")return state.running?"劇本演算中；可暫停，不在比較途中確認／重訓。":"下一步：記錄警報 → 重設健康基準 → 選劇本A或B。候選只在未知學習流程確認。";
- if(state.candidate)return "下一步：模擬操作員確認，或暫停等待。";
+ if(flow==="trend")return state.running?"劇本演算中；可暫停。":"下一步：記錄警報 → 重設健康基準 → 選劇本A或B。";
+ if(state.adoption)return state.adoption.action==="learned"?"已自學一個新類（"+state.adoption.display+"）；可繼續監測或重設。":"候選群已退回；可繼續監測。";
  return state.running?"逐筆監測中；可暫停，或選匿名訊號來源。":state.t===0?
    "基準已建立，已處理 0 筆；可按「開始／繼續」重播，尚無偵測統計。":
    "下一步：開始／繼續；觀看未知學習時可輸入匿名來源。";
@@ -56,7 +56,7 @@ function nextStep(ready,busy,online,matches,selected){
 function render(){
   const ready=!!state.openset, busy=state.busy, online=ws && ws.readyState===1;
   const selected=selectedData(), matches=ready && selected.motor===state.meta.motor && selected.rpm===state.meta.rpm;
-  el("step").textContent=flow==="trend"&&state.scenario_completed?"劇本播畢（候選尚未確認）":state.step || "待建基準";
+  el("step").textContent=flow==="trend"&&state.scenario_completed?"劇本播畢":state.step || "待建基準";
   el("data").textContent=ready?`${state.meta.motor}/${state.meta.rpm} · 105維 · seed ${state.seed} · session ${state.session_id}/epoch ${state.epoch} · ${state.t}筆 · 實際來源 ${state.source}`:state.datasets?.length?"尚無模型；可先檢查所選資料":"尚無模型；沒有可用資料，請管理者確認正式 CSV";
   el("evidence").textContent=state.evidence || "raw/session UNKNOWN；fresh INCOMPLETE";
   const p=state.preview;
@@ -65,11 +65,10 @@ function render(){
   el("dataset").disabled=busy;
   el("build").disabled=!online||busy||!p||p.motor!==selected.motor||p.rpm!==selected.rpm;
   for(const id of ["start","pause","reset","inject","source","scenarioA","scenarioB","rate"])el(id).disabled=!online||busy||!matches;
-  el("confirm").disabled=!online||busy||!matches||!state.candidate||!!state.error;
   el("start").disabled ||= !!state.error;
   el("nextStep").textContent=nextStep(ready,busy,online,matches,selected);
   if(state.rate)el("rate").value=String(state.rate);
-  el("quarantine").textContent=!ready?"尚無基準，尚未開始隔離／分群。":`隔離 ${state.quarantine||0} 筆；分群連續失敗 ${state.attempts||0} 次（成功歸零，非總嘗試）；`+(state.candidate?`候選 ${state.candidate.id}：${state.candidate.size} 筆，重播索引 ${JSON.stringify(state.candidate.t_range)}`:"沒有候選；可持續等待或暫停");
+  el("quarantine").textContent=!ready?"尚無基準，尚未開始隔離／分群。":`隔離 ${state.quarantine||0} 筆；分群連續失敗 ${state.attempts||0} 次（成功歸零，非總嘗試）；`+(state.adoption?`最近自學（第 ${state.adoption.t} 筆）：${state.adoption.action}，${state.adoption.size} 筆，類名 ${state.adoption.config}`:"尚未成群；可持續等待或暫停");
   if(ready)sourceOptions(false);
   else {el("source").replaceChildren();el("sourceStatus").textContent="尚無已套用來源；建立健康基準後才可選擇。";}
   el("technical").textContent=JSON.stringify({data:state.data,preview:state.preview,configs:state.configs,fit:state.fit_audit,persistence:state.persistence,active_source:state.source},null,2);
@@ -131,7 +130,6 @@ el("pause").onclick=()=>send("pause");
 el("reset").onclick=()=>{if(confirm("重新擬合健康基準，清除本session隔離區；舊紀錄保留。要重設嗎？"))send("reset");};
 el("rate").onchange=()=>send("rate",{value:Number(el("rate").value)});
 el("inject").onclick=()=>send("source",{id:el("source").value});
-el("confirm").onclick=()=>send("confirm",{candidate_id:state.candidate?.id});
 el("scenarioA").onclick=()=>send("scenario",{name:"A"});
 el("scenarioB").onclick=()=>send("scenario",{name:"B"});
 fetch(guideUrl("/docs/exp13_實驗總覽.md")).then(r=>r.text()).then(text=>{

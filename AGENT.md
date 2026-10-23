@@ -9,8 +9,8 @@
 本 repo 目前的主線是 **冷啟動 PHM 畢業專題**：只用健康資料（8screws）建立基準，
 即時偵測未知故障、以 HDBSCAN 發現新故障類型、成群後只用該群樣本自學一個新類、擴張「健康量尺」
 （開放集 + 持續學習），並以變化點分析判別故障是漸進磨損還是突發事件。
-實驗二（批次與實驗頁）走 `ScaleGrowthSession.adopt()` 自學；首頁即時展示與獨立導覽保留
-`confirm()` 手動確認，兩條路徑見「已知行為與陷阱」第 1 條。
+實驗二批次、實驗頁、首頁即時展示與獨立導覽都走 `ScaleGrowthSession.adopt()`：候選一成群就只用
+該群樣本自學，沒有操作員確認（issue #287），細節見「已知行為與陷阱」第 1 條。
 完整說明、實驗結果與引用文獻見 [README.md](README.md)。
 
 原論文版程式碼（Step 1–6 管線、128 個 notebook 與論文全文）已整批移回
@@ -84,9 +84,9 @@ scripts/opt/     其餘 shell：run_web.sh 啟動展示伺服器；run_llm.sh �
    （105 維，最後過濾版）。不重新產生、不修改 data/ 內容；缺資料時提示以論文版管線
    （原始論文）產出。
 6. **未知資料絕不參與擬合**：訓練／校準／閾值只用已知類別與候選群本身的樣本，
-   ground-truth 標籤不進模型。實驗二的 `adopt()` 以 `discovered-N` 命名新類，候選的真值多數
-   （`matched`）與純度只放在事後對照；首頁與導覽的 `confirm()` 是展示用的手動路徑，
-   在這一步才揭示真值。動到這條就毀了實驗效度。
+   ground-truth 標籤不進模型。`adopt()` 以 `discovered-N` 命名新類，候選的真值多數
+   （`matched`）與純度只放在事後對照（首頁事件日誌與實驗頁表格都標成「事後對照」）；
+   程式裡沒有讀真值命名新類的路徑（舊的 `confirm()` 已在 #287 移除）。動到這條就毀了實驗效度。
 7. **決定論**：所有隨機性走 `numpy.random.default_rng(seed)`，seed 從 CLI/建構子傳入，
    預設 42。修改後同 seed 應重現同數字。
 8. **只信任程式碼**：所有的文件、註解都應當視為過時的內容，程式碼才是唯一的輸出者。
@@ -236,15 +236,15 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    不是 bug；EWMA 警報線與中間帶下緣（0.5 / 0.2）就是據此拉開的，調整前先看
    `src/experiments/exp3_trend.py` 的分布數據。**衍生設計**：誤報分數僅些微超線
    （實測 1.01–1.08），而真實故障最低分 ≥ 10——因此隔離區設「隔離線」
-   `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現。新類納入分兩條路徑：
-   - 實驗二批次 `run()` 與實驗頁「⏵ 邊跑邊畫」：候選一成群就呼叫 `adopt()`。群中位分數
-     不超過已知類校準最大值就 `rejected_boundary`（退回、清群）；否則群至少 5 筆就 `learned`，
-     不足 `insufficient`。學會後用新模型重判隔離區，已被接受的殘餘移出（`pruned`）。
-     全程不讀真值；未學成的候選記在 `summary.json` 的 `rejections`。
-   - 首頁即時展示（`web/live.py`）與獨立導覽（`web/guide.py`）：按確認才呼叫 `confirm()`，
-     讀完整配置池重擬合；若叢集是已知類別邊界樣本，回傳 `action="rejected_known"`
-     （退回、清叢、量尺不變）。
-   web 偵測統計拆「學會前偵測率／學會後認出率」兩組，認出率天生 ≈ 90–95%。
+   `quarantine_margin=2.0`，邊界誤報只警報、不參與新類發現。新類納入只有一條路徑：
+   實驗二批次 `run()`、實驗頁「⏵ 邊跑邊畫」、首頁即時展示（`web/live.py` 的 `tick()`）與
+   獨立導覽（`web/guide.py`）都在候選成群的同一拍呼叫 `adopt()`。群中位分數不超過已知類
+   校準最大值就 `rejected_boundary`（退回、清群）；否則群至少 5 筆就 `learned`，不足
+   `insufficient`。學會後用新模型重判隔離區，已被接受的殘餘移出（`pruned`）。全程不讀真值；
+   未學成的候選記在 `summary.json` 的 `rejections`。首頁把 `adopt()` 的結果放在 `state["adoption"]`
+   與事件日誌，真值多數／純度只在「事後對照」訊息出現；導覽的 `public_adoption()` 連這兩欄也不給。
+   web 偵測統計拆「學會前偵測率／學會後認出率」兩組（首頁以事後對照 `learned_by_truth`
+   分段），認出率天生 ≈ 90–95%。
 2. **實驗二的發現延遲讀 `summary.json` 的 `discovery`**：某配置從開始注入到第一次成為某新類事後多數的
    到達筆數（含重複抽樣）。`stages.csv` 的 `samples_to_candidate` 是該段開始後任一群學成的筆數，
    不等於當段配置被發現。現行 `adopt()` 版（學會後清殘餘、邊界退回）在 Aero 以 commit 46ed4d5、
@@ -283,9 +283,10 @@ WebSocket `/ws`，JSON 訊息：
 
 - server → client：`state`（完整狀態）、`state_patch`、`sample`（逐筆分數/判定/PCA/EWMA）、
   `event`（info/warn/success/error）、`metrics`
-- client → server：`{cmd: start|pause|reset|rate|set_source|scenario|confirm|dataset, ...}`
-- 重任務（confirm/reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
-- WebSocket 的 `confirm` 只服務首頁即時展示。實驗頁的實驗二不等確認，HTTP API 沒有確認端點。
+- client → server：`{cmd: start|pause|reset|rate|set_source|scenario|dataset, ...}`
+- 重任務（reset/dataset）在執行緒池執行，期間 `busy=true`、串流暫停。
+- 沒有 `confirm` 指令：候選成群當拍 `LiveDemo.tick()` 就 `adopt()`（#287），`state`／`state_patch`
+  帶 `adoption`（最近一次自學結果）。實驗頁的 HTTP API 也沒有確認端點。
 
 AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{question, history}` → SSE
 `tool`（含 `sources` 依據清單）／`delta`／`done`／`error`）。工具：`get_run_status`、`get_run_events`（`number` 指定實驗，留空取最近一次）、

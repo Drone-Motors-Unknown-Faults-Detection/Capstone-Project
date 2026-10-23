@@ -14,6 +14,7 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 from core.data import HEALTHY
 from core.feature_schema import SCHEMAS
 from experiments.navigation_data_contract import run, split_audit
+from experiments.exp2_scale_growth import ScaleGrowthSession
 from web.guide import GuideHub, application
 from web.live import LiveDemo
 
@@ -28,6 +29,21 @@ def fixture(root, healthy=50):
         pd.DataFrame(rng.normal(size=(n, 105)) + shift, columns=SCHEMAS["historical_clean_v1"]).to_csv(
             folder / "fixture_Group_feature_data_clean.csv", index=False)
     return ds
+
+
+def _force_candidate(original):
+    """包住 process()：這一筆之後隔離區直接放 25 筆該配置列並成群，不跑 HDBSCAN。"""
+    def process(session, sample, truth):
+        out = original(session, sample, truth)
+        rows = session.monitor.pools[truth][:25]
+        session.quarantine_X = [row.copy() for row in rows]
+        session.quarantine_truth = [truth] * 25
+        session.quarantine_t = list(range(1, 26))
+        session.candidate = {"indices": list(range(25)), "size": 25, "majority": truth,
+                             "majority_display": truth, "purity": 1.0, "t_range": [1, 25], "cluster_params": [25, 3]}
+        out["candidate_new"] = True
+        return out
+    return process
 
 
 class Client:
@@ -96,12 +112,16 @@ class GuideTests(unittest.TestCase):
         self.assertFalse(set(roles["train"]) & set(roles["calibration"]))
         self.assertFalse(set(roles["holdout"]) & set(roles["train"]))
 
-    def test_anonymous_candidate_and_sample(self):
+    def test_anonymous_adoption_and_sample(self):
         self.hub.build("T1", "8000rpm")
-        self.hub.demo.session.candidate = {"size": 25, "majority": "5screws", "purity": 1}
+        self.hub.demo.adoption = {"t": 40, "action": "learned", "config": "discovered-1", "display": "模型新類 1",
+                                  "matched": "5screws", "matched_display": "5 螺絲", "size": 25, "purity": 1.0,
+                                  "source": "cluster_only", "median_score": 30.0, "known_cal_max": 1.1, "label": 1,
+                                  "pruned": 0}
         state = self.hub.full_state()
-        self.assertEqual(set(state["candidate"]), {"id", "size", "t_range"})
+        self.assertEqual(set(state["adoption"]), {"t", "action", "config", "display", "size", "median_score", "known_cal_max"})
         self.assertNotIn("5screws", json.dumps(state))
+        self.assertNotIn("purity", json.dumps(state))
         client = Client()
         self.hub.clients.add(client)
         self.hub.broadcast({"type": "sample", "truth": "5screws", "truth_display": "答案",
@@ -120,13 +140,6 @@ class GuideTests(unittest.TestCase):
         self.hub.close_client(c)
         self.assertFalse(self.hub.running)
         self.assertIs(demo, self.hub.demo)
-
-    def test_candidate_identity_uses_window_support(self):
-        self.hub.build("T1", "8000rpm")
-        self.hub.demo.session.candidate = {"size": 25, "indices": [0, 1], "t_range": [30, 40]}
-        first = self.hub.candidate_id()
-        self.hub.demo.session.candidate = {"size": 25, "indices": [0, 1], "t_range": [60, 70]}
-        self.assertNotEqual(first, self.hub.candidate_id())
 
     def test_pause_flushes_short_log_without_refit(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -151,7 +164,7 @@ class GuideTests(unittest.TestCase):
     def test_busy_does_not_read_half_updated_model(self):
         self.hub.build("T1", "8000rpm")
         self.hub.busy_state = self.hub.full_state()
-        self.hub.busy, self.hub.operation = True, "confirm"
+        self.hub.busy, self.hub.operation = True, "reset"
         with patch.object(self.hub.demo.session.monitor, "summary",
                           side_effect=AssertionError("不可讀取更新中的模型")):
             self.hub.tick()
@@ -197,6 +210,32 @@ class GuideTests(unittest.TestCase):
         self.assertEqual(list(self.hub.demo.session.monitor.known), [HEALTHY])
         self.assertTrue(self.hub.full_state()["scenario_completed"])
 
+    def test_tick_adopts_candidate_and_masks_truth(self):
+        # #287：成群當拍自學，導覽狀態只公開類名／筆數／分數，不公開真值多數與純度
+        with tempfile.TemporaryDirectory() as folder:
+            self.hub.out_dir = Path(folder)
+            self.hub.build("T1", "8000rpm")
+            self.hub.demo.set_source("5screws")
+            client = Client()
+            self.hub.clients.add(client)
+            with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):
+                self.hub.running = True
+                self.hub.tick()
+            state = self.hub.full_state()
+            self.assertEqual(state["adoption"]["action"], "learned")
+            self.assertEqual(state["adoption"]["config"], "discovered-1")
+            self.assertEqual(sorted(state["adoption"]), ["action", "config", "display", "known_cal_max",
+                                                         "median_score", "size", "t"])
+            self.assertEqual(state["known"], [HEALTHY, "discovered-1"])
+            self.assertEqual(self.hub.last_action, "learned")
+            self.assertTrue((Path(folder) / "session001/fit_epoch1_classes2.json").exists())
+            everything = json.dumps([state] + client.messages, ensure_ascii=False)
+            self.assertNotIn("5screws", everything)
+            self.assertNotIn("純度", everything)
+            self.hub.running = False
+            self.assertEqual(self.hub.full_state()["step"], "已更新")
+            self.hub.demo.close()
+
     def test_new_session_retains_old_logs(self):
         with tempfile.TemporaryDirectory() as folder:
             self.hub.out_dir = Path(folder)
@@ -221,7 +260,8 @@ class GuideSocketTests(AsyncHTTPTestCase):
         super().tearDown()
 
     @gen_test
-    async def test_unfitted_and_stale_confirmation_rejected(self):
+    async def test_unfitted_and_confirm_command_rejected(self):
+        # #287：導覽沒有操作員確認；confirm 指令視為不支援
         ws = await tornado.websocket.websocket_connect(self.get_url("/ws").replace("http", "ws", 1))
         await ws.read_message()
         ws.write_message(json.dumps({"cmd": "start"}))
@@ -231,7 +271,7 @@ class GuideSocketTests(AsyncHTTPTestCase):
         self.hub.build("T1", "8000rpm")
         ws.write_message(json.dumps({"cmd": "confirm", "candidate_id": "fake"}))
         error = json.loads(await ws.read_message())
-        self.assertIn("候選", error["text"])
+        self.assertIn("不支援", error["text"])
         ws.close()
 
     @gen_test

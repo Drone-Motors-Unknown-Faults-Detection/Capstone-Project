@@ -1,11 +1,11 @@
 """實驗二：量尺擴張（Scale Growth）— 未知偵測 → 隔離累積 → HDBSCAN 分群 → 自行納入。
 
-ScaleGrowthSession 是核心狀態機（首頁即時展示由操作員呼叫 confirm()）：
+ScaleGrowthSession 是核心狀態機，批次、實驗頁、首頁即時展示與導覽都走同一條路：
     1. 每筆樣本以 OpenSetMonitor 打分；判為未知且分數 > quarantine_margin 者進隔離區
     2. 隔離區累積達 min_cluster_size 後以 HDBSCAN 找穩定叢集 → 產生候選
-    3. adopt() 不請操作員指出故障程度：群沒有比已知校準資料更遠就退回；否則只用這一群
-       已到達樣本切分並重擬合，類名是 discovered-N，再把隔離區中已被新模型接受的殘餘移出。
-       真實配置只留在事後對照，不進模型。
+    3. 候選一成形，呼叫端立刻 adopt()。不請操作員指出故障程度：群沒有比已知校準資料更遠就退回；
+       否則只用這一群已到達樣本切分並重擬合，類名是 discovered-N，再把隔離區中已被新模型
+       接受的殘餘移出。真實配置只留在事後對照，不進模型。
     批次重播先從每個未知配置池切出 20% 外部評估集，重播只抽其餘列。
 
 兩段閾值設計：
@@ -41,7 +41,7 @@ def _majority(items: list[str]) -> str:
 
 
 class ScaleGrowthSession:
-    """從健康基準起步、每納入一個候選叢集（adopt 或 confirm）就擴張的開放集監測 session。
+    """從健康基準起步、每 adopt() 一個候選叢集就擴張的開放集監測 session。
 
     min_cluster_size 至少 5：候選群至少這麼多筆，adopt() 才切得出 train／cal（add_observed 的下限）。
     """
@@ -94,9 +94,9 @@ class ScaleGrowthSession:
         return any(np.array_equal(row, kept) for kept in self.quarantine_X)
 
     def process(self, x_raw: np.ndarray, truth: str) -> dict:
-        """處理一筆樣本。truth 只存入隔離區，供 confirm() 揭示或 adopt() 事後對照，不參與判定。
+        """處理一筆樣本。truth 只存入隔離區，供 adopt() 事後對照，不參與判定。
 
-        候選待確認期間（confirm() 路徑）不再往隔離區加列；批次與實驗頁成群後立刻 adopt()，不受影響。
+        回傳 candidate_new=True 時呼叫端在同一拍就 adopt()，沒有待確認狀態。
         """
         self.n_seen += 1
         scores, labels = self.monitor.score_and_classify(x_raw)
@@ -105,7 +105,7 @@ class ScaleGrowthSession:
         direction = self.polar.analyze(x_raw)[0]
         candidate_new = False
         # 隔離線：分數明顯超線才參與新類發現，邊界誤報（如健康的 1.0x）僅警報不進隔離區
-        if label is None and score > self.quarantine_margin and self.candidate is None:
+        if label is None and score > self.quarantine_margin:
             row = np.asarray(x_raw, dtype=float).ravel()
             if self._is_duplicate(row):
                 self.quarantine_duplicates += 1
@@ -175,46 +175,11 @@ class ScaleGrowthSession:
             "purity": round(truths.count(majority) / len(truths), 4),
             # 叢集樣本的蒐集時間區間——區分「舊帳」（如健康期累積的誤報）與現行串流
             "t_range": [int(min(ts)), int(max(ts))],
-            "is_known": majority in self.monitor.known,
             "cluster_params": list(used),
         }
         return True
 
     # -- 擴張 ------------------------------------------------------------------
-
-    def confirm(self) -> dict:
-        """操作員確認候選叢集（此步驟才揭示真實標籤）。兩種結果：
-
-        - ``learned``：叢集多數是尚未學過的故障 → 納入已知並重新擬合（量尺擴張）。
-        - ``rejected_known``：叢集多數其實是**已知類別的邊界樣本**（例如健康誤報
-          ——95% 校準閾值天生會讓 ~5–11% 的已知樣本被判未知，累積夠多就會自己
-          聚成一叢）→ 操作員退回：清除該叢，不擴張量尺。
-        """
-        if self.candidate is None:
-            raise RuntimeError("目前沒有待確認的候選叢集")
-        config = self.candidate["majority"]
-        result = {
-            "config": config,
-            "display": display_name(config),
-            "size": self.candidate["size"],
-            "purity": self.candidate["purity"],
-        }
-        if config in self.monitor.known:
-            cluster = set(self.candidate["indices"])
-            keep = [i for i in range(len(self.quarantine_truth)) if i not in cluster]
-            result["action"] = "rejected_known"
-        else:
-            result["action"] = "learned"
-            result["label"] = self.monitor.add_class(config)
-            self.polar = PolarMap(self.monitor)  # 量尺擴張 → 重建極座標幾何
-            keep = [i for i, t in enumerate(self.quarantine_truth) if t != config]
-        self.quarantine_X = [self.quarantine_X[i] for i in keep]
-        self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
-        self.quarantine_t = [self.quarantine_t[i] for i in keep]
-        self.candidate = None
-        # 殘餘的未知樣本（可能屬於另一種故障）在下一筆未知樣本進來時即可再分群
-        self._since_cluster = self.recluster_every
-        return result
 
     def _drop_quarantine(self, drop: set[int]) -> None:
         keep = [i for i in range(len(self.quarantine_X)) if i not in drop]

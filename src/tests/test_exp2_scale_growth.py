@@ -1,6 +1,8 @@
-"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證、待確認不加列）；
-#286 形成新類與對上本段配置分開計數。"""
+"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證）；
+#286 形成新類與對上本段配置分開計數；#287 沒有 confirm()，批次數字與移除前一致。"""
+import json
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
@@ -243,15 +245,6 @@ class QuarantineRuleTests(unittest.TestCase):
         session.process(row + 0.01, "7screws")
         self.assertEqual(len(session.quarantine_X), 2)
 
-    def test_pending_candidate_blocks_new_quarantine_rows(self):
-        session = exp2.ScaleGrowthSession(_pools(), seed=42)
-        session.candidate = {"indices": [], "size": 0, "majority": "7screws", "majority_display": "7screws",
-                             "purity": 1.0}
-        out = session.process(np.full(6, 6.0), "7screws")
-        self.assertIsNone(out["label"])
-        self.assertEqual(out["quarantine"], 0)
-        self.assertEqual(session.quarantine_X, [])
-
     def test_run_reports_duplicate_count_and_learned_class_has_no_duplicate_rows(self):
         result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
         self.assertEqual(result["quarantine_duplicates"], 0)  # 240 筆不同的列在 225 tick 內成群，還沒循環到重抽
@@ -304,6 +297,33 @@ def _three_pools() -> dict[str, np.ndarray]:
     }
 
 
+def _rounded(obj):
+    if isinstance(obj, float):
+        return round(obj, 6)
+    if isinstance(obj, dict):
+        return {k: _rounded(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_rounded(v) for v in obj]
+    return obj
+
+
+def _assert_close(test, expected, actual, path="result"):
+    """浮點容許 1e-4（golden 在 Spark 產出，其他 Linux 主機的 BLAS 可能差最後幾位）；其餘欄位要完全相同。"""
+    if isinstance(expected, float) or isinstance(actual, float):
+        test.assertAlmostEqual(expected, actual, delta=1e-4, msg=path)
+    elif isinstance(expected, dict):
+        test.assertIsInstance(actual, dict, path)
+        test.assertEqual(sorted(expected), sorted(actual), path)
+        for key in expected:
+            _assert_close(test, expected[key], actual[key], f"{path}.{key}")
+    elif isinstance(expected, list):
+        test.assertEqual(len(expected), len(actual), path)
+        for i, (e, a) in enumerate(zip(expected, actual)):
+            _assert_close(test, e, a, f"{path}[{i}]")
+    else:
+        test.assertEqual(expected, actual, path)
+
+
 class SemanticsTests(unittest.TestCase):
     """#286：discovered 只表示該段形成新類；是否對上本段配置看 matched_is_config，總數由實驗層給。"""
 
@@ -338,3 +358,26 @@ class SemanticsTests(unittest.TestCase):
         result = exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300)
         self.assertEqual([s["matched_is_config"] for s in result["stages"]], [True, True])
         self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (2, 2, 2))
+
+
+class NoConfirmTests(unittest.TestCase):
+    """#287：session 只剩 adopt() 一條納入路徑；批次 run() 的數字與移除 confirm() 前相同。"""
+
+    def test_confirm_and_pending_state_are_gone(self):
+        self.assertFalse(hasattr(exp2.ScaleGrowthSession, "confirm"))
+        events = list(exp2.iter_playback(_pools(), seed=42, max_ticks_per_stage=300))
+        candidate = next(e for e in events if e["event"] == "candidate")["candidate"]
+        self.assertNotIn("is_known", candidate)   # 真值只在 majority／purity 的事後對照欄
+        self.assertEqual(sorted(candidate), ["cluster_params", "majority", "majority_display", "purity", "size", "t_range"])
+        # 候選剛成形、還沒 adopt() 時也照常收列：沒有「待確認」守門
+        session = exp2.ScaleGrowthSession(_pools(), seed=42)
+        session.candidate = {"indices": [], "size": 0, "majority": "7screws", "majority_display": "7screws", "purity": 1.0}
+        session.process(np.full(6, 6.0), "7screws")
+        self.assertEqual(len(session.quarantine_X), 1)
+
+    def test_run_output_matches_golden_from_before_removal(self):
+        golden = json.loads((Path(__file__).parent / "fixtures" / "exp2_run_synthetic_seed42.json").read_text(encoding="utf-8"))
+        result = _rounded(exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300))
+        for key in SemanticsTests.NEW_KEYS:
+            result.pop(key)
+        _assert_close(self, golden, result)
