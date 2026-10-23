@@ -167,6 +167,9 @@ class FakeDemo:
     def flush(self):
         self.flushed += 1
 
+    def discard_failed_log(self):   # 重建前的復原入口（#301 F-13）；假 demo 沒有寫入錯誤
+        return False
+
     def state(self):
         return {"epoch": self.epoch}
 
