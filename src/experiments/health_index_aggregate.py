@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import io
 import json
 import math
@@ -19,6 +18,7 @@ from typing import Sequence
 
 from core.data import dataset_key
 from core.logger import setup_run
+from core.provenance import sha256_bytes
 from core.runtime_environment import git_head
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -52,10 +52,6 @@ RUN_FIELDS = (
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
-
-
-def _sha(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def _pairs(pairs: list[tuple]) -> dict:
@@ -129,7 +125,7 @@ def _snapshot(root: Path, contract: dict) -> dict[str, bytes]:
         path = (root / name).resolve()
         _require(path.is_relative_to(root), f"來源路徑超出目錄：{name}")
         data = path.read_bytes()
-        _require(_sha(data) in (checksum, contract["source_git_lf_sha256"][name]), f"來源 SHA 不符：{name}")
+        _require(sha256_bytes(data) in (checksum, contract["source_git_lf_sha256"][name]), f"來源 SHA 不符：{name}")
         snapshot[name] = data
     return snapshot
 
@@ -239,8 +235,8 @@ def load_matrix(source_root: Path | str, contract_path: Path | str) -> tuple[dic
     old = _json(snapshot["aggregate_summary.json"])
     _require(old.get("dataset_fingerprint") == contract["dataset_fingerprint"], "舊彙總指紋不符")
     rows.sort(key=lambda row: (row["method"], row["dataset"], row["seed"]))
-    inventory = {"contract_sha256": _sha(contract_bytes), "dataset_fingerprint": contract["dataset_fingerprint"],
-                 "files": [{"path": name, "sha256": _sha(data), "bytes": len(data)} for name, data in sorted(snapshot.items())],
+    inventory = {"contract_sha256": sha256_bytes(contract_bytes), "dataset_fingerprint": contract["dataset_fingerprint"],
+                 "files": [{"path": name, "sha256": sha256_bytes(data), "bytes": len(data)} for name, data in sorted(snapshot.items())],
                  "runs": sorted(provenance, key=lambda item: item["run_id"]),
                  "configuration_names_status": "UNKNOWN：來源 JSON 只記錄未知配置數，不含名稱或逐窗 ID"}
     return contract, rows, {"inventory": inventory, "snapshot": snapshot}

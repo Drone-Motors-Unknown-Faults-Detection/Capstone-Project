@@ -17,11 +17,9 @@ used only after scoring to calculate evaluation metrics.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import platform
 import random
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -42,26 +40,12 @@ from core.openset import (
     resolve_openset_config,
 )
 from core.runner import save_json
-from core.provenance import CONTENT_VERSION, capture_source, write_private_context
-from core.runtime_environment import collect_environment, source_data_info
+from core.provenance import CONTENT_VERSION, capture_source, sha256_bytes, write_private_context
+from core.runtime_environment import collect_environment, git_head, source_data_info
 
 
 FORMAL_CONDITION_COUNT = 9
 FORMAL_METHODS: tuple[OpenSetMethod, ...] = ("mahalanobis", "knn")
-
-
-def _git_sha(project_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return result.stdout.strip()
 
 
 def legacy_dataset_fingerprint(data_root: Path | str) -> str:
@@ -88,7 +72,7 @@ def legacy_dataset_fingerprint(data_root: Path | str) -> str:
             stat = path.stat()
             entries.append((str(path.relative_to(root)), stat.st_size, stat.st_mtime_ns))
         payload = json.dumps(entries, ensure_ascii=False).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    return sha256_bytes(payload)
 
 
 def dataset_fingerprint(data_root: Path | str, *, version: str = CONTENT_VERSION) -> str:
@@ -289,7 +273,7 @@ def _run_benchmark(
             "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
             "checkpoint_identifier": None,
         },
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
+        "commit_sha": git_head(Path(__file__).resolve().parents[2]) or "unknown",
         "python": platform.python_version(),
         "rows": rows,
     }

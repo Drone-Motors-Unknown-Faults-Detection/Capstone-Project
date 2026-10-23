@@ -133,6 +133,18 @@ class PoolCacheTests(unittest.TestCase):
         self.assertIn("8screws", cache.load(self.dataset))
         self.assertEqual((cache.hits, cache.misses), (0, 3))
 
+    def test_miss_hashes_each_csv_once_outside_the_loader(self) -> None:
+        """#276 K03：miss 時只有算鍵那次讀檔雜湊，載入後重算鍵沿用 audit 的 sha256。"""
+        cache = PoolCache()
+        csv_count = len(list(self.dataset.rglob("*_Group_feature_data_clean.csv")))
+        with patch.object(data_module, "sha256_file", wraps=data_module.sha256_file) as hashed:
+            audit: dict = {}
+            cache.load(self.dataset, audit=audit)
+        self.assertEqual(hashed.call_count, csv_count)
+        self.assertEqual({record["file_id"] for record in audit["files"]},
+                         {p.relative_to(self.dataset).as_posix() for p in self.dataset.rglob("*_Group_feature_data_clean.csv")})
+        self.assertEqual(cache.misses, 1)
+
     def test_content_changed_during_load_is_not_stored(self) -> None:
         cache = PoolCache()
         real = data_module.load_pools

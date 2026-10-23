@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import csv
-import hashlib
 import io
 import json
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from core.provenance import sha256_bytes
 
 FEATURE_DIM = 105
 REGISTRY_VERSION = "formal_feature_registry_v1"
@@ -99,9 +100,9 @@ def read_feature_csv(path: Path, file_id: str) -> tuple[np.ndarray, dict]:
                                  rejected_rows=len(invalid), row_indices=invalid)
     return values, {"status": "VERIFIED", "file_id": file_id, "schema_version": version,
                     "rows": len(values), "columns": FEATURE_DIM, "rejected_rows": 0, "discarded_rows": 0,
-                    "sha256": hashlib.sha256(payload).hexdigest(),
-                    "header_sha256": hashlib.sha256(json.dumps(header, ensure_ascii=False,
-                                                               separators=(",", ":")).encode()).hexdigest()}
+                    "sha256": sha256_bytes(payload),
+                    "header_sha256": sha256_bytes(json.dumps(header, ensure_ascii=False,
+                                                             separators=(",", ":")).encode())}
 
 
 def validate_pool_coverage(pools, *, require_complete: bool = False) -> dict:
