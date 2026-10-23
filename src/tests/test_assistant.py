@@ -292,7 +292,8 @@ class AskTests(unittest.TestCase):
         assistant = Assistant("http://unused/v1", llm=model)
 
         async def collect():
-            return [f async for f in assistant.ask(None, "實驗十二的原理", load_saved=changing_saved)]
+            # 明確要求存檔的混合問題仍驗證快取；純方法問題不可讀取這些結果。
+            return [f async for f in assistant.ask(None, "實驗十二的原理，請核對存檔來源", load_saved=changing_saved)]
 
         frames = asyncio.run(collect())
         facts = [f for f in frames if f["event"] == "facts"]

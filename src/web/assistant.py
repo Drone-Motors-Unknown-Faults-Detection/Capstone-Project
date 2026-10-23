@@ -84,6 +84,11 @@ SYSTEM_PROMPT = """你是無人機馬達冷啟動 PHM 監測系統的值班助�
 11. 回答先講結論，再列支撐的內容。"""
 
 NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系統狀態裡沒有這項資訊；不要自行推測或用一般知識補充。"
+METHOD_MARKER = "<!-- assistant: method -->"
+METHOD_PROMPT = """本輪只解釋方法與規格，不讀取實驗結果。只依本輪工具的定義與限制回答。
+歷史對話及目前頁面的結果來源不屬本輪證據；不能把方法預設值當實測表現。
+工具未提供的操作細節、數值與規格要明說未知。群純度不能保證未知召回或物理病因；
+標準化不能保證消除跨馬達分布差異。這些限制也適用於追問。"""
 
 
 # -- 實驗頁播放狀態 -------------------------------------------------------------
@@ -223,7 +228,9 @@ def load_knowledge(directory: Path = KNOWLEDGE_DIR) -> list[dict]:
     for path in sorted(directory.glob("*.md")):
         for block in re.split(r"(?m)^## ", path.read_text(encoding="utf-8"))[1:]:
             title, _, body = block.partition("\n")
-            sections.append({"source": path.name, "title": title.strip(), "body": body.strip()})
+            sections.append({"source": path.name, "title": title.strip(),
+                             "body": body.replace(METHOD_MARKER, "").strip(),
+                             "method": METHOD_MARKER in body})
     return sections
 
 
@@ -260,6 +267,19 @@ _USAGE_QUESTION = re.compile(
     r"資料.{0,160}(?:切分|切割|怎麼切|如何切|用量)|切分(?:筆數|用量|比例)|(?:訓練|校準|holdout|train|calibration).{0,160}?(?:筆|多少|比例|用量)|"
     r"187\s{0,20}(?:[／/:、]\s{0,20}62|筆)|confidence|(?:95\s{0,20}%|0\.95|百分之九十五).{0,160}(?:正確|準確|機率|信心)|"
     r"(?:那|所以|為何|為什麼).{0,80}校準|未知.{0,160}20\s{0,20}%|健康.{0,160}(?:cal\b|校準)", re.I)
+
+
+def method_only_question(question: str, context: dict | None = None) -> bool:
+    """只決定自由問答的可讀來源，不作語意正確判定；明確結果查詢維持既有路徑。"""
+    if saved_reference(question) or re.search(
+            r"這次|這批|本次|最新|剛才|存檔|保存|紀錄|記錄|結果|總結|摘要|開始時間|完成時間|起訖", question):
+        return False
+    # 切分／校準保護答案仍分開列規則、示例與已保存用量，不交給自由生成。
+    if _USAGE_QUESTION.search(question):
+        return False
+    return bool(_METHOD_QUESTION.search(question) or re.search(
+        r"是什麼|是甚麼|解釋|意義|規格|純度|標準化|HDBSCAN|RobustScaler", question, re.I)
+        or (isinstance(context, dict) and context.get("mode") == "method"))
 
 
 def _saved_spans(text: str) -> list[tuple[int, int]]:
@@ -672,8 +692,12 @@ def experiment_with_sources(number: str, experiments_dir: Path = EXPERIMENTS_DIR
 # -- LangGraph agent -------------------------------------------------------------
 
 def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR,
-               load_saved=None) -> list:
+               load_saved=None, *, method_only: bool = False, method_number: int | None = None) -> list:
     saved_cache = {}
+    if method_only:
+        # 方法段落採明確標記；新增／未核對的手冊不會自動成為方法問答來源。
+        sections = [s for s in sections if s.get("method") and s["source"] in ("methods.md", "motor_spec.md")]
+    blocked = NO_MATCH.format(what="本輪只查方法與規格，未授權讀取執行紀錄；需要結果時請明確指定實驗或存檔")
 
     def frozen_saved(exp_id):
         if exp_id not in saved_cache:
@@ -688,6 +712,8 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     @tool(response_format="content_and_artifact")
     def get_run_status(number: str = "") -> tuple[str, list[str] | dict]:
         """讀取實驗頁的執行紀錄與結果（「▶ 執行」或「⏵ 邊跑邊畫」）：哪個實驗、參數、狀態、播放進度、最新一筆的系統判定、完整結果摘要（混淆矩陣、偵測率等）。number 填實驗編號，例如「12」「十二」「實驗二」；使用者沒指定實驗時留空，取最近一次。"""
+        if method_only:
+            return blocked, []
         rec, missing = pick_record(snap, number, saved_reader)
         if rec is None:
             return missing, [record_label(None)]
@@ -696,6 +722,8 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     @tool(response_format="content_and_artifact")
     def get_run_events(number: str = "") -> tuple[str, list[str] | dict]:
         """讀取某次執行或播放的重點事件（候選群、模型自學、變化點警報、嚴重度改變）與事後對照（依注入配置真值算的評估結果）。number 規則同 get_run_status。"""
+        if method_only:
+            return blocked, []
         rec, missing = pick_record(snap, number, saved_reader)
         if rec is None:
             return missing, [record_label(None)]
@@ -704,6 +732,18 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     @tool(response_format="content_and_artifact")
     def get_experiment(number: str = "") -> tuple[str, list[str]]:
         """讀取某個實驗的目的、研究問題、方法、怎麼跑與輸出怎麼看。number 填編號，例如「1」「一」「實驗三」「exp8」；留空回傳所有實驗總覽。"""
+        if method_only:
+            n = experiment_number(number) if number.strip() else method_number
+            if n is None or n != method_number:
+                return NO_MATCH.format(what="方法問題未指定這個實驗，不附其他實驗或歷史結果"), []
+            entries = [e for e in CATALOG if experiment_number(e["id"]) == n]
+            text = "\n\n".join(
+                f"【{e['no']}：{e['title']}】\n研究問題：{e['question']}\n"
+                f"擬合內容：{e.get('fits', '—')}\n程式：{e['code']}；手冊位置：{e['doc']}" for e in entries)
+            if entries:
+                text += "\n方法模式未載入手冊全文或歷史成績；目錄未列的 CLI 與操作細節須核對手冊，不能補造。"
+            return (text or NO_MATCH.format(what=f"沒有實驗 {n} 的目錄條目")), (
+                [f"web/experiments.py › 實驗 {n} 目錄（未讀手冊結果）"] if entries else [])
         return experiment_with_sources(number, experiments_dir)
 
     @tool(response_format="content_and_artifact")
@@ -720,8 +760,11 @@ def build_graph(llm, tools, *, audit=None, limits=None):
                                normalize_number=experiment_number, limits=limits)
 
 
-def to_messages(history: list, question: str) -> list:
+def to_messages(history: list, question: str, *, method_only: bool = False) -> list:
     msgs = [SystemMessage(SYSTEM_PROMPT)]
+    if method_only:
+        msgs.append(SystemMessage(METHOD_PROMPT))
+        history = []
     for item in (history or [])[-MAX_HISTORY:]:
         if not isinstance(item, dict) or not isinstance(item.get("content"), str):
             continue
@@ -838,13 +881,14 @@ class Assistant:
                   load_saved=None, context: dict | None = None, load_selected=None) -> AsyncIterator[dict]:
         """回傳工具來源、非生成 facts 與模型 delta；facts 不由模型改寫。"""
         saved_cache = {}
+        method_only = method_only_question(question, context)
 
         def frozen_saved(exp_id):
             if exp_id not in saved_cache:
                 saved_cache[exp_id] = load_saved(exp_id) if load_saved else None
             return saved_cache[exp_id]
 
-        if (not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
+        if (not method_only and not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
                 and experiment_number(strip_saved_references(question)) is None
                 and not saved_reference(question) and not (isinstance(context, dict) and context.get("saved"))
                 and (not _METHOD_QUESTION.search(question) or re.search(r"結果|總結|摘要|誤報|誤拒|是否|是不是", question))):
@@ -854,7 +898,9 @@ class Assistant:
                 saved_cache[latest["exp_id"]] = latest
         try:
             request = result_request(snap, question, history or [], context)
-            metric = exp2_request(snap, question, history or [], context) if request is None else None
+            if method_only:
+                request = None
+            metric = exp2_request(snap, question, history or [], context) if request is None and not method_only else None
             usage = usage_request(snap, question, history or [], context) if request is None and metric is None else None
         except ValueError as exc:
             yield {"event": "error", "error": str(exc)}
@@ -880,15 +926,18 @@ class Assistant:
             for frame in usage_frames(snap, usage, sections, frozen_saved, load_selected):
                 yield frame
             return
-        sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
+        sections = load_knowledge(self.knowledge_dir)
+        if not method_only:
+            sections += load_knowledge(self.experiments_dir)
         audit = {}
         sources = []
         iterator = None
         deadline = asyncio.get_running_loop().time() + 90
         try:
             model = await asyncio.wait_for(self.llm(), 5)
-            graph = build_graph(model, make_tools(snap, sections, self.experiments_dir, frozen_saved), audit=audit)
-            iterator = graph.astream({"messages": to_messages(history or [], question)},
+            graph = build_graph(model, make_tools(snap, sections, self.experiments_dir, frozen_saved,
+                                method_only=method_only, method_number=experiment_number(question)), audit=audit)
+            iterator = graph.astream({"messages": to_messages(history or [], question, method_only=method_only)},
                                      {"recursion_limit": RECURSION_LIMIT}, stream_mode="updates").__aiter__()
             while True:
                 try:
