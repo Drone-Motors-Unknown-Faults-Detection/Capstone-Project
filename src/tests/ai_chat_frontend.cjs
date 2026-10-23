@@ -310,6 +310,20 @@ const tick = () => new Promise(r => setImmediate(r));
       assert.ok(rendered.includes('完成時間'));
       assert.ok(rendered.includes('耗時'));
       assert.equal(el('aiSend').disabled, false);
+    } else if (['data_usage', 'exp2_metrics'].includes(acceptedFrames[0].mode)) {
+      assert.equal(actual.attrs['data-response-mode'], acceptedFrames[0].mode);
+      const rendered = actual.children[1].innerHTML + actual.children[1].textContent;
+      const view = acceptedFrames.find(f => f.event === 'presentation').presentation;
+      assert.ok(rendered.includes(view.title));
+      assert.ok(!actual.children.some(c => c.className === 'ai-facts'));
+      assert.ok(!rendered.includes('錯答：'));
+      // 程式解讀不回填成模型說過的歷史；追問仍綁同一來源。
+      replies.push(sse([{event:'delta', text:'追問測試'}, {event:'done'}]));
+      el('aiInput').value = '接著說明'; el('aiForm').requestSubmit();
+      for (let k = 0; k < 10; k++) await tick();
+      const followup = JSON.parse(requests.filter(r => r[0] === '/api/assistant/ask').at(-1)[1].body);
+      assert.deepEqual(followup.context, acceptedFrames[0].context);
+      assert.ok(!followup.history.some(m => m.role === 'assistant' && m.content === acceptedFrames.find(f => f.event === 'delta').text));
     } else {
     assert.equal(actual.attrs['data-response-mode'], 'matrix_summary');
     const rendered = actual.children[1].innerHTML + actual.children[1].textContent;

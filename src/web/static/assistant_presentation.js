@@ -10,7 +10,7 @@
     return e;
   }
   function valid(p, binding) {
-    const origin = {matrix_summary: "matrix", record_timing: "record"}[binding.mode];
+    const origin = {matrix_summary: "matrix", record_timing: "record", data_usage: "record", exp2_metrics: "record"}[binding.mode];
     if (!origin || !p || p.schema_version !== "assistant_presentation_v1" || p.mode !== binding.mode || p.origin !== origin ||
         !/^[a-f0-9]{64}$/.test(binding.source_id || "") || p.source_id !== binding.source_id ||
         !p.source || JSON.stringify(p.source) !== JSON.stringify(binding.presentation_source) ||
