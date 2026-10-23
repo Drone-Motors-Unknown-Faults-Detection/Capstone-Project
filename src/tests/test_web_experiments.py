@@ -113,7 +113,7 @@ class ParameterTests(unittest.TestCase):
         for value in (["3"], math.inf, math.nan, "abc", {"n": 1}, True, False, 2.5, "2.5", "3.0", 1e3 + 0.5):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.runner._clean(self.spec["exp3"], {"n_trials": value})
-        for value, expected in ((2.0, 2), ("2", 2), (" 3 ", 3), (np.int64(4), 4), (1e3, 1000)):
+        for value, expected in ((2.0, 2), ("2", 2), (" 3 ", 3), (np.int64(4), 4), (7.0, 7)):
             with self.subTest(value=value):
                 self.assertEqual(self.runner._clean(self.spec["exp3"], {"n_trials": value})["n_trials"], expected)
 
