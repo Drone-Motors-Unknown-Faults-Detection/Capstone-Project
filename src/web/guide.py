@@ -6,7 +6,6 @@ import json
 import math
 import re
 from pathlib import Path
-from urllib.parse import urlparse
 
 import tornado.ioloop
 import tornado.web
@@ -19,7 +18,7 @@ from core.runner import add_openset_args
 from experiments.navigation_data_contract import run as data_contract, split_audit
 from experiments.exp3_trend import SCENARIOS
 from web.live import LiveDemo
-from web.server import CommandError, Hub, reject_legacy_method, serve
+from web.server import CommandError, Hub, origin_allowed, reject_legacy_method, serve
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
@@ -197,7 +196,7 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
         return self.application.settings["guide_hub"]
 
     def check_origin(self, origin):
-        return urlparse(origin).netloc == self.request.host
+        return origin_allowed(origin, self.request.host)   # 與首頁同一套規則，含 --allow-origin（#285 R2-08）
 
     def open(self):
         self.hub.clients.add(self)

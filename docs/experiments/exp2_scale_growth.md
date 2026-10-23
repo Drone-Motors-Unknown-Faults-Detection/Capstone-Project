@@ -65,7 +65,7 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 [main writer](../../src/experiments/exp2_scale_growth.py)寫`logs/exp2_scale_growth/{ts}.log`、`output/exp2_scale_growth/{ts}/environment.json`、`stages.csv`、`summary.json`；Web只由runner存結果JSON到`output/web_server/{ts}/experiments/`。模型不長期保存。
 
 - `config`是注入劇本，`learned`是模型新類，`matched`是事後多數配置；三者要一起看。
-- `discovered`只表示該段形成了一個新類（learned）；`discovered=true` 不等於辨識出該段配置，`discovered=false` 也不能當作故障不存在。失敗段不一定有delay等欄。
+- `discovered=true`只表示該段形成了一個新類，不表示該段注入的配置被辨識出來（它可能學到前一段的殘餘）；有沒有對上看`matched_is_config`，有沒有被認出看`final_eval`的`matched_rate`。不要把`discovered`的段數寫成「發現 9／9」。`discovered=false`表示該段未learned；不能當作故障不存在。失敗段不一定有delay等欄。
 - `samples_to_candidate`是該段到首次learned的tick；單位筆，不是秒。循環抽樣會重用列。它量的是「這段開始後多久有任一群學成」，不是「當段配置多久被發現」。
 - `matched_is_config`：這段學到的群，事後多數是否就是當段注入的配置；每段都有，未學成為 false。`summary.json` 頂層的 `n_stages`／`n_learned`／`n_matched_config` 是段數、形成新類段數與對上本段配置段數，實驗頁 KPI 直接讀這三個欄位（#286）。
 - `summary.json` 的 `discovery`：每個配置第一次成為某個新類事後多數的時點。`delay` 從該配置開始注入起算到那一筆，可能跨到後面的段；從未成為多數則 `discovered=false`。這才是「某配置多久被發現」。
@@ -100,7 +100,7 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 - 假設不成立：階梯組延遲沒有縮短，或純度、`matched==config` 段數明顯變差（較小的 mcs 把殘餘或混合樣本切成候選）。
 - 單一工況、三個 seed，只能說明這個工況下的方向，不能外推到其他工況。
 
-結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，下兩節的清理、邊界退回與判進對應新類都已在內，`--fixed-density` 與預設各三個 seed），不回填本節。[reports/JW-Albert_20261022_exp2_density_ladder_ablation](../../reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md) 是加清理與邊界退回之前的消融。
+結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，下兩節的清理、邊界退回與判進對應新類都已在內，`--fixed-density` 與預設各三個 seed），不回填本節。[reports/JW-Albert_20261022_exp2_density_ladder_ablation](../../reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md) 是加清理與邊界退回之前的消融。隔離區規則一致化（#268）之後以 `b6e2b97` 重跑的同一組對照在 [reports/JW-Albert_20261023_rerun_after_review](../../reports/JW-Albert_20261023_rerun_after_review/README.md)：階梯組學到當段配置 7／7／7 段，固定組 4／1／5 段。
 
 ## 隔離區清理、邊界退回與外部評估（issue #222）
 
@@ -147,7 +147,7 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --healthy-mix 
 - 假設不成立：出現事後多數為 8screws 的 `discovered-N`，或 `healthy_holdout_acc` 明顯低於不混入時。
 - 學到當段配置的段數可能因延遲拉長而改變；比較時看同 seed 的 0 與 0.3。
 
-結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，輸出 `output/exp2_scale_growth/2026-10-23-01-30-54`～`01-32-23`），不回填本節。
+結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，輸出 `output/exp2_scale_growth/2026-10-23-01-30-54`～`01-32-23`），不回填本節。隔離區規則一致化（#268）之後以 `b6e2b97` 重跑的結果在 [reports/JW-Albert_20261023_rerun_after_review](../../reports/JW-Albert_20261023_rerun_after_review/README.md)（輸出 `11-56-10`～`11-56-28`）。
 
 ## 隔離區規則一致化（issue #268）
 
@@ -173,7 +173,16 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-densit
 - 修正不成立：`discovery` 裡從未被發現的配置變多（清理把當段樣本也移出），或 `matched_is_config` 段數減少。
 - 平手規則在 seed 42 的改前輸出沒有觸發（0 次平手），預期數字不因它改變。
 
-結果在 Aero 重跑後另記，不回填本節。
+### 結果（2026-10-23，Aero、commit `b6e2b97`）
+
+九次輸出在 `output/exp2_scale_growth/2026-10-23-11-56-10`～`11-56-28`，逐項比對在 [reports/JW-Albert_20261023_rerun_after_review](../../reports/JW-Albert_20261023_rerun_after_review/README.md)。上面的預期沒有回填，對照如下：
+
+- 成立：seed 42 預設的 5screws `final_eval.matched_rate` 從 51.16% 升到 97.67%，舊版混入 5screws 的 4screws 群不再出現，學到的群純度全部 100%；`--fixed-density` 下沒有同一 `matched` 被學成兩個以上新類；`healthy_holdout_acc` 範圍與改前相同；`rejected_boundary` 九次都是 0。
+- 不成立：預設三個 seed 對上本階段配置（`matched_is_config`）從 9／9／9 降到 7／7／7，形成新類（`discovered`）從 9 次降到 8 次，`final_eval.matched_rate` 達 80% 的組數為 7／3／5，`discovery` 裡從未成為任何新類多數的配置從 0 個變成每個 seed 各 1 個（seed 42／123 的 3screws、seed 2026 的 2screws）。原因是 4screws 段（seed 2026 是 3screws 段）在 600 tick 內沒有成群，到下一段第 21／12／23 tick 才成群、事後多數是前一段的配置，當段配置從此沒有機會成為多數。
+- 預期寫錯：「預設 seed 42 的 `quarantine_duplicates` 應為 0」與實測不符，實測 117（seed 123 為 362、seed 2026 為 408；`--fixed-density` 713／740／801）。`CycleSampler` 一圈後重抽同一列，一個階段只有約 240 筆不重複列（池 × 0.8），改前的 9／9 有一部分是靠重複列與 (1,2] 的殘餘列撐起候選（[#280](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/280)）。
+- `--healthy-mix 0.3` 三個 seed 送入 487／458／485 筆健康窗，0 筆進隔離區；延後的那一段跑滿 600 tick，所以送入數比改前的 745 多。
+
+依 #280，不為了讓數字變好而調 `max_ticks_per_stage` 或密度階梯；要調預算應另立實驗、先寫預期。
 
 ## 單一納入路徑與形成新類計數（issue #286、#287）
 

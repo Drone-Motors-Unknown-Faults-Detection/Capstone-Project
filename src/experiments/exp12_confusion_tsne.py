@@ -18,7 +18,7 @@ import argparse
 import numpy as np
 
 from core.confusion_summary import summarize_confusion
-from core.data import HEALTHY, config_sort_key, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, config_sort_key, dataset_key, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import save_json
@@ -81,7 +81,7 @@ def visualization_counts(result: dict) -> dict:
 
 
 def _dataset_key(ds: dict) -> str:
-    return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+    return dataset_key(ds["motor"], ds["rpm"])
 
 
 # ── (a) 二元混淆矩陣 ─────────────────────────────────────────────────────────

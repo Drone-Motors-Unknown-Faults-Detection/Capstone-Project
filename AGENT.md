@@ -247,15 +247,17 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    分段），認出率天生 ≈ 90–95%。
 2. **實驗二的發現延遲讀 `summary.json` 的 `discovery`**：某配置從開始注入到第一次成為某新類事後多數的
    到達筆數（含重複抽樣）。`stages.csv` 的 `samples_to_candidate` 是該段開始後任一群學成的筆數，
-   不等於當段配置被發現。現行 `adopt()` 版（學會後清殘餘、邊界退回）在 Aero 以 commit 46ed4d5、
-   T1/8000rpm 重跑：預設設定 seed 42／123／2026 九段都學到當段配置，發現延遲 51–75／52–105／51–118 筆，
-   seed 42 的 4screws 群混入 5screws（`cluster_purity` 68.33%），seed 123 有一次邊界退回
-   （[`output/exp2_scale_growth/2026-10-23-01-30-54`](output/exp2_scale_growth/2026-10-23-01-30-54/summary.json)、
-   `01-31-27`、`01-32-01`）。`--fixed-density` 關掉密度階梯時只有 3／2／2 段學到當段配置，
-   最慢 696 筆（`01-31-05`、`01-31-38`、`01-32-13`）。外部評估集在全部段結束後被任一新類接受最低 53.85%，
-   判進對應新類（`matched_rate`）最低 51.16%（seed 42 的 5screws）。`--healthy-mix 0.3` 三個 seed 送入
-   745 筆健康窗、0 筆進隔離區。完整數字見
-   [reports/JW-Albert_20261023_aero_rerun/README.md](reports/JW-Albert_20261023_aero_rerun/README.md)。
+   不等於當段配置被發現；`discovered` 欄只表示該段形成了一個新類，不代表該段配置被辨識，
+   辨識看 `matched_is_config` 與 `final_eval.matched_rate`（#286）。現行 `adopt()` 版（學會後清理套進入規則、
+   邊界退回、隔離區不收重複列）在 Aero 以 commit b6e2b97、T1/8000rpm 重跑：預設設定 seed 42／123／2026
+   各形成新類 8 次、對上本階段配置 7／9 段，有一段 600 tick 內成不了群（seed 42／123 的 4screws、seed 2026 的
+   3screws），到下一段才成群，下一段的配置從此沒被認出（`final_eval` 0%）；邊界退回都是 0，
+   `quarantine_duplicates` 117／362／408（手冊預期 0，見 #280，不調 `max_ticks_per_stage`）
+   （[`output/exp2_scale_growth/2026-10-23-11-56-10`](output/exp2_scale_growth/2026-10-23-11-56-10/summary.json)、
+   `11-56-17`、`11-56-24`）。`--fixed-density` 關掉密度階梯時只有 4／1／5 段對上本階段配置，
+   最慢 641 筆（`11-56-12`、`11-56-19`、`11-56-26`）。`--healthy-mix 0.3` 三個 seed 送入 1430 筆健康窗、
+   0 筆進隔離區。完整數字與改前（46ed4d5，9／9／9 段但 seed 42 的 4screws 群混入 5screws）的對照見
+   [reports/JW-Albert_20261023_rerun_after_review/README.md](reports/JW-Albert_20261023_rerun_after_review/README.md)。
    隔離區還沒成群時，web 顯示「已試分群 N 次」。
 3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名；`discovered` 只表示
    該段形成了新類，不表示辨識出該段配置（issue #286）。事後對照看
@@ -274,6 +276,13 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
 7. **環境以 `uv.lock` 為準**：`./scripts/opt/build_uv.sh` 建出的 `venv/` 不含 TensorFlow；
    Tornado 是 `pyproject.toml` 的直接依賴。舊的含 TF 環境不在鎖版範圍，跑出問題先用
    `build_uv.sh` 重建新目錄再比對（見鐵則 11）。
+8. **`core.formal_data` 會寫出階段 2 的特徵 CSV，這不違反鐵則 5**：鐵則 5 管的是實驗程式讀
+   `data/Step-*/myfeature/**/*_clean.csv` 時唯讀、不重產。`core.formal_data.materialize()` 是把正式來源
+   （三個 `階段N.zip`）具現化成那批 CSV 的轉接器：階段 1／3 原樣複製 bytes，階段 2 依
+   `docs/formal_feature_schema_contract.md` 的 `adapter_generated_v1` 從 10 kHz 視窗重算 105 維特徵；
+   只寫進呼叫端指定的輸出目錄（拒絕寫進來源樹、預設不覆寫既有檔），並留下
+   `formal_materialization_manifest.json` 供 `core.provenance` 對帳。實驗模組與 web 仍然只讀 data/，
+   不呼叫 formal_data。
 
 ---
 

@@ -58,6 +58,14 @@ class CommandError(ValueError):
     """WebSocket 指令的參數錯誤；訊息只含固定文字，可直接廣播給所有瀏覽器。"""
 
 
+def origin_allowed(origin: str, host: str) -> bool:
+    """WebSocket Origin 檢查，首頁與導覽共用（#285 R2-08）：只接受同站（Origin 的 host[:port]
+    等於請求的 Host，不分大小寫）或 --allow-origin 名單；區網展示的網頁由同一台伺服器送出，
+    Origin 自然與 Host 相同。"""
+    return (urlparse(origin).netloc.lower() == host.lower()
+            or origin.rstrip("/").lower() in ALLOWED_ORIGINS)
+
+
 def reject_legacy_method(method: str) -> None:
     """首頁與導覽需要逐類校準閾值（healthy_threshold、量尺擴張）；legacy 只有合併分布的
     train 距離 q95，啟動時統一拒絕，不在各實驗頁各自替換或各自失敗（#266）。"""
@@ -249,6 +257,11 @@ class RunHandler(_JSONHandler):
             params = json.loads(self.request.body or b"{}")
         except json.JSONDecodeError:
             self.reply({"error": "參數不是合法 JSON"}, 400)
+            return
+        try:
+            params = JOBS.runner.clean_params(exp_id, params)   # 參數錯誤先回報；原始用戶端參數不進播放紀錄（#285 R2-10）
+        except ValueError as exc:
+            self.reply({"error": str(exc)}, 400)
             return
         JOBS.current = exp_id
         logger.info(f"實驗頁執行 {exp_id} {params}")
@@ -458,10 +471,7 @@ class AssistantAskHandler(tornado.web.RequestHandler):
 
 class WSHandler(tornado.websocket.WebSocketHandler):
     def check_origin(self, origin: str) -> bool:
-        """只接受同站（Origin 的 host[:port] 等於請求的 Host）或 --allow-origin 名單；
-        區網展示的網頁由同一台伺服器送出，Origin 自然與 Host 相同。"""
-        return (urlparse(origin).netloc.lower() == self.request.host.lower()
-                or origin.rstrip("/").lower() in ALLOWED_ORIGINS)
+        return origin_allowed(origin, self.request.host)
 
     def open(self) -> None:
         HUB.clients.add(self)
@@ -486,9 +496,9 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     async def dispatch(self, msg: dict) -> None:
         cmd = msg.get("cmd")
         if HUB.busy:
-            raise ValueError("工作進行中，拒絕重複操作")
+            raise CommandError("工作進行中，拒絕重複操作")   # 固定文字要讓畫面看到，不是只顯示 ValueError（#285 R2-09）
         if HUB.error and cmd not in ("pause", "reset", "dataset"):
-            raise ValueError("目前有錯誤，請明確重設／重建後再監測")
+            raise CommandError("目前有錯誤，請明確重設／重建後再監測")
         if cmd == "start":
             HUB.running = True
             HUB.event("info", "▶ 串流開始")

@@ -99,12 +99,14 @@ class CalibratedHealthIndex:
         knn_neighbors: int = 5,
         lower_quantile: float = 0.10,
         label_to_fault_type: Mapping[int, str] | None = None,
+        random_state: int = 42,
     ) -> "CalibratedHealthIndex":
         """Fit using known train/calibration arrays only.
 
         ``y_calibration`` may contain only labels present in ``y_train``.  This
         prevents an unknown test pool from being accidentally used to set the
-        health scale or Open Set threshold.
+        health scale or Open Set threshold.  ``random_state`` 由呼叫端的 seed 傳入，
+        只有 MCD（含其 PCA）會用到（鐵則 7，#285 R2-06）。
         """
 
         X_train = _matrix(X_train, "X_train")
@@ -127,7 +129,8 @@ class CalibratedHealthIndex:
         scaler = RobustScaler().fit(X_train)
         X_train_scaled = scaler.transform(X_train)
         X_calibration_scaled = scaler.transform(X_calibration)
-        detector = create_detector_from_config(resolved).fit(X_train_scaled, y_train, X_calibration_scaled, y_calibration)
+        detector = create_detector_from_config(resolved, random_state=random_state).fit(
+            X_train_scaled, y_train, X_calibration_scaled, y_calibration)
         calibration_scores = np.asarray(detector.score_samples(X_calibration_scaled), dtype=float)
         calibrator = HealthIndexCalibrator.fit(
             calibration_scores,

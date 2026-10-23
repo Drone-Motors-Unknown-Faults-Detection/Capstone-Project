@@ -1,0 +1,7 @@
+2026-10-23 11:57:32 | INFO    | Logger initialized: openset_comparison
+2026-10-23 11:57:32 | INFO    | log_file=logs/openset_comparison/2026-10-23-11-57-32.log
+2026-10-23 11:57:32 | INFO    | output_dir=output/openset_comparison/2026-10-23-11-57-32
+2026-10-23 11:57:33 | INFO    | 圖表已儲存：output/openset_comparison/2026-10-23-11-57-32/method_comparison.png
+2026-10-23 11:57:33 | INFO    | mahalanobis: AUROC=1.0000, AUPR=1.0000, FPR@95TPR=0.0000, OpenSetAcc=0.9975, F1=0.9987
+2026-10-23 11:57:33 | INFO    | knn: AUROC=1.0000, AUPR=1.0000, FPR@95TPR=0.0000, OpenSetAcc=0.9996, F1=0.9998
+2026-10-23 11:57:33 | INFO    | 輸出：output/openset_comparison/2026-10-23-11-57-32

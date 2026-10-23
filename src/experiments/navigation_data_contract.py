@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from pathlib import Path
 
 from core.data import HEALTHY, discover_datasets, load_pools, config_sort_key
 from core.logger import setup_run
+from core.provenance import sha256_file
 
 
 def run(dataset: dict, seed: int = 42) -> dict:
@@ -21,7 +21,7 @@ def run(dataset: dict, seed: int = 42) -> dict:
     data_root = next((p.parent for p in (dataset_dir, *dataset_dir.parents) if p.name.startswith("Step-")), dataset_dir)
     for config in configs:
         sources[config] = [
-            {"sha256": hashlib.sha256(p.read_bytes()).hexdigest(),
+            {"sha256": sha256_file(p),
              "path": p.resolve().relative_to(data_root).as_posix()}
             for p in sorted((Path(dataset["path"]) / config).glob("*_Group_feature_data_clean.csv"))
         ]

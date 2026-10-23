@@ -105,36 +105,40 @@ venv/bin/python -m experiments.exp2_scale_growth --motor T1 --rpm 8000rpm
 venv/bin/python -m experiments.exp2_scale_growth --sequence 5screws 3_14screws 2screws
 ```
 
-**實測結果**（預設序列由輕到重注入，T1/8000rpm，seed=42，Aero，
-[output/exp2_scale_growth/2026-10-23-01-30-54](output/exp2_scale_growth/2026-10-23-01-30-54/summary.json)）。
-每個配置先切 20% 外部評估集不參與重播。「發現延遲」是該配置第一次成為某新類事後多數的筆數；
-「真值多數」與外部評估都是事後對照，不進模型。兩欄外部評估都讀 `summary.json` 的 `final_eval`，
-是九段全部結束後的模型：「被任一新類接受」只要求判進任何一個非健康類（`known_rate`），
+**實測結果**（預設序列由輕到重注入，T1/8000rpm，seed=42，Aero、commit b6e2b97，
+[output/exp2_scale_growth/2026-10-23-11-56-10](output/exp2_scale_growth/2026-10-23-11-56-10/summary.json)）。
+每個配置先切 20% 外部評估集不參與重播。「發現延遲」是該配置從開始注入到第一次成為某新類事後多數的筆數
+（`summary.json` 的 `discovery`，可跨段）；「真值多數」與外部評估都是事後對照，不進模型。
+兩欄外部評估都讀 `final_eval`，是九段全部結束後的模型：「被任一新類接受」只要求判進任何一個非健康類（`known_rate`），
 「判進對應新類」要求判進事後多數等於該配置的新類（`matched_rate`）。`stages.csv` 的
-`eval_known_rate`／`eval_matched_rate` 是每段學會當下的值，時點不同，例如 7screws 學會當下是 56.9%、
-全部段結束後是 53.8%：
+`eval_known_rate`／`eval_matched_rate` 是每段學會當下的值，時點不同，例如 6screws 學會當下是 31.7%、
+全部段結束後是 93.7%：
 
 | 注入配置 | 發現延遲（筆）| 學到的類 | 候選群真值多數 | 叢集大小 | 純度 | 清理移出 | 自類 holdout（筆數）| 外部評估集被任一新類接受（全部段結束後，筆數）| 判進對應新類（全部段結束後）| 健康保持率 | 已知類別數 |
 |---|---:|---|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| 7screws | 75 | discovered-1 | 7screws | 45 | 100.0% | 6 | 100.0%（9） | 53.8%（65） | 53.8% | 89.1% | 2 |
-| 6screws | 51 | discovered-2 | 6screws | 51 | 100.0% | 0 | 100.0%（11） | 74.6%（63） | 74.6% | 89.1% | 3 |
-| 5screws | 51 | discovered-3 | 5screws | 29 | 100.0% | 6 | 71.4%（7） | 95.3%（43） | 51.2% | 96.9% | 4 |
-| 4screws | 52 | discovered-4 | 4screws | 60 | 68.3% | 0 | 66.7%（12） | 89.7%（58） | 89.7% | 100.0% | 5 |
-| 3screws | 55 | discovered-5 | 3screws | 54 | 100.0% | 0 | 66.7%（12） | 83.7%（49） | 83.7% | 100.0% | 6 |
-| 2screws | 54 | discovered-6 | 2screws | 54 | 100.0% | 5 | 100.0%（12） | 96.6%（58） | 96.6% | 100.0% | 7 |
-| 1screws | 59 | discovered-7 | 1screws | 59 | 100.0% | 0 | 100.0%（13） | 88.6%（70） | 88.6% | 100.0% | 8 |
-| 3_14screws | 59 | discovered-8 | 3_14screws | 59 | 100.0% | 0 | 76.9%（13） | 83.1%（71） | 83.1% | 96.9% | 9 |
-| 4_146screws | 59 | discovered-9 | 4_146screws | 59 | 100.0% | 0 | 61.5%（13） | 85.3%（75） | 85.3% | 96.9% | 10 |
+| 7screws | 75 | discovered-1 | 7screws | 45 | 100.0% | 28 | 100.0%（9） | 53.8%（65） | 53.8% | 89.1% | 2 |
+| 6screws | 73 | discovered-2 | 6screws | 27 | 100.0% | 36 | 83.3%（6） | 93.7%（63） | 93.7% | 89.1% | 3 |
+| 5screws | 63 | discovered-3 | 5screws | 37 | 100.0% | 36 | 100.0%（8） | 97.7%（43） | 97.7% | 96.9% | 4 |
+| 4screws | 621 | —（600 tick 內未成群） | — | — | — | — | — | 81.0%（58） | 81.0% | — | 4 |
+| 3screws | —（未被發現） | discovered-4（第 21 tick） | 4screws | 72 | 100.0% | 5 | 100.0%（15） | 0.0%（49） | 0.0% | 100.0% | 5 |
+| 2screws | 57 | discovered-5 | 2screws | 57 | 100.0% | 0 | 100.0%（12） | 98.3%（58） | 98.3% | 100.0% | 6 |
+| 1screws | 57 | discovered-6 | 1screws | 57 | 100.0% | 0 | 100.0%（12） | 100.0%（70） | 100.0% | 100.0% | 7 |
+| 3_14screws | 57 | discovered-7 | 3_14screws | 57 | 100.0% | 0 | 75.0%（12） | 87.3%（71） | 87.3% | 96.9% | 8 |
+| 4_146screws | 57 | discovered-8 | 4_146screws | 57 | 100.0% | 1 | 91.7%（12） | 98.7%（75） | 98.7% | 95.3% | 9 |
 
-> 九段都學到當段注入的配置，沒有同一配置被學成兩個類，最終 10 類。4screws 段的群混了 5screws
-> （純度 68.3%）。被任一新類接受的比例 53.8%～96.6%：7screws 學成新類後，仍有近半數外部樣本
-> 被判為未知。5screws 有 95.3% 被某個新類接受，但只有 51.2% 判進事後多數為 5screws 的新類，
-> 另外 44.2% 判進事後多數不是 5screws 的新類。seed 123、2026 也都 9 段學到當段配置，
-> 兩個指標的最低值都是 56.92%、63.49%；seed 123 有一次邊界退回（擋下 7screws 殘餘）。
-> 加 `--healthy-mix 0.3` 在串流中混入健康 holdout 窗：三個 seed 共送入 745 筆健康窗，0 筆進入隔離區，
-> 沒有形成事後多數為 8screws 的新類（[Aero 重跑報告](reports/JW-Albert_20261023_aero_rerun/README.md)）。
-> 關掉密度階梯時修正無效（只有 2～3 段學到當段配置），完整對照見
-> [Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)。
+> 形成新類 8 次，對上本階段配置 7／9 段（`matched_is_config`；「形成新類」不等於認出該段配置，issue #286），
+> 群純度都是 100%，沒有同一配置被學成兩個類，最終 9 類。4screws 段在 600 tick 內
+> 沒有成群，到 3screws 段第 21 tick 才成群、事後多數是 4screws；3screws 從此沒有成為任何新類的多數，
+> 外部評估 0%。隔離區不收重複列之後（`quarantine_duplicates` 117），單一配置一段只有約 240 筆不重複列，
+> 舊版 9／9 有一部分是靠重複列與 (1,2] 的殘餘列撐起候選（issue #280）；依 #280 不調 `max_ticks_per_stage`。
+> 被任一新類接受的比例 53.8%～100%（3screws 除外）：7screws 學成新類後，仍有近半數外部樣本被判為未知。
+> seed 123、2026 的樣子相同（對上本階段配置都是 7／9，seed 2026 延後的是 3screws 段、沒被認出的是 2screws），
+> 三個 seed 的 `final_eval.matched_rate` 達 80% 的組數為 7／3／5（分母 9 個配置），九次執行的邊界退回都是 0。
+> 加 `--healthy-mix 0.3` 在串流中混入健康 holdout 窗：三個 seed 共送入 1430 筆健康窗，0 筆進入隔離區，
+> 沒有形成事後多數為 8screws 的新類。關掉密度階梯時對上本階段配置只有 4／1／5 段。
+> 逐項對照見 [審查修正後重跑報告](reports/JW-Albert_20261023_rerun_after_review/README.md)；
+> 改前（commit 46ed4d5，9／9／9 段、seed 42 的 4screws 群純度 68.3%）在
+> [Aero 重跑報告](reports/JW-Albert_20261023_aero_rerun/README.md)。
 > 欄位定義與判讀見 [實驗二手冊](docs/experiments/exp2_scale_growth.md)。
 
 ### 實驗三：漸進磨損 vs 突發事件判別（`exp3_trend`）
@@ -311,18 +315,22 @@ accuracy 99.886% 對 99.887%。`output/exp6_formal_matrix/aggregate/` 的 94.62%
 ### 實驗八：相對健康指數與健康監測（`health_index_*`、`health_monitor`）
 
 程式 `src/experiments/health_index_benchmark.py`、`src/experiments/health_index_matrix.py`、
-`src/experiments/health_monitor.py`，邏輯在 `src/experiments/health/`。把開集分數依 `8screws` 校準分數的
-第 10／95 百分位映成 0～1 的相對健康指數，再分四段嚴重度、逐 session 追蹤趨勢告警。
+`src/experiments/health_monitor.py`，邏輯在 `src/experiments/health/`。把開集分數用 `8screws` 校準分數的
+三個錨點映成 0～1 的相對健康指數：第 10 百分位映到 1.0、拒絕線（第 95 百分位，正規化分數 1.0）映到 0.5、
+拒絕線的兩倍映到 0.0；嚴重度以 0.5／0.35／0.2 分四段，逐 session 追蹤趨勢告警（warning 可再升 critical）。
 
 ```bash
 uv run --locked python -m experiments.health_index_matrix --data-root data --seed 42 --seed 123 --seed 2026 --method mahalanobis --method knn
 ```
 
-9 工況 × 3 seed × 2 方法（[output/exp8_health_index_matrix/2026-10-23-01-34-15](output/exp8_health_index_matrix/2026-10-23-01-34-15/matrix_manifest.json)，
-Aero、`--data-root data`）：已知健康指數平均 0.583337 ± 0.073589（Mahalanobis）／0.600457 ± 0.072595（k-NN），
-AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出輕重。現有資料沒有馬達
-編號、時間戳與真實損傷標記，不能把它當成損壞百分比或 RUL。`reports/exp8_health_index_results/`
-的 0.583144／0.601657 是讀 `data/formal_local` 的歷史結果，Web 實驗頁 8-2 封存卡讀的是這份。操作見
+9 工況 × 3 seed × 2 方法（[output/exp8_health_index_matrix/2026-10-23-11-56-31](output/exp8_health_index_matrix/2026-10-23-11-56-31/matrix_manifest.json)，
+Aero、commit b6e2b97、`--data-root data`）：已知健康指數平均 0.790274 ± 0.037581（Mahalanobis）／0.799017 ± 0.037106（k-NN），
+健康 holdout 指數 ≥ 0.5（沒超過拒絕線）的比例 94.66%／94.67%，AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出輕重。
+T1/8000rpm 的逐窗監測：健康 holdout 64 窗 `alarm_state` 全為 normal，1screws／5screws／7screws 第 3 窗起全為 critical
+（`output/exp8_health_monitor/2026-10-23-11-56-44`～`11-56-47`）。現有資料沒有馬達
+編號、時間戳與真實損傷標記，不能把它當成損壞百分比或 RUL。舊映射（拒絕線映到 0.0）的
+`output/exp8_health_index_matrix/2026-10-23-01-34-15/` 是 0.583337／0.600457；`reports/exp8_health_index_results/`
+的 0.583144／0.601657 是舊映射讀 `data/formal_local` 的歷史結果，Web 實驗頁 8-2 封存卡讀的是這份。操作見
 [docs/experiments/exp8_health.md](docs/experiments/exp8_health.md)。
 
 ### 實驗說明
@@ -338,9 +346,9 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
 
 | # | 貢獻 | 證據 |
 |---|---|---|
-| 1 | **冷啟動框架**：健康-only 起步的開集診斷與持續學習迴圈 | exp1（九故障偵測 100%）、exp2（三個 seed 九段都學到當段配置，最終 10 類）|
+| 1 | **冷啟動框架**：健康-only 起步的開集診斷與持續學習迴圈 | exp1（九故障偵測 100%）、exp2（三個 seed 各七段對上本階段配置、形成新類 8 次，最終 9 類）|
 | 2 | **兩段閾值**：偵測線 1.0／隔離線 2.0 分離「警報」與「新類發現」 | 健康誤報 1.01–1.08 vs 故障 ≥10 的空隙實測 |
-| 3 | **自適應密度階梯**：縮短隔離區遲遲不成群時的發現延遲 | exp2 修正版（T1/8000rpm × 3 seed，Aero）：階梯開時學到當段配置 9／9／9 段、發現延遲最大 118 筆；關掉時 3／2／2 段、最大 696 筆（[Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)）|
+| 3 | **自適應密度階梯**：縮短隔離區遲遲不成群時的發現延遲 | exp2（T1/8000rpm × 3 seed，Aero、b6e2b97）：階梯開時對上本階段配置 7／7／7 段、延後那段之外的發現延遲最大 115 筆；關掉時 4／1／5 段、最大 641 筆（[審查修正後重跑報告](reports/JW-Albert_20261023_rerun_after_review/README.md)）|
 | 4 | **候選群自學與操作員在環**：實驗二成群即自學、不讀真值；首頁展示保留人工確認＋退回機制 | exp2 事後對照欄；假候選（健康誤報聚叢）實測案例與修復 |
 | 5 | **中間帶停留時間**：漸進 vs 突發的變化點判別統計量 | exp3（雙劇本各 97.5%）|
 | 6 | **極座標健康地圖**：方向=故障類型、半徑=嚴重度；錨點效應發現 | exp4（輕錨 AUROC 0.997、重錨反轉 0.146）|
@@ -367,7 +375,7 @@ AUROC 皆 1.0；所有 unknown 的健康指數都是 0.0，分得開但排不出
   實驗一～四與實驗八的逐窗監測（8-3）另可「⏵ 邊跑邊畫」。實驗九只有說明頁、沒有執行按鈕，
   它的 AutoEncoder 結果在實驗六。實驗六、八另外顯示已提交的正式矩陣結果，唯讀、不從網頁重跑：
   6-3 讀 Aero 重跑的 `output/exp6_formal_matrix/aero_2026-10-23/aggregate/`；8-2 讀 `reports/exp8_health_index_results/`，
-  卡片標明它是 `data/formal_local` 的歷史結果，Aero 重跑的矩陣在 `output/exp8_health_index_matrix/2026-10-23-01-34-15/`。
+  卡片標明它是 `data/formal_local`、舊映射的歷史結果，Aero 以新錨點重跑的矩陣在 `output/exp8_health_index_matrix/2026-10-23-11-56-31/`。
   每次執行的完整結果存到 `output/web_server/{ts}/experiments/{實驗}_{時間}.json`。
   實驗在另一個執行緒池跑，一次一個；跑實驗時即時展示照常串流。每次按「執行」都從頭擬合該實驗的
   模型（統計擬合，不用 GPU）；模型跑完即丟、不保存，同 seed 重跑結果相同。
@@ -592,12 +600,14 @@ repo 保存——issue 討論串（#1–#60，缺陷成因與修正驗證）也�
    （本專案依 motor×rpm 分資料集正是為此）。
 3. **健康誤報率受校準集大小影響**（實測 10.9% vs 名目 5%）：可用更多健康資料或
    conformal 校準改善。
-4. **候選群會混入其他配置**：實驗二的候選群取自整個隔離區。學會後清理殘餘、加邊界退回之後，
-   密度階梯開時三個 seed 九段都學到當段配置，但 seed 42 的 4screws 段仍混入 5screws（純度 68.3%）；
-   關掉階梯時多數段仍落後一段（[Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md)）。
-   學成新類也不代表之後都認得：全部段結束後，外部評估集被任一新類接受的比例最低 53.85%（seed 42 的 7screws），
-   判進對應新類的比例最低 51.16%（seed 42 的 5screws）。修正前的密度階梯消融見
-   [報告](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)。
+4. **候選群取自整個隔離區，成群要等到有足夠的不重複列**：隔離區清理改套進入規則、不收重複列之後
+   （[審查修正後重跑報告](reports/JW-Albert_20261023_rerun_after_review/README.md)），密度階梯開時三個 seed
+   都是對上本階段配置 7／9 段（`matched_is_config`，不是「形成新類」的次數，issue #286）、純度全為 100%，
+   但有一段在 600 tick 內成不了群，被延後到下一段才學到，下一段的配置因此整個實驗都沒被認出
+   （`final_eval.matched_rate` 0%）；關掉階梯時只有 4／1／5 段對上本階段配置
+   （[Aero 修正報告](reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md) 是改前的對照）。
+   學成新類也不代表之後都認得：全部段結束後，外部評估集被任一新類接受的比例 7screws 在 seed 42 只有 53.85%。
+   修正前的密度階梯消融見 [報告](reports/JW-Albert_20261022_exp2_density_ladder_ablation/README.md)。
 5. **衰退曲線外插未實作**：T1/T2/T3 是不同馬達個體，個體與老化影響混雜；
    缺同個體連續歷程及失效終點，不能當作 run-to-failure 模板或估計RUL。
 6. **單一測試台、單一故障機制**：結論外推到其他 PHM 任務需再驗證。

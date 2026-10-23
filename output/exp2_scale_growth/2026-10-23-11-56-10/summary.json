@@ -1,0 +1,494 @@
+{
+  "stages": [
+    {
+      "config": "7screws",
+      "display": "7 螺絲（最輕微鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-1",
+      "learned_display": "模型新類 1",
+      "matched": "7screws",
+      "matched_display": "7 螺絲（最輕微鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 75,
+      "cluster_size": 45,
+      "cluster_purity": 1.0,
+      "pruned": 28,
+      "own_holdout_acc": 1.0,
+      "own_holdout_n": 9,
+      "eval_known_rate": 0.5692307692307692,
+      "eval_matched_rate": 0.5692307692307692,
+      "eval_n": 65,
+      "healthy_holdout_acc": 0.890625,
+      "known_after": 2
+    },
+    {
+      "config": "6screws",
+      "display": "6 螺絲（輕微鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-2",
+      "learned_display": "模型新類 2",
+      "matched": "6screws",
+      "matched_display": "6 螺絲（輕微鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 73,
+      "cluster_size": 27,
+      "cluster_purity": 1.0,
+      "pruned": 36,
+      "own_holdout_acc": 0.8333333333333334,
+      "own_holdout_n": 6,
+      "eval_known_rate": 0.31746031746031744,
+      "eval_matched_rate": 0.31746031746031744,
+      "eval_n": 63,
+      "healthy_holdout_acc": 0.890625,
+      "known_after": 3
+    },
+    {
+      "config": "5screws",
+      "display": "5 螺絲（中度鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-3",
+      "learned_display": "模型新類 3",
+      "matched": "5screws",
+      "matched_display": "5 螺絲（中度鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 63,
+      "cluster_size": 37,
+      "cluster_purity": 1.0,
+      "pruned": 36,
+      "own_holdout_acc": 1.0,
+      "own_holdout_n": 8,
+      "eval_known_rate": 0.9302325581395349,
+      "eval_matched_rate": 0.9302325581395349,
+      "eval_n": 43,
+      "healthy_holdout_acc": 0.96875,
+      "known_after": 4
+    },
+    {
+      "config": "4screws",
+      "display": "4 螺絲（明顯鬆動）",
+      "discovered": false,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0
+    },
+    {
+      "config": "3screws",
+      "display": "3 螺絲（嚴重鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-4",
+      "learned_display": "模型新類 4",
+      "matched": "4screws",
+      "matched_display": "4 螺絲（明顯鬆動）",
+      "matched_is_config": false,
+      "samples_to_candidate": 21,
+      "cluster_size": 72,
+      "cluster_purity": 1.0,
+      "pruned": 5,
+      "own_holdout_acc": 1.0,
+      "own_holdout_n": 15,
+      "eval_known_rate": 0.0,
+      "eval_matched_rate": 0.0,
+      "eval_n": 49,
+      "healthy_holdout_acc": 1.0,
+      "known_after": 5
+    },
+    {
+      "config": "2screws",
+      "display": "2 螺絲（很嚴重鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-5",
+      "learned_display": "模型新類 5",
+      "matched": "2screws",
+      "matched_display": "2 螺絲（很嚴重鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 57,
+      "cluster_size": 57,
+      "cluster_purity": 1.0,
+      "pruned": 0,
+      "own_holdout_acc": 1.0,
+      "own_holdout_n": 12,
+      "eval_known_rate": 1.0,
+      "eval_matched_rate": 1.0,
+      "eval_n": 58,
+      "healthy_holdout_acc": 1.0,
+      "known_after": 6
+    },
+    {
+      "config": "1screws",
+      "display": "1 螺絲（最嚴重鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-6",
+      "learned_display": "模型新類 6",
+      "matched": "1screws",
+      "matched_display": "1 螺絲（最嚴重鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 57,
+      "cluster_size": 57,
+      "cluster_purity": 1.0,
+      "pruned": 0,
+      "own_holdout_acc": 1.0,
+      "own_holdout_n": 12,
+      "eval_known_rate": 1.0,
+      "eval_matched_rate": 1.0,
+      "eval_n": 70,
+      "healthy_holdout_acc": 1.0,
+      "known_after": 7
+    },
+    {
+      "config": "3_14screws",
+      "display": "3_14（複合不均勻鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-7",
+      "learned_display": "模型新類 7",
+      "matched": "3_14screws",
+      "matched_display": "3_14（複合不均勻鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 57,
+      "cluster_size": 57,
+      "cluster_purity": 1.0,
+      "pruned": 0,
+      "own_holdout_acc": 0.75,
+      "own_holdout_n": 12,
+      "eval_known_rate": 0.8873239436619719,
+      "eval_matched_rate": 0.8873239436619719,
+      "eval_n": 71,
+      "healthy_holdout_acc": 0.96875,
+      "known_after": 8
+    },
+    {
+      "config": "4_146screws",
+      "display": "4_146（複合不均勻鬆動）",
+      "discovered": true,
+      "healthy_seen": 0,
+      "healthy_quarantined": 0,
+      "learned": "discovered-8",
+      "learned_display": "模型新類 8",
+      "matched": "4_146screws",
+      "matched_display": "4_146（複合不均勻鬆動）",
+      "matched_is_config": true,
+      "samples_to_candidate": 57,
+      "cluster_size": 57,
+      "cluster_purity": 1.0,
+      "pruned": 1,
+      "own_holdout_acc": 0.9166666666666666,
+      "own_holdout_n": 12,
+      "eval_known_rate": 0.9866666666666667,
+      "eval_matched_rate": 0.9866666666666667,
+      "eval_n": 75,
+      "healthy_holdout_acc": 0.953125,
+      "known_after": 9
+    }
+  ],
+  "discovery": {
+    "7screws": {
+      "discovered": true,
+      "learned": "discovered-1",
+      "delay": 75
+    },
+    "6screws": {
+      "discovered": true,
+      "learned": "discovered-2",
+      "delay": 73
+    },
+    "5screws": {
+      "discovered": true,
+      "learned": "discovered-3",
+      "delay": 63
+    },
+    "4screws": {
+      "discovered": true,
+      "learned": "discovered-4",
+      "delay": 621
+    },
+    "3screws": {
+      "discovered": false
+    },
+    "2screws": {
+      "discovered": true,
+      "learned": "discovered-5",
+      "delay": 57
+    },
+    "1screws": {
+      "discovered": true,
+      "learned": "discovered-6",
+      "delay": 57
+    },
+    "3_14screws": {
+      "discovered": true,
+      "learned": "discovered-7",
+      "delay": 57
+    },
+    "4_146screws": {
+      "discovered": true,
+      "learned": "discovered-8",
+      "delay": 57
+    }
+  },
+  "rejections": [],
+  "final_eval": {
+    "7screws": {
+      "n": 65,
+      "unknown_rate": 0.46153846153846156,
+      "healthy_rate": 0.0,
+      "known_rate": 0.5384615384615384,
+      "matched_rate": 0.5384615384615384,
+      "top_class": "discovered-1"
+    },
+    "6screws": {
+      "n": 63,
+      "unknown_rate": 0.06349206349206349,
+      "healthy_rate": 0.0,
+      "known_rate": 0.9365079365079365,
+      "matched_rate": 0.9365079365079365,
+      "top_class": "discovered-2"
+    },
+    "5screws": {
+      "n": 43,
+      "unknown_rate": 0.023255813953488372,
+      "healthy_rate": 0.0,
+      "known_rate": 0.9767441860465116,
+      "matched_rate": 0.9767441860465116,
+      "top_class": "discovered-3"
+    },
+    "4screws": {
+      "n": 58,
+      "unknown_rate": 0.1896551724137931,
+      "healthy_rate": 0.0,
+      "known_rate": 0.8103448275862069,
+      "matched_rate": 0.8103448275862069,
+      "top_class": "discovered-4"
+    },
+    "3screws": {
+      "n": 49,
+      "unknown_rate": 1.0,
+      "healthy_rate": 0.0,
+      "known_rate": 0.0,
+      "matched_rate": 0.0,
+      "top_class": null
+    },
+    "2screws": {
+      "n": 58,
+      "unknown_rate": 0.017241379310344827,
+      "healthy_rate": 0.0,
+      "known_rate": 0.9827586206896551,
+      "matched_rate": 0.9827586206896551,
+      "top_class": "discovered-5"
+    },
+    "1screws": {
+      "n": 70,
+      "unknown_rate": 0.0,
+      "healthy_rate": 0.0,
+      "known_rate": 1.0,
+      "matched_rate": 1.0,
+      "top_class": "discovered-6"
+    },
+    "3_14screws": {
+      "n": 71,
+      "unknown_rate": 0.1267605633802817,
+      "healthy_rate": 0.0,
+      "known_rate": 0.8732394366197183,
+      "matched_rate": 0.8732394366197183,
+      "top_class": "discovered-7"
+    },
+    "4_146screws": {
+      "n": 75,
+      "unknown_rate": 0.013333333333333334,
+      "healthy_rate": 0.0,
+      "known_rate": 0.9866666666666667,
+      "matched_rate": 0.9866666666666667,
+      "top_class": "discovered-8"
+    }
+  },
+  "eval_fraction": 0.2,
+  "known_cal_max": 1.1709020303267854,
+  "quarantine_duplicates": 117,
+  "final_known": [
+    "8screws",
+    "discovered-1",
+    "discovered-2",
+    "discovered-3",
+    "discovered-4",
+    "discovered-5",
+    "discovered-6",
+    "discovered-7",
+    "discovered-8"
+  ],
+  "model": {
+    "resolved_config": {
+      "version": "openset_config_v1",
+      "method_id": "mahalanobis/ledoit_wolf",
+      "openset_method": "mahalanobis",
+      "requested_method": "mahalanobis",
+      "effective": {
+        "confidence": 0.95,
+        "threshold": 1.0,
+        "mahalanobis_method": "ledoit_wolf"
+      },
+      "ignored": [
+        {
+          "parameter": "knn_neighbors",
+          "value": 5,
+          "reason": "only used by openset_method=knn"
+        }
+      ]
+    },
+    "openset_method": "mahalanobis",
+    "method": "ledoit_wolf",
+    "score_type": "normalized_class_mahalanobis",
+    "threshold": 1.0,
+    "threshold_strategy": "known_calibration_class_quantile_0.95",
+    "calibration_source": "known-only 20% calibration split",
+    "confidence": 0.95,
+    "knn_neighbors": null,
+    "random_seed": 42,
+    "split": {
+      "train": 0.6,
+      "calibration": 0.2,
+      "holdout": 0.2
+    },
+    "n_known": 9,
+    "classes": [
+      {
+        "config": "8screws",
+        "label": 0,
+        "n_train": 187,
+        "n_cal": 62,
+        "n_holdout": 64,
+        "threshold": 8.486652438340345,
+        "centroid_pca": [
+          -4.796653114803806,
+          -3.2293003733548225
+        ]
+      },
+      {
+        "config": "discovered-1",
+        "label": 1,
+        "n_train": 27,
+        "n_cal": 9,
+        "n_holdout": 9,
+        "threshold": 9.521994451297225,
+        "centroid_pca": [
+          -1.2195975846434384,
+          13.069344173687366
+        ]
+      },
+      {
+        "config": "discovered-2",
+        "label": 2,
+        "n_train": 16,
+        "n_cal": 5,
+        "n_holdout": 6,
+        "threshold": 12.640037694934371,
+        "centroid_pca": [
+          -2.243238152200015,
+          5.359072029175759
+        ]
+      },
+      {
+        "config": "discovered-3",
+        "label": 3,
+        "n_train": 22,
+        "n_cal": 7,
+        "n_holdout": 8,
+        "threshold": 12.538518256415358,
+        "centroid_pca": [
+          -3.5591231198224667,
+          3.671490878400764
+        ]
+      },
+      {
+        "config": "discovered-4",
+        "label": 4,
+        "n_train": 43,
+        "n_cal": 14,
+        "n_holdout": 15,
+        "threshold": 8.66672487518045,
+        "centroid_pca": [
+          -2.9305288543069414,
+          3.4914814122214954
+        ]
+      },
+      {
+        "config": "discovered-5",
+        "label": 5,
+        "n_train": 34,
+        "n_cal": 11,
+        "n_holdout": 12,
+        "threshold": 9.941393997450776,
+        "centroid_pca": [
+          -2.041691666739773,
+          1.895508643146529
+        ]
+      },
+      {
+        "config": "discovered-6",
+        "label": 6,
+        "n_train": 34,
+        "n_cal": 11,
+        "n_holdout": 12,
+        "threshold": 12.122293017226117,
+        "centroid_pca": [
+          31.214048261273486,
+          -1.008638714382868
+        ]
+      },
+      {
+        "config": "discovered-7",
+        "label": 7,
+        "n_train": 34,
+        "n_cal": 11,
+        "n_holdout": 12,
+        "threshold": 9.595348371630294,
+        "centroid_pca": [
+          0.37008165694841866,
+          -0.3991212437473022
+        ]
+      },
+      {
+        "config": "discovered-8",
+        "label": 8,
+        "n_train": 34,
+        "n_cal": 11,
+        "n_holdout": 12,
+        "threshold": 11.427018587860928,
+        "centroid_pca": [
+          4.872518426758385,
+          -2.4184773729387263
+        ]
+      }
+    ]
+  },
+  "seed": 42,
+  "confidence": 0.95,
+  "openset_method": "mahalanobis",
+  "method": "ledoit_wolf",
+  "score_type": "normalized_class_mahalanobis",
+  "threshold": 1.0,
+  "threshold_strategy": "known_calibration_class_quantile_0.95",
+  "calibration_source": "known-only 20% calibration split",
+  "split": {
+    "train": 0.6,
+    "calibration": 0.2,
+    "holdout": 0.2
+  },
+  "knn_neighbors": null,
+  "adaptive_density": true,
+  "healthy_mix": 0.0,
+  "dataset": {
+    "motor": "T1",
+    "rpm": "8000rpm"
+  }
+}

@@ -63,6 +63,15 @@ class HealthIndexTests(unittest.TestCase):
                 np.ones(len(self.X_cal), dtype=int),
             )
 
+    def test_mcd_random_state_follows_caller_seed(self):
+        """MCD 的亂數來源要跟呼叫端 seed 走，不能固定 42（#285 R2-06）。"""
+        for seed in (7, 42):
+            model = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal,
+                                              mahalanobis_method="mcd", random_state=seed)
+            self.assertEqual(model.detector.random_state, seed)
+        default = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal)
+        self.assertEqual(default.detector.random_state, 42)
+
     def test_fit_is_reproducible(self):
         first = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal)
         second = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal)

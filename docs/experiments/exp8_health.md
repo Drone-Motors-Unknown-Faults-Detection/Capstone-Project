@@ -9,7 +9,7 @@
 | 逐窗 8-3 | `src/experiments/health_monitor.py` | 單一工況、單一配置，逐筆看指數與告警 |
 | 封存重算 | `src/experiments/health_index_aggregate.py` | 只讀舊結果，重算平均並逐欄比對 |
 
-Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_index_results/`，不讀這次新的 output 根。
+Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_index_results/`，不讀這次新的 output 根；那份封存是 `data/formal_local` 與舊映射（q95 映到 0.0）的結果，`formal_local` 不在 Aero／Spark，無法以新錨點重算。
 
 ## 資料角色用量表
 
@@ -89,16 +89,16 @@ h = clip(h, 0, 1)
 
 CLI 經 `core.logger.setup_run("exp8_health_index_benchmark")` 初始化。日誌寫 `logs/exp8_health_index_benchmark/{ts}.log`，完整結果寫 `output/exp8_health_index_benchmark/{ts}/` 的 `result.json` 與 `rows.csv`，另有 `environment.json`。stdout 只印 status、列數、方法、seed 與 output_dir。結果是逐工況彙總，不含逐窗預測。Web 8-1 允許部分工況，完成後由 `ExperimentRunner` 寫到 `output/web_server/{ts}/experiments/`。歷史九工況結果見 `reports/exp8_health_index_results/`。
 
-2026-10-23 在 Aero 以 commit `46ed4d5`、`--data-root data`（資料指紋 `1b55b847…`）跑的矩陣在 [output/exp8_health_index_matrix/2026-10-23-01-34-15](../../output/exp8_health_index_matrix/2026-10-23-01-34-15/matrix_manifest.json)（9 工況 × seed 42／123／2026 × 兩方法，54 列；健康 train／cal 只用 `8screws`）。這個根沒有 `aggregate_summary.json`，下表是讀六個 CSV、每方法 27 列等權、std 用 ddof=1 算出：
+2026-10-23 在 Aero 以 commit `b6e2b97`（錨點改為 q95 映到 0.5 之後）、`--data-root data`（資料指紋 `1b55b847…`）跑的矩陣在 [output/exp8_health_index_matrix/2026-10-23-11-56-31](../../output/exp8_health_index_matrix/2026-10-23-11-56-31/matrix_manifest.json)（9 工況 × seed 42／123／2026 × 兩方法，54 列；健康 train／cal 只用 `8screws`）。這個根沒有 `aggregate_summary.json`，下表是讀六個 CSV、每方法 27 列等權、std 用 ddof=1 算出：
 
-| method | health gap known−unknown | Open Set accuracy | AUROC | unknown recall |
-|---|---:|---:|---:|---:|
-| Mahalanobis + Ledoit–Wolf | 0.583337 ± 0.073589 | 0.998860 ± 0.000873 | 1.000000 | 1.000000 |
-| k-NN | 0.600457 ± 0.072595 | 0.998867 ± 0.000932 | 1.000000 | 1.000000 |
+| method | health gap known−unknown | known healthy fraction（指數 ≥ 0.5） | Open Set accuracy | AUROC | unknown recall |
+|---|---:|---:|---:|---:|---:|
+| Mahalanobis + Ledoit–Wolf | 0.790274 ± 0.037581 | 0.946644 ± 0.039669 | 0.998860 ± 0.000873 | 1.000000 | 1.000000 |
+| k-NN | 0.799017 ± 0.037106 | 0.946656 ± 0.043828 | 0.998867 ± 0.000932 | 1.000000 | 1.000000 |
 
-k-NN 的 health gap 高 0.017120，accuracy 高 0.000007。未知列的健康指數全為 0，所以 health gap 等於已知健康指數平均。event-level recall、每小時誤報、偵測延遲沒有時間軸，回報 unavailable。
+k-NN 的 health gap 高 0.008743，accuracy 高 0.000007。未知列的健康指數全為 0，所以 health gap 等於已知健康指數平均；`known_healthy_fraction` 現在就是健康 holdout 沒超過拒絕線的比例，與實驗六正式矩陣的健康接受率同值。event-level recall、每小時誤報、偵測延遲沒有時間軸，回報 unavailable。
 
-上表與封存包都是 q95 映到 0.0 的舊映射算出的；錨點改為 q95 映到 0.5 後（[#267](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/267)），`known_health_mean`、`known_healthy_fraction`、`health_gap_known_minus_unknown` 都會變，`open_set_accuracy`、AUROC、unknown recall 只看原分數，不受錨點影響。新映射的矩陣由 Aero 重跑後再補到這裡。
+同一天凌晨以 `46ed4d5`（q95 映到 0.0 的舊映射）跑的 [output/exp8_health_index_matrix/2026-10-23-01-34-15](../../output/exp8_health_index_matrix/2026-10-23-01-34-15/matrix_manifest.json) 是 0.583337 ± 0.073589（LW）／0.600457 ± 0.072595（k-NN）；兩批的 `open_set_accuracy`、AUROC、unknown recall 相同，因為它們只看原分數。封存包 `reports/exp8_health_index_results/` 也是舊映射。
 
 ### 錨點與告警政策修訂的預期（2026-10-23，先寫再量）
 
@@ -107,7 +107,13 @@ k-NN 的 health gap 高 0.017120，accuracy 高 0.000007。未知列的健康指
 - 8-1 的 `known_health_mean` 落在 0.7～0.9（cal 中位數大約映到 0.8），`unknown_health_mean` 仍接近 0，`unknown_critical_fraction` 接近 1；`known_healthy_fraction` 落在 0.9～1.0，因為它現在等於 holdout 分數不超過拒絕線的比例。
 - 若健康 holdout 的 normal 比例低於 85%，或 `1screws` 這類遠離健康群的配置不進 critical，視為此設計不成立，退回檢查錨點。
 
-`reports/exp8_health_index_results/` 是 `data/formal_local`（指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`、無主機紀錄）的歷史結果：Mahalanobis 0.583144 ± 0.073301、k-NN 0.601657 ± 0.071637；重算時 health gap 差有 0.018513 對 0.018512 的差異，見下方封存重算。`formal_local` 不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
+結果（2026-10-23，Aero、`b6e2b97`，詳見 [reports/JW-Albert_20261023_rerun_after_review](../../reports/JW-Albert_20261023_rerun_after_review/README.md)）：
+
+- 8-3 健康 holdout 64 窗（`output/exp8_health_monitor/2026-10-23-11-56-44`）：`alarm_state` normal 64／64，`severity_stage` healthy 64／64；7 筆超線窗的原始指數 0.46～0.50，平滑後最低 0.667，沒有進 warning。預期成立。
+- 8-3 的 1screws（349 窗，`11-56-45`）、5screws（212 窗，`11-56-46`）、7screws（322 窗，`11-56-47`）：原始與平滑指數全為 0，第 3 窗起 critical 100%（前兩窗 normal，因為 critical 要連續 3 筆）。預期成立。
+- 8-1 seed 42（`output/exp8_health_index_benchmark/2026-10-23-11-56-38` LW、`11-56-41` k-NN）：九工況 `known_health_mean` LW 0.730～0.811、k-NN 0.724～0.843，落在 0.7～0.9；`unknown_health_mean` 全為 0、`unknown_critical_fraction` 全為 1。`known_healthy_fraction` 預期 0.9～1.0 只部分成立：LW 的 T3／6000（0.875）與 T3／11000（0.883）、k-NN 的 T1／6000（0.844）與 T3／11000（0.867）低於 0.9，其餘七個工況在 0.9 以上。這一欄等於健康接受率，低於 0.9 的格就是健康誤報超過 10% 的工況，是校準集只有約 60 筆的有限樣本效應，不是錨點問題。
+
+`reports/exp8_health_index_results/` 是 `data/formal_local`（指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`、無主機紀錄）的歷史結果：Mahalanobis 0.583144 ± 0.073301、k-NN 0.601657 ± 0.071637；差值 0.018513 是兩個 round 6 位平均相減，重算用同一公式（#288）。`formal_local` 不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
 
 ```bash
 uv run --locked python -m experiments.health_index_benchmark --help
@@ -139,7 +145,7 @@ API：`run_matrix(data_root, output_root, seeds=(42, 123, 2026), methods=("mahal
 
 選一個 motor／RPM 與 config。不論 config 是什麼，永遠只用健康 train 擬合、健康 cal 定 0.95 距離線與 q10／q95／2×q95 三個錨點；`confidence` 由 `run`／`iter_run` 的關鍵字參數或 CLI `--confidence` 傳入，預設 0.95。健康重播用該配置 holdout 的洗牌順序；故障重播用該配置全池原列順序的前段，`max_windows` 只截斷。T1／8000rpm 健康重播最多 64 列，5screws 故障池 212 列。這些順序不是已確認的採集時間。
 
-legacy 可由此 CLI 傳入，會回到 train 定線與 label=-1，不作公平比較。每次 `run` 重新 fit，沒有持久模型。
+legacy 可由此 CLI 傳入：門檻量在 train 距離上（不讀 cal），合併分布標籤是 -2（`LEGACY_POOLED_LABEL`），分數 ≤ 1 的列取最近的已知類 train 中心、> 1 才是 -1 未知（#266）；不作公平比較。每次 `run` 重新 fit，沒有持久模型。
 
 有 `motor_id` 與 `session_id` 才累積該鍵的歷史。缺身份時即使 `--allow-no-identity` 也不累積時間狀態；`require_identity=True` 另標 `data_quality=insufficient`。自填 ID 只隔離軟體狀態。
 
@@ -171,18 +177,18 @@ uv run --locked python -m experiments.health_monitor --data-root data --motor T1
 
 ## 封存重算
 
-這個入口不載入正式資料，不 fit、不校準、不 predict。它讀 `reports/exp8_health_index_results/` 的 manifest、六個 JSON、六個 CSV、舊彙總與 README，共 16 檔，再重算七欄平均並與封存逐欄比較。
+這個入口不載入正式資料，不 fit、不校準、不 predict。它讀 `reports/exp8_health_index_results/` 的 manifest、六個 JSON、六個 CSV、舊彙總與 README，共 16 檔，再重算七欄平均並與封存逐欄比較。README 是人寫說明，列入檔案集合但不釘 SHA；其餘 15 檔逐 byte 對 `src/experiments/exp8_health_index_aggregate_contract.json`。`src/tests/test_health_index_aggregate.py` 用 repo 內的封存跑一次合約，資料漂移會在測試失敗。
 
 七欄：`health_gap_known_minus_unknown`、`open_set_accuracy`、`auroc`、`unknown_recall`、`unknown_f1`、`known_health_mean`、`unknown_health_mean`。全域每個 method 的 27 列等權（九工況 × 三 seed）；逐工況是 method×dataset 的三個 seed 等權。mean 為 sum/n，std 用 ddof=1。JSON 平均／std round 6。比對 JSON 的 atol=5e-7、rtol=0；CSV 的 atol=1e-12、rtol=1e-10。
 
-退出碼 0 是 MATCH，3 是算完但 DIFFERENT，2 是來源或 schema 失敗。3 要保留差異。新矩陣根的 SHA 對不上這 16 檔時不能套用同一份鎖檔。
+退出碼 0 是 MATCH，3 是算完但 DIFFERENT，2 是來源或 schema 失敗。3 要保留差異。新矩陣根的 SHA 對不上這 15 檔時不能套用同一份鎖檔。
 
 ```bash
 uv run --locked python -m experiments.health_index_aggregate --help
 uv run --locked python -m experiments.health_index_aggregate --source-root reports/exp8_health_index_results --contract src/experiments/exp8_health_index_aggregate_contract.json
 ```
 
-`run` 經 `setup_run` 寫 `logs/exp8_health_index_aggregate/{ts}.log` 與 `output/exp8_health_index_aggregate/{ts}/`：`aggregate_summary.json`、`aggregate_by_condition.csv`、`field_differences.csv`、`source_inventory.json`、`recomputation_audit.json`。輸出目錄與來源目錄禁止互相包含。預期六 run、54 列、18 組摘要。封存與重算有兩欄相差 0.000001（0.018513 對 0.018512），退出碼 3。
+`run` 經 `setup_run` 寫 `logs/exp8_health_index_aggregate/{ts}.log` 與 `output/exp8_health_index_aggregate/{ts}/`：`aggregate_summary.json`、`aggregate_by_condition.csv`、`field_differences.csv`、`source_inventory.json`、`recomputation_audit.json`。輸出目錄與來源目錄禁止互相包含。預期六 run、54 列、18 組摘要。差值欄用已 round 的兩個平均相減，與封存公式一致；封存未變時全部欄位相符，退出碼 0（#288）。
 
 [exp8_health_index_aggregate_contract.json](../../src/experiments/exp8_health_index_aggregate_contract.json) 列出這 16 個來源檔的 SHA256（Windows CRLF 與 Git LF 各一組）、資料指紋、seed、方法與容差。`health_index_aggregate.py` 只接受這份鎖裡的雜湊，不把空白正規化後當成同一檔。
 

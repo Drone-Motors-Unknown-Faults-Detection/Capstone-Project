@@ -199,6 +199,16 @@ class MatchedRateAndHealthyMixTests(unittest.TestCase):
         self.assertEqual(stage["healthy_quarantined"], 0)
         self.assertEqual(result["healthy_mix"], 0.3)
 
+    def test_sequence_alias_is_canonicalised_and_unknown_config_rejected(self):
+        """--sequence 1screw 對到池 key 1screws；不在池裡或健康配置直接 ValueError（#285 R2-03）。"""
+        pools = {**_pools(), "1screws": np.random.default_rng(6).normal(9.0, 0.3, (60, 6))}
+        alias = exp2.run(pools, sequence=["1screw"], seed=42, max_ticks_per_stage=3)
+        canonical = exp2.run(pools, sequence=["1screws"], seed=42, max_ticks_per_stage=3)
+        self.assertEqual(alias["stages"], canonical["stages"])
+        for sequence in (["9screws"], ["8screws"]):
+            with self.subTest(sequence=sequence), self.assertRaises(ValueError):
+                exp2.run(pools, sequence=sequence, seed=42, max_ticks_per_stage=3)
+
     def test_mix_out_of_range_rejected(self):
         with self.assertRaises(ValueError):
             exp2.run(_pools(), seed=42, max_ticks_per_stage=5, healthy_mix=1.5)

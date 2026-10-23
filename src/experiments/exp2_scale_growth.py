@@ -28,6 +28,7 @@ import hdbscan
 import numpy as np
 
 from core.data import HEALTHY, CycleSampler, config_sort_key, display_name
+from core.feature_schema import CONFIG_ALIASES
 from core.geometry import PolarMap
 from core.logger import setup_run
 from core.monitor import OpenSetMonitor
@@ -320,6 +321,12 @@ def iter_playback(
         raise ValueError(f"healthy_mix 必須在 0～1：{healthy_mix}")
     if sequence is None:
         sequence = sorted((c for c in pools if c != HEALTHY), key=config_sort_key)
+    else:
+        # 池 key 是正規名；使用者的 --sequence 先正規化，不在池裡的直接拒絕（#285 R2-03）
+        sequence = [CONFIG_ALIASES.get(c, c) for c in sequence]
+        missing = [c for c in sequence if c not in pools or c == HEALTHY]
+        if missing:
+            raise ValueError(f"sequence 含不可注入的配置：{missing}")
     session = ScaleGrowthSession(
         pools,
         seed=seed,
