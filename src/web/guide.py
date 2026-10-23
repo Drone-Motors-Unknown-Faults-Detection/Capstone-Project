@@ -167,8 +167,8 @@ class GuideHub(Hub):
         logger.info(text)
         super().broadcast({"type": "event", "guide_safe": True, "level": level, "text": text})
 
-    def pause(self, *, publish=True):
-        super().pause(publish=publish)
+    def pause(self, *, publish=True, recover=False):
+        super().pause(publish=publish, recover=recover)
 
     def tick(self):
         # 暫停時狀態不變，不每拍廣播完整狀態（約 5.6 KB）；有新樣本或劇本播畢才送
@@ -207,13 +207,14 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
 
     async def heavy(self, command, fn):
         h = self.hub
-        h.pause(publish=False)
+        h.pause(publish=False, recover=True)   # 樣本寫入失敗後仍能重設／重建／檢查資料（#301 F-13）
         h.busy_state = h.full_state()
         h.busy, h.operation, h.running = True, command, False
         h.broadcast(h.full_state())
         try:
             result = await tornado.ioloop.IOLoop.current().run_in_executor(h.executor, fn)
-            h.error = None
+            # 檢查資料不重建基準：紀錄檔已停用時錯誤保留，仍要重設或重建才能監測
+            h.error = None if h.demo is None or h.demo.accepting else "樣本紀錄已停用；請重設或重建健康基準後再監測"
             h.event("success", str(result))
         except Exception as exc:
             logger.exception("導覽操作失敗")

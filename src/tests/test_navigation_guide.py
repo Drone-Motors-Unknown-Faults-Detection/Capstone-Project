@@ -163,6 +163,46 @@ class GuideTests(unittest.TestCase):
         self.assertEqual(self.hub.full_state()["step"], "錯誤")
         self.assertFalse(self.hub.running)
 
+    def test_write_error_recovers_through_inspect_reset_and_build(self):
+        """#301 F-13：寫入失敗後 start 仍拒絕；檢查資料可執行但錯誤保留，重設與重建都會換新紀錄檔並清除錯誤。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+        sock.heavy = lambda cmd, fn: GuideSocket.heavy(sock, cmd, fn)
+
+        def send(msg):
+            asyncio.run(GuideSocket.on_message(sock, json.dumps(msg)))
+
+        def fail_write():
+            with patch.object(self.hub.demo, "_sample_writer") as writer:
+                writer.writerow.side_effect = OSError("測試寫入失敗")
+                self.hub.running = True
+                self.hub.tick()
+            self.assertIsNotNone(self.hub.error)
+
+        with tempfile.TemporaryDirectory() as folder:
+            self.hub.out_dir = Path(folder)
+            self.hub.build("T1", "8000rpm")
+            fail_write()
+            send({"cmd": "start"})
+            self.assertFalse(self.hub.running)
+            send({"cmd": "inspect", "motor": "T1", "rpm": "8000rpm"})
+            self.assertIsNotNone(self.hub.error)
+            self.assertFalse(self.hub.demo.accepting)
+            send({"cmd": "reset"})
+            self.assertIsNone(self.hub.error)
+            self.assertTrue(self.hub.demo.accepting)
+            self.assertTrue((Path(folder) / "session001/samples_epoch02.csv").exists())
+            fail_write()
+            send({"cmd": "build", "motor": "T1", "rpm": "8000rpm"})
+            self.assertIsNone(self.hub.error)
+            self.hub.running = True
+            self.hub.tick()
+            self.assertEqual(self.hub.demo.t, 1)
+            self.hub.demo.close()
+
     def test_busy_does_not_read_half_updated_model(self):
         self.hub.build("T1", "8000rpm")
         self.hub.busy_state = self.hub.full_state()

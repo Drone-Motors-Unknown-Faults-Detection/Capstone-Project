@@ -226,6 +226,46 @@ class PersistenceTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.demo.close()
 
+    def fail_write(self):
+        with patch.object(self.demo, "_sample_writer") as writer:
+            writer.writerow.side_effect = OSError("測試寫入失敗")
+            self.ticks(1)
+        self.assertIsNotNone(self.hub.error)
+
+    def test_write_error_recovers_through_reset(self):
+        """#301 F-13：寫入失敗後一般串流仍拒絕，但重設會丟棄失敗紀錄、開新 epoch 檔並清除錯誤。"""
+        import asyncio
+        client = Client()
+        self.hub.clients.add(client)
+        self.fail_write()
+        with patch("web.server.HUB", self.hub):
+            with self.assertRaises(ValueError):
+                asyncio.run(WSHandler.dispatch(Mock(), {"cmd": "start"}))
+            asyncio.run(WSHandler._heavy(Mock(), WSHandler._do_reset, "重置"))
+        self.assertIsNone(self.hub.error)
+        self.assertTrue(self.demo.accepting)
+        self.assertEqual(self.demo.epoch, 2)
+        self.assertTrue(any(m["type"] == "event" and "寫入失敗" in m["text"] for m in client.messages))
+        self.ticks(3)
+        self.hub.pause()
+        with (self.out / "samples_epoch02.csv").open(encoding="utf-8", newline="") as file:
+            self.assertEqual([int(row["t"]) for row in csv.DictReader(file)], [1, 2, 3])
+
+    def test_write_error_recovers_through_dataset_switch(self):
+        """#301 F-13：換資料集時舊 session 的失敗紀錄被丟棄，close() 不再因舊錯誤丟例外。"""
+        import asyncio
+        self.fail_write()
+        with patch("web.server.HUB", self.hub):
+            asyncio.run(WSHandler._heavy(Mock(), lambda: WSHandler._do_dataset(self.ds), "載入資料集"))
+        self.assertIsNone(self.hub.error)
+        self.assertIsNot(self.hub.demo, self.demo)
+        self.assertTrue(self.hub.demo.accepting)
+        self.assertFalse(self.demo.accepting)
+        self.hub.running = True
+        self.hub.tick()
+        self.assertEqual(self.hub.demo.t, 1)
+        self.hub.demo.close()   # 暫存目錄清掉前先關新 session
+
     def test_busy_pause_does_not_touch_worker_file(self):
         self.hub.busy = True
         with patch.object(self.demo, "flush", side_effect=AssertionError("不可讀取 worker")):

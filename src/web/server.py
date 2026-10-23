@@ -13,6 +13,7 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
     GET  /api/experiments               實驗目錄、資料集、配置清單
     POST /api/experiments/{id}/run      以 JSON 參數執行一次，回傳結果並存檔
     GET  /api/experiments/{id}/stream   邊跑邊畫（Server-Sent Events）：?params=<JSON>&rate=<筆/秒>
+    run／stream／assistant/ask 先做跨站檢查（request_origin_allowed），run 與 ask 只收 application/json。
     GET  /api/committed/{name}          已提交的矩陣結果（唯讀）
 
 AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
@@ -51,7 +52,7 @@ from web.live import LiveDemo
 from web.playback import ANSWER_SCHEMA, PlaybackTracker
 
 STATIC_DIR = Path(__file__).parent / "static"
-ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 WebSocket Origin（scheme://host[:port]）
+ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 Origin（WebSocket 與實驗／AI 問答 HTTP 端點共用）
 
 
 class CommandError(ValueError):
@@ -64,6 +65,24 @@ def origin_allowed(origin: str, host: str) -> bool:
     Origin 自然與 Host 相同。"""
     return (urlparse(origin).netloc.lower() == host.lower()
             or origin.rstrip("/").lower() in ALLOWED_ORIGINS)
+
+
+def request_origin_allowed(request) -> bool:
+    """會改變狀態的 HTTP 端點（執行實驗、邊跑邊畫、AI 問答）的跨站檢查（#301 F-15），規則同 origin_allowed：
+
+    - 有 Origin：Origin 必須同站或在 --allow-origin 名單。
+    - 沒有 Origin（瀏覽器的同站 GET，例如 EventSource，不帶 Origin）：看 Referer 的 scheme://host[:port]。
+    - 兩者都沒有：放行 curl、測試與證據腳本這類非瀏覽器用戶端；但瀏覽器標成跨站的請求
+      （Sec-Fetch-Site 為 cross-site／same-site，例如 no-referrer 的 <img> 觸發 GET）仍拒絕。
+    """
+    origin = request.headers.get("Origin")
+    if origin is not None:
+        return origin_allowed(origin, request.host)
+    referer = request.headers.get("Referer")
+    if referer is not None:
+        parts = urlparse(referer)
+        return origin_allowed(f"{parts.scheme}://{parts.netloc}", request.host)
+    return request.headers.get("Sec-Fetch-Site", "same-origin") in ("same-origin", "none")
 
 
 def reject_legacy_method(method: str) -> None:
@@ -132,12 +151,18 @@ class Hub:
 
     # -- 節拍 ------------------------------------------------------------------
 
-    def pause(self, *, publish=True) -> None:
-        """IOLoop 的同步 tick 先完成；停止後才確認尾批資料已保存。"""
+    def pause(self, *, publish=True, recover=False) -> None:
+        """IOLoop 的同步 tick 先完成；停止後才確認尾批資料已保存。
+
+        recover=True 只給重設／換資料集／建基準這類重建前的暫停用：樣本寫入已失敗時，
+        丟棄失敗的紀錄檔並發事件，讓重建開新檔；一般暫停與串流仍因寫入錯誤拒絕（#301 F-13）。
+        """
         self.running = False
         if self.busy:
             raise RuntimeError("工作進行中，尚不能確認保存完成")
         if self.demo is not None:
+            if recover and self.demo.discard_failed_log():
+                self.event("warn", "樣本紀錄寫入失敗：停用這份紀錄檔（已寫入的列保留），重建後換新檔")
             try:
                 self.demo.flush()
             except Exception as exc:
@@ -241,6 +266,25 @@ class _JSONHandler(tornado.web.RequestHandler):
         self.finish(json.dumps(payload, ensure_ascii=False, allow_nan=False))
 
 
+class _SameSiteMixin:
+    """prepare() 先擋跨站請求（403）；require_json 的端點另外只收 application/json（415），
+    跨站的 HTML 表單送不出這種 Content-Type，不經 CORS 預檢就打不進來（#301 F-15）。"""
+
+    require_json = False
+
+    def prepare(self) -> None:
+        if not request_origin_allowed(self.request):
+            self._refuse(403, "跨站請求被拒絕：Origin／Referer 不是本站，也不在 --allow-origin 名單")
+        elif self.require_json and self.request.headers.get(
+                "Content-Type", "").split(";")[0].strip().lower() != "application/json":
+            self._refuse(415, "需要 Content-Type: application/json")
+
+    def _refuse(self, status: int, text: str) -> None:
+        self.set_status(status)
+        self.set_header("Content-Type", "application/json; charset=utf-8")
+        self.finish(json.dumps({"error": text}, ensure_ascii=False))
+
+
 class CatalogHandler(_JSONHandler):
     def get(self) -> None:
         payload = JOBS.runner.catalog()
@@ -248,7 +292,9 @@ class CatalogHandler(_JSONHandler):
         self.reply(payload)
 
 
-class RunHandler(_JSONHandler):
+class RunHandler(_SameSiteMixin, _JSONHandler):
+    require_json = True
+
     async def post(self, exp_id: str) -> None:
         if JOBS.current is not None:
             self.reply({"error": f"{JOBS.current} 執行中，請稍候"}, 409)
@@ -283,7 +329,7 @@ class RunHandler(_JSONHandler):
         self.reply(payload)
 
 
-class StreamHandler(tornado.web.RequestHandler):
+class StreamHandler(_SameSiteMixin, tornado.web.RequestHandler):
     """以 Server-Sent Events 逐 frame 推送實驗進度；依 rate 控制每秒播放的樣本數。"""
 
     def initialize(self) -> None:
@@ -404,8 +450,10 @@ class AssistantStatusHandler(_JSONHandler):
             "git_head": git["head"], "tracked_dirty": git["tracked_dirty"], "answer_schema": ANSWER_SCHEMA}})
 
 
-class AssistantAskHandler(tornado.web.RequestHandler):
+class AssistantAskHandler(_SameSiteMixin, tornado.web.RequestHandler):
     """以 SSE 串流回答；快照在 IOLoop 執行緒取，模型只讀提問當下的狀態。"""
+
+    require_json = True
 
     def initialize(self) -> None:
         self.closed = False
@@ -520,6 +568,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             name = msg.get("name")
             if not isinstance(name, str) or name not in SCENARIOS:
                 raise CommandError("劇本名稱不存在")
+            if any(c not in HUB.demo.pools for c, _, _ in SCENARIOS[name]["phases"]):
+                raise CommandError("劇本所需配置不在此資料集")   # 與導覽同一檢查，不在串流中途 KeyError（#301 F-16）
             for m in HUB.demo.start_scenario(name):
                 HUB.broadcast(m)
             HUB.running = True   # 劇本驗證並啟動後才開始串流
@@ -539,7 +589,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         if HUB.busy:
             HUB.event("warn", f"{label}略過：另一項工作進行中")
             return
-        HUB.pause(publish=False)
+        HUB.pause(publish=False, recover=True)
         HUB._busy_state = HUB.full_state()
         HUB.busy = True
         HUB.broadcast(HUB.full_state())
@@ -587,7 +637,7 @@ def main() -> None:
     parser.add_argument("--llm-model", default="", help="模型名稱；留空取端點 /models 的第一個")
     parser.add_argument("--llm-api-key", default="EMPTY")
     parser.add_argument("--allow-origin", action="append", default=[],
-                        help="額外允許連 WebSocket 的 Origin（例：https://demo.example.com）；預設只允許同站")
+                        help="額外允許的 Origin，WebSocket 與實驗／AI 問答 HTTP 端點共用（例：https://demo.example.com）；預設只允許同站")
     args = parser.parse_args()
     ALLOWED_ORIGINS.update(o.rstrip("/").lower() for o in args.allow_origin)
     reject_legacy_method(args.method)

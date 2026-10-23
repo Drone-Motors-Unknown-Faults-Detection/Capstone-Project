@@ -43,13 +43,17 @@ message(sockets[1],{...initial,source:'S99',t:28});
 assert.equal(el('source').value,'');assert.equal(el('inject').disabled,true);
 assert.match(el('source').options[0].textContent,/不在可選清單/);
 const metrics=n=>({type:'metrics',session_id:1,epoch:1,t:n,alarms:[],rows:[{source:{name:'匿名來源S03'},
-  pre_streamed:n,pre_rate:100,post_streamed:0,post_rate:null}]});
+  pre_streamed:n,pre_rate:100,post_streamed:0,post_unknown_rate:null,post_healthy_rate:null,post_known_rate:null}]});
 message(sockets[1],{...initial,t:29,running:false,metrics:metrics(29)});
 assert.match(el('metrics').children[0].textContent,/n=29/);
 message(sockets[1],metrics(15));
 assert.match(el('metrics').children[0].textContent,/n=29/);
 message(sockets[0],metrics(100));
 assert.match(el('metrics').children[0].textContent,/n=29/);
+// #301 F-14：擴張後分三種比例，判為健康不算進判為新類
+message(sockets[1],{...metrics(30),rows:[{source:{name:'匿名來源S03'},pre_streamed:10,pre_rate:100,
+  post_streamed:20,post_unknown_rate:60,post_healthy_rate:25,post_known_rate:15}]});
+assert.match(el('metrics').children[0].textContent,/判為未知／健康／新類 60%／25%／15%（n=20）/);
 console.log('來源恢復、待套用選項、過期連線與不可用來源：通過');
 message(sockets[1],{type:'state',datasets:[],catalog_status:'data_root_missing'});
 assert.equal(el('inspect').disabled,true);assert.equal(el('build').disabled,true);

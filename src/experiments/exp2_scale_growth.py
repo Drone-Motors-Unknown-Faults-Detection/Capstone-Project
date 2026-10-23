@@ -304,13 +304,23 @@ def split_stream_eval(pools: dict[str, np.ndarray], configs: list[str], seed: in
     return out
 
 
+def label_kind(label: str | None) -> str:
+    """一筆判定屬於哪一種：未知（unknown）、健康（healthy）或某個非健康已知類（known）。
+
+    known_rate 只數 known；首頁／導覽的擴張後三種比例也用這個定義，被判為健康不算接受進新類（#301 F-14）。
+    """
+    if label is None:
+        return "unknown"
+    return "healthy" if label == HEALTHY else "known"
+
+
 def _eval_breakdown(labels: list[str | None], config: str, class_matched: dict[str, str]) -> dict:
     """外部評估集被判成什麼：未知、健康、某個新類（比例），及最多被判成哪一類。
 
     known_rate 只要求被任一非健康類接受，是上限；matched_rate 要求判進事後多數等於該配置的新類（#243）。
     """
     n = len(labels)
-    named = [label for label in labels if label not in (None, HEALTHY)]
+    named = [label for label in labels if label_kind(label) == "known"]
     return {
         "n": n,
         "unknown_rate": sum(label is None for label in labels) / n,

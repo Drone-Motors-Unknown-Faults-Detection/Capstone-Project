@@ -187,6 +187,13 @@ class MatchedRateAndHealthyMixTests(unittest.TestCase):
         self.assertEqual(ev["known_rate"], 0.5)
         self.assertEqual(ev["matched_rate"], 0.25)
 
+    def test_label_kind_separates_healthy_from_known(self):
+        # #301 F-14：首頁／導覽擴張後比例與 known_rate 共用這個定義；判為健康不算接受進新類
+        self.assertEqual([exp2.label_kind(x) for x in (None, exp2.HEALTHY, "discovered-1")],
+                         ["unknown", "healthy", "known"])
+        ev = exp2._eval_breakdown([exp2.HEALTHY, "discovered-1"], "7screws", {})
+        self.assertEqual((ev["healthy_rate"], ev["known_rate"]), (0.5, 0.5))
+
     def test_zero_mix_matches_default(self):
         a = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
         b = exp2.run(_pools(), seed=42, max_ticks_per_stage=300, healthy_mix=0.0)

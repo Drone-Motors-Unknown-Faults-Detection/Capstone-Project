@@ -354,7 +354,7 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
 
     def test_run_button_recorded(self):
         resp = self.fetch("/api/experiments/exp12/run", method="POST", body=json.dumps({"seed": 42}),
-                          request_timeout=120)
+                          headers={"Content-Type": "application/json"}, request_timeout=120)
         self.assertEqual(resp.code, 200)
         rec = server.PLAYBACK.snapshot()["records"]["exp12"]
         self.assertEqual((rec["mode"], rec["status"], rec["params"]), ("run", "done", {"seed": 42}))
@@ -378,7 +378,8 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         server.JOBS.runner.out_dir = root / "session/experiments"
         server.PLAYBACK = PlaybackTracker(root)
         with patch.object(server.JOBS.runner, "_dispatch", return_value=historical_result()):
-            response = self.fetch("/api/experiments/exp12/run", method="POST", body='{"seed":42}')
+            response = self.fetch("/api/experiments/exp12/run", method="POST", body='{"seed":42}',
+                                      headers={"Content-Type": "application/json"})
         payload = json.loads(response.body)
         context = {"experiment": "exp12", "mode": "result"}
         for from_saved in (False, True):
@@ -386,7 +387,7 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
                 server.PLAYBACK = PlaybackTracker(root)
                 context["saved"] = payload["saved"]
             with patch.object(server, "ASSISTANT", NoModel("http://unused")):
-                reply = self.fetch("/api/assistant/ask", method="POST", body=json.dumps({
+                reply = self.fetch("/api/assistant/ask", method="POST", headers={"Content-Type": "application/json"}, body=json.dumps({
                     "question": "這次實驗何時開始、何時完成、花多久？", "context": context}))
             frames = [json.loads(s[6:]) for s in reply.body.decode().split("\n\n") if s]
             self.assertEqual(frames[0]["mode"], "record_timing")

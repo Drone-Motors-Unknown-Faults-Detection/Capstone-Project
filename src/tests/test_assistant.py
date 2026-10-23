@@ -322,7 +322,7 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         ])
 
     def frames(self, body):
-        resp = self.fetch("/api/assistant/ask", method="POST", body=body)
+        resp = self.fetch("/api/assistant/ask", method="POST", body=body, headers={"Content-Type": "application/json"})
         self.assertEqual(resp.code, 200)
         self.assertTrue(resp.headers["Content-Type"].startswith("text/event-stream"))
         return [json.loads(chunk[6:]) for chunk in resp.body.decode().split("\n\n") if chunk]
@@ -334,6 +334,20 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(frames[-1], {"event": "done", "as_of": "實驗頁紀錄：無"})
         self.assertIn("delta", {f["event"] for f in frames})
         self.assertEqual(frames[0]["sources"], ["實驗頁紀錄：無"])
+
+    def test_ask_rejects_cross_site_and_non_json(self):
+        """#301 F-15：跨站 Origin 或非 JSON 的提問在進模型前就拒絕；同站 Origin 照常回答。"""
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))
+        body = json.dumps({"question": "目前狀況？"})
+        cross = self.fetch("/api/assistant/ask", method="POST", body=body,
+                           headers={"Origin": "https://evil.invalid", "Content-Type": "application/json"})
+        self.assertEqual(cross.code, 403)
+        self.assertEqual(self.fetch("/api/assistant/ask", method="POST", body=body,
+                                    headers={"Content-Type": "text/plain"}).code, 415)
+        same = self.fetch("/api/assistant/ask", method="POST", body=body,
+                          headers={"Origin": self.get_url("/")[:-1], "Content-Type": "application/json"})
+        self.assertEqual(same.code, 200)
+        self.assertIn('"event": "done"', same.body.decode())
 
     def test_ask_reads_current_playback(self):
         server.PLAYBACK = exp2_tracker()
