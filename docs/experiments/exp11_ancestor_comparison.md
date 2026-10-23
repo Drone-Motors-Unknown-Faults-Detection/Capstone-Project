@@ -61,7 +61,7 @@ main經setup_run寫logs/exp11_ancestor_comparison/{ts}.log、output/exp11_ancest
 
 已知holdout真值保留配置名；所有unknown真值合併成unknown；classify None也合併unknown。accuracy是總正確比例；balanced_accuracy是各真值類別recall平均；macro_f1是各類F1平均，零分母設0；unknown_f1只把unknown當正類。fault比例高時「全判unknown」仍可能有高accuracy／unknown F1，須看known召回，不能只報好看的數字。
 
-rows先round4，summary按protocol×method等工況-seed平均；Wilcoxon只對dataset×seed的**macro-F1**配對，不是對balanced_accuracy檢定，輸出mean_diff_pp、W與p（round6，0不表示機率真為0）。同motor多RPM／seed共用來源，27pairs不滿足27個獨立馬達，p值只能作此依賴資料下描述，不能宣稱motor母體顯著保證。
+rows先round4，summary按protocol×method等工況-seed平均；Wilcoxon只對dataset×seed的**macro-F1**配對，不是對balanced_accuracy檢定，輸出mean_diff_pp、W與p（round6，0不表示機率真為0）；n_pairs=0時這三欄是null，不檢定。data-root下找不到任何工況時 `run()` 直接拋 FileNotFoundError（#301）。同motor多RPM／seed共用來源，27pairs不滿足27個獨立馬達，p值只能作此依賴資料下描述，不能宣稱motor母體顯著保證。
 
 原約定主指標balanced_accuracy與macro-F1，LW−legacy絕對提升≥5個百分點（pp）；threshold_pp只是輸出設定，程式未自動判PASS。legacy 改成最近類別判讀後，Protocol A 的 macro-F1 差只剩 3.21pp，Protocol B 仍有 37.21pp；內部門檻在 A 不成立，且仍受列切分限制。完整分數見 [output/exp11_ancestor_comparison/2026-10-23-11-56-48](../../output/exp11_ancestor_comparison/2026-10-23-11-56-48/summary.json)（Aero、commit `b6e2b97`、seed 42／123／2026）；legacy 全判 unknown 的舊版在 [2026-10-23-01-35-07](../../output/exp11_ancestor_comparison/2026-10-23-01-35-07/summary.json)（`46ed4d5`）。不能取代[#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9)跨馬達研究、fresh final或可靠fault-type驗證。
 

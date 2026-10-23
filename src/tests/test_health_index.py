@@ -19,6 +19,15 @@ class HealthIndexTests(unittest.TestCase):
             ]
         )
 
+    def test_legacy_covariance_is_rejected(self):
+        """legacy 用 train 定線，0.5 不再是拒絕線；健康指數不接受（#301 F-02）。"""
+        with self.assertRaisesRegex(ValueError, "legacy"):
+            CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal,
+                                      openset_method="mahalanobis", mahalanobis_method="legacy")
+        model = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal,
+                                          openset_method="knn", mahalanobis_method="legacy")
+        self.assertEqual(model.openset_method, "knn")
+
     def test_health_index_is_bounded_and_unknown_is_explicit(self):
         model = CalibratedHealthIndex.fit(
             self.X_train,

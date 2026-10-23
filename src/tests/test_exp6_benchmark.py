@@ -53,6 +53,18 @@ class Exp6BenchmarkTests(unittest.TestCase):
             self.assertEqual(row["score_direction"], "higher_is_unknown")
             self.assertTrue(np.isfinite(row["auroc"]))
 
+    def test_distance_metric_names_actual_covariance_estimator(self) -> None:
+        """oas／mcd 的 distance_metric 跟著實際估計器，不寫死 ledoit_wolf（#301 F-09）。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            for covariance in ("ledoit_wolf", "oas", "mcd"):
+                with self.subTest(covariance=covariance):
+                    result = run(root, seed=42, openset_method="mahalanobis", mahalanobis_method=covariance,
+                                 require_nine=False)
+                    row = result["rows"][0]
+                    self.assertEqual(row["mahalanobis_method"], covariance)
+                    self.assertEqual(row["distance_metric"], f"{covariance}_mahalanobis")
+
     def test_api_environment_uses_actual_data_root(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory) / "actual_features")

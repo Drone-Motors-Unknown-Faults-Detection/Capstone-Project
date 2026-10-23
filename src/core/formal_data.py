@@ -100,6 +100,7 @@ class MaterializedFile:
     config: str
     output: str
     source_member: str
+    # 歷史欄名保留相容：值是寫出的 CSV bytes（Stage1／3 複製檔即原 member，Stage2 是轉換後的衍生 CSV）
     source_sha256: str
     rows_before_clean: int
     rows_after_clean: int
@@ -109,6 +110,8 @@ class MaterializedFile:
     discarded_windows: dict[str, int] | None = None
     window_policy: str = "equal_window_counts_v1"
     alignment_status: str = "UNKNOWN"
+    # Stage2 原始通道 member 的 bytes SHA（通道名 → SHA）；複製檔不需要，source_sha256 已是原 member（#301 F-06）
+    source_member_sha256: dict[str, str] | None = None
 
 
 def _find_outer_archive(source_root: Path, stage: str) -> Path:
@@ -419,10 +422,8 @@ def _convert_condition(
         missing = {"current", "x", "y", "z", "delta_t"} - channels.keys()
         if missing:
             raise FormalDataError(f"{source_label}: {config} missing channels {sorted(missing)}")
-        frames = {
-            key: pd.read_csv(condition_archive.open(info), low_memory=False)
-            for key, info in channels.items()
-        }
+        raw = {key: condition_archive.read(info) for key, info in channels.items()}
+        frames = {key: pd.read_csv(io.BytesIO(payload), low_memory=False) for key, payload in raw.items()}
         widths = {key: value.shape[1] for key, value in frames.items()}
         shapes = {key: list(value.shape) for key, value in frames.items()}
         if len(set(widths.values())) != 1 or len({value.shape[0] for value in frames.values()}) != 1 or any(min(shape) < 1 for shape in shapes.values()):
@@ -468,6 +469,7 @@ def _convert_condition(
                 mode="converted_step2_channels",
                 channel_shapes=shapes,
                 discarded_windows={key: 0 for key in frames},
+                source_member_sha256={key: sha256_bytes(raw[key]) for key in sorted(raw)},
             )
         )
     if pending_writes is None:
@@ -586,7 +588,10 @@ def run(source_root: Path | str, output_root: Path | str, **options) -> dict:
     """具日誌的物化入口；公開執行摘要不包含私人來源路徑。"""
     from core.logger import setup_run
     from core.provenance import write_private_context
-    log, paths = setup_run("formal_materialization", unique=True)
+    # 物化讀的是 source_root 的階段 ZIP，環境紀錄就指向它（#301 F-05）。ZIP 根沒有 Step-*/myfeature CSV，
+    # data 欄記 UNKNOWN，來源內容改由 summary／manifest 的 archive_sha256 保存；不用 output_root，
+    # 因為 setup_run 在寫入前執行，那時算到的是覆寫前的舊內容。
+    log, paths = setup_run("formal_materialization", unique=True, data_root=source_root)
     try:
         manifest = materialize(source_root, output_root, **options)
         private_id = write_private_context({"schema_version": "private_materialization_context_v1",

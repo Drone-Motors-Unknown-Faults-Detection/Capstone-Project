@@ -53,7 +53,7 @@ uv run --locked python -m experiments.exp10_transfer --data-root data --seed 42 
 
 API run(data_root="data",seed=42,confidence=0.95,method="ledoit_wolf",n_values=(10,25,50))回傳dict。CLI的N為逗號分隔，沒有專用train motor。Web在「實驗十」選 seed 按「▶ 執行」，掃描整個 data-root，N 仍是 10／25／50；不是實驗五按鈕會附帶跑。沒有逐筆串流、續跑或中途取消，重跑重新fit。
 
-每N須是1到「最小目標健康池筆數−1」的整數，`run()` 先對全部工況驗證，不合法就以 ValueError 指出那個池的筆數（#271）；工況少於兩個也直接報錯，不會產生空的 summary。N 很小時 scratch 的 train／cal 仍可能不足，估計不穩須保留。資料缺healthy／fault或工況不足先核對coverage，不造資料。多pairs會重複fit scratch，成本高於單工況，避免為讀手冊重跑。
+每N須是5（`core.monitor.MIN_FIT_ROWS`，與 `add_observed` 同下限）到「最小目標健康池筆數−1」的整數：scratch 把 support 切60/20/20，N=5 才有3／1／1列，N≥最小池則評估集是空的。`run()` 先對全部工況驗證，不合法就以 ValueError 指出那個池的筆數（#271、#301）；工況少於兩個也直接報錯，不會產生空的 summary。N 很小時 scratch 的 train／cal 仍可能不足，估計不穩須保留。資料缺healthy／fault或工況不足先核對coverage，不造資料。多pairs會重複fit scratch，成本高於單工況，避免為讀手冊重跑。
 
 ## 輸出怎麼讀
 

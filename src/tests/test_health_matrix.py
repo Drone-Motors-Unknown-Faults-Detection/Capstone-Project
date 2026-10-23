@@ -10,7 +10,7 @@ from unittest.mock import patch
 from loguru import logger
 
 from experiments import health_index_matrix
-from experiments.health_index_matrix import FORMAL_CONDITION_COUNT, expected_run_ids, main
+from experiments.health_index_matrix import FORMAL_CONDITION_COUNT, RESULT_SCHEMA_VERSION, expected_run_ids, main
 
 
 FINGERPRINT = "fp"
@@ -18,7 +18,7 @@ FINGERPRINT = "fp"
 
 def _fake_run(data_root, *, seed, openset_method, require_nine, pool_cache=None):
     rows = [{"condition": f"c{index}", "seed": seed, "method": openset_method} for index in range(FORMAL_CONDITION_COUNT)]
-    return {"status": "completed", "seed": seed, "method": openset_method, "dataset_fingerprint": FINGERPRINT,
+    return {"schema_version": RESULT_SCHEMA_VERSION, "status": "completed", "seed": seed, "method": openset_method, "dataset_fingerprint": FINGERPRINT,
             "formal_condition_count": FORMAL_CONDITION_COUNT, "rows": rows}
 
 
@@ -105,6 +105,41 @@ class HealthMatrixTests(unittest.TestCase):
             self.assertNotIn("resumed", manifest["runs"][0])
             self.assertEqual(manifest["runs"][0]["status"], "failed")
             self.assertIn("dataset_fingerprint changed", manifest["runs"][0]["error"])
+
+    def test_resume_reruns_results_from_older_schema(self):
+        """舊映射（schema_version 1）的結果不沿用，manifest 記下目前版本（#301 F-01）。"""
+        calls: list = []
+
+        def counting_run(*args, **kwargs):
+            calls.append(kwargs["seed"])
+            return _fake_run(*args, **kwargs)
+
+        self.assertEqual(RESULT_SCHEMA_VERSION, 2)
+        with tempfile.TemporaryDirectory() as workspace:
+            output = Path(workspace) / "matrix"
+            old = _fake_run("data", seed=42, openset_method="knn", require_nine=True)
+            old["schema_version"] = 1
+            (output / "seed_42").mkdir(parents=True)
+            (output / "seed_42" / "knn.json").write_text(json.dumps(old), encoding="utf-8")
+            with patch.object(health_index_matrix, "run", counting_run), \
+                    patch.object(health_index_matrix, "dataset_fingerprint", return_value=FINGERPRINT):
+                manifest = health_index_matrix.run_matrix("data", output, seeds=(42,), methods=("knn",))
+            self.assertEqual(calls, [42])
+            self.assertNotIn("resumed", manifest["runs"][0])
+            self.assertEqual(manifest["result_schema_version"], RESULT_SCHEMA_VERSION)
+            cached = json.loads((output / "seed_42" / "knn.json").read_text(encoding="utf-8"))
+            self.assertEqual(cached["schema_version"], RESULT_SCHEMA_VERSION)
+
+    def test_run_rejects_result_with_unexpected_schema(self):
+        def stale_run(*args, **kwargs):
+            return {**_fake_run(*args, **kwargs), "schema_version": 1}
+
+        with tempfile.TemporaryDirectory() as workspace:
+            with patch.object(health_index_matrix, "run", stale_run), \
+                    patch.object(health_index_matrix, "dataset_fingerprint", return_value=FINGERPRINT):
+                manifest = health_index_matrix.run_matrix("data", Path(workspace), seeds=(42,), methods=("knn",))
+        self.assertEqual(manifest["runs"][0]["status"], "failed")
+        self.assertIn("schema_version", manifest["runs"][0]["error"])
 
     def test_run_matrix_has_no_default_output_root(self):
         with self.assertRaises(TypeError):

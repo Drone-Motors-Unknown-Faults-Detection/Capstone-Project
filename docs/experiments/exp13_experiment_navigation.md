@@ -68,7 +68,7 @@ uv run --locked python -m experiments.navigation_data_contract --data-root data 
 uv run --locked python -m experiments.navigation_regression --data-root data --seed 42
 ```
 
-regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配置；有模型fit但不做全九工況研究。API可傳dataset，沒有自動全量矩陣或續跑入口。候選未找到可記candidate_found=false，逐筆一致仍不證明學習成功；mismatches=0只表示有執行到的配對一致。
+regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配置；有模型fit但不做全九工況研究。API可傳dataset，沒有自動全量矩陣或續跑入口。候選未找到可記candidate_found=false，逐筆一致仍不證明學習成功；mismatches=0只表示有執行到的配對一致。比對不用 assert：`MismatchLedger` 逐項計數，每法 `mismatches` 是實際不一致數、`mismatch_details` 留前20筆（pair_id、欄位、兩邊的值），頂層 `mismatches` 為兩法合計，`source_unchanged` 是前後兩次 data_contract 的實際比較；有不一致或來源變動時 `status=FAILED`，CLI 照樣寫 `summary.json` 再以退出碼1結束，中途例外也先寫含 `error` 的 `summary.json` 再拋出（#301）。
 
 ## 輸出、讀法與限制
 

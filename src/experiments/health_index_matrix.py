@@ -16,7 +16,7 @@ from core.data import PoolCache
 from core.logger import setup_run
 from core.openset import SUPPORTED_OPENSET_METHODS, canonical_openset_method
 from experiments.exp6_formal_benchmark import dataset_fingerprint
-from experiments.health_index_benchmark import FORMAL_CONDITION_COUNT, run
+from experiments.health_index_benchmark import FORMAL_CONDITION_COUNT, RESULT_SCHEMA_VERSION, run
 
 
 DEFAULT_SEEDS = (42, 123, 2026)
@@ -67,6 +67,7 @@ def run_matrix(
         "status": "running",
         "data_root": Path(data_root).name,
         "dataset_fingerprint": fingerprint,
+        "result_schema_version": RESULT_SCHEMA_VERSION,
         "seeds": [int(seed) for seed in seeds],
         "methods": list(canonical_methods),
         "expected_runs": len(expected),
@@ -92,6 +93,8 @@ def run_matrix(
                         and cached.get("method") == method
                         and cached.get("formal_condition_count") == FORMAL_CONDITION_COUNT
                         and cached.get("dataset_fingerprint") == fingerprint
+                        # 舊映射算出的結果欄名相同、數字不同；版本不符就重跑
+                        and cached.get("schema_version") == RESULT_SCHEMA_VERSION
                     ):
                         entry.update({"status": "completed", "resumed": True, "dataset_fingerprint": fingerprint,
                                       "path": str(json_path.relative_to(output_path))})
@@ -106,6 +109,8 @@ def run_matrix(
                 result = run(data_root, seed=int(seed), openset_method=method, require_nine=True, pool_cache=pool_cache)
                 if result.get("dataset_fingerprint") != fingerprint:
                     raise ValueError("dataset_fingerprint changed during the matrix run")
+                if result.get("schema_version") != RESULT_SCHEMA_VERSION:
+                    raise ValueError(f"result schema_version {result.get('schema_version')} != {RESULT_SCHEMA_VERSION}")
                 _atomic_json(json_path, result)
                 pd.DataFrame(result["rows"]).to_csv(csv_path, index=False)
                 entry.update({"status": "completed", "dataset_fingerprint": fingerprint,
