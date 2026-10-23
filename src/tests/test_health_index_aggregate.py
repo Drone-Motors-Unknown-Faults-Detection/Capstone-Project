@@ -168,25 +168,14 @@ class HealthAggregateTests(unittest.TestCase):
             self.load()
 
     def test_committed_archive_passes_committed_contract(self):
-        """#278：用 repo 內真正的 reports/exp8_health_index_results 跑合約，SHA 或資料漂移都在這裡被抓到。
-
-        封存的 difference_knn_minus_mahalanobis 是用 round 6 位後的兩個平均相減（0.601657 − 0.583144 =
-        0.018513），重算是先相減再 round（0.018512），兩欄差 1e-6、超過 atol 5e-7，CLI 退出碼 3。
-        這是封存當時的公式差異（historical_formula_status=UNKNOWN），不是來源漂移；54 列與 overall
-        全部相符。這裡把已知的兩欄寫死，其他任何欄不符都視為新漂移。
-        """
+        """#278／#288：用 repo 內真正的 reports/exp8_health_index_results 跑合約，SHA 或資料漂移都在這裡被抓到。"""
         contract, rows, evidence = aggregate.load_matrix(aggregate.DEFAULT_SOURCE, aggregate.DEFAULT_CONTRACT)
         summary, table = aggregate.aggregate_rows(rows, contract)
         differences = aggregate.compare(evidence["snapshot"], summary, table, contract)
         self.assertEqual(len(rows), 54)
         self.assertEqual(sum(item["pinned"] for item in evidence["inventory"]["files"]), 15)
-        mismatches = {item["key"]: item for item in differences if not item["matches"]}
-        self.assertEqual(set(mismatches), {
-            "summary/difference_knn_minus_mahalanobis/health_gap_known_minus_unknown",
-            "summary/difference_knn_minus_mahalanobis/known_health_mean",
-        })
-        for item in mismatches.values():
-            self.assertEqual((item["old"], item["new"]), (0.018513, 0.018512))
+        self.assertEqual([item["key"] for item in differences if not item["matches"]], [])
+        self.assertEqual(summary["difference_knn_minus_mahalanobis"]["known_health_mean"], 0.018513)
 
     def test_missing_run_file_fails(self):
         (self.root / "seed_42/knn.json").unlink()

@@ -107,7 +107,7 @@ k-NN 的 health gap 高 0.017120，accuracy 高 0.000007。未知列的健康指
 - 8-1 的 `known_health_mean` 落在 0.7～0.9（cal 中位數大約映到 0.8），`unknown_health_mean` 仍接近 0，`unknown_critical_fraction` 接近 1；`known_healthy_fraction` 落在 0.9～1.0，因為它現在等於 holdout 分數不超過拒絕線的比例。
 - 若健康 holdout 的 normal 比例低於 85%，或 `1screws` 這類遠離健康群的配置不進 critical，視為此設計不成立，退回檢查錨點。
 
-`reports/exp8_health_index_results/` 是 `data/formal_local`（指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`、無主機紀錄）的歷史結果：Mahalanobis 0.583144 ± 0.073301、k-NN 0.601657 ± 0.071637；重算時 health gap 差有 0.018513 對 0.018512 的差異，見下方封存重算。`formal_local` 不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
+`reports/exp8_health_index_results/` 是 `data/formal_local`（指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`、無主機紀錄）的歷史結果：Mahalanobis 0.583144 ± 0.073301、k-NN 0.601657 ± 0.071637；差值 0.018513 是兩個 round 6 位平均相減，重算用同一公式（#288）。`formal_local` 不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
 
 ```bash
 uv run --locked python -m experiments.health_index_benchmark --help
@@ -182,7 +182,7 @@ uv run --locked python -m experiments.health_index_aggregate --help
 uv run --locked python -m experiments.health_index_aggregate --source-root reports/exp8_health_index_results --contract src/experiments/exp8_health_index_aggregate_contract.json
 ```
 
-`run` 經 `setup_run` 寫 `logs/exp8_health_index_aggregate/{ts}.log` 與 `output/exp8_health_index_aggregate/{ts}/`：`aggregate_summary.json`、`aggregate_by_condition.csv`、`field_differences.csv`、`source_inventory.json`、`recomputation_audit.json`。輸出目錄與來源目錄禁止互相包含。預期六 run、54 列、18 組摘要。封存與重算有兩欄相差 0.000001（0.018513 對 0.018512），退出碼 3。
+`run` 經 `setup_run` 寫 `logs/exp8_health_index_aggregate/{ts}.log` 與 `output/exp8_health_index_aggregate/{ts}/`：`aggregate_summary.json`、`aggregate_by_condition.csv`、`field_differences.csv`、`source_inventory.json`、`recomputation_audit.json`。輸出目錄與來源目錄禁止互相包含。預期六 run、54 列、18 組摘要。差值欄用已 round 的兩個平均相減，與封存公式一致；封存未變時全部欄位相符，退出碼 0（#288）。
 
 [exp8_health_index_aggregate_contract.json](../../src/experiments/exp8_health_index_aggregate_contract.json) 列出這 16 個來源檔的 SHA256（Windows CRLF 與 Git LF 各一組）、資料指紋、seed、方法與容差。`health_index_aggregate.py` 只接受這份鎖裡的雜湊，不把空白正規化後當成同一檔。
 
