@@ -109,10 +109,13 @@ class ParameterTests(unittest.TestCase):
                     self.runner.stream_params("exp8_monitor", params)
 
     def test_non_integer_values_are_parameter_errors(self):
-        """list／Infinity／NaN 不能漏成 TypeError／OverflowError（#285 R2-10）。"""
-        for value in (["3"], math.inf, math.nan, "abc", {"n": 1}):
+        """list／Infinity／NaN 不能漏成 TypeError／OverflowError（#285 R2-10）；bool 與 2.5 不截斷成整數（#296 R3-04）。"""
+        for value in (["3"], math.inf, math.nan, "abc", {"n": 1}, True, False, 2.5, "2.5", "3.0", 1e3 + 0.5):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 self.runner._clean(self.spec["exp3"], {"n_trials": value})
+        for value, expected in ((2.0, 2), ("2", 2), (" 3 ", 3), (np.int64(4), 4), (1e3, 1000)):
+            with self.subTest(value=value):
+                self.assertEqual(self.runner._clean(self.spec["exp3"], {"n_trials": value})["n_trials"], expected)
 
     def test_stream_params_validates_before_streaming(self):
         self.assertEqual(self.runner.stream_params("exp3", {"scenario": "B", "n_trials": 3}),

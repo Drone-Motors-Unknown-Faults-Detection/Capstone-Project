@@ -15,6 +15,7 @@ import csv
 import importlib
 import json
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -225,6 +226,21 @@ def jsonable(value: Any) -> Any:
     return value
 
 
+def _as_int(value: Any) -> int:
+    """整數參數：bool 與非整數浮點（2.5）拒絕，2.0 與 "2" 接受；不截斷（#296 R3-04）。"""
+    if isinstance(value, bool):
+        raise ValueError("bool 不是整數")
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ValueError("非整數")
+        return int(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if not re.fullmatch(r"[+-]?\d+", value):
+            raise ValueError("非整數")
+    return int(value)
+
+
 class ExperimentRunner:
     def __init__(self, datasets: list[dict], data_root: str, out_dir: Path | None = None,
                  detector_options: dict | None = None):
@@ -286,7 +302,7 @@ class ExperimentRunner:
                     raise ValueError(f"資料集 {dataset} 沒有配置 {value!r}")
             elif p["type"] == "int":
                 try:
-                    value = int(p["default"] if value in (None, "") else value)
+                    value = _as_int(p["default"] if value in (None, "") else value)
                 except (TypeError, ValueError, OverflowError) as exc:  # list／Infinity／NaN 一律是參數錯誤（#285 R2-10）
                     raise ValueError(f"{p['label']} 必須是整數") from exc
                 if not p["min"] <= value <= p["max"]:
