@@ -392,7 +392,7 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
                 self.assertEqual(resp.code, 400)
                 self.assertTrue(resp.headers["Content-Type"].startswith("application/json"))
                 self.assertIn("JSON 物件", json.loads(resp.body)["error"])
-        self.assertNotIn("exp12", server.PLAYBACK.snapshot()["records"])
+        self.assertNotIn("exp12", server.PLAYBACK.snapshot()["records"] or {})
         for call in (server.JOBS.runner.clean_params, server.JOBS.runner.stream_params):
             with self.assertRaisesRegex(ValueError, "JSON 物件"):
                 call("exp3", ["dataset"])
