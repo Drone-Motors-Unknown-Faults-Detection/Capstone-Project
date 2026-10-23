@@ -72,7 +72,7 @@ regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配�
 
 ## 輸出、讀法與限制
 
-各main經setup_run寫logs/navigation_data_contract、logs/navigation_regression、logs/web_guide及對應output/{program}/{ts}/environment.json。規則工具寫data_contract.json；回歸寫summary.json含paired_methods／ledger／fit_audits。Web在sessionNNN下保存data_contract、各fit_epoch與原LiveDemo紀錄。精確writer見下方程式；不能把未保存的raw距離／最近中心／confusion matrix說成已提供。
+各main經setup_run寫logs/navigation_data_contract、logs/navigation_regression、logs/web_guide及對應output/{program}/{ts}/environment.json。規則工具寫data_contract.json；回歸寫summary.json含paired_methods／ledger／fit_audits。fit audit（`split_audit`，schema `navigation_fit_v2`）逐類標 `fit_source`：配置池類別的索引是 concat 後有限值列索引；discovered-N 的 `fit_source` 是隔離區候選群，索引是候選群矩陣內的位置，`cluster_rows` 另記每個位置的來源池列（[配置, 池列號]）——只寫進 sessionNNN 的 fit_epoch 檔與回歸輸出，導覽送給瀏覽器的狀態不含它（會洩漏匿名來源答案）。Web在sessionNNN下保存data_contract、各fit_epoch與原LiveDemo紀錄。精確writer見下方程式；不能把未保存的raw距離／最近中心／confusion matrix說成已提供。
 
 score是無因次偏離，擴張前拒絕率與擴張後接受率分開（分段看模型是否已學到新類，不看來源答案）；接受為任一known不等於自身配置分類正確，更不代表健康恢復。EWMA／CUSUM／latency單位按筆解讀，沒有秒級事件真值、損壞百分比或RUL。
 

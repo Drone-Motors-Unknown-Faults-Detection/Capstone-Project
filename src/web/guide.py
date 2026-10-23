@@ -120,7 +120,7 @@ class GuideHub(Hub):
                          configs=[self.public_config(c["config"]) for c in self.contract["configs"]],
                          source=self.public_config(d.source)["id"],
                          known=list(d.session.monitor.known), quarantine=len(d.session.quarantine_X),
-                         attempts=d.session.cluster_attempts, fit_audit=split_audit(d),
+                         attempts=d.session.cluster_attempts, fit_audit=split_audit(d, include_rows=False),
                          data={"feature_dim": 105, "source_type": "CSV重播", "seed": self.seed},
                          scenario=None if d.scenario is None else d.scenario["key"])
             if d.scenario:

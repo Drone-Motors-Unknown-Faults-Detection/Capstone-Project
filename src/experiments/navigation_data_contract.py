@@ -36,15 +36,31 @@ def run(dataset: dict, seed: int = 42) -> dict:
             "row_id_meaning": "既有concat後有限值列索引，非raw視窗"}
 
 
-def split_audit(demo) -> dict:
+def split_audit(demo, include_rows: bool = True) -> dict:
+    """每個已知類的資料角色。配置池類別的索引是 concat 後有限值列索引；discovered-N 是 adopt() 只用候選群
+    擬合的類，索引是候選群矩陣內的位置，`cluster_rows` 另記每個位置的來源池列（[配置, 池列號]，與矩陣同序）。
+    導覽送給瀏覽器的版本 include_rows=False：cluster_rows 帶真值配置名，會洩漏匿名來源的答案（#296 R3-03）。"""
+    session = demo.session
+    mon = session.monitor
+    roles = {}
+    for config, sp in mon.splits.items():
+        entry = {"train": sp.train.tolist(), "calibration": sp.cal.tolist(), "holdout": sp.holdout.tolist()}
+        if config in mon.observed:
+            entry.update({"fit_source": "隔離區候選群（adopt() 只用這一群已到達樣本）",
+                          "row_id_meaning": "候選群矩陣內的位置（0～size-1），不是池列號",
+                          "cluster_size": int(len(mon.observed[config]))})
+            if include_rows:
+                # 串流端沒給列號時（直接塞列的測試）每個位置是 [配置, None]
+                entry["cluster_rows"] = session.learned_rows.get(config, {}).get("rows")
+        else:
+            entry.update({"fit_source": "既有完整標記配置池",
+                          "row_id_meaning": "concat後有限值列索引，搭配資料規範CSV SHA"})
+        roles[config] = entry
     return {
-        "schema": "navigation_fit_v1", "seed": demo.seed,
-        "known_only": True, "fit_source": "既有完整標記配置池",
-        "row_id_meaning": "concat後有限值列索引，搭配資料規範CSV SHA",
-        "roles": {c: {"train": sp.train.tolist(), "calibration": sp.cal.tolist(),
-                      "holdout": sp.holdout.tolist()}
-                  for c, sp in demo.session.monitor.splits.items()},
-        "model": demo.session.monitor.summary(),
+        "schema": "navigation_fit_v2", "seed": demo.seed,
+        "known_only": True,
+        "roles": roles,
+        "model": mon.summary(),
     }
 
 
