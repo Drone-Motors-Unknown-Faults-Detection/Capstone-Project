@@ -15,7 +15,14 @@ import uuid
 import numpy as np
 
 CONTENT_VERSION = "source_content_v2"
-MATERIALIZATION_VERSION = "formal_materialization_v3"
+MATERIALIZATION_VERSION = "formal_materialization_v4"
+# v4 起 manifest 記特徵公式版本（#304 F5-04）。v3 以前的 Stage2 轉換用舊 clearance：
+# 峰值除以 mean(sqrt|x|)、少了外層平方，數值等於 impulse（#277／#298）。
+CLEARANCE_FORMULA = "clearance_peak_over_squared_mean_sqrt_abs_v2"
+FEATURE_FORMULAS = {"clearance_indicator": CLEARANCE_FORMULA}
+LEGACY_MANIFEST_VERSIONS = (None, 1, "formal_materialization_v1", "formal_materialization_v2", "formal_materialization_v3")
+# v3 起 output 為相對 ID、另記 output_sha256；v1／v2／未版本化是絕對路徑＋source_sha256
+_RELATIVE_ID_VERSIONS = ("formal_materialization_v3", MATERIALIZATION_VERSION)
 
 
 class ProvenanceError(ValueError):
@@ -79,6 +86,7 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
         raise FileNotFoundError("找不到正式特徵CSV；不能對空清冊宣稱來源已驗證")
     manifest_path = root / "formal_materialization_manifest.json"
     manifest_schema, manifest_sha, validation = None, None, "ABSENT"
+    formulas, formula_status = None, "UNKNOWN"
     if manifest_path.is_file():
         try:
             payload = manifest_path.read_bytes()
@@ -89,8 +97,15 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
             raise ProvenanceError("manifest必須為object")
         manifest_schema = manifest.get("schema_version")
         if (not isinstance(manifest_schema, (type(None), int, str)) or isinstance(manifest_schema, bool)
-                or manifest_schema not in {None, 1, "formal_materialization_v1", "formal_materialization_v2", MATERIALIZATION_VERSION}):
+                or manifest_schema not in {*LEGACY_MANIFEST_VERSIONS, MATERIALIZATION_VERSION}):
             raise ProvenanceError("未知materialization schema")
+        if manifest_schema == MATERIALIZATION_VERSION:
+            if manifest.get("feature_formulas") != FEATURE_FORMULAS:
+                raise ProvenanceError("manifest特徵公式版本不符")
+            formulas, formula_status = dict(FEATURE_FORMULAS), "CURRENT"
+        else:
+            # 舊版 manifest 可讀，但標明 Stage2 轉換用的是舊 clearance 公式，不能當成 v4
+            formula_status = "LEGACY_PRE_V4_CLEARANCE"
         if manifest_schema is None:
             if not all(key in manifest for key in ("archive_sha256", "formal_contract", "files")):
                 raise ProvenanceError("未版本化manifest缺少歷史識別欄位")
@@ -102,10 +117,11 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
         for record in records:
             if not isinstance(record, dict):
                 raise ProvenanceError("manifest file不是object")
-            identity = _manifest_id(record.get("output"), legacy=manifest_schema != MATERIALIZATION_VERSION)
+            relative = manifest_schema in _RELATIVE_ID_VERSIONS
+            identity = _manifest_id(record.get("output"), legacy=not relative)
             if identity in declared:
                 raise ProvenanceError("manifest重複output ID")
-            checksum = record.get("output_sha256") if manifest_schema == MATERIALIZATION_VERSION else record.get("source_sha256")
+            checksum = record.get("output_sha256") if relative else record.get("source_sha256")
             if not isinstance(checksum, str) or len(checksum) != 64:
                 raise ProvenanceError("manifest缺少已宣告的output SHA")
             declared[identity] = checksum
@@ -121,6 +137,7 @@ def capture_source(data_root: Path | str) -> tuple[dict, dict]:
               "data_version": f"{CONTENT_VERSION}:{canonical_sha(files)}",
               "files": files, "manifest_schema": manifest_schema, "manifest_sha256": manifest_sha,
               "manifest_validation": validation,
+              "feature_formulas": formulas, "feature_formula_status": formula_status,
               "content_aliases": [ids for _, ids in sorted(aliases.items()) if len(ids) > 1],
               "sample_source": "relative_file_id_plus_original_row_index",
               "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}

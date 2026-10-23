@@ -321,6 +321,13 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
             (r"/api/assistant/ask", server.AssistantAskHandler),
         ])
 
+    def fetch(self, path, **kwargs):
+        """像瀏覽器 fetch 一樣帶同站 Origin；測試自己給了來源標頭時不補（#304 F5-02）。"""
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not {"Origin", "Referer", "Sec-Fetch-Site"} & set(headers):
+            headers["Origin"] = self.get_url("")
+        return super().fetch(path, headers=headers, **kwargs)
+
     def frames(self, body):
         resp = self.fetch("/api/assistant/ask", method="POST", body=body, headers={"Content-Type": "application/json"})
         self.assertEqual(resp.code, 200)
@@ -348,6 +355,10 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
                           headers={"Origin": self.get_url("/")[:-1], "Content-Type": "application/json"})
         self.assertEqual(same.code, 200)
         self.assertIn('"event": "done"', same.body.decode())
+        # #304 F5-02：三種來源標頭都沒有就拒絕
+        bare = tornado.testing.AsyncHTTPTestCase.fetch(self, "/api/assistant/ask", method="POST", body=body,
+                                                       headers={"Content-Type": "application/json"})
+        self.assertEqual(bare.code, 403)
 
     def test_ask_reads_current_playback(self):
         server.PLAYBACK = exp2_tracker()
@@ -377,7 +388,7 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         server.ASSISTANT = Assistant("http://unused/v1", llm=slow)
         reader, writer = await asyncio.open_connection("127.0.0.1", self.get_http_port())
         body = json.dumps({"question": "方法問題"}).encode()
-        writer.write(b"POST /api/assistant/ask HTTP/1.1\r\nHost: localhost\r\nContent-Length: "
+        writer.write(b"POST /api/assistant/ask HTTP/1.1\r\nHost: localhost\r\nOrigin: http://localhost\r\nContent-Length: "
                      + str(len(body)).encode() + b"\r\nContent-Type: application/json\r\n\r\n" + body)
         await writer.drain()
         await asyncio.wait_for(slow.started.wait(), 2)

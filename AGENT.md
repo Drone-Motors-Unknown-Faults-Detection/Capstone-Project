@@ -285,6 +285,8 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    只寫進呼叫端指定的輸出目錄（拒絕寫進來源樹、預設不覆寫既有檔），並留下
    `formal_materialization_manifest.json` 供 `core.provenance` 對帳。實驗模組與 web 仍然只讀 data/，
    不呼叫 formal_data。
+   manifest 現為 `formal_materialization_v4`，另記 `feature_formulas`（clearance 公式版本）；v3 以前的 manifest
+   仍可對帳，但公開摘要標 `feature_formula_status: LEGACY_PRE_V4_CLEARANCE`，代表 Stage2 用的是舊 clearance（#304）。
 
 ---
 

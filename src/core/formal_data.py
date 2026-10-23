@@ -38,7 +38,7 @@ from scipy.fftpack import fft
 from scipy.stats import kurtosis, skew
 
 from core.feature_schema import CONFIG_ALIASES
-from core.provenance import sha256_bytes, sha256_file
+from core.provenance import FEATURE_FORMULAS, MATERIALIZATION_VERSION, sha256_bytes, sha256_file
 
 
 FEATURE_DIM = 105
@@ -561,7 +561,8 @@ def materialize(
     if archive_sha != {stage: sha256_file(path) for stage, path in archives.items()}:
         raise FormalDataError("讀取期間來源 SHA 改變，拒絕物化")
     manifest = {
-        "schema_version": "formal_materialization_v3",
+        "schema_version": MATERIALIZATION_VERSION,
+        "feature_formulas": dict(FEATURE_FORMULAS),
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "source_id": "formal_archive_source",
         "output_id": "formal_materialized_features",
