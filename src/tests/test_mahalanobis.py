@@ -25,7 +25,7 @@ def _data(seed: int = 3, n: int = 40, dim: int = 6):
 
 class DistancesTests(unittest.TestCase):
     def test_matches_three_operand_einsum_bitwise(self):
-        """單筆（exp2 逐筆）到整池的各種列數，都要與改前的三運算元 einsum 逐位元相同。"""
+        """單筆（exp2 逐筆）到整池的各種列數，與改前的三運算元 einsum 逐位元相同（合成資料；真實資料在 x86 BLAS 上可能差 1 ulp，#291）。"""
         rng = np.random.default_rng(1)
         for dim in (12, 40, 105):
             location = rng.normal(size=dim)

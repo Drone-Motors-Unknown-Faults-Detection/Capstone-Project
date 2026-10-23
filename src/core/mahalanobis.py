@@ -38,8 +38,8 @@ class ClassDistribution:
 
 def _distances(X: np.ndarray, location: np.ndarray, precision: np.ndarray) -> np.ndarray:
     delta = np.asarray(X, dtype=float) - location
-    # 拆成兩個兩運算元 einsum：兩運算元不跑路徑搜尋，數字與三運算元 optimize=True 的路徑逐位元相同
-    # （delta @ precision 會差 1 ulp，不採用）
+    # 拆成兩個兩運算元 einsum：兩運算元不跑路徑搜尋。Spark（aarch64）上與舊的三運算元 optimize=True
+    # 路徑逐位元相同；Aero（x86_64）的 BLAS 核心可能差 1 ulp（#291），四捨五入後的數字不受影響
     weighted = np.einsum("ij,jk->ik", delta, precision, optimize=True)
     squared = np.einsum("ij,ij->i", weighted, delta)
     return np.sqrt(np.maximum(squared, 0.0))
