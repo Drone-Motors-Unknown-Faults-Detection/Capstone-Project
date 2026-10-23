@@ -409,7 +409,7 @@ class StreamHandler(_SameSiteMixin, tornado.web.RequestHandler):
             if not isinstance(params, dict) or not math.isfinite(rate):
                 raise ValueError("參數必須是物件且速率必須有限")
             rate = max(1.0, min(1000.0, rate))
-        except (json.JSONDecodeError, ValueError):
+        except (ValueError, RecursionError):   # 含 JSONDecodeError；過深巢狀是 RecursionError（#305）
             await self.send({"event": "error", "error": "參數不是合法 JSON 或速率不是數字"})
             return
         if JOBS.current is not None:
@@ -478,9 +478,10 @@ ASSISTANT: Assistant | None = None
 MAX_QUESTION_CHARS = 2000
 MAX_HISTORY_ITEMS = 20
 MAX_HISTORY_CHARS = 20000
-# 請求 body 上限：歷史上限 20 則 × 20000 字，若用戶端以 ensure_ascii 送出，每個中文字是 \uXXXX 共 6 bytes，
-# 約 2.4 MB，加上提問與 JSON 外框，取 4 MiB；Tornado 預設 100 MB，會在 IOLoop 上整段讀進來再 json.loads（#305 G-09）
-MAX_BODY_BYTES = 4 * 1024 * 1024
+# 請求 body 上限：歷史上限 20 則 × 20000 字。用戶端以 ensure_ascii 送出時，BMP 字（中文）是 \uXXXX 6 bytes、
+# BMP 以外（emoji）是代理對 12 bytes，最壞約 4.8 MB，加上提問與 JSON 外框取 6 MiB；
+# Tornado 預設 100 MB，會在 IOLoop 上整段讀進來再 json.loads（#305 G-09）
+MAX_BODY_BYTES = 6 * 1024 * 1024
 HTTP_SERVER_OPTIONS = {"max_body_size": MAX_BODY_BYTES}
 
 

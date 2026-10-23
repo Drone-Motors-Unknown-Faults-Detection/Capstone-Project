@@ -367,6 +367,13 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         return self.fetch(f"/api/experiments/{exp_id}/stream?params={query}&rate=1000", request_timeout=60,
                           headers={"Referer": self.get_url("/")})
 
+    def test_stream_deeply_nested_params_is_parameter_error(self):
+        """#305：stream 的 params 過深巢狀也回 SSE 錯誤框，不是 RecursionError 的 HTML 500。"""
+        resp = self.fetch("/api/experiments/exp12/stream?params=" + "%5B" * 20000, request_timeout=60,
+                          headers={"Referer": self.get_url("/")})
+        self.assertEqual(resp.code, 200)
+        self.assertIn("參數不是合法 JSON", resp.body.decode("utf-8"))
+
     def test_stream_updates_playback_and_bad_request_keeps_it(self):
         self.assertEqual(self.stream("exp3", {"dataset": "T1/8000rpm", "n_trials": 1}).code, 200)
         snap = server.PLAYBACK.snapshot()
@@ -418,10 +425,10 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         from unittest.mock import patch
 
         self.assertEqual(server.HTTP_SERVER_OPTIONS["max_body_size"], server.MAX_BODY_BYTES)
-        self.assertLessEqual(server.MAX_BODY_BYTES, 4 * 1024 * 1024)
+        self.assertLessEqual(server.MAX_BODY_BYTES, 8 * 1024 * 1024)
         self.assertIn("**HTTP_SERVER_OPTIONS", inspect.getsource(server.main))
-        # 上限內：歷史上限的最壞情況（20 則 × 20000 個中文字 + 最長提問）不論 UTF-8 或 ensure_ascii 跳脫都能送進 handler
-        history = [{"role": "user", "content": "健" * server.MAX_HISTORY_CHARS}] * server.MAX_HISTORY_ITEMS
+        # 上限內：歷史上限的最壞情況（20 則 × 20000 個 BMP 以外字元 + 最長提問）不論 UTF-8 或 ensure_ascii 跳脫都能送進 handler
+        history = [{"role": "user", "content": "😀" * server.MAX_HISTORY_CHARS}] * server.MAX_HISTORY_ITEMS   # BMP 以外：ensure_ascii 每字 12 bytes
         worst = [{"question": "問" * server.MAX_QUESTION_CHARS, "history": history}]   # list：handler 回 400 但已讀完 body
         for ensure_ascii in (False, True):
             with self.subTest(ensure_ascii=ensure_ascii):
