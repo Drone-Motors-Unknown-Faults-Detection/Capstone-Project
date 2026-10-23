@@ -42,7 +42,7 @@
 
 表中7／1等指7screws／1screws，不是編碼成數值特徵。程式硬列UNIFORM與COMPOUND名單，名稱是 `core.data` 的正規配置名（`1screw` 目錄在載入時已讀成 `1screws`，#271）；缺配置仍可能KeyError，應核對資料名稱，不改名冒充來源。
 
-c部分比較radius、best_ray、bundle三種數值。radius以嚴重錨點距離作除數；best_ray沿選中射線投影；bundle沿均勻配置平均方向投影。Spearman相關使用**逐樣本**分數與重複的配置rank（7至1列為0至6），不是只對七個median計算。rank是本專案排序約定，沒有實測磨損量。投影可為負或超過1。
+c部分比較radius、best_ray、bundle三種數值。radius以嚴重錨點距離作除數；best_ray沿選中射線投影；bundle沿兩條錨點射線（7screws、1screws）單位方向相加再正規化的平均方向投影，不含其他均勻配置。Spearman相關使用**逐樣本**分數與重複的配置rank（7至1列為0至6），不是只對七個median計算。rank是本專案排序約定，沒有實測磨損量。投影可為負或超過1。
 
 新樣本先轉到健康白化空間，再取與已知射線最大餘弦；超過該射線tau回same_ray，否則new_direction。只有healthy時沒有射線，best_ray／severity可能None。這個verdict與Open Set score>1分開解讀，不能用方向相似取代異常偵測。
 

@@ -134,7 +134,7 @@ class PairedStreamTests(unittest.TestCase):
     def test_localhost_option_is_explicit_and_original_default_retained(self):
         source = (ROOT / "src/web/server.py").read_text(encoding="utf-8")
         self.assertIn('"--bind-address", default="0.0.0.0"', source)
-        self.assertIn('app.listen(args.port, address=args.bind_address)', source)
+        self.assertIn('app.listen(args.port, address=args.bind_address, **HTTP_SERVER_OPTIONS)', source)
 
     def test_done_saved_and_matches_batch(self):
         with tempfile.TemporaryDirectory() as folder:

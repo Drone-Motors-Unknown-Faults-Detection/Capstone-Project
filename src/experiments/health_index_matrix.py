@@ -65,7 +65,8 @@ def run_matrix(
         "schema_version": 1,
         "experiment": "health_index_benchmark",
         "status": "running",
-        "data_root": Path(data_root).name,
+        # 跟 health_index_benchmark 的 dataset_root 同一算法（解析後的根名稱），彙總才比得過；"." 或 symlink 不會記成空字串或連結名
+        "data_root": Path(data_root).expanduser().resolve().name,
         "dataset_fingerprint": fingerprint,
         "result_schema_version": RESULT_SCHEMA_VERSION,
         "seeds": [int(seed) for seed in seeds],

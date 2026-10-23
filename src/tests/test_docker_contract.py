@@ -58,6 +58,14 @@ class DockerContractTests(unittest.TestCase):
         self.assertNotIn("--extra", text)
         self.assertIn('ENTRYPOINT ["python", "-m", "web.server"]', text)
 
+    def test_runtime_stage_carries_lock_files_for_provenance(self):
+        """#305 G-10：執行階段要有 pyproject.toml 與 uv.lock，網頁存下的結果才記得到鎖檔雜湊。"""
+        text = (DOCKER / "Dockerfile").read_text(encoding="utf-8")
+        runtime = re.split(r"^FROM ", text, flags=re.M)[-1]
+        self.assertIn("COPY pyproject.toml uv.lock ./", runtime)
+        self.assertIn("WORKDIR /app", runtime)
+        self.assertIn("PYTHONPATH=/app/src", runtime)
+
     def test_dockerignore_keeps_data_out_of_image(self):
         lines = (DOCKER / "Dockerfile.dockerignore").read_text(encoding="utf-8").splitlines()
         rules = [x for x in lines if x and not x.startswith("#")]

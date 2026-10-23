@@ -48,15 +48,16 @@ def write_dataset(root: Path) -> None:
 def scientific_windows(rows):
     """科學結果逐欄不變；來源欄在專用案例另驗，不比較 opaque sidecar ID。"""
     return [{key: value for key, value in row.items()
-             if key not in {"provenance", "source_pool_index"}} for row in rows]
+             if key not in {"provenance", "provenance_record_id", "source_pool_index"}} for row in rows]
 
 
 def stable_windows(rows):
-    """每次載入各建私人 sidecar；只排除 opaque ID，其餘來源與結果仍精確比較。"""
+    """每次載入各建私人 sidecar，溯源 ID 跟著變；只排除這個 ID，其餘欄位仍精確比較。"""
     result = json.loads(json.dumps(rows))
     for row in result:
-        identity = row["provenance"]["source"].pop("private_context_id")
-        assert isinstance(identity, str) and identity
+        identity = row.pop("provenance_record_id")
+        assert isinstance(identity, str) and identity.startswith("sha256:")
+        assert "provenance" not in row
     return result
 
 
@@ -138,8 +139,11 @@ class HealthMonitorWindows(unittest.TestCase):
                         motor_id="m", session_id="s", max_windows=30)
             self.assertEqual(json.dumps(scientific_windows(windows), sort_keys=True),
                              json.dumps(scientific_windows(batch), sort_keys=True))
-            self.assertEqual(windows[0]["provenance"]["source"]["data_version"],
-                             batch[0]["provenance"]["source"]["data_version"])
+            # 完整溯源只在 fitted 一次，每窗只帶指回它的 ID（#305 G-02）
+            self.assertEqual({w["provenance_record_id"] for w in windows}, {events[0]["provenance_record_id"]})
+            self.assertEqual(events[0]["provenance"]["schema_version"], "experiment_provenance_v1")
+            self.assertTrue(all("provenance" not in w for w in windows + batch))
+            self.assertEqual(len({w["provenance_record_id"] for w in batch}), 1)
 
     def test_web_stream_done_matches_batch_and_is_saved(self):
         from core.data import discover_datasets
@@ -155,6 +159,12 @@ class HealthMonitorWindows(unittest.TestCase):
             self.assertEqual(sum(u for _, u in frames), 25)
             saved = json.loads(Path(done["payload"]["saved"]).read_text(encoding="utf-8"))
             self.assertTrue(saved["streamed"])
+            # 存檔標頭有一份完整溯源，逐窗只留 ID（#305 G-02）
+            for payload in (saved, batch):
+                self.assertEqual(payload["provenance"]["schema_version"], "experiment_provenance_v1")
+                self.assertEqual({w["provenance_record_id"] for w in payload["result"]},
+                                 {payload["provenance_record_id"]})
+                self.assertTrue(all("provenance" not in w for w in payload["result"]))
             for frame, _ in frames:
                 json.dumps(frame, allow_nan=False)
 

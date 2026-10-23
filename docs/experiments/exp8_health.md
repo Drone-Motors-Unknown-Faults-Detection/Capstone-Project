@@ -18,7 +18,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 | 入口 | 資料角色 | 有效數量 | 比例與分母 | 用途 | 重疊 |
 |---|---|---:|---|---|---|
 | 基準 8-1 | train | 187 | 187/313 | scaler 與 LW／k-NN 參考 | 不含 test |
-| 基準 8-1 | calibration | 62 | 62/313 | 開集距離線與兩個健康錨點 | detector 與指數映射共用這 62 列 |
+| 基準 8-1 | calibration | 62 | 62/313 | 開集距離線與三個健康錨點（q10、q95、由 q95 推得的 2×q95） | detector 與指數映射共用這 62 列 |
 | 基準 8-1 | healthy test | 64 | 64/313 | 健康指數分布與誤報 | 與 train／cal 互斥 |
 | 基準 8-1 | unknown test | 2736 | 故障池 100% | 指數分離、拒絕與排序 | 不 fit、不校準、不選參 |
 | 矩陣 8-2 | 正式矩陣 | 6 run、54 列 | run 與工況列是不同單位 | 保存 3 seed × 2 方法 | 每 run 重用同一份資料，不等於 54 顆馬達 |
@@ -81,7 +81,7 @@ h = clip(h, 0, 1)
 
 ## 基準
 
-流程：train 建偏離模型，cal 定距離線和兩個健康錨點，test 只 predict。T1／8000rpm 的健康池 313 列是 187 train／62 cal／64 holdout；同工況故障池 2736 列只測試。數量依 [用量總表](README.md#資料用量與分母怎麼讀)，本頁沒有新 fit。
+流程：train 建偏離模型，cal 定距離線和三個健康錨點（q10、q95，以及由 q95 推得的 2×q95），test 只 predict。T1／8000rpm 的健康池 313 列是 187 train／62 cal／64 holdout；同工況故障池 2736 列只測試。數量依 [用量總表](README.md#資料用量與分母怎麼讀)，本頁沒有新 fit。
 
 排序 motor／rpm 後，一個 `default_rng(seed=42)` 連續把各健康池洗牌 60/20/20。train 只 fit RobustScaler 與 LW 中心／共變異數，或 k=5 的 k-NN 參考。cal 定 confidence 0.95 距離線，並把同一 cal 的正規化分數交給校準器。unknown 不 fit、不選參、不校準。legacy 因用 train 定線，基準入口拒絕。CLI 預設要求九工況；`--allow-partial` 只放寬數量。
 
@@ -171,7 +171,7 @@ uv run --locked python -m experiments.health_monitor --data-root data --motor T1
 uv run --locked python -m experiments.health_monitor --data-root data --motor T1 --rpm 8000rpm --config 5screws --openset-method knn --knn-neighbors 5 --max-windows 5 --output-mode binary --allow-no-identity
 ```
 
-`motor`／`rpm` 必填，rpm 可寫 `8000` 或 `8000rpm`。`config` 須存在，`max_windows` 須為正整數。API `run(...)` 回傳逐窗列表，`iter_run` 先 yield fitted 再 yield window。CLI 先收集完再逐行印 JSON。`full` 含全部欄位，`health` 含指數與狀態，`binary` 只有 `is_fault`。CLI 經 `core.logger.setup_run("exp8_health_monitor")` 初始化：日誌寫 `logs/exp8_health_monitor/{ts}.log`，逐窗結果依 output-mode 寫 `output/exp8_health_monitor/{ts}/windows.jsonl`，一行一窗，與 stdout 相同，另有 `environment.json`。Web 8-3 可批次或 SSE；停止後沒有 done 就不算完整。展示用的 session ID 不能當採集身分。
+`motor`／`rpm` 必填，rpm 可寫 `8000` 或 `8000rpm`。`config` 須存在，`max_windows` 須為正整數。API `run(...)` 回傳逐窗列表，`iter_run` 先 yield fitted 再 yield window。CLI 先收集完再逐行印 JSON。`full` 含全部欄位，`health` 含指數與狀態，`binary` 只有 `is_fault`。CLI 經 `core.logger.setup_run("exp8_health_monitor")` 初始化：日誌寫 `logs/exp8_health_monitor/{ts}.log`，逐窗結果依 output-mode 寫 `output/exp8_health_monitor/{ts}/windows.jsonl`，一行一窗，與 stdout 相同，另有 `environment.json` 與 `metadata.json`。完整溯源（來源、環境、resolved_config、參數與健康校準）只存一份：`iter_run` 的 fitted 事件帶 `provenance` 與 `provenance_record_id`（溯源內容 SHA256 的前 16 碼），每窗只帶同一個 `provenance_record_id`；CLI 把完整溯源寫進 `metadata.json`，Web 8-3 的存檔放在結果標頭的 `provenance`（#305）。Web 8-3 可批次或 SSE；停止後沒有 done 就不算完整。展示用的 session ID 不能當採集身分。
 
 `window_index` 從 0 起。`health_index` 是平滑後指數，`raw_health_index` 是單窗映射。`is_fault` 不由平滑告警決定。`timestamp` 固定 None。故障指數飽和在 0 時，斜率 0 不表示馬達健康。
 

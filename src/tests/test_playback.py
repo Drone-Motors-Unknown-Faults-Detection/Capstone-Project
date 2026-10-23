@@ -76,6 +76,20 @@ class StreamedPlaybackTests(unittest.TestCase):
         self.assertEqual({r["scenario_summary"] for r in snap["reference"] if "scenario_summary" in r}, {"A", "B"})
         self.assertNoTruth(snap)
 
+    def test_exp3_selected_scenario_is_reference_not_current(self):
+        """#305 G-08：實驗三選的劇本是注入真值，不進 current／params／events，只進事後對照。"""
+        from web.assistant import describe_record, describe_record_events
+
+        snap = self.play("exp3", {"dataset": "T1/8000rpm", "n_trials": 1, "scenario": "B"})
+        self.assertEqual(snap["source_scenario"], "B")
+        self.assertNotIn("scenario", snap["params"])
+        self.assertNotIn("scenario", snap["current"])
+        self.assertFalse(any("劇本" in e for e in snap["events"]))
+        self.assertNotIn("劇本", describe_record(snap).split("【實驗結果")[0])   # 系統判定區塊
+        events = describe_record_events(snap)
+        after = events.split("【事後對照")[1]
+        self.assertIn("注入劇本（操作者選的實驗三劇本）：B", after)
+
     def test_exp1_rows_are_reference(self):
         snap = self.play("exp1", {"dataset": "T1/8000rpm"})
         self.assertEqual(len(snap["reference"]), 5)   # 健康 holdout + 4 個未知配置
@@ -337,6 +351,9 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return server.make_app()
 
+    def get_httpserver_options(self):
+        return server.HTTP_SERVER_OPTIONS   # 與 main() 的 app.listen 同一份設定
+
     def fetch(self, path, **kwargs):
         """像瀏覽器 fetch 一樣帶同站 Origin；沒有任何來源標頭的狀態端點請求會被拒絕（#304 F5-02）。"""
         headers = dict(kwargs.pop("headers", None) or {})
@@ -349,6 +366,13 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         # 瀏覽器的 EventSource 帶 Referer；沒有任何來源標頭的請求會被拒絕（#304 F5-02）
         return self.fetch(f"/api/experiments/{exp_id}/stream?params={query}&rate=1000", request_timeout=60,
                           headers={"Referer": self.get_url("/")})
+
+    def test_stream_deeply_nested_params_is_parameter_error(self):
+        """#305：stream 的 params 過深巢狀也回 SSE 錯誤框，不是 RecursionError 的 HTML 500。"""
+        resp = self.fetch("/api/experiments/exp12/stream?params=" + "%5B" * 20000, request_timeout=60,
+                          headers={"Referer": self.get_url("/")})
+        self.assertEqual(resp.code, 200)
+        self.assertIn("參數不是合法 JSON", resp.body.decode("utf-8"))
 
     def test_stream_updates_playback_and_bad_request_keeps_it(self):
         self.assertEqual(self.stream("exp3", {"dataset": "T1/8000rpm", "n_trials": 1}).code, 200)
@@ -374,6 +398,51 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         for key in ("started_at", "finished_at", "seconds", "timing_text"):
             self.assertEqual(rec[key], payload[key])
             self.assertEqual(raw[key], payload[key])
+
+    def test_run_rejects_non_object_json_with_400(self):
+        """#305 G-07：/run 收到 list／字串／數字／null 回 400 JSON，不是 AttributeError 的 HTML 500。"""
+        for body in ("[1, 2]", '"seed"', "42", "null"):
+            with self.subTest(body=body):
+                resp = self.fetch("/api/experiments/exp12/run", method="POST", body=body,
+                                  headers={"Content-Type": "application/json"})
+                self.assertEqual(resp.code, 400)
+                self.assertTrue(resp.headers["Content-Type"].startswith("application/json"))
+                self.assertIn("JSON 物件", json.loads(resp.body)["error"])
+        for body in (b"\xc3{", b"[" * 100000):   # 非 UTF-8、過深巢狀：一樣是 400 JSON，不是 HTML 500
+            with self.subTest(size=len(body)):
+                resp = self.fetch("/api/experiments/exp12/run", method="POST", body=body,
+                                  headers={"Content-Type": "application/json"})
+                self.assertEqual(resp.code, 400)
+                self.assertEqual(json.loads(resp.body)["error"], "參數不是合法 JSON")
+        self.assertIsNone(server.PLAYBACK.snapshot())   # 參數錯誤不進播放紀錄
+        for call in (server.JOBS.runner.clean_params, server.JOBS.runner.stream_params):
+            with self.assertRaisesRegex(ValueError, "JSON 物件"):
+                call("exp3", ["dataset"])
+
+    def test_oversize_body_is_rejected_before_handler(self):
+        """#305 G-09：body 上限不是 Tornado 預設 100 MB；超過上限在讀 body 時就被擋，handler 不會 json.loads。"""
+        import inspect
+        from unittest.mock import patch
+
+        self.assertEqual(server.HTTP_SERVER_OPTIONS["max_body_size"], server.MAX_BODY_BYTES)
+        self.assertLessEqual(server.MAX_BODY_BYTES, 8 * 1024 * 1024)
+        self.assertIn("**HTTP_SERVER_OPTIONS", inspect.getsource(server.main))
+        # 上限內：歷史上限的最壞情況（20 則 × 20000 個 BMP 以外字元 + 最長提問）不論 UTF-8 或 ensure_ascii 跳脫都能送進 handler
+        history = [{"role": "user", "content": "😀" * server.MAX_HISTORY_CHARS}] * server.MAX_HISTORY_ITEMS   # BMP 以外：ensure_ascii 每字 12 bytes
+        worst = [{"question": "問" * server.MAX_QUESTION_CHARS, "history": history}]   # list：handler 回 400 但已讀完 body
+        for ensure_ascii in (False, True):
+            with self.subTest(ensure_ascii=ensure_ascii):
+                within = json.dumps(worst, ensure_ascii=ensure_ascii).encode("utf-8")
+                self.assertLess(len(within), server.MAX_BODY_BYTES)
+                resp = self.fetch("/api/experiments/exp12/run", method="POST", body=within,
+                                  headers={"Content-Type": "application/json"})
+                self.assertEqual((resp.code, json.loads(resp.body)["error"]), (400, "參數必須是 JSON 物件"))
+        with patch.object(server.JOBS.runner, "clean_params", side_effect=AssertionError("不該進 handler")) as clean:
+            resp = self.fetch("/api/experiments/exp12/run", method="POST", raise_error=False,
+                              body=b"{" + b" " * (server.MAX_BODY_BYTES + 1) + b"}",
+                              headers={"Content-Type": "application/json"})
+        self.assertIn(resp.code, (400, 599))   # 伺服器回 400 後關連線；用戶端可能還在送 body
+        clean.assert_not_called()
 
     def test_time_http_and_saved_restart_do_not_call_model(self):
         from unittest.mock import patch

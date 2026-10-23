@@ -87,7 +87,7 @@ def _run(data_root, seed, confidence, *, source_run) -> dict:
             "n_datasets": len(datasets)}
 
 
-def _figure(summary):
+def _figure(summary, n_datasets: int):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -98,7 +98,7 @@ def _figure(summary):
     axes[0].bar(names, [s["auroc_mean"] for s in summary],
                 yerr=[s["auroc_std"] for s in summary], color="#3b82f6", capsize=3)
     axes[0].set_ylim(0.9, 1.001)
-    axes[0].set_title("AUROC (mean ± std over 9 datasets)")
+    axes[0].set_title(f"AUROC (mean ± std over {n_datasets} datasets)")
     axes[0].tick_params(axis="x", rotation=30)
     axes[1].bar(names, [s["healthy_fp_mean"] * 100 for s in summary],
                 yerr=[s["healthy_fp_std"] * 100 for s in summary], color="#ef4444", capsize=3)
@@ -124,7 +124,7 @@ def main() -> None:
 
     pd.DataFrame(result["rows"]).to_csv(paths.output_dir / "results.csv", index=False)
     save_json(paths.output_dir / "summary.json", result)
-    save_plot(_figure(result["summary"]), paths, "osr_benchmark.png")
+    save_plot(_figure(result["summary"], result["n_datasets"]), paths, "osr_benchmark.png")
 
     log.info(f"{'方法':<18}{'AUROC':>14}{'FPR@95':>9}{'健康誤報':>9}{'故障偵測':>9}")
     for s in result["summary"]:

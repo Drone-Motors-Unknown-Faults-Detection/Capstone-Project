@@ -353,8 +353,11 @@ class RunHandler(_SameSiteMixin, _JSONHandler):
             return
         try:
             params = json.loads(self.request.body or b"{}")
-        except json.JSONDecodeError:
+        except (ValueError, RecursionError):   # JSONDecodeError、非 UTF-8（UnicodeDecodeError）、過深巢狀都算參數錯誤
             self.reply({"error": "參數不是合法 JSON"}, 400)
+            return
+        if not isinstance(params, dict):   # list／字串／null 不能當參數，跟 StreamHandler 同規則（#305 G-07）
+            self.reply({"error": "參數必須是 JSON 物件"}, 400)
             return
         try:
             params = JOBS.runner.clean_params(exp_id, params)   # 參數錯誤先回報；原始用戶端參數不進播放紀錄（#285 R2-10）
@@ -406,7 +409,7 @@ class StreamHandler(_SameSiteMixin, tornado.web.RequestHandler):
             if not isinstance(params, dict) or not math.isfinite(rate):
                 raise ValueError("參數必須是物件且速率必須有限")
             rate = max(1.0, min(1000.0, rate))
-        except (json.JSONDecodeError, ValueError):
+        except (ValueError, RecursionError):   # 含 JSONDecodeError；過深巢狀是 RecursionError（#305）
             await self.send({"event": "error", "error": "參數不是合法 JSON 或速率不是數字"})
             return
         if JOBS.current is not None:
@@ -475,6 +478,11 @@ ASSISTANT: Assistant | None = None
 MAX_QUESTION_CHARS = 2000
 MAX_HISTORY_ITEMS = 20
 MAX_HISTORY_CHARS = 20000
+# 請求 body 上限：歷史上限 20 則 × 20000 字。用戶端以 ensure_ascii 送出時，BMP 字（中文）是 \uXXXX 6 bytes、
+# BMP 以外（emoji）是代理對 12 bytes，最壞約 4.8 MB，加上提問與 JSON 外框取 6 MiB；
+# Tornado 預設 100 MB，會在 IOLoop 上整段讀進來再 json.loads（#305 G-09）
+MAX_BODY_BYTES = 6 * 1024 * 1024
+HTTP_SERVER_OPTIONS = {"max_body_size": MAX_BODY_BYTES}
 
 
 def _history_too_long(history: list) -> bool:
@@ -531,7 +539,7 @@ class AssistantAskHandler(_SameSiteMixin, tornado.web.RequestHandler):
             if (not isinstance(question, str) or not question.strip() or not isinstance(history, list)
                     or (context is not None and not isinstance(context, dict))):
                 raise ValueError
-        except (json.JSONDecodeError, ValueError):
+        except (ValueError, RecursionError):   # 含 JSONDecodeError、UnicodeDecodeError 與過深巢狀
             await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
             return
         if len(question) > MAX_QUESTION_CHARS or _history_too_long(history):
@@ -744,7 +752,7 @@ def main() -> None:
     log.info(f"程式版本 {app_git_info()['head']}（狀態輪詢讀這份快取）")
 
     app = make_app()
-    app.listen(args.port, address=args.bind_address)
+    app.listen(args.port, address=args.bind_address, **HTTP_SERVER_OPTIONS)
     HUB.set_rate(args.rate)
     guide_hub = app.settings["guide_hub"]
     guide_hub.set_rate(args.rate)

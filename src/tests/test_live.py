@@ -66,6 +66,23 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertEqual((rows["6screws"]["pre_streamed"], rows["6screws"]["post_streamed"]), (0, 3))
         self.assertFalse(next(c for c in self.demo.state()["configs"] if c["config"] == "5screws")["known"])
 
+    def test_healthy_source_counts_as_pre_expansion_until_first_new_class(self):
+        """#305 G-05：分段只看 len(known) > 1；健康來源在學到新類前也算擴張前，之後才算擴張後。"""
+        self.demo.set_source(HEALTHY)
+        for _ in range(3):
+            self.demo.tick()
+        row = next(r for r in self.demo.metrics_msg()["rows"] if r["config"] == HEALTHY)
+        self.assertEqual((row["pre_streamed"], row["post_streamed"]), (3, 0))
+        self.demo.set_source("5screws")
+        with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):
+            self.demo.tick()
+        self.assertGreater(len(self.demo.session.monitor.known), 1)
+        self.demo.set_source(HEALTHY)
+        for _ in range(2):
+            self.demo.tick()
+        row = next(r for r in self.demo.metrics_msg()["rows"] if r["config"] == HEALTHY)
+        self.assertEqual((row["pre_streamed"], row["post_streamed"]), (3, 2))
+
     def test_scenario_needing_missing_config_is_rejected_before_start(self):
         """#301 F-16：首頁劇本在啟動前檢查所需配置都在已載入的池，缺配置時不改來源也不開始串流。"""
         import asyncio

@@ -294,9 +294,10 @@ class LiveDemo:
         if self._closed or self._write_error is not None:
             raise RuntimeError("session 已關閉或寫入失敗，不接受新樣本")
         config, msgs = self._draw_config()
-        # 擴張前／後的統計只看模型狀態，不看真值：量尺還只有健康時是「擴張前」，學到第一個新類後
-        # 所有來源一律算「擴張後」（導覽才不會因某個來源獨自轉段而洩漏它就是新類的多數，#296 R3-01）
-        was_known = config in self.session.monitor.known or len(self.session.monitor.known) > 1
+        # 擴張前／後的統計只看模型狀態，不看真值：量尺還只有健康時所有來源（含健康）都是「擴張前」，
+        # 學到第一個新類後所有來源一律算「擴張後」（導覽才不會因某個來源獨自轉段而洩漏它就是新類的多數，
+        # #296 R3-01）。不能用「來源配置在 known 裡」：健康來源因此從 t=0 就被算成擴張後（#305 G-05）
+        was_known = len(self.session.monitor.known) > 1
         prev_attempts = self.session.cluster_attempts
         x = self.samplers[config].draw()
         r = self.session.process(x, config, self.samplers[config].last_index)
@@ -443,7 +444,7 @@ class LiveDemo:
                 "config": c,
                 "display": display_name(c),
                 "pre_streamed": m["pre_streamed"],
-                # 擴張前（量尺只有健康）：判未知的比例；健康從一開始就是已知，歸擴張後
+                # 擴張前（量尺只有健康）：判未知的比例；健康來源在這段就是健康誤報率
                 "pre_rate": None if m["pre_streamed"] == 0
                 else round(m["pre_unknown"] / m["pre_streamed"] * 100, 1),
                 "post_streamed": post,

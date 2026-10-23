@@ -342,6 +342,15 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertIn("delta", {f["event"] for f in frames})
         self.assertEqual(frames[0]["sources"], ["實驗頁紀錄：無"])
 
+    def test_ask_undecodable_body_is_error_frame_not_500(self):
+        """#305：非 UTF-8 與過深巢狀的 body 回 SSE error frame（本端點的錯誤格式），不是 HTML 500，也不進模型。"""
+        server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
+        for body in (b"\xc3{", b"[" * 100000):
+            with self.subTest(size=len(body)):
+                frames = self.frames(body)
+                self.assertEqual([f["event"] for f in frames], ["error"])
+                self.assertIn("需要 JSON", frames[0]["error"])
+
     def test_ask_rejects_cross_site_and_non_json(self):
         """#301 F-15：跨站 Origin 或非 JSON 的提問在進模型前就拒絕；同站 Origin 照常回答。"""
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model(*TOOL_THEN_ANSWER))

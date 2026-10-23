@@ -126,7 +126,7 @@ def _run(data_root, seed, confidence, method, n_values, *, source_run) -> dict:
             "method": method, "n_values": list(n_values), "n_datasets": len(keys)}
 
 
-def _figure(summary: dict):
+def _figure(summary: dict, n_pairs: int):
     import matplotlib
 
     matplotlib.use("Agg")
@@ -140,7 +140,7 @@ def _figure(summary: dict):
         aurocs = [r["auroc_mean"] for r in summary[strategy]]
         ax.plot(ns, aurocs, marker="o", color=color, label=strategy)
     ax.set_xlabel("目標端健康樣本數 N")
-    ax.set_ylabel("AUROC（跨 72 組 src→dst 配對平均）")
+    ax.set_ylabel(f"AUROC（跨 {n_pairs} 組 src→dst 配對平均）")
     ax.set_title("實驗十：遷移 vs 從零冷啟動")
     ax.legend()
     ax.grid(alpha=0.3)
@@ -171,7 +171,8 @@ def main() -> None:
                       f"健康接受={r['healthy_accept_mean']*100:.1f}%  "
                       f"故障偵測={r['fault_detect_mean']*100:.1f}%")
 
-    save_plot(_figure(result["summary"]), paths, "transfer_curve.png")
+    n_pairs = len({(row["src"], row["dst"]) for row in result["rows"]})
+    save_plot(_figure(result["summary"], n_pairs), paths, "transfer_curve.png")
     log.info(f"輸出：{paths.output_dir}")
 
 
