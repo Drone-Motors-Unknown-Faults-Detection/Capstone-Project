@@ -10,6 +10,7 @@ import re
 import shutil
 import subprocess
 import time
+import urllib.parse
 import urllib.request
 
 from core.logger import setup_run
@@ -58,6 +59,12 @@ def verify_result(frames: list[dict], source_sha: str) -> list[str]:
     return errors
 
 
+def json_headers(base_url: str) -> dict:
+    """POST 的標頭：伺服器拒絕沒有 Origin／Referer／Sec-Fetch-Site 的狀態端點請求（#304 F5-02），腳本帶同站 Origin。"""
+    parts = urllib.parse.urlparse(base_url)
+    return {"Content-Type": "application/json", "Origin": f"{parts.scheme}://{parts.netloc}"}
+
+
 def run(base_url: str, saved: str, source_sha: str, deployment_sha: str) -> dict:
     validate_url(base_url)
     if not re.fullmatch(r"[a-f0-9]{64}", source_sha) or not re.fullmatch(r"[a-f0-9]{40}", deployment_sha):
@@ -89,7 +96,7 @@ def run(base_url: str, saved: str, source_sha: str, deployment_sha: str) -> dict
         body = {"question": question, "history": []}
         if index < len(QUESTIONS):
             body.update(context=context, history=[{"role": "assistant", "content": "legacy過於保守，93.12%只有故障，三角只表示真實未知配置。"}])
-        request = urllib.request.Request(base_url + "/api/assistant/ask", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+        request = urllib.request.Request(base_url + "/api/assistant/ask", data=json.dumps(body).encode(), headers=json_headers(base_url))
         try:
             raw = urllib.request.urlopen(request, timeout=100).read().decode("utf-8")
             frames = parse_sse(raw)

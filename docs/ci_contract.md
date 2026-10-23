@@ -24,6 +24,6 @@ Actions 成功或失敗都上傳白名單 public_summary.json，保存14天。ar
 
 ## 支援邊界與預期成果
 
-現行 CI 只有 Ubuntu。安裝入口是 `scripts/opt/build_uv.sh`，沒有 Windows／macOS 腳本。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 與實驗／AI 問答 HTTP 端點的 Origin 測試確認只接受同站或 `--allow-origin` 允許的來源（#265、#301）；Host 測試確認只接受綁定位址、localhost／127.0.0.1／[::1]、本機 IP 與 `--allow-host` 名稱，其他 Host 一律 403，擋 DNS rebinding（#304）。預設 `--bind-address 0.0.0.0` 仍在：[#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 已關閉（NOT_PLANNED），系統只在封閉實驗室網路使用。
+現行 CI 只有 Ubuntu。安裝入口是 `scripts/opt/build_uv.sh`，沒有 Windows／macOS 腳本。workflow 只有 contents:read，不用 secrets、不部署。WebSocket 與實驗／AI 問答 HTTP 端點的 Origin 測試確認只接受同站或 `--allow-origin` 允許的來源（#265、#301）；Host 測試確認只接受綁定位址、localhost／127.0.0.1／[::1]、本機 IP 與 `--allow-host` 名稱，其他 Host 一律 403，擋 DNS rebinding（#304）。實驗執行、邊跑邊畫與 AI 問答這類會改變狀態的端點，請求若 Origin、Referer、Sec-Fetch-Site 三種來源標頭都沒有也回 403（#304 F5-02）；curl 與 `*_evidence.py` 腳本要自己帶同站 `Origin`。預設 `--bind-address 0.0.0.0` 仍在：[#28](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/28) 已關閉（NOT_PLANNED），系統只在封閉實驗室網路使用。
 
 預期成果是可重現的工程測試及明確失敗訊號，不是模型準確率或部署可靠性證明。

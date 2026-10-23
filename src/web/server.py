@@ -116,10 +116,11 @@ def origin_allowed(origin: str, host: str) -> bool:
 def request_origin_allowed(request) -> bool:
     """會改變狀態的 HTTP 端點（執行實驗、邊跑邊畫、AI 問答）的跨站檢查（#301 F-15），規則同 origin_allowed：
 
-    - 有 Origin：Origin 必須同站或在 --allow-origin 名單。
-    - 沒有 Origin（瀏覽器的同站 GET，例如 EventSource，不帶 Origin）：看 Referer 的 scheme://host[:port]。
-    - 兩者都沒有：放行 curl、測試與證據腳本這類非瀏覽器用戶端；但瀏覽器標成跨站的請求
-      （Sec-Fetch-Site 為 cross-site／same-site，例如 no-referrer 的 <img> 觸發 GET）仍拒絕。
+    - 有 Origin（瀏覽器 fetch POST 會帶）：Origin 必須同站或在 --allow-origin 名單。
+    - 沒有 Origin（瀏覽器的同站 GET，例如 EventSource，帶 Referer）：看 Referer 的 scheme://host[:port]。
+    - 兩者都沒有：只有 Sec-Fetch-Site 為 same-origin／none 才放行；三種都沒有一律拒絕（#304 F5-02），
+      不支援 Fetch Metadata 的瀏覽器上，no-referrer 的跨站 <img> 就是這種請求。
+      curl 與證據腳本要自己帶 Origin。
     """
     origin = request.headers.get("Origin")
     if origin is not None:
@@ -128,7 +129,7 @@ def request_origin_allowed(request) -> bool:
     if referer is not None:
         parts = urlparse(referer)
         return origin_allowed(f"{parts.scheme}://{parts.netloc}", request.host)
-    return request.headers.get("Sec-Fetch-Site", "same-origin") in ("same-origin", "none")
+    return request.headers.get("Sec-Fetch-Site") in ("same-origin", "none")
 
 
 def reject_legacy_method(method: str) -> None:
@@ -322,7 +323,7 @@ class _SameSiteMixin:
         if not host_allowed(self.request):
             self._refuse(403, "Host 不是本機名稱，也不在 --allow-host 名單")
         elif not request_origin_allowed(self.request):
-            self._refuse(403, "跨站請求被拒絕：Origin／Referer 不是本站，也不在 --allow-origin 名單")
+            self._refuse(403, "跨站請求被拒絕：Origin／Referer 不是本站、不在 --allow-origin 名單，或三種來源標頭都沒有")
         elif self.require_json and self.request.headers.get(
                 "Content-Type", "").split(";")[0].strip().lower() != "application/json":
             self._refuse(415, "需要 Content-Type: application/json")
