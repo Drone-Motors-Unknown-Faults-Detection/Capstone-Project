@@ -214,6 +214,13 @@ class MaterializationSafetyTests(unittest.TestCase):
             self.assertTrue(all(value == 0 for value in record["discarded_windows"].values()))
             self.assertEqual(record["alignment_status"], "UNKNOWN")
             self.assertEqual(new["schema_version"], "formal_materialization_v3")
+            # 原始通道 member 的 SHA 另記；source_sha256／output_sha256 是轉換後 CSV（#301 F-06）
+            raw = {name.split("_", 1)[1].rsplit("_data", 1)[0].lower(): hashlib.sha256(payload).hexdigest()
+                   for name, payload in channel_entries()}
+            self.assertEqual(record["source_member_sha256"], raw)
+            self.assertEqual(set(raw), {"current", "x", "y", "z", "delta_t"})
+            self.assertEqual(record["source_sha256"], hashlib.sha256(new_payload).hexdigest())
+            self.assertEqual(record["output_sha256"], record["source_sha256"])
 
     def test_clean_feature_copy_preserves_bytes_and_rejects_nested_attack(self):
         payload = pd.DataFrame(np.ones((3, 105)), columns=formal.FEATURE_NAMES).to_csv(index=False).encode()
@@ -233,6 +240,8 @@ class MaterializationSafetyTests(unittest.TestCase):
                 else:
                     manifest = formal.materialize(source, root / "output", stages=["1"])
                     self.assertEqual((root / "output" / manifest["files"][0]["output"]).read_bytes(), payload)
+                    self.assertEqual(manifest["files"][0]["source_sha256"], hashlib.sha256(payload).hexdigest())
+                    self.assertIsNone(manifest["files"][0]["source_member_sha256"])
 
     def test_interruption_cleans_temporary_file_and_keeps_existing_target(self):
         for exception in (OSError("磁碟失敗fixture"), KeyboardInterrupt()):
