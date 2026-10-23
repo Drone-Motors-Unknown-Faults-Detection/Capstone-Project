@@ -1,0 +1,11 @@
+2026-10-23 11:56:31 | INFO    | Logger initialized: exp8_health_index_matrix
+2026-10-23 11:56:31 | INFO    | log_file=logs/exp8_health_index_matrix/2026-10-23-11-56-31.log
+2026-10-23 11:56:31 | INFO    | output_dir=output/exp8_health_index_matrix/2026-10-23-11-56-31
+2026-10-23 11:56:31 | INFO    | 參數：{'data_root': 'data', 'output_root': None, 'seeds': [42, 123, 2026], 'methods': ['mahalanobis', 'knn'], 'no_resume': False}；輸出根 output/exp8_health_index_matrix/2026-10-23-11-56-31
+2026-10-23 11:56:33 | INFO    | seed_42_mahalanobis：完成 9 列
+2026-10-23 11:56:34 | INFO    | seed_42_knn：完成 9 列
+2026-10-23 11:56:35 | INFO    | seed_123_mahalanobis：完成 9 列
+2026-10-23 11:56:36 | INFO    | seed_123_knn：完成 9 列
+2026-10-23 11:56:37 | INFO    | seed_2026_mahalanobis：完成 9 列
+2026-10-23 11:56:38 | INFO    | seed_2026_knn：完成 9 列
+2026-10-23 11:56:38 | INFO    | 矩陣 completed：完成 6／6

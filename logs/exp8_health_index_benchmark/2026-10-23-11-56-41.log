@@ -1,0 +1,5 @@
+2026-10-23 11:56:41 | INFO    | Logger initialized: exp8_health_index_benchmark
+2026-10-23 11:56:41 | INFO    | log_file=logs/exp8_health_index_benchmark/2026-10-23-11-56-41.log
+2026-10-23 11:56:41 | INFO    | output_dir=output/exp8_health_index_benchmark/2026-10-23-11-56-41
+2026-10-23 11:56:41 | INFO    | 參數：{'data_root': 'data', 'seed': 42, 'openset_method': 'knn', 'mahalanobis_method': 'ledoit_wolf', 'confidence': 0.95, 'knn_neighbors': 5, 'allow_partial': False}
+2026-10-23 11:56:43 | INFO    | 完成：9 列，結果寫入 output/exp8_health_index_benchmark/2026-10-23-11-56-41

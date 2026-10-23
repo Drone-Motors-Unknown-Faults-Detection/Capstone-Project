@@ -1,0 +1,16 @@
+2026-10-23 11:56:17 | INFO    | Logger initialized: exp2_scale_growth
+2026-10-23 11:56:17 | INFO    | log_file=logs/exp2_scale_growth/2026-10-23-11-56-17.log
+2026-10-23 11:56:17 | INFO    | output_dir=output/exp2_scale_growth/2026-10-23-11-56-17
+2026-10-23 11:56:17 | INFO    | 實驗二：量尺擴張重播 — T1/8000rpm（openset=mahalanobis, method=ledoit_wolf, confidence=0.95, seed=123, adaptive_density=True, healthy_mix=0.0）
+2026-10-23 11:56:18 | INFO    | 注入配置              發現(筆)    叢集      純度      自類準確      健康保持     已知數
+2026-10-23 11:56:18 | INFO    | 7screws             105    62  100.0%     46.2%    100.0%       2
+2026-10-23 11:56:18 | INFO    | 6screws              93    63  100.0%     92.9%    100.0%       3
+2026-10-23 11:56:18 | INFO    | 5screws             115    57  100.0%     91.7%    100.0%       4
+2026-10-23 11:56:18 | INFO    | 4screws             未發現
+2026-10-23 11:56:18 | INFO    | 3screws              12   223  100.0%     93.5%    100.0%       5
+2026-10-23 11:56:18 | INFO    | 2screws              93    66  100.0%     85.7%    100.0%       6
+2026-10-23 11:56:18 | INFO    | 1screws              72    27  100.0%     83.3%    100.0%       7
+2026-10-23 11:56:18 | INFO    | 3_14screws           88    88  100.0%     84.2%    100.0%       8
+2026-10-23 11:56:18 | INFO    | 4_146screws          89    89  100.0%     89.5%    100.0%       9
+2026-10-23 11:56:18 | INFO    | 最終已知類別：8screws → discovered-1 → discovered-2 → discovered-3 → discovered-4 → discovered-5 → discovered-6 → discovered-7 → discovered-8
+2026-10-23 11:56:18 | INFO    | 輸出：output/exp2_scale_growth/2026-10-23-11-56-17
