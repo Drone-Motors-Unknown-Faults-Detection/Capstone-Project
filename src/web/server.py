@@ -250,6 +250,11 @@ class RunHandler(_JSONHandler):
         except json.JSONDecodeError:
             self.reply({"error": "參數不是合法 JSON"}, 400)
             return
+        try:
+            params = JOBS.runner.clean_params(exp_id, params)   # 參數錯誤先回報；原始用戶端參數不進播放紀錄（#285 R2-10）
+        except ValueError as exc:
+            self.reply({"error": str(exc)}, 400)
+            return
         JOBS.current = exp_id
         logger.info(f"實驗頁執行 {exp_id} {params}")
         try:

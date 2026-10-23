@@ -90,6 +90,29 @@ class ParameterTests(unittest.TestCase):
     def test_unknown_experiment(self):
         with self.assertRaises(ValueError):
             self.runner.run("exp99", {})
+        with self.assertRaises(ValueError):
+            self.runner.clean_params("exp99", {})
+
+    def test_config_checked_and_canonicalised_before_streaming(self):
+        """exp8_monitor 的配置在 _clean 就驗證（不等 PLAYBACK.start 之後的 _dispatch），別名轉正規名（#285 R2-07）。"""
+        self.runner._pools_cache["T1/8000rpm"] = {"8screws": None, "1screws": None}
+        base = {"dataset": "T1/8000rpm", "max_windows": 5}
+        self.assertEqual(self.runner.stream_params("exp8_monitor", {**base, "config": "1screw"})["config"], "1screws")
+        self.assertEqual(self.runner.clean_params("exp8_monitor", base)["config"], "8screws")
+        for config in ("9screws", ["8screws"], ""):
+            with self.subTest(config=config):
+                params = {**base, "config": config}
+                if config == "":
+                    self.assertEqual(self.runner.clean_params("exp8_monitor", params)["config"], "8screws")
+                    continue
+                with self.assertRaises(ValueError):
+                    self.runner.stream_params("exp8_monitor", params)
+
+    def test_non_integer_values_are_parameter_errors(self):
+        """list／Infinity／NaN 不能漏成 TypeError／OverflowError（#285 R2-10）。"""
+        for value in (["3"], math.inf, math.nan, "abc", {"n": 1}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.runner._clean(self.spec["exp3"], {"n_trials": value})
 
     def test_stream_params_validates_before_streaming(self):
         self.assertEqual(self.runner.stream_params("exp3", {"scenario": "B", "n_trials": 3}),
