@@ -171,15 +171,14 @@ class LiveDemo:
         self._closed = True
 
     def _refresh_samplers(self) -> None:
-        """已知配置只從 holdout 抽（未參與擬合）；其餘配置從整池抽，但排除已拿去擬合 discovered-N 的列。"""
+        """已知配置從 holdout 抽、其餘從整池抽；兩者都排除已拿去擬合 discovered-N 的列。"""
         mon = self.session.monitor
         for config, pool in self.pools.items():
-            if config in mon.known:
-                idx = mon.splits[config].holdout
-            else:
-                used = self.fitted_rows.get(config, set())
-                idx = np.array([i for i in range(len(pool)) if i not in used], dtype=int)
-            self.samplers[config] = CycleSampler(pool, idx, self.stream_rng)
+            base = mon.splits[config].holdout if config in mon.known else np.arange(len(pool))
+            used = self.fitted_rows.get(config, set())
+            idx = np.array([i for i in base if i not in used], dtype=int)
+            # ponytail: 整池都被擬合用完時退回不排除，避免串流中斷；這時學後統計會含擬合列
+            self.samplers[config] = CycleSampler(pool, idx if len(idx) else base, self.stream_rng)
 
     # -- 控制 ------------------------------------------------------------------
 

@@ -200,7 +200,13 @@ class MaterializationSafetyTests(unittest.TestCase):
             new = formal.materialize(root / "source", root / "new", stages=["2"])
             old_payload = Path(old["files"][0]["output"]).read_bytes()
             new_payload = (root / "new" / new["files"][0]["output"]).read_bytes()
-            self.assertEqual(new_payload, old_payload)
+            # 基準 commit 的 clearance 等於 impulse（#277）；其餘欄仍要逐值相同，clearance 欄必須不同
+            old_frame, new_frame = (pd.read_csv(io.BytesIO(p), float_precision="round_trip") for p in (old_payload, new_payload))
+            clearance = [c for c in new_frame.columns if c.endswith("clearance_indicator")]
+            self.assertTrue(clearance)
+            self.assertEqual(list(new_frame.columns), list(old_frame.columns))
+            pd.testing.assert_frame_equal(new_frame.drop(columns=clearance), old_frame.drop(columns=clearance), check_exact=True)
+            self.assertFalse(np.allclose(new_frame[clearance], old_frame[clearance]))
             self.assertEqual(new["archive_sha256"]["2"], checksum)
             self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), checksum)
             record = new["files"][0]

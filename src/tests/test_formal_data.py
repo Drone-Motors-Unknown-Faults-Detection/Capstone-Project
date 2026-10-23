@@ -20,6 +20,7 @@ from core.formal_data import (
     _convert_condition,
     _ensure_output_not_source,
     _parse_condition,
+    _statistical_features,
 )
 
 
@@ -31,6 +32,15 @@ class FormalDataTests(unittest.TestCase):
         self.assertEqual(FEATURE_NAMES[30], "31-Vibration_X-FFT1X")
         self.assertEqual(FEATURE_NAMES[90], "91-Delta_T-rms")
         self.assertEqual(FEATURE_NAMES[-1], "105-Delta_T-mean_amplitude")
+
+    def test_clearance_differs_from_impulse(self) -> None:
+        """#277：clearance = max/(mean sqrt|x|)^2，不能退化成 impulse = max/mean|x|。"""
+        column = np.array([1.0, -4.0, 9.0, 0.25])
+        features = _statistical_features(pd.DataFrame({"c": column}))[0]
+        clearance, impulse = features[7], features[9]
+        self.assertAlmostEqual(clearance, 9.0 / np.mean(np.sqrt(np.abs(column))) ** 2)
+        self.assertAlmostEqual(impulse, 9.0 / np.mean(np.abs(column)))
+        self.assertNotAlmostEqual(clearance, impulse)
 
     def test_clean_rule_is_feature_level_one_point_five_iqr(self) -> None:
         frame = pd.DataFrame(
