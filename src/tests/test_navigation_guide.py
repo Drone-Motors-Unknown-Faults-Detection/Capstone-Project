@@ -247,6 +247,42 @@ class GuideTests(unittest.TestCase):
         asyncio.run(GuideSocket.heavy(sock, "inspect", lambda: self.hub.inspect("T1", "8000rpm")))
         self.assertIsNone(self.hub.error)
 
+    def test_reinspect_clears_only_inspect_failures(self):
+        """#304 re-review：檢查資料不改 session，上一次檢查失敗的錯誤由下一次成功的檢查清掉；
+        串流錯誤與建基準失敗仍保留到重設或重建。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+
+        def good():
+            return self.hub.inspect("T1", "8000rpm")
+
+        def failing():
+            raise OSError("測試讀取失敗")
+
+        def heavy(cmd, fn):
+            asyncio.run(GuideSocket.heavy(sock, cmd, fn))
+
+        self.hub.build("T1", "8000rpm")
+        heavy("inspect", failing)
+        self.assertEqual(self.hub.error_source, "inspect")
+        heavy("inspect", good)
+        self.assertIsNone(self.hub.error)
+        self.hub.event("error", "串流錯誤，已暫停：測試")
+        self.assertIsNone(self.hub.error_source)
+        heavy("inspect", failing)          # 檢查失敗不能蓋掉串流錯誤，否則下一次檢查成功就把它清掉
+        self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+        heavy("inspect", good)
+        self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+        heavy("build", failing)
+        self.assertEqual(self.hub.error_source, "build")
+        heavy("inspect", good)
+        self.assertIn("資料讀取失敗", self.hub.error)
+        heavy("reset", lambda: self.hub.demo._build())
+        self.assertIsNone(self.hub.error)
+
     def test_busy_does_not_read_half_updated_model(self):
         self.hub.build("T1", "8000rpm")
         self.hub.busy_state = self.hub.full_state()

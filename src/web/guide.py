@@ -38,6 +38,20 @@ class GuideHub(Hub):
         self.busy_state = None
         self.catalog_status = "available" if datasets else "no_datasets"
 
+    @property
+    def error(self):
+        return self._error
+
+    @error.setter
+    def error(self, text):
+        """直接指定的錯誤（串流錯誤、保存失敗、紀錄檔停用）不標來源，檢查資料清不掉；
+        只有 fail() 記下是哪個導覽操作失敗。"""
+        self._error, self.error_source = text, None
+
+    def fail(self, text, source):
+        self.error = text
+        self.error_source = source
+
     def public_adoption(self):
         """最近一次自學的公開欄位：不含真值多數與純度（那些只在首頁事後對照出現）。"""
         a = None if self.demo is None else self.demo.adoption
@@ -214,19 +228,24 @@ class GuideSocket(LocalSocketHandler):
         h.broadcast(h.full_state())
         try:
             result = await tornado.ioloop.IOLoop.current().run_in_executor(h.executor, fn)
-            # 只有重建 session 的操作（重設、建基準）清錯誤；檢查資料不動 session，串流錯誤與停用的紀錄檔
-            # 都要保留到重設或重建，否則可在只更新一半的 session 上按 start（#304 F5-03）。還沒有 session 時沒有可保護的狀態。
-            if command in REBUILDS or h.demo is None:
+            # 重建 session 的操作（重設、建基準）清錯誤；檢查資料不動 session，只能清掉上一次檢查資料失敗的錯誤，
+            # 串流錯誤與停用的紀錄檔都要保留到重設或重建，否則可在只更新一半的 session 上按 start（#304 F5-03）。
+            # 還沒有 session 時沒有可保護的狀態。
+            if command in REBUILDS or h.demo is None or (command == "inspect" and h.error_source == "inspect"):
                 h.error = None
             if h.error is None and h.demo is not None and not h.demo.accepting:
                 h.error = "樣本紀錄已停用；請重設或重建健康基準後再監測"
             h.event("success", str(result))
         except Exception as exc:
             logger.exception("導覽操作失敗")
-            h.error = (f"資料讀取失敗（{type(exc).__name__}）；請管理者確認讀取權限與正式資料。"
-                       if isinstance(exc, OSError) else
-                       f"操作失敗（{type(exc).__name__}）；可重新確認所選資料，仍失敗請查看伺服器日誌。")
-            h.event("error", h.error)
+            text = (f"資料讀取失敗（{type(exc).__name__}）；請管理者確認讀取權限與正式資料。"
+                    if isinstance(exc, OSError) else
+                    f"操作失敗（{type(exc).__name__}）；可重新確認所選資料，仍失敗請查看伺服器日誌。")
+            if command == "inspect" and h.error is not None and h.error_source != "inspect":
+                h.event("error", text)   # 不讓檢查失敗蓋掉要重建才能清的錯誤（下一次檢查成功就會被清掉）
+            else:
+                h.fail(text, command)
+                h.event("error", h.error)
         finally:
             h.busy, h.operation = False, None
         h.pause(publish=False)
