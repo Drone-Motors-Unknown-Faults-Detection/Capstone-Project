@@ -24,7 +24,7 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, load_pools, make_split, discover_datasets
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
 from core.detectors import ALL_DETECTORS
 from core.logger import save_plot, setup_run
 from core.openset import openset_metrics
@@ -36,7 +36,7 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> di
     rng = np.random.default_rng(seed)
     rows = []
     for ds in datasets:
-        key = f"{ds['motor']}/{ds['rpm'].replace('rpm','')}"
+        key = dataset_key(ds["motor"], ds["rpm"])
         pools = load_pools(ds["path"])
         sp = make_split(len(pools[HEALTHY]), rng)
         X_tr = pools[HEALTHY][sp.train]

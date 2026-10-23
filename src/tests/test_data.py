@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 
 from core import data as data_module
-from core.data import PoolCache, load_pools
+from core.data import PoolCache, dataset_key, load_pools
 from core.feature_schema import SCHEMAS, FeatureSchemaError
 from experiments.exp6_formal_benchmark import _run_benchmark
 
@@ -27,6 +27,21 @@ def write_condition(root: Path, seed: int = 7) -> Path:
         frame = pd.DataFrame(rng.normal(center, 0.1, size=(30, 105)).round(6), columns=SCHEMAS["historical_clean_v1"])
         frame.to_csv(target / "T1_Group_feature_data_clean.csv", index=False)
     return dataset
+
+
+class DatasetKeyTests(unittest.TestCase):
+    """#276 K02：實驗輸出的工況鍵只在 core.data.dataset_key 定義。"""
+
+    def test_strips_rpm_suffix(self) -> None:
+        self.assertEqual(dataset_key("T1", "8000rpm"), "T1/8000")
+        self.assertEqual(dataset_key("T3", "11000rpm"), "T3/11000")
+
+    def test_experiments_use_the_shared_key(self) -> None:
+        from experiments import exp5_cross_condition, exp10_transfer, exp12_confusion_tsne
+
+        ds = {"motor": "T2", "rpm": "6000rpm", "path": "unused"}
+        for module in (exp5_cross_condition, exp10_transfer, exp12_confusion_tsne):
+            self.assertEqual(module._dataset_key(ds), "T2/6000")
 
 
 class PoolCacheTests(unittest.TestCase):

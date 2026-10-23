@@ -18,7 +18,7 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, discover_datasets, load_pools
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import save_json
@@ -121,7 +121,7 @@ def run(data_root: str = "data", seeds: tuple[int, ...] = (42, 123, 2026),
     datasets = discover_datasets(data_root)
     rows: list[dict] = []
     for ds in datasets:
-        key = f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+        key = dataset_key(ds["motor"], ds["rpm"])
         pools = load_pools(ds["path"])
         unknown_a = [c for c in _ANCESTOR_UNKNOWN_CANDIDATES if c in pools]
 

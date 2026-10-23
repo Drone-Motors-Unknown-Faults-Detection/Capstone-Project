@@ -13,7 +13,7 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
 from core.logger import setup_run
 from core.openset import resolve_openset_config
 from experiments.health.evaluation import evaluate_open_set
@@ -126,7 +126,7 @@ def run(
         metadata = model.metadata()
         rows.append(
             {
-                "dataset": f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}",
+                "dataset": dataset_key(dataset["motor"], dataset["rpm"]),
                 "motor": dataset["motor"],
                 "rpm": dataset["rpm"],
                 "seed": int(seed),

@@ -54,6 +54,15 @@ def display_name(config: str | None) -> str:
     return DISPLAY_NAMES.get(config, config)
 
 
+def dataset_key(motor: str, rpm: str) -> str:
+    """實驗輸出的工況鍵：`T1/8000`（目錄名 `8000rpm` 去掉 rpm 後綴）。
+
+    exp5／exp6／exp8／exp10／exp11／exp12 的 `dataset` 欄與彙整都用這個格式；
+    web 實驗頁的資料集參數是 `T1/8000rpm`（含後綴），另有定義（#276 K02）。
+    """
+    return f"{motor}/{rpm.replace('rpm', '')}"
+
+
 def discover_datasets(data_root: Path | str) -> list[dict]:
     """列出可用的 (motor, rpm) 組合與其 myfeature 目錄。"""
     found: list[dict] = []

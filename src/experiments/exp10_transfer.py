@@ -19,7 +19,7 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, discover_datasets, load_pools
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.openset import openset_metrics
@@ -27,7 +27,7 @@ from core.runner import save_json
 
 
 def _dataset_key(ds: dict) -> str:
-    return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+    return dataset_key(ds["motor"], ds["rpm"])
 
 
 def _load_all(data_root: str) -> dict[str, dict[str, np.ndarray]]:

@@ -26,11 +26,11 @@ from core.data import HEALTHY, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import save_json
-from core.data import discover_datasets
+from core.data import dataset_key, discover_datasets
 
 
 def _dataset_key(ds: dict) -> str:
-    return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+    return dataset_key(ds["motor"], ds["rpm"])
 
 
 def _load_all(data_root: str) -> dict[str, dict[str, np.ndarray]]:

@@ -31,7 +31,7 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import RobustScaler
 
-from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.openset import (
     OpenSetMethod,
@@ -239,7 +239,7 @@ def _run_benchmark(
         metadata = _detector_metadata(detector, confidence, openset_method, knn_neighbors)
         rows.append(
             {
-                "dataset": f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}",
+                "dataset": dataset_key(dataset["motor"], dataset["rpm"]),
                 "motor": dataset["motor"],
                 "rpm": dataset["rpm"],
                 "seed": int(seed),

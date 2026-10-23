@@ -17,6 +17,7 @@ from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Sequence
 
+from core.data import dataset_key
 from core.logger import setup_run
 from core.runtime_environment import git_head
 
@@ -204,7 +205,7 @@ def load_matrix(source_root: Path | str, contract_path: Path | str) -> tuple[dic
             condition = (row["motor"], row["rpm"])
             _require(condition in conditions and condition not in seen_conditions, f"重複或錯誤工況：{run_id}")
             seen_conditions.add(condition)
-            _require(row["dataset"] == f"{row['motor']}/{row['rpm'][:-3]}", f"dataset 與 motor/rpm 不符：{run_id}")
+            _require(row["dataset"] == dataset_key(row["motor"], row["rpm"]), f"dataset 與 motor/rpm 不符：{run_id}")
             _require(type(row["seed"]) is int and row["seed"] == seed and row["method"] == method
                      and row["status"] == "completed" and row["rul_available"] is False, f"列身分不符：{run_id}")
             _require(row["mahalanobis_method"] == ("ledoit_wolf" if method == "mahalanobis" else None), "共變異數方法不符")
