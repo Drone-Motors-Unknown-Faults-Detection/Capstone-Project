@@ -81,7 +81,7 @@ seed 42 基準（`11-56-38`、`11-56-41`）：九工況的 `known_health_mean` L
 - 成立：seed 42 預設的 5screws `final_eval.matched_rate` 高於 51.16%（97.67%）；`--fixed-density` 下沒有同一 `matched` 被學成兩個以上新類（舊版 seed 42 的 5screws 學成三次）；`healthy_holdout_acc` 的範圍與舊版相同；`rejected_boundary` 為 0。
 - 不成立：預設三個 seed 的 `matched_is_config` 段數從 9／9／9 降到 7／7／7，`discovery` 裡從未被發現的配置從 0 個變成每個 seed 各 1 個。手冊把這兩項列為「修正不成立」的訊號。
 - 預期寫錯：手冊預期「預設 seed 42 的 `quarantine_duplicates` 應為 0」，實測 117（seed 123 為 362、seed 2026 為 408）。`CycleSampler` 一圈後重抽同一列，一個階段只有約 240 筆不重複列，舊版 9／9 有一部分是靠重複列把候選撐起來的（#280）。
-- 延遲：七個正常學到的段，`samples_to_candidate` 落在 52～115 筆，與舊版相當；被延後的那個配置要 612～623 筆才被發現，所以 `discovery` 的範圍拉到 52–623。
+- 延遲：七個正常學到的段，`samples_to_candidate` 落在 52～125 筆，與舊版相當；被延後的那個配置要 612～623 筆才被發現，所以 `discovery` 的範圍拉到 52–623。
 
 `--fixed-density`：三個 seed 對上本階段配置 4／1／5 段（舊版 3／2／2），形成新類 6／7／7 次（舊版 9／8／8），`final_eval.matched_rate` 達 80% 的只有 3／6／4 組，最慢 641 筆；仍是多數段學到前一段的殘餘。`--healthy-mix 0.3`：三個 seed 共送入 487＋458＋485＝1430 筆健康窗（延後的那一段跑滿 600 tick，所以比舊版的 745 多），0 筆進入隔離區，沒有形成事後多數為 8screws 的新類；學到當段配置的段與 `final_eval` 的 0 都和不混入時落在同一個配置。
 
