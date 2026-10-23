@@ -137,7 +137,7 @@ uv run --locked python -m experiments.health_index_matrix --data-root data --out
 
 API：`run_matrix(data_root, output_root, seeds=(42, 123, 2026), methods=("mahalanobis", "knn"), resume=True)`。`data_root` 與 `output_root` 都必須明確給。沒有 `run(pools)`，也沒有 Web 重跑入口。
 
-`resume` 查 JSON 的 status、seed、method、`formal_condition_count==9`，以及 `dataset_fingerprint` 是否等於本次 `--data-root` 的內容指紋（指紋也寫進 manifest 的 `dataset_fingerprint` 與每格，#269）；指紋不同就重算該格。它不核對 rows 長度、唯一工況、參數、CSV 或來源 SHA。`--no-resume` 覆寫同名 JSON／CSV。錯誤寫入 manifest 後繼續，最後 incomplete 退出碼 2。
+`resume` 查 JSON 的 status、seed、method、`formal_condition_count==9`、`schema_version` 是否等於 `health_index_benchmark.RESULT_SCHEMA_VERSION`（目前 2，三錨點映射；manifest 的 `result_schema_version` 記同一個值，#301），以及 `dataset_fingerprint` 是否等於本次 `--data-root` 的內容指紋（指紋也寫進 manifest 的 `dataset_fingerprint` 與每格，#269）；版本或指紋不同就重算該格。它不核對 rows 長度、唯一工況、參數、CSV 或來源 SHA。`--no-resume` 覆寫同名 JSON／CSV。錯誤寫入 manifest 後繼續，最後 incomplete 退出碼 2。
 
 輸出在該次根目錄：`matrix_manifest.json`、`seed_{seed}/{method}.json` 與同名 csv。每個 run 的完成、續跑或失敗原因寫進 `logs/exp8_health_index_matrix/{ts}.log`。此模組不自動產生 `aggregate_summary.json`。Web 8-2 讀封存，不讀這個新根。
 

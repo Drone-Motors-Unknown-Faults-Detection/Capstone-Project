@@ -51,6 +51,7 @@ class HealthBenchmarkTests(unittest.TestCase):
             result = run(root, seed=42, openset_method="mahalanobis", require_nine=False)
             self.assertEqual(result["status"], "completed")
             self.assertEqual(result["formal_condition_count"], 1)
+            self.assertEqual(result["schema_version"], 2)
             self.assertFalse(result["unknown_calibration_leakage"])
             row = result["rows"][0]
             self.assertIn("health_gap_known_minus_unknown", row)

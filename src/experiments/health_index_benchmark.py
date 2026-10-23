@@ -22,6 +22,9 @@ from experiments.health.severity import DEFAULT_SEVERITY_POLICY
 
 
 FORMAL_CONDITION_COUNT = 9
+# 健康映射或結果欄位一改就升版；矩陣續跑只沿用同版結果（#301 F-01）。
+# 2：三錨點映射（拒絕線映到 0.5、兩倍拒絕線映到 0）。
+RESULT_SCHEMA_VERSION = 2
 
 
 def _validate_datasets(datasets: list[dict], data_path: Path, require_nine: bool) -> None:
@@ -152,7 +155,7 @@ def run(
             }
         )
     return {
-        "schema_version": 1,
+        "schema_version": RESULT_SCHEMA_VERSION,
         "status": "completed",
         "experiment": "health_index_benchmark",
         "method": canonical_method,
