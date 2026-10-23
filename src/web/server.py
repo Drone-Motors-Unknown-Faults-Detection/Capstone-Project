@@ -52,7 +52,7 @@ from web.live import LiveDemo
 from web.playback import ANSWER_SCHEMA, PlaybackTracker
 
 STATIC_DIR = Path(__file__).parent / "static"
-ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 WebSocket Origin（scheme://host[:port]）
+ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 Origin（WebSocket 與實驗／AI 問答 HTTP 端點共用）
 
 
 class CommandError(ValueError):
@@ -637,7 +637,7 @@ def main() -> None:
     parser.add_argument("--llm-model", default="", help="模型名稱；留空取端點 /models 的第一個")
     parser.add_argument("--llm-api-key", default="EMPTY")
     parser.add_argument("--allow-origin", action="append", default=[],
-                        help="額外允許連 WebSocket 的 Origin（例：https://demo.example.com）；預設只允許同站")
+                        help="額外允許的 Origin，WebSocket 與實驗／AI 問答 HTTP 端點共用（例：https://demo.example.com）；預設只允許同站")
     args = parser.parse_args()
     ALLOWED_ORIGINS.update(o.rstrip("/").lower() for o in args.allow_origin)
     reject_legacy_method(args.method)
