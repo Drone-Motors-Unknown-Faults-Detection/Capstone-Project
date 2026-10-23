@@ -64,6 +64,14 @@ class HealthMonitorWindows(unittest.TestCase):
         with self.assertRaises(IndexError):
             self.call(baseline_run(), "5screws")
 
+    def test_alias_config_1screw_resolves_to_canonical_pool(self):
+        """池 key 是正規名；CLI/網頁打 1screw 不能 KeyError（#285 R2-03）。"""
+        alias = self.call(run, "1screw", max_windows=3)
+        canonical = self.call(run, "1screws", max_windows=3)
+        self.assertEqual(json.dumps(alias, sort_keys=True), json.dumps(canonical, sort_keys=True))
+        with self.assertRaises(KeyError):
+            self.call(run, "9screws", max_windows=3)
+
     def test_max_windows_truncates_fault_pool(self):
         self.assertEqual(len(self.call(run, "5screws", max_windows=7)), 7)
         self.assertEqual(len(self.call(run, "7screws", max_windows=500)), 120)

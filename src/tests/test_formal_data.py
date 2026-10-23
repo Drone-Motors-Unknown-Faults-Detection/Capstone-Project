@@ -19,6 +19,7 @@ from core.formal_data import (
     _clean_feature_frame,
     _convert_condition,
     _ensure_output_not_source,
+    _parse_condition,
 )
 
 
@@ -86,6 +87,31 @@ class FormalDataTests(unittest.TestCase):
         written = pd.read_csv(io.BytesIO(payload))
         self.assertEqual(len(written), record.rows_after_clean)
         self.assertTrue(np.isfinite(written.to_numpy()).all())
+
+    def test_condition_filter_matches_archive_alias_1screw(self) -> None:
+        """--condition 用正規名 1screws、archive 目錄叫 1screw 也要物化，不能靜默略過（#285 R2-01）。"""
+        rng = np.random.default_rng(1)
+        buffer = io.BytesIO()
+        with ZipFile(buffer, "w") as archive:
+            for name in ("Current", "Acceleration_X", "Acceleration_Y", "Acceleration_Z", "Delta_T"):
+                archive.writestr(f"1screw/T1_{name}_data.csv",
+                                 pd.DataFrame(rng.normal(0.0, 1.0, (400, 12))).to_csv(index=False))
+        for selected, expected in (({("T1", "8000rpm", "1screws")}, 1), ({("T1", "8000rpm", "2screws")}, 0)):
+            pending: list[tuple[Path, bytes]] = []
+            with self.subTest(selected=selected), tempfile.TemporaryDirectory() as directory, \
+                    ZipFile(buffer) as archive, np.errstate(divide="ignore", invalid="ignore"):
+                records = _convert_condition(
+                    archive, "synthetic", Path(directory), "T1", "8000rpm",
+                    force=False, selected_conditions=selected, pending_writes=pending,
+                )
+                self.assertEqual(len(records), expected)
+
+    def test_parse_condition_accepts_alias_and_returns_canonical(self) -> None:
+        self.assertEqual(_parse_condition("T2/8000rpm/1screw"), ("T2", "8000rpm", "1screws"))
+        self.assertEqual(_parse_condition("T2/8000rpm/8screws"), ("T2", "8000rpm", "8screws"))
+        import argparse
+        with self.assertRaises(argparse.ArgumentTypeError):
+            _parse_condition("T2/8000rpm/9screws")
 
 
 if __name__ == "__main__":

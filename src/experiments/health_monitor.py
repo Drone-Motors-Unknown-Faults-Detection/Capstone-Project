@@ -10,6 +10,7 @@ from typing import Sequence
 import numpy as np
 
 from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.feature_schema import CONFIG_ALIASES
 from core.logger import setup_run
 from experiments.health.index import CalibratedHealthIndex
 from experiments.health.schema import HEALTH_FIELDS
@@ -82,6 +83,7 @@ def iter_run(
     """
     dataset = _dataset(data_root, motor, rpm)
     pools = load_pools(dataset["path"])
+    config = CONFIG_ALIASES.get(config, config)  # 池 key 是正規名，使用者打 1screw 也要找得到（#285 R2-03）
     if config not in pools:
         raise KeyError(f"configuration {config!r} is not available in {dataset['path']}")
     rng = np.random.default_rng(seed)
