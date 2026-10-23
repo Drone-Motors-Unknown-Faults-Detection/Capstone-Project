@@ -320,12 +320,14 @@ def _run_benchmark(
 def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95,
         openset_method: str = "mahalanobis", mahalanobis_method: str = "ledoit_wolf",
         knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None,
-        evidence_dir: Path | str | None = None, pool_cache=None) -> dict:
+        evidence_dir: Path | str | None = None, pool_cache=None, reuse_environment: bool = False) -> dict:
     """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。
 
     本函式不碰 loguru、不呼叫 setup_run：日誌與輸出目錄由呼叫端決定（#269）。
     ``evidence_dir`` 給定時（CLI 的 output 目錄、exp6_matrix 的 runs/{run_id}/）寫入
-    provenance.json 與 environment.json（目錄裡已有 environment.json 就沿用）；
+    provenance.json 與 environment.json；只有呼叫端說明剛寫過（CLI 的 setup_run 先寫，
+    ``reuse_environment=True``）才沿用既有的 environment.json，否則重新收集並覆寫——
+    exp6_matrix 重跑同一個 run 目錄時不能把舊的 git／資料指紋蓋進新 summary（#285 R2-11）。
     沒給（Web）就只把 source 與 environment 放進回傳值，不在磁碟留任何目錄。
     ``evidence_paths``（setup_run 回傳的 RunPaths）是舊介面，只取其 output_dir。
     資料來源只在執行前後各 capture_source 一次，指紋沿用執行前那次。
@@ -358,7 +360,7 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         if source != after:
             raise ValueError("評估期間來源內容或manifest變動，拒絕完成")
         environment_path = evidence_dir / "environment.json" if evidence_dir is not None else None
-        if environment_path is not None and environment_path.is_file():
+        if reuse_environment and environment_path is not None and environment_path.is_file():
             result["environment"] = json.loads(environment_path.read_text(encoding="utf-8"))
         else:
             result["environment"] = collect_environment(data_root=data_root, data=source_data_info(source))
@@ -427,6 +429,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.mahalanobis_method,
         args.knn_neighbors,
         evidence_dir=paths.output_dir,
+        reuse_environment=True,   # setup_run 剛把 environment.json 寫進這個目錄
     )
     result["started_at_utc"] = started
     result["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
