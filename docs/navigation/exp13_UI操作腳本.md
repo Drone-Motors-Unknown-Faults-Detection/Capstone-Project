@@ -9,16 +9,16 @@
 | U0未選資料 | 三入口之一 | catalog motor/RPM | state | 三入口、資料選單 | 尚無模型 | CSV重播，不連硬體 | 選資料；空catalog阻止 |
 | U1待建基準 | 確認所選資料／建立健康基準 | healthy；顯示105維、各匿名配置筆數、CSV SHA、seed | inspect檢查；build→busy→state擬合 | 建基準中，其他操作停用 | 檔案載入／既有fit | 驗證105數值欄、過濾非有限列，各池至少10筆；不證明物理語意一致 | 失敗顯示error、重選或重試 |
 | U2可輸入 | 開始健康重播 | healthy holdout；train/cal不重播 | start／sample | 分數主圖、normalized threshold=1 | core.openset score與classify | 本工況展示；非跨motor可靠性 | 暫停／改匿名訊號來源 |
-| U3監測／累積 | 輸入匿名異常來源 | 未知配置全池，從未fit | source→tick | 未知/已知文字、隔離數、分群嘗試 | >1拒絕、>2隔離；核心HDBSCAN | unknown不等已確認原因；感測品質未驗證 | 無候選等待，沒有強制確認 |
-| U4待確認 | 模擬操作員確認 | 候選ID、size；答案尚不顯示 | confirm(candidate_id)→busy | 更新中 | 現有confirm揭示配置／判斷退回 | 後端已有truth快取；僅UI遮蔽 | stale/重複確認拒絕；已知群退回 |
-| U5已更新 | 繼續監測 | 原新配置成已知，從holdout重播 | existing confirm／state | known類別、新模型、前後接受率 | 完整標記配置池重擬合 | 接受為已知不等自身分類正確、不等健康恢復 | 失敗暫停，明確重建；不可自動重試fit |
+| U3監測／累積 | 輸入匿名異常來源 | 未知配置全池，從未fit | source→tick | 未知/已知文字、隔離數、分群嘗試 | >1拒絕、>2隔離；核心HDBSCAN | unknown不等已確認原因；感測品質未驗證 | 無候選等待，沒有操作員介入 |
+| U4成群自學 | 無（成群當拍自動） | 候選size、t_range；不顯示真值 | tick內adopt() | 同一拍完成 | 群中位分數>已知校準最大才學；只用該群樣本切60/20/20重擬合，類名discovered-N | 後端候選仍快取truth多數／純度供首頁事後對照；導覽不公開 | 邊界群rejected_boundary退回、量尺不變 |
+| U5已更新 | 繼續監測 | 新類為discovered-N；真值配置仍從全池抽 | state.adoption | known類別、新模型、前後接受率 | 只用候選群樣本重擬合，不讀完整配置池 | 接受為已知不等自身分類正確、不等健康恢復 | 失敗暫停，明確重建；不可自動重試fit |
 | T1基準存在 | 漸進A／突發B | SCENARIOS固定窗口抽樣 | scenario | EWMA主圖、警報種類／筆數 | alpha .08、帶.2–.5、≤12筆突發 | 合成順序，非實際磨損時間 | A260/B160筆完成自動暫停；切劇本先重設以作獨立展示 |
 | R任意狀態 | 研究模式 | 同一session | 無計算命令 | 參數、來源、split indices、模型threshold、原始事件摘要與實驗表 | 後端既有summary | 未提供raw距離/最近中心/confusion顯示未計算，不編造 | 返回展示保留t/epoch/模型 |
 | P監測中 | 暫停／繼續 | 不換順序 | pause/start | 暫停文字 | 不再呼叫tick | 取消代表暫停，不是完整run | 繼續沿同sampler |
 | E斷線／error | 重連 | 既有session | websocket open | 自動暫停、現存state | 最後一個client離線停止tick | 已送出重任務不中止，完成後保留狀態 | 重連不fit、不自動start |
 | X重看／換motor/RPM | 明確重建／重設 | 新基準重新fit | build/reset | epoch／session更新 | 防止舊model沿用新工況 | 舊log不覆蓋，新session目錄 | busy拒絕重複，手動建立 |
 
-候選名只使用群組ID；匿名異常來源可按catalog順序指定，但不把資料集答案當系統預測。操作者確認是模擬truth揭示，沒有自由文字標註或合併群操作。已知配置在確認後可顯示原代碼，不使用缺真值的嚴重度名稱。
+新類名只有 discovered-N；匿名異常來源可按catalog順序指定，但不把資料集答案當系統預測。沒有操作員確認、自由文字標註或合併群操作（#287）；導覽不顯示候選群的真值多數與純度，配置代碼在導覽裡始終匿名。
 
 每屏五項：步驟、資料、判斷、原因、限制。score是normalized分數；raw距離／最近中心目前LiveDemo事件未提供，研究模式明示缺項。現有未校準health百分比不傳到新頁；顯示分數和閾值，不寫損壞百分比。sample事件的score沿用既有三位小數，顯示1.000可能來自略高於1的真值；核心用未四捨五入的分數判定，不以畫面數字重新判斷。
 
@@ -32,7 +32,7 @@
 
 原首頁換馬達／轉速時，共用該次執行的輸出目錄；新 `LiveDemo` 跳過已有 CSV、模型或 metadata 的 epoch，以排他建立 CSV 保留舊檔。導覽頁重建則使用新的 session 子目錄。兩個入口都不以切換資料集為由覆寫已保存紀錄。
 
-暫停 state 內含同一 t 的 `metrics` 與 `persistence`，前端立即套用，不等下一個 15 筆批次。統計分為學會前／學會後的已處理筆數，各來源兩欄合計應等於 session 的 t；隔離數是其中符合隔離條件的樣本，事件數包含控制與警報，不等於樣本數。導覽頁忽略舊 session／epoch／t 與舊連線的統計，不能讓延遲事件把最終值倒退。
+暫停 state 內含同一 t 的 `metrics` 與 `persistence`，前端立即套用，不等下一個 15 筆批次。統計分為擴張前／擴張後（模型學到第一個新類之前／之後，所有來源同時轉段，不看來源答案）的已處理筆數，各來源兩欄合計應等於 session 的 t；隔離數是其中符合隔離條件的樣本，事件數包含控制與警報，不等於樣本數。導覽頁忽略舊 session／epoch／t 與舊連線的統計，不能讓延遲事件把最終值倒退。
 
 `persistence.written_t` 是已交給 CSV writer 的最後索引，`flushed_t` 是已完成 flush 的索引；未設定輸出目錄時 `enabled=false`，不能宣稱已保存。保存失敗會留下錯誤、停止串流並阻止直接恢復。重複暫停／關閉不追加樣本。此規則保證正常暫停／關閉後可重新開檔讀取，不包含強制終止、作業系統故障或掉電的零遺失保證；沒有執行 fsync。
 

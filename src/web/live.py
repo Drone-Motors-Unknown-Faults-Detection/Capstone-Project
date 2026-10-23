@@ -3,7 +3,7 @@
 把三個實驗模組串成可互動的即時串流——本模組只做編排、訊息組裝與 session 持久化，
 實驗邏輯全部住在 experiments / core：
     實驗一（冷啟動監測）  → ScaleGrowthSession 內的 OpenSetMonitor 階段 0
-    實驗二（量尺擴張）    → ScaleGrowthSession（隔離、分群、確認、擴張）
+    實驗二（量尺擴張）    → ScaleGrowthSession（隔離、分群、成群即 adopt() 自學擴張）
     實驗三（變化點判別）  → TrendMonitor + exp3 的 SCENARIOS 劇本定義
 
 session 持久化（out_dir 通常是 output/web_server/{ts}/，重置一次算一個 epoch）：
@@ -88,6 +88,9 @@ class LiveDemo:
             for c in self.pools
         }
         self.alarms: list[dict] = []
+        self.adoption: dict | None = None      # 最近一次 adopt() 的結果（含事後對照欄位）
+        # 已拿去擬合某個 discovered-N 的池列（config → 列號）：之後不再重抽，學後統計不灌水（#296 R3-02）
+        self.fitted_rows: dict[str, set[int]] = {}
         self.samplers: dict[str, CycleSampler] = {}
         self._refresh_samplers()
         self._open_sample_log()
@@ -168,13 +171,14 @@ class LiveDemo:
         self._closed = True
 
     def _refresh_samplers(self) -> None:
-        """已知配置只從 holdout 抽（未參與擬合），未知配置從整池抽。"""
+        """已知配置只從 holdout 抽（未參與擬合）；其餘配置從整池抽，但排除已拿去擬合 discovered-N 的列。"""
         mon = self.session.monitor
         for config, pool in self.pools.items():
             if config in mon.known:
                 idx = mon.splits[config].holdout
             else:
-                idx = np.arange(len(pool))
+                used = self.fitted_rows.get(config, set())
+                idx = np.array([i for i in range(len(pool)) if i not in used], dtype=int)
             self.samplers[config] = CycleSampler(pool, idx, self.stream_rng)
 
     # -- 控制 ------------------------------------------------------------------
@@ -201,15 +205,41 @@ class LiveDemo:
         self.flush()
         return [_event("info", f"▶ 啟動{scen['name']}（先回到健康基線）", self.t)]
 
-    def confirm(self) -> dict:
-        """操作員確認候選（重擬合在執行緒池中跑）。兩種結果：learned / rejected_known。"""
-        result = self.session.confirm()
+    def _adopt(self) -> list[dict]:
+        """候選一成形就走與實驗二批次相同的 adopt()：不等操作員、不讀真值；真值只進事後對照訊息。"""
+        result = self.session.adopt()
+        self.adoption = {"t": self.t, **result}
         if result["action"] == "learned":
+            for config, row in result["fitted_rows"]:
+                if row is not None:
+                    self.fitted_rows.setdefault(config, set()).add(row)
             self._refresh_samplers()
             self._snapshot_model(f"learned_{result['config']}")
             self.switch_t = self.t
+            msgs = [_event(
+                "success",
+                f"✔ 自動納入為「{result['display']}」（{result['size']} 筆，群中位分數 {result['median_score']:.1f}"
+                f" > 已知校準最大 {result['known_cal_max']:.2f}）→ 量尺擴張、重擬合完成；"
+                f"清理移出隔離區 {result['pruned']} 筆",
+                self.t,
+            )]
+        elif result["action"] == "rejected_boundary":
+            msgs = [_event(
+                "warn",
+                f"✋ 退回：群中位分數 {result['median_score']:.2f} 沒有超過已知校準最大 {result['known_cal_max']:.2f}，"
+                f"與已知類邊界無從區分 → 清出隔離區（{result['size']} 筆），量尺不變",
+                self.t,
+            )]
+        else:
+            msgs = [_event("warn", f"✋ 群只有 {result['size']} 筆，切不出 train／cal → 清出隔離區，量尺不變", self.t)]
         self.trend.rearm()
-        return result
+        msgs.append(_event(
+            "info",
+            f"事後對照（展示者可見，不進模型）：這一群的真實多數是「{result['matched_display']}」，"
+            f"純度 {result['purity']*100:.0f}%",
+            self.t,
+        ))
+        return msgs
 
     # -- 串流 ------------------------------------------------------------------
 
@@ -240,10 +270,12 @@ class LiveDemo:
         if self._closed or self._write_error is not None:
             raise RuntimeError("session 已關閉或寫入失敗，不接受新樣本")
         config, msgs = self._draw_config()
-        was_known = config in self.session.monitor.known
+        # 擴張前／後的統計只看模型狀態，不看真值：量尺還只有健康時是「擴張前」，學到第一個新類後
+        # 所有來源一律算「擴張後」（導覽才不會因某個來源獨自轉段而洩漏它就是新類的多數，#296 R3-01）
+        was_known = config in self.session.monitor.known or len(self.session.monitor.known) > 1
         prev_attempts = self.session.cluster_attempts
         x = self.samplers[config].draw()
-        r = self.session.process(x, config)
+        r = self.session.process(x, config, self.samplers[config].last_index)
         tr = self.trend.update(r["score"])
         self.t += 1
 
@@ -324,18 +356,17 @@ class LiveDemo:
             c = self.session.candidate
             out.append(_event(
                 "warn",
-                f"◎ HDBSCAN 在隔離區發現穩定叢集（{c['size']} 筆、純度 {c['purity']*100:.0f}%）"
-                f"→ 產生候選新故障，等待操作員確認",
+                f"◎ HDBSCAN 在隔離區發現穩定叢集（{c['size']} 筆，蒐集區間 #{c['t_range'][0]}～#{c['t_range'][1]}）"
+                f"→ 不等操作員，只用這一群樣本自學",
                 self.t,
             ))
+            out += self._adopt()
             out.append(self.state_msg())
         return out
 
     # -- 狀態 ------------------------------------------------------------------
 
     def phase(self) -> str:
-        if self.session.candidate is not None:
-            return "pending"
         if len(self.session.quarantine_X) > 0:
             return "accumulating"
         return "monitoring"
@@ -366,9 +397,7 @@ class LiveDemo:
             ],
             "quarantine": len(self.session.quarantine_X),
             "min_cluster_size": self.session.min_cluster_size,
-            "candidate": None if self.session.candidate is None else {
-                k: v for k, v in self.session.candidate.items() if k != "indices"
-            },
+            "adoption": self.adoption,
             "centroids": [
                 {"config": c, "display": display_name(c),
                  "x": round(xy[0], 3), "y": round(xy[1], 3)}
@@ -396,11 +425,11 @@ class LiveDemo:
                 "config": c,
                 "display": display_name(c),
                 "pre_streamed": m["pre_streamed"],
-                # 學會前：判未知 = 偵測成功
+                # 擴張前（量尺只有健康）：判未知的比例；健康從一開始就是已知，歸擴張後
                 "pre_rate": None if m["pre_streamed"] == 0
                 else round(m["pre_flagged"] / m["pre_streamed"] * 100, 1),
                 "post_streamed": m["post_streamed"],
-                # 學會後：判為已知 = 認出成功
+                # 擴張後（已學到至少一個新類）：被判為任一已知類的比例；不要求判對自身配置
                 "post_rate": None if m["post_streamed"] == 0
                 else round((1 - m["post_flagged"] / m["post_streamed"]) * 100, 1),
             })

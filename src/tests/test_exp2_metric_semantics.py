@@ -126,3 +126,14 @@ def test_method_and_unknown_spec_remain_searchable():
     assert "alpha = 0.08" in search_knowledge(sections, "EWMA 警報")
     assert "UNKNOWN" in search_knowledge(sections, "T1 馬達規格")
     assert "不是" in search_knowledge(sections, "confidence 分位數")
+
+
+def test_contract_reports_formed_and_matched_totals_separately():
+    # #286：discovered 只表示形成新類；對上本段配置的段數另算，兩者都由實驗層給
+    result = {**fixture(), "n_stages": 9, "n_learned": 9, "n_matched_config": 7}
+    contract = exp2_metric_contract(result)
+    assert contract["totals"] == {"n_stages": 9, "n_learned": 9, "n_matched_config": 7}
+    assert "對上本段配置 7／9 段" in contract["text"]
+    assert "形成新類 9／9 段" in contract["text"]
+    assert "不表示辨識出該段配置" in contract["text"]
+    assert "totals" not in exp2_metric_contract(fixture())   # 舊存檔沒有總數就不補推

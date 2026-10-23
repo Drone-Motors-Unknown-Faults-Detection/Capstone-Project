@@ -83,8 +83,8 @@ class PairedStreamTests(unittest.TestCase):
 
         original = ScaleGrowthSession.process
 
-        def process(session, sample, truth):
-            out = original(session, sample, truth)
+        def process(session, sample, truth, row_id=None):
+            out = original(session, sample, truth, row_id)
             rows = np.repeat(session.monitor.pools[truth][:1], 25, axis=0)
             session.quarantine_X = [row.copy() for row in rows]
             session.quarantine_truth = [truth] * 25

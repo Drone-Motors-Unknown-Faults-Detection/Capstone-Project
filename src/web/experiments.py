@@ -15,6 +15,7 @@ import csv
 import importlib
 import json
 import math
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
@@ -188,7 +189,7 @@ CATALOG: list[dict] = [
 
 _EXPLANATIONS = {
     "exp1": ("健康 train 建基準、cal 定線；健康 holdout 與故障全池只評估。", "只學健康，不是九故障分類器；列級切分不證明錄製獨立。"),
-    "exp2": ("初始只 fit 健康；未知全池循環重播。候選群出現後只用該群樣本自學。", "真實配置只做事後對照，不進類名，也不用完整配置池重擬合。首頁即時展示仍是另一個手動確認 session。"),
+    "exp2": ("初始只 fit 健康；未知全池循環重播。候選群出現後只用該群樣本自學。", "真實配置只做事後對照，不進類名，也不用完整配置池重擬合。首頁即時展示是另一個持續 session，成群後同樣自動 adopt()。"),
     "exp3": ("一份健康基準供所有 trial；健康從 holdout、故障從全池循環抽樣。", "劇本順序不是實際退化；延遲單位為筆，不能當秒或 RUL。"),
     "exp4": ("已確認配置 train 建射線；fault holdout 另校準方向，排序圖含錨點。", "固定 LW 幾何；方向、半徑沒有物理損傷標定，也非獨立方向測試。"),
     "exp5": ("source 健康建立基準；跨 target 用完整健康及 fault 池。", "策略 b 三種基準共用同一份外層健康 holdout，擬合不含它；T1/T2/T3 是不同個體，不是生命週期。"),
@@ -223,6 +224,21 @@ def jsonable(value: Any) -> Any:
     if isinstance(value, Path):
         return str(value)
     return value
+
+
+def _as_int(value: Any) -> int:
+    """整數參數：bool 與非整數浮點（2.5）拒絕，2.0 與 "2" 接受；不截斷（#296 R3-04）。"""
+    if isinstance(value, bool):
+        raise ValueError("bool 不是整數")
+    if isinstance(value, float):
+        if not value.is_integer():
+            raise ValueError("非整數")
+        return int(value)
+    if isinstance(value, str):
+        value = value.strip()
+        if not re.fullmatch(r"[+-]?\d+", value):
+            raise ValueError("非整數")
+    return int(value)
 
 
 class ExperimentRunner:
@@ -286,7 +302,7 @@ class ExperimentRunner:
                     raise ValueError(f"資料集 {dataset} 沒有配置 {value!r}")
             elif p["type"] == "int":
                 try:
-                    value = int(p["default"] if value in (None, "") else value)
+                    value = _as_int(p["default"] if value in (None, "") else value)
                 except (TypeError, ValueError, OverflowError) as exc:  # list／Infinity／NaN 一律是參數錯誤（#285 R2-10）
                     raise ValueError(f"{p['label']} 必須是整數") from exc
                 if not p["min"] <= value <= p["max"]:
