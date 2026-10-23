@@ -411,13 +411,16 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(server.HTTP_SERVER_OPTIONS["max_body_size"], server.MAX_BODY_BYTES)
         self.assertLessEqual(server.MAX_BODY_BYTES, 4 * 1024 * 1024)
         self.assertIn("**HTTP_SERVER_OPTIONS", inspect.getsource(server.main))
-        # 上限內：歷史上限的最壞情況（20 則 × 20000 個中文字）仍能送進 handler
+        # 上限內：歷史上限的最壞情況（20 則 × 20000 個中文字 + 最長提問）不論 UTF-8 或 ensure_ascii 跳脫都能送進 handler
         history = [{"role": "user", "content": "健" * server.MAX_HISTORY_CHARS}] * server.MAX_HISTORY_ITEMS
-        within = json.dumps(history, ensure_ascii=False).encode("utf-8")
-        self.assertLess(len(within), server.MAX_BODY_BYTES)
-        resp = self.fetch("/api/experiments/exp12/run", method="POST", body=within,
-                          headers={"Content-Type": "application/json"})
-        self.assertEqual((resp.code, json.loads(resp.body)["error"]), (400, "參數必須是 JSON 物件"))
+        worst = [{"question": "問" * server.MAX_QUESTION_CHARS, "history": history}]   # list：handler 回 400 但已讀完 body
+        for ensure_ascii in (False, True):
+            with self.subTest(ensure_ascii=ensure_ascii):
+                within = json.dumps(worst, ensure_ascii=ensure_ascii).encode("utf-8")
+                self.assertLess(len(within), server.MAX_BODY_BYTES)
+                resp = self.fetch("/api/experiments/exp12/run", method="POST", body=within,
+                                  headers={"Content-Type": "application/json"})
+                self.assertEqual((resp.code, json.loads(resp.body)["error"]), (400, "參數必須是 JSON 物件"))
         with patch.object(server.JOBS.runner, "clean_params", side_effect=AssertionError("不該進 handler")) as clean:
             resp = self.fetch("/api/experiments/exp12/run", method="POST", raise_error=False,
                               body=b"{" + b" " * (server.MAX_BODY_BYTES + 1) + b"}",

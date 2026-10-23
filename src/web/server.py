@@ -426,9 +426,9 @@ ASSISTANT: Assistant | None = None
 MAX_QUESTION_CHARS = 2000
 MAX_HISTORY_ITEMS = 20
 MAX_HISTORY_CHARS = 20000
-# 請求 body 上限：歷史上限 20 則 × 20000 字，中文 UTF-8 每字 3 bytes 約 1.2 MB，再留 JSON 外框餘裕；
-# Tornado 預設 100 MB，會在 IOLoop 上整段讀進來再 json.loads（#305 G-09）
-MAX_BODY_BYTES = 2 * 1024 * 1024
+# 請求 body 上限：歷史上限 20 則 × 20000 字，若用戶端以 ensure_ascii 送出，每個中文字是 \uXXXX 共 6 bytes，
+# 約 2.4 MB，加上提問與 JSON 外框，取 4 MiB；Tornado 預設 100 MB，會在 IOLoop 上整段讀進來再 json.loads（#305 G-09）
+MAX_BODY_BYTES = 4 * 1024 * 1024
 HTTP_SERVER_OPTIONS = {"max_body_size": MAX_BODY_BYTES}
 
 
