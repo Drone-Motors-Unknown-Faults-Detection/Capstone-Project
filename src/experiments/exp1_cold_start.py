@@ -47,8 +47,9 @@ def iter_run(
 ):
     """逐步產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
-    事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數）與 row
-    （該配置的統計列），最後一個是 result（與 run() 回傳值相同）。
+    事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數 scores 與同長度的
+    判未知旗標 unknown，Web 只呈現不重算）與 row（該配置的統計列），最後一個是 result
+    （與 run() 回傳值相同）。
     """
     monitor = OpenSetMonitor(
         pools,
@@ -63,7 +64,8 @@ def iter_run(
 
     healthy_scores = monitor.score(monitor.holdout(HEALTHY))
     yield {"event": "scores", "config": HEALTHY, "display": display_name(HEALTHY),
-           "kind": "healthy-holdout", "scores": healthy_scores.tolist()}
+           "kind": "healthy-holdout", "scores": healthy_scores.tolist(),
+           "unknown": (healthy_scores > 1).tolist()}
     rows = [
         {
             "config": HEALTHY,
@@ -82,7 +84,7 @@ def iter_run(
             continue
         scores = monitor.score(pool)
         yield {"event": "scores", "config": config, "display": display_name(config),
-               "kind": "unknown-fault", "scores": scores.tolist()}
+               "kind": "unknown-fault", "scores": scores.tolist(), "unknown": (scores > 1).tolist()}
         rows.append(
             {
                 "config": config,
@@ -98,22 +100,23 @@ def iter_run(
         yield {"event": "row", "row": rows[-1]}
 
     fault_rows = rows[1:]
+    model = monitor.summary()  # 方法、k、門檻來源一律取自 monitor（別名呼叫時與 model 區塊一致）
     # 只有健康池時沒有故障列：兩個平均記 None，不寫 NaN（#271）
     yield {"event": "result", "result": {
         "rows": rows,
         "healthy_fp_rate": rows[0]["detect_rate"],
         "macro_detect_rate": float(np.mean([r["detect_rate"] for r in fault_rows])) if fault_rows else None,
         "macro_auroc": float(np.mean([r["auroc"] for r in fault_rows])) if fault_rows else None,
-        "model": monitor.summary(),
+        "model": model,
         "confidence": confidence,
-        "openset_method": openset_method,
-        "method": method,
-        "score_type": monitor.summary()["score_type"],
+        "openset_method": model["openset_method"],
+        "method": model["method"],
+        "score_type": model["score_type"],
         "threshold": 1.0,
-        "threshold_strategy": monitor.summary()["threshold_strategy"],
-        "calibration_source": "known-only 20% calibration split",
-        "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
-        "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "threshold_strategy": model["threshold_strategy"],
+        "calibration_source": model["calibration_source"],
+        "split": model["split"],
+        "knn_neighbors": model["knn_neighbors"],
         "seed": seed,
     }}
 

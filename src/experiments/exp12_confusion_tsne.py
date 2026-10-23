@@ -127,13 +127,16 @@ def _collect_labels(monitor: OpenSetMonitor, unknown_configs: list[str],
 
 
 def _openset_confusion(all_pools: dict[str, dict[str, np.ndarray]], seed: int,
-                        confidence: float, method: str) -> dict:
+                        confidence: float, method: str,
+                        monitors: dict[str, OpenSetMonitor] | None = None) -> dict:
+    """monitors：已建好的祖先 monitor（鍵同 all_pools）；沒給就逐工況建。"""
     from sklearn.metrics import confusion_matrix
 
     y_true, y_pred = [], []
-    for pools in all_pools.values():
+    for key, pools in all_pools.items():
         unknown = [c for c in _ANCESTOR_UNKNOWN_CANDIDATES if c in pools]
-        monitor = build_ancestor_monitor(pools, seed=seed, confidence=confidence, method=method)
+        monitor = (monitors or {}).get(key) or build_ancestor_monitor(
+            pools, seed=seed, confidence=confidence, method=method)
         dy_true, dy_pred = _collect_labels(monitor, unknown, pools)
         y_true += dy_true
         y_pred += dy_pred
@@ -148,10 +151,12 @@ def _openset_confusion(all_pools: dict[str, dict[str, np.ndarray]], seed: int,
 
 
 def _tsne_one_dataset(pools: dict[str, np.ndarray], seed: int, confidence: float,
-                       perplexity: float, max_per_class: int) -> dict:
+                       perplexity: float, max_per_class: int,
+                       monitor: OpenSetMonitor | None = None) -> dict:
     from sklearn.manifold import TSNE
 
-    monitor = build_ancestor_monitor(pools, seed=seed, confidence=confidence, method="ledoit_wolf")
+    if monitor is None:
+        monitor = build_ancestor_monitor(pools, seed=seed, confidence=confidence, method="ledoit_wolf")
     rng = np.random.default_rng(seed)
 
     X_parts, config_labels, verdicts = [], [], []
@@ -241,11 +246,14 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95,
     all_pools = {_dataset_key(ds): load_pools(ds["path"]) for ds in discover_datasets(data_root)}
 
     binary = _binary_confusion(all_pools, seed, confidence)
-    openset_lw = _openset_confusion(all_pools, seed, confidence, "ledoit_wolf")
+    # LW 祖先 monitor 每個工況只擬合一次，(b) 的 LW 矩陣與 (c) 的 t-SNE 共用
+    lw_monitors = {key: build_ancestor_monitor(pools, seed=seed, confidence=confidence, method="ledoit_wolf")
+                   for key, pools in all_pools.items()}
+    openset_lw = _openset_confusion(all_pools, seed, confidence, "ledoit_wolf", monitors=lw_monitors)
     openset_legacy = _openset_confusion(all_pools, seed, confidence, "legacy")
 
     tsne_by_dataset = {
-        key: _tsne_one_dataset(pools, seed, confidence, perplexity, tsne_max_per_class)
+        key: _tsne_one_dataset(pools, seed, confidence, perplexity, tsne_max_per_class, monitor=lw_monitors[key])
         for key, pools in all_pools.items()
     }
 

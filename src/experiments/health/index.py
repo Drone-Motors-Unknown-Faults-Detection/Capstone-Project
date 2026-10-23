@@ -222,7 +222,10 @@ class CalibratedHealthIndex:
             if self.openset_method == "mahalanobis"
             else None,
             "knn_neighbors": self.knn_neighbors if self.openset_method == "knn" else None,
-            "health_mapping": "known calibration lower quantile to confidence quantile",
+            "health_mapping": (
+                "known calibration lower quantile -> 1.0; confidence quantile "
+                "(Open Set rejection line) -> warning_health; critical_multiple x line -> 0.0"
+            ),
             "score_direction": "higher_is_worse",
             "unknown_threshold": 1.0,
             "rul_available": False,

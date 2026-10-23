@@ -1,4 +1,4 @@
-"""實驗二：密度階梯開關（adaptive_density）只改 HDBSCAN 參數，其他流程不變。"""
+"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證、待確認不加列）。"""
 import unittest
 from unittest.mock import patch
 
@@ -8,10 +8,11 @@ from experiments import exp2_scale_growth as exp2
 
 
 def _pools() -> dict[str, np.ndarray]:
+    """7screws 300 列：隔離區不收重複列後，重播只剩 240 筆不同的列，要夠多才聚得出候選。"""
     rng = np.random.default_rng(5)
     return {
         "8screws": rng.normal(0.0, 0.3, (120, 6)),
-        "7screws": rng.normal(6.0, 0.3, (80, 6)),
+        "7screws": rng.normal(6.0, 0.3, (300, 6)),
     }
 
 
@@ -125,10 +126,10 @@ class InsufficientTests(unittest.TestCase):
 class EvalSplitTests(unittest.TestCase):
     def test_stream_and_eval_are_disjoint_and_cover_pool(self):
         parts = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]
-        self.assertEqual(len(parts["eval"]), 16)
-        self.assertEqual(len(parts["stream"]), 64)
+        self.assertEqual(len(parts["eval"]), 60)
+        self.assertEqual(len(parts["stream"]), 240)
         self.assertEqual(set(parts["eval"]) & set(parts["stream"]), set())
-        self.assertEqual(set(parts["eval"]) | set(parts["stream"]), set(range(80)))
+        self.assertEqual(set(parts["eval"]) | set(parts["stream"]), set(range(300)))
 
     def test_split_is_deterministic(self):
         a = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]["eval"]
@@ -140,11 +141,11 @@ class EvalSplitTests(unittest.TestCase):
         stage = result["stages"][0]
         self.assertTrue(stage["discovered"])
         self.assertTrue(stage["matched_is_config"])
-        self.assertEqual(stage["eval_n"], 16)
+        self.assertEqual(stage["eval_n"], 60)
         self.assertGreater(stage["own_holdout_n"], 0)
         self.assertTrue(result["discovery"]["7screws"]["discovered"])
         self.assertEqual(result["discovery"]["7screws"]["delay"], stage["samples_to_candidate"])
-        self.assertEqual(result["final_eval"]["7screws"]["n"], 16)
+        self.assertEqual(result["final_eval"]["7screws"]["n"], 60)
         self.assertAlmostEqual(result["final_eval"]["7screws"]["known_rate"], stage["eval_known_rate"])
         self.assertEqual(result["rejections"], [])
 
@@ -202,3 +203,91 @@ class MatchedRateAndHealthyMixTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class QuarantineRuleTests(unittest.TestCase):
+    """#268：隔離區清理與進入規則一致、重複列不入隔離區、待確認期間不加列。"""
+
+    def test_prune_drops_rows_at_or_below_quarantine_margin(self):
+        rows = np.random.default_rng(21).normal(6.0, 0.3, (40, 6))
+        session = _session_with_quarantine(rows, "7screws", cluster=30)
+        out = session.adopt()
+        self.assertEqual(out["action"], "learned")
+        if session.quarantine_X:
+            scores, labels = session.monitor.score_and_classify(np.vstack(session.quarantine_X))
+            self.assertTrue(all(label is None for label in labels))
+            self.assertTrue(np.all(scores > session.quarantine_margin))
+
+    def test_prune_uses_margin_not_detection_line(self):
+        session = exp2.ScaleGrowthSession(_pools(), seed=42)
+        rows = np.random.default_rng(22).normal(6.0, 0.3, (12, 6))
+        session.quarantine_X, session.quarantine_truth, session.quarantine_t = list(rows), ["7screws"] * 12, list(range(12))
+        scores = np.array([0.5, 1.5, 2.0, 2.5, 3.0, 0.9, 1.1, 1.9, 2.01, 4.0, 1.0, 2.2])
+        labels = [None] * 12
+        labels[0] = "8screws"
+        with patch.object(session.monitor, "score_and_classify", return_value=(scores, labels)):
+            pruned = session._prune_explained()
+        self.assertEqual(pruned, 7)
+        self.assertEqual(session.quarantine_t, [3, 4, 8, 9, 11])
+
+    def test_exact_duplicate_rows_are_not_stored_twice(self):
+        session = exp2.ScaleGrowthSession(_pools(), seed=42)
+        row = np.full(6, 6.0)
+        first = session.process(row, "7screws")
+        second = session.process(row.copy(), "7screws")
+        self.assertEqual(first["quarantine"], 1)
+        self.assertEqual(second["quarantine"], 1)
+        self.assertEqual(session.quarantine_duplicates, 1)
+        self.assertEqual(session.quarantine_truth, ["7screws"])
+        session.process(row + 0.01, "7screws")
+        self.assertEqual(len(session.quarantine_X), 2)
+
+    def test_pending_candidate_blocks_new_quarantine_rows(self):
+        session = exp2.ScaleGrowthSession(_pools(), seed=42)
+        session.candidate = {"indices": [], "size": 0, "majority": "7screws", "majority_display": "7screws",
+                             "purity": 1.0}
+        out = session.process(np.full(6, 6.0), "7screws")
+        self.assertIsNone(out["label"])
+        self.assertEqual(out["quarantine"], 0)
+        self.assertEqual(session.quarantine_X, [])
+
+    def test_run_reports_duplicate_count_and_learned_class_has_no_duplicate_rows(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        self.assertEqual(result["quarantine_duplicates"], 0)  # 240 筆不同的列在 225 tick 內成群，還沒循環到重抽
+        rng = np.random.default_rng(5)
+        small = {"8screws": rng.normal(0.0, 0.3, (120, 6)), "7screws": rng.normal(6.0, 0.3, (40, 6))}
+        session = exp2.ScaleGrowthSession(small, seed=42)
+        for _ in range(3):
+            for row in small["7screws"]:
+                session.process(row, "7screws")
+        self.assertEqual(len(session.quarantine_X), 40)
+        self.assertEqual(session.quarantine_duplicates, 80)
+        self.assertEqual(len(np.unique(np.vstack(session.quarantine_X), axis=0)), 40)
+
+
+class MajorityAndValidationTests(unittest.TestCase):
+    def test_majority_tie_breaks_by_name(self):
+        self.assertEqual(exp2._majority(["b", "a", "b", "a"]), "a")
+        self.assertEqual(exp2._majority(["b", "a", "b"]), "b")
+        ev = exp2._eval_breakdown(["discovered-2", "discovered-1"], "7screws", {})
+        self.assertEqual(ev["top_class"], "discovered-1")
+
+    def test_min_cluster_size_below_five_is_rejected(self):
+        with self.assertRaises(ValueError):
+            exp2.ScaleGrowthSession(_pools(), seed=42, min_cluster_size=4)
+        exp2.ScaleGrowthSession(_pools(), seed=42, min_cluster_size=5)
+
+
+class ResultProvenanceTests(unittest.TestCase):
+    """#273：結果欄位取自 monitor.summary()，別名呼叫與 model 區塊一致。"""
+
+    def test_alias_openset_method_is_canonical_in_result(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=5, openset_method="k-nn", knn_neighbors=3)
+        self.assertEqual(result["openset_method"], "knn")
+        self.assertEqual(result["knn_neighbors"], 3)
+        self.assertEqual(result["model"]["openset_method"], "knn")
+        default = exp2.run(_pools(), seed=42, max_ticks_per_stage=5)
+        self.assertEqual(default["openset_method"], "mahalanobis")
+        self.assertIsNone(default["knn_neighbors"])
+        self.assertEqual(default["calibration_source"], "known-only 20% calibration split")
+        self.assertEqual(default["split"], {"train": 0.6, "calibration": 0.2, "holdout": 0.2})

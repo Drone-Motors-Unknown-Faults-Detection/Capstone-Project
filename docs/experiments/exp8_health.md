@@ -34,7 +34,8 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 口頭主軸：「先量偏離，再用健康 calibration 的兩個位置把分數換成 0～1 的量尺；矩陣保存 seed 與方法的變動，逐窗監測看同一個操作 session 內的狀態，封存重算只確認舊平均算得回來。指數是相對健康群的偏離，不是損傷百分比或剩餘壽命。」
 
 - h=0.2 是否只剩 20% 壽命？不是，沒有壽命真值或物理校準。
-- 未知全部貼 0 代表什麼？量尺已經飽和，能說分得開，不能拿來排序故障輕重。
+- 未知全部貼 0 代表什麼？分數已超過拒絕線兩倍、量尺飽和，能說分得開，不能拿來排序故障輕重。
+- 健康 holdout 的指數為什麼多在 0.5 以上？拒絕線固定映到 0.5，cal 有 95% 在線內，holdout 與 cal 同分布。
 - 兩層校準是否獨立？不是，detector 與指數映射共用同一份 calibration，要揭露這個依賴。
 - 實驗六是 54 run、這裡 6 run，為什麼？這裡一個 run 已含九工況，排程粒度不同。
 - 逐窗指數一直 0、趨勢 stable，是否健康？不是，可能是故障分數都超出 critical 錨點而飽和。
@@ -52,13 +53,23 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 `CalibratedHealthIndex.fit()` 在 `src/experiments/health/index.py` 只用 known train 擬合 RobustScaler 與 `core.openset` factory。known calibration 設偵測門檻和健康量尺，cal 標籤不得超出 train 已知類別。預設 Mahalanobis–Ledoit–Wolf，k-NN 可切換。
 
-`HealthIndexCalibrator` 把 cal 分數第 10 百分位映到 1.0、第 95 百分位映到 0.0，中間線性、兩端截斷。錨點相等時程式加極小間距。`score > 1` 仍是未知判定。公式 `h=clip(1−(s−a)/(b−a),0,1)`：s 是偏離分數，a／b 是上述兩個錨點。`degradation_score = 1 - health_index`。偵測器與映射共用同一份 cal。
+`HealthIndexCalibrator` 用三個錨點把偏離分數 s 映成 0～1：cal 分數第 10 百分位 a 映到 1.0；第 95 百分位 b 映到 0.5，b 就是 `core.openset` 的拒絕線（正規化分數 1.0，`score > 1` 為未知）；c = 2b 映到 0.0，與實驗二的隔離線（分數 > 2.0）同一個位置。a～b 與 b～c 各自線性，兩端截斷：
+
+```
+s ≤ b：h = 1 − 0.5·(s − a)/(b − a)
+s > b：h = 0.5 − 0.5·(s − b)/(c − b)
+h = clip(h, 0, 1)
+```
+
+因此 `health_index >= 0.5` 與「沒超過拒絕線」是同一件事，`health_index = 0` 表示分數已到拒絕線的兩倍以上。錨點相等時程式加極小間距。`degradation_score = 1 - health_index`。偵測器與映射共用同一份 cal。
+
+2026-10-23 之前（commit `46ed4d5` 及更早）b 映到 0.0，整段 0～1 只鋪在健康 cal 的 q10～q95 之間，健康 holdout 的指數中位數落在 0.5 附近，嚴重度 `healthy >= 0.8` 與告警 `warning_enter = 0.5` 把一半的健康窗判成 early_warning／warning（[#267](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/267)）。現行設計把拒絕線固定在 0.5，讓嚴重度、告警與開集判定共用同一條線。
 
 | 模組 | 用途／輸出 |
 |---|---|
 | index.py | 特徵轉為 score、known prediction 與 HealthMonitoringResult |
 | calibration.py | known calibration 到相對 health 的單調映射 |
-| severity.py | health 的 0.8／0.5／0.2 界線，沒有物理損傷真值 |
+| severity.py | health 的 0.5／0.35／0.2 界線；0.5 是拒絕線，沒有物理損傷真值 |
 | diagnosis.py | 拒絕為 unknown，已知但沒有 taxonomy 時為 uncertain |
 | schema.py | binary／health／full 欄位與合法值 |
 | trajectory.py | 按 motor_id 與 session_id 分開保存平滑、斜率、告警與變化點 |
@@ -66,7 +77,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 `prediction_confidence=abs(score-1)/(1+abs(score-1))` 是判定線距離代理。`estimated_rul=None`、`rul_available=False`。health=0 不表示壽命用盡。
 
-嚴重度政策 `severity_basis=relative_calibrated`：health `>=0.8` 為 healthy、`>=0.5` 為 early_warning、`>=0.2` 為 degraded，其餘 critical。開集拒絕輸出 `fault_type=unknown`；已知但沒有版本化 fault taxonomy 時輸出 `fault_type=uncertain`。
+嚴重度政策 `severity_basis=relative_calibrated`：health `>=0.5` 為 healthy（分數未超過拒絕線）、`>=0.35` 為 early_warning（拒絕線的 1～1.3 倍）、`>=0.2` 為 degraded（1.3～1.6 倍），其餘 critical（1.6 倍以上）。0.2 與告警的 `critical_enter` 同值，0.35 取 0.5 與 0.2 的中點。開集拒絕輸出 `fault_type=unknown`；已知但沒有版本化 fault taxonomy 時輸出 `fault_type=uncertain`。
 
 ## 基準
 
@@ -74,7 +85,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 
 排序 motor／rpm 後，一個 `default_rng(seed=42)` 連續把各健康池洗牌 60/20/20。train 只 fit RobustScaler 與 LW 中心／共變異數，或 k=5 的 k-NN 參考。cal 定 confidence 0.95 距離線，並把同一 cal 的正規化分數交給校準器。unknown 不 fit、不選參、不校準。legacy 因用 train 定線，基準入口拒絕。CLI 預設要求九工況；`--allow-partial` 只放寬數量。
 
-`rows` 逐工況記筆數、方法、seed、原 score 與健康分布。組內平均的 std 用 ddof=0。`health_gap_known_minus_unknown` 是兩組健康平均差。`open_set_accuracy`、AUROC、AUPR、unknown recall／F1 用原 score。benchmark 只報 health `>=0.8` 與 `<0.2` 的比例。未知全貼 0 只說明映射超過 critical 錨點，排不出故障輕重。
+`rows` 逐工況記筆數、方法、seed、原 score 與健康分布。組內平均的 std 用 ddof=0。`health_gap_known_minus_unknown` 是兩組健康平均差。`open_set_accuracy`、AUROC、AUPR、unknown recall／F1 用原 score。benchmark 只報 health `>=0.5`（`known_healthy_fraction`）與 `<0.2`（`unknown_critical_fraction`）的比例，另記三個錨點 `calibration_healthy_anchor`／`calibration_warning_anchor`／`calibration_critical_anchor`。未知全貼 0 只說明分數超過拒絕線兩倍，排不出故障輕重。
 
 CLI 經 `core.logger.setup_run("exp8_health_index_benchmark")` 初始化。日誌寫 `logs/exp8_health_index_benchmark/{ts}.log`，完整結果寫 `output/exp8_health_index_benchmark/{ts}/` 的 `result.json` 與 `rows.csv`，另有 `environment.json`。stdout 只印 status、列數、方法、seed 與 output_dir。結果是逐工況彙總，不含逐窗預測。Web 8-1 允許部分工況，完成後由 `ExperimentRunner` 寫到 `output/web_server/{ts}/experiments/`。歷史九工況結果見 `reports/exp8_health_index_results/`。
 
@@ -86,6 +97,15 @@ CLI 經 `core.logger.setup_run("exp8_health_index_benchmark")` 初始化。日�
 | k-NN | 0.600457 ± 0.072595 | 0.998867 ± 0.000932 | 1.000000 | 1.000000 |
 
 k-NN 的 health gap 高 0.017120，accuracy 高 0.000007。未知列的健康指數全為 0，所以 health gap 等於已知健康指數平均。event-level recall、每小時誤報、偵測延遲沒有時間軸，回報 unavailable。
+
+上表與封存包都是 q95 映到 0.0 的舊映射算出的；錨點改為 q95 映到 0.5 後（[#267](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/267)），`known_health_mean`、`known_healthy_fraction`、`health_gap_known_minus_unknown` 都會變，`open_set_accuracy`、AUROC、unknown recall 只看原分數，不受錨點影響。新映射的矩陣由 Aero 重跑後再補到這裡。
+
+### 錨點與告警政策修訂的預期（2026-10-23，先寫再量）
+
+- 8-3 以 T1／8000rpm、seed 42、`8screws` 健康 holdout（64 窗）重播：`alarm_state = normal` 的窗數佔 85% 以上；預期接近 100%，因為 cal 有 95% 在拒絕線內，smoothed 指數落在 0.5 以上，warning 需連續 3 筆 `<0.5`。
+- 同工況的故障配置（例 `1screws`、`5screws`、`7screws`）重播：第 3 窗起 `alarm_state` 為 warning 或 critical 的窗數佔 85% 以上；分數在拒絕線兩倍以上的配置應直接進 critical。
+- 8-1 的 `known_health_mean` 落在 0.7～0.9（cal 中位數大約映到 0.8），`unknown_health_mean` 仍接近 0，`unknown_critical_fraction` 接近 1；`known_healthy_fraction` 落在 0.9～1.0，因為它現在等於 holdout 分數不超過拒絕線的比例。
+- 若健康 holdout 的 normal 比例低於 85%，或 `1screws` 這類遠離健康群的配置不進 critical，視為此設計不成立，退回檢查錨點。
 
 `reports/exp8_health_index_results/` 是 `data/formal_local`（指紋 `81c9192476ecd1e23a17b3ed5a343dcd50cdc2e5b7e0cc5466e9162941898228`、無主機紀錄）的歷史結果：Mahalanobis 0.583144 ± 0.073301、k-NN 0.601657 ± 0.071637；重算時 health gap 差有 0.018513 對 0.018512 的差異，見下方封存重算。`formal_local` 不在 Aero／Spark 上，兩份資料的列數差異見 [#242](https://github.com/Drone-Motors-Unknown-Faults-Detection/Capstone-Project/issues/242)。
 
@@ -117,7 +137,7 @@ API：`run_matrix(data_root, output_root, seeds=(42, 123, 2026), methods=("mahal
 
 ## 逐窗監測
 
-選一個 motor／RPM 與 config。不論 config 是什麼，永遠只用健康 train 擬合、健康 cal 定 0.95 距離線與 10%／95% 錨點。健康重播用該配置 holdout 的洗牌順序；故障重播用該配置全池原列順序的前段，`max_windows` 只截斷。T1／8000rpm 健康重播最多 64 列，5screws 故障池 212 列。這些順序不是已確認的採集時間。
+選一個 motor／RPM 與 config。不論 config 是什麼，永遠只用健康 train 擬合、健康 cal 定 0.95 距離線與 q10／q95／2×q95 三個錨點；`confidence` 由 `run`／`iter_run` 的關鍵字參數或 CLI `--confidence` 傳入，預設 0.95。健康重播用該配置 holdout 的洗牌順序；故障重播用該配置全池原列順序的前段，`max_windows` 只截斷。T1／8000rpm 健康重播最多 64 列，5screws 故障池 212 列。這些順序不是已確認的採集時間。
 
 legacy 可由此 CLI 傳入，會回到 train 定線與 label=-1，不作公平比較。每次 `run` 重新 fit，沒有持久模型。
 
@@ -125,7 +145,7 @@ legacy 可由此 CLI 傳入，會回到 train 定線與 label=-1，不作公平�
 
 先取最近兩筆 raw health 加當前值的 median，再 EWMA `alpha=0.2`，最多留 120 筆。滿 5 筆對平滑歷史做線性擬合，`degradation_rate` 為負斜率，單位是健康指數／筆。大於 0.005 為 worsening，小於 −0.005 為 recovering，其餘 stable。前四筆 `insufficient_history`。
 
-normal 下 smoothed `<0.5` 為 warning 候選、`<0.2` 為 critical 候選，連續 3 筆才進入該級。warning 以 `>=0.6` 連續 3 筆解除，critical 以 `>=0.3` 連續 3 筆解除。warning 狀態目前沒有再升 critical 的轉移。前值 smoothed 減當前 median `>=0.15` 連續兩筆記 confirmed 變點，一筆記 candidate。
+normal 下 smoothed `<0.5` 為 warning 候選、`<0.2` 為 critical 候選，連續 3 筆才進入該級。warning 下 smoothed `<0.2` 連續 3 筆升為 critical，`>=0.6` 連續 3 筆解除；critical 以 `>=0.3` 連續 3 筆解除，解除時 smoothed `>=0.6` 回 normal、否則回 warning。升級與解除的連續計數互斥，任一筆不符就歸零。前值 smoothed 減當前 median `>=0.15` 連續兩筆記 confirmed 變點，一筆記 candidate。
 
 ## 兩套趨勢
 
@@ -134,7 +154,7 @@ normal 下 smoothed `<0.5` 為 warning 候選、`<0.2` 為 critical 候選，連
 | 呼叫端 | exp3、`web/live` | `health_monitor` |
 | 輸入 | 開集超線旗標 | 相對 health |
 | 平滑 | EWMA alpha 0.08 | 3 筆中位數後 EWMA alpha 0.2 |
-| 判定 | 中間帶 [0.2, 0.5)、警報 0.5，停留 ≤12 筆為突發 | warning 進入 0.5／解除 0.6、critical 進入 0.2／解除 0.3，進出連續 3 筆 |
+| 判定 | 中間帶 [0.2, 0.5)、警報 0.5，停留 ≤12 筆為突發 | warning 進入 0.5／解除 0.6、critical 進入 0.2／解除 0.3，warning 可再升 critical，進出連續 3 筆 |
 | 身分 | 不按 motor 分 session | 按 motor_id、session_id 分組，缺身分回不足狀態 |
 
 `TrajectoryConfig` 另有 `history_window=120`、`min_history=5`、`stable_slope=0.005`、`change_point_delta=0.15`／連續 2 筆。
@@ -181,7 +201,7 @@ uv run --locked python -m experiments.health_index_aggregate --source-root repor
 - T. Cover、P. Hart（1967），*Nearest Neighbor Pattern Classification*，IEEE Transactions on Information Theory 13(1), 21–27；DOI [10.1109/TIT.1967.1053964](https://doi.org/10.1109/TIT.1967.1053964)。
 - S. W. Roberts（1959），*Control Chart Tests Based on Geometric Moving Averages*，Technometrics 1(3), 239–250；DOI [10.1080/00401706.1959.10489860](https://doi.org/10.1080/00401706.1959.10489860)。實驗三的 EWMA alpha 0.08 是另一套，見 [實驗三](exp3_trend.md)。
 
-10%／95% 錨點、嚴重度界線、六 run 命名與 resume 是本專案的操作約定。程式與測試：
+q10／q95／2×q95 三個錨點、拒絕線映到 0.5、嚴重度界線、六 run 命名與 resume 是本專案的操作約定。程式與測試：
 
 | 角色 | 路徑 |
 |---|---|

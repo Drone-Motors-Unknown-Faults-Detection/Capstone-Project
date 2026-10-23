@@ -64,10 +64,14 @@ class DockerContractTests(unittest.TestCase):
         self.assertEqual(rules[0], "*")
         self.assertNotIn("!data/", rules)
         self.assertIn("src/tests/", rules)
-        # AI 問答讀實驗手冊：映像要帶 docs/experiments，Dockerfile 也要 COPY
-        self.assertIn("!docs/experiments/", rules)
-        self.assertIn("COPY docs/experiments ./docs/experiments",
-                      (DOCKER / "Dockerfile").read_text(encoding="utf-8"))
+        # AI 問答讀實驗手冊、導覽頁讀 docs/navigation、8-2 封存卡讀 reports/exp8_health_index_results：
+        # 映像要帶這三個目錄，Dockerfile 也要 COPY
+        dockerfile = (DOCKER / "Dockerfile").read_text(encoding="utf-8")
+        for folder in ("docs/experiments", "docs/navigation", "reports/exp8_health_index_results"):
+            with self.subTest(folder=folder):
+                self.assertIn(f"!{folder}/", rules)
+                self.assertIn(f"COPY {folder} ./{folder}", dockerfile)
+                self.assertTrue((ROOT / folder).is_dir())
 
     def test_web_mounts_data_read_only(self):
         volumes = self.web["volumes"]

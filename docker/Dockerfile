@@ -27,6 +27,9 @@ WORKDIR /app
 COPY src ./src
 # AI 問答的 get_experiment／lookup_knowledge 讀實驗手冊（web/assistant.py EXPERIMENTS_DIR）
 COPY docs/experiments ./docs/experiments
+# 逐步導覽的 /guide/docs/*（web/guide.py routes）與實驗頁 8-2 封存卡（web/experiments.py _load_exp8_results）
+COPY docs/navigation ./docs/navigation
+COPY reports/exp8_health_index_results ./reports/exp8_health_index_results
 # setup_run() 寫相對路徑 logs/、output/；compose 會把 repo 的同名目錄掛進來
 RUN mkdir -p logs output data && chmod 0777 logs output
 ENV PATH=/opt/venv/bin:$PATH \

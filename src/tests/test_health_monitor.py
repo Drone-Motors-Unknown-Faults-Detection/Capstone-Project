@@ -68,12 +68,26 @@ class HealthMonitorWindows(unittest.TestCase):
         self.assertEqual(len(self.call(run, "5screws", max_windows=7)), 7)
         self.assertEqual(len(self.call(run, "7screws", max_windows=500)), 120)
 
-    def test_healthy_output_unchanged(self):
+    def test_healthy_sampling_unchanged(self):
+        """健康 holdout 的取樣與開集分數和基準 commit 相同；健康指數映射在 #267 改過，不比對。"""
+        keys = ("window_index", "openset_score", "is_fault", "fault_type", "openset_method", "condition")
         for kwargs in ({}, {"max_windows": 9}):
             old = self.call(baseline_run(), "8screws", **kwargs)
             new = self.call(run, "8screws", **kwargs)
-            self.assertEqual(json.dumps(old, sort_keys=True), json.dumps(new, sort_keys=True))
+            self.assertEqual([{k: r[k] for k in keys} for r in old], [{k: r[k] for k in keys} for r in new])
             self.assertEqual(len(new), kwargs.get("max_windows", 60))
+
+    def test_confidence_is_forwarded_to_calibration(self):
+        events = {c: list(iter_run(self.root, "T1", "8000", "8screws", seed=42, motor_id="m",
+                                   session_id="s", max_windows=5, confidence=c)) for c in (0.95, 0.8)}
+        for c, items in events.items():
+            calibration = items[0]["model"]["calibration"]
+            self.assertEqual(calibration["confidence"], c)
+            self.assertEqual(items[0]["model"]["resolved_config"]["effective"]["confidence"], c)
+        self.assertNotEqual([e["window"]["openset_score"] for e in events[0.8][1:]],
+                            [e["window"]["openset_score"] for e in events[0.95][1:]])
+        self.assertEqual(self.call(run, "8screws", max_windows=5, confidence=0.8),
+                         [e["window"] for e in events[0.8][1:]])
 
     def test_iter_run_matches_run(self):
         for config in ("8screws", "5screws"):
@@ -106,7 +120,7 @@ class HealthMonitorWindows(unittest.TestCase):
     def test_cli_uses_setup_run_and_saves_printed_windows(self):
         """CLI 經 setup_run 寫 logs/output，windows.jsonl 與 stdout 及 API 逐行相同。"""
         argv = ["--data-root", str(self.root), "--motor", "T1", "--rpm", "8000rpm", "--config", "5screws",
-                "--seed", "42", "--motor-id", "m", "--session-id", "s", "--max-windows", "12"]
+                "--seed", "42", "--confidence", "0.95", "--motor-id", "m", "--session-id", "s", "--max-windows", "12"]
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as workspace:
             try:

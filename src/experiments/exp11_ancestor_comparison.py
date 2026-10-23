@@ -39,10 +39,7 @@ def build_ancestor_monitor(pools: dict[str, np.ndarray], seed: int = 42,
     known = _ancestor_known_configs(pools)
     monitor = OpenSetMonitor(pools, seed=seed, confidence=confidence, method=method)
     monitor.fit_initial(healthy=HEALTHY)
-    for config in known:
-        if config == HEALTHY:
-            continue
-        monitor.add_class(config)
+    monitor.add_classes([config for config in known if config != HEALTHY])  # 一次註冊、只重擬合一次
     return monitor
 
 
