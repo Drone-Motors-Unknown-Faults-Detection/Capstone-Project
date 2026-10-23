@@ -309,7 +309,8 @@ def _statistical_features(frame: pd.DataFrame) -> np.ndarray:
             skew(column),
             np.ptp(column),
             np.abs(np.max(column) / rms),
-            np.abs(np.max(column) / np.mean(np.sqrt(np.abs(column) ** 2))),
+            # clearance：峰值除以 (mean sqrt|x|)^2，與歷史特徵 CSV 相同；舊式少了外層平方、等於 impulse（#277）
+            np.abs(np.max(column) / np.mean(np.sqrt(np.abs(column))) ** 2),
             rms / mean_abs,
             np.abs(np.max(column) / mean_abs),
             np.max(column),

@@ -83,17 +83,17 @@ def run(dataset, seed=42):
             original.set_source("5screws")
             hub.demo.set_source("5screws")
             arrival = 0
-            while arrival < 600 and hub.demo.session.candidate is None:
+            # 成群當拍 LiveDemo.tick() 就 adopt()：等到第一次自學結果出現
+            while arrival < 600 and hub.demo.adoption is None:
                 tick()
                 arrival += 1
-            found = hub.demo.session.candidate is not None
-            confirmed = None
+            found = hub.demo.adoption is not None
+            adopted = None
             if found:
-                assert original.session.candidate["size"] == hub.demo.session.candidate["size"]
-                confirmed = original.confirm()
-                assert confirmed == hub.demo.confirm()
+                adopted = {k: v for k, v in original.adoption.items() if k != "label"}
+                assert adopted == {k: v for k, v in hub.demo.adoption.items() if k != "label"}
                 assert split_audit(original) == split_audit(hub.demo)
-                audits.append({"stage": "confirmed", "fit": split_audit(original)})
+                audits.append({"stage": "adopted", "fit": split_audit(original)})
                 for _ in range(60):
                     tick()
             trends = {}
@@ -109,7 +109,7 @@ def run(dataset, seed=42):
                 assert original.alarms == hub.demo.alarms
                 trends[name] = hub.demo.alarms
             results.append({"method": method, "candidate_found": found,
-                            "fault_arrival_count": arrival, "confirm": confirmed,
+                            "fault_arrival_count": arrival, "adoption": adopted,
                             "paired_samples": paired, "mismatches": 0, "trend_alarms": trends,
                             "ledger": ledger, "fit_audits": audits})
         finally:
@@ -117,7 +117,7 @@ def run(dataset, seed=42):
             hub.demo.close()
             hub.executor.shutdown()
     assert source == contract(dataset, seed)
-    return {"schema": "navigation_regression_v2", "data": source, "seed": seed,
+    return {"schema": "navigation_regression_v3", "data": source, "seed": seed,
             "paired_methods": results, "source_unchanged": True,
             "claim": "工程計算一致性，非模型可靠性或fresh盲測"}
 

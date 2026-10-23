@@ -330,3 +330,25 @@ def test_saved_configuration_mismatch_cannot_be_replaced_with_unsupported_succes
     assert "6screws | 7screws" in frames[-1]["text"]
     assert "0.4（n=50）" in frames[-1]["text"]
     assert all("錯誤合成主張" not in f.get("text", "") for f in frames)
+
+
+def test_contract_reports_formed_and_matched_totals_separately():
+    # #286：discovered 只表示形成新類；對上本段配置的段數另算，兩者都由實驗層給
+    result = {**fixture(), "n_stages": 9, "n_learned": 9, "n_matched_config": 7}
+    contract = exp2_metric_contract(result)
+    assert contract["totals"] == {"n_stages": 9, "n_learned": 9, "n_matched_config": 7}
+    assert "對上本段配置 7／9 段" in contract["text"]
+    assert "形成新類 9／9 段" in contract["text"]
+    assert "不表示辨識出該段配置" in contract["text"]
+    assert "totals" not in exp2_metric_contract(fixture())   # 舊存檔沒有總數就不補推
+
+
+@pytest.mark.parametrize("saved, shown", [(True, "是"), (False, "否"), (None, "未保存"), ("yes", "未保存")])
+def test_stage_table_shows_saved_matched_is_config_without_inferring(saved, shown):
+    # matched_is_config 由實驗層算好；舊存檔沒有或型別不對時不由 matched／config 推回
+    result = fixture()
+    if saved is not None:
+        result["stages"][0]["matched_is_config"] = saved
+    result["stages"][0]["matched"] = "7screws"
+    table = next(t for t in exp2_metric_contract(result)["tables"] if t["id"] == "stages")
+    assert table["rows"][0][table["headers"].index("對上本段配置（事後）")] == shown

@@ -19,8 +19,8 @@
 | Q與solver〔S11〕 | 局部距離是否受收斂限制？ | 先分工程失敗與模型弱 | 同正式data；solver只train | Q外層用途固定；solver沒有test | 局部度量、hard/smooth損失 | 收斂與outer成績分開 | Q有未完成格；solver收斂不等外層分類改善，見S11。 |
 | E–J原型／距離〔S11〕 | 距離、原型與RPM拒絕能否改善？ | 不只重調threshold | 同28910筆，三fold×三seed | 固定train/cal/test；不重用unknown選參 | E收斂kNN、F Fisher、G判別原型、H L1、I RPM原型、J聯合拒絕 | 對照C24 fault+2pp、C17 F1+0.02、每工況健康FP≤10%、每類及每motor未知recall≥10%等 | 各批已保存完成／失敗記錄；有限改編全未通過完整規則，見S11。 |
 | K–M不變核／風險／自挑戰〔S11〕 | 保留形狀、跨RPM與去易特徵能否幫忙？ | 測有原始文獻的有限改編 | 同資料、表示均train-only | 同鎖定三fold與seeds0/1/2 | 三軸排列核、REx、表格RSC改編 | 相同完整可靠性規則，不挑最好的項目 | 各批完整結果與弱組保護失敗保留；排列非任意旋轉，步數不等收斂，見S11。 |
-| 新配置學習 exp2〔S2〕 | 累積未知能否確認後辨識？ | 未知名稱需人工處理 | 舊T1/8000，九配置依序循環CSV | 初始healthy-only；未知只累積；confirm後從完整配置池60/20/20重擬合 | HDBSCAN階梯25/3→15/3→10/2；叢至少25；隔離分數>2 | 找候選、確認或退回、保留healthy；非僅25筆學習承諾 | 候選確認後可擴張；完整標記配置池重擬合不等只靠到達25筆學習，見S2。 |
-| 到達樣本-only研究〔S12〕 | 不借未到達全池能否保留能力？ | exp2是完整配置池oracle | P1 formal、budget10/25/50/100、三seeds四arrival orders | arrival buffer與immutable test分離；full_pool_oracle另列 | historical replay、random／balanced buffer、new-class-only及oracle | 舊類保持、新類、成本與忘記分開 | arrival-only與full_pool_oracle分開；不能互換成績，見S12。 |
+| 新配置學習 exp2〔S2〕 | 累積未知成群後能否自學辨識？ | 未知名稱不由人工指定 | 舊T1/8000，九配置依序循環CSV | 初始healthy-only；未知只累積；成群即adopt()只用該群60/20/20重擬合，類名discovered-N | HDBSCAN階梯25/3→15/3→10/2；叢至少25；隔離分數>2 | 找候選、邊界退回、保留healthy；事後才對照真值 | 形成新類不等於對上該段配置；看matched_is_config，見S2。 |
+| 到達樣本-only研究〔S12〕 | 不借未到達全池能否保留能力？ | 主線 `adopt()` 只用群內樣本，但沒有記憶預算與固定test | P1 formal、budget10/25/50/100、三seeds四arrival orders | arrival buffer與immutable test分離；full_pool_oracle另列 | historical replay、random／balanced buffer、new-class-only及oracle | 舊類保持、新類、成本與忘記分開 | arrival-only與full_pool_oracle分開；不能互換成績，見S12。 |
 | 趨勢 exp3〔S3〕 | 能否分出兩種劇本節奏？ | 警報時間形態與故障名稱不同 | 同工況CSV重排與混入劇本，無真實連續時間 | healthy fit/cal；劇本窗口測試 | EWMA α.08、[.2,.5)中間帶、≤12筆突發；CUSUM展示 | 原手冊期待A/B分開；未固定現場壽命標準 | 兩批劇本結果分開保存；筆數延遲不等真實磨損或碰撞辨識，見S3。 |
 | 跨工況 exp5〔S4〕 | 換轉速／馬達基準可否搬移？ | 現場不總是同工況 | 三motor×三RPM | 源工況健康fit/cal→其他工況評估 | 健康距離與接受率矩陣 | 同機台與跨個體分列；無共同部署contract | 源與目標工況矩陣已保存；同工況結果不能替代跨個體可靠性，見S4。 |
 | PolarMap exp4〔S4〕 | 方向與距離怎樣呈現？ | 未知方向不等於同種故障更嚴重 | 已知健康／配置105維 | 基準fit資料及顯示用樣本分離看原手冊 | 健康白化、方向投影、極座標幾何 | 圖形與計算一致；沒有病因／嚴重度truth驗收 | 支持幾何視覺化；方向不是病因，半徑不是損壞百分比，見S4。 |

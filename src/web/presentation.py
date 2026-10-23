@@ -72,7 +72,8 @@ def exp2_metric_contract(result, budget=6000):
 
     stages = result.get("stages") if isinstance(result, dict) else None
     stage_table = {"id": "stages", "title": "各段學會當下的保存欄位",
-                   "headers": ["階段（零起算）", "注入配置（事後）", "候選群多數（事後）", *EXP2_METRICS], "rows": []}
+                   "headers": ["階段（零起算）", "注入配置（事後）", "候選群多數（事後）", "對上本段配置（事後）",
+                               *EXP2_METRICS], "rows": []}
     if not isinstance(stages, list) or not stages:
         contract["status"] = "incomplete"
         lines.append("缺少有效 stages，未列推測數字。")
@@ -85,8 +86,10 @@ def exp2_metric_contract(result, budget=6000):
             values = saved_rows(stage, EXP2_METRICS, "stage", index, config)
             if any(key in stage for key in EXP2_METRICS):
                 matched = stage.get("matched")
+                is_config = stage.get("matched_is_config")
                 stage_table["rows"].append([index, config or "未保存配置",
-                    matched if isinstance(matched, str) else "未保存", *values])
+                    matched if isinstance(matched, str) else "未保存",
+                    ("是" if is_config else "否") if isinstance(is_config, bool) else "未保存", *values])
     final_table = {"id": "final", "title": "全部階段結束後的外部評估",
                    "headers": ["事後配置", *FINAL_EVAL_METRICS], "rows": []}
     final = result.get("final_eval") if isinstance(result, dict) else None
@@ -101,6 +104,13 @@ def exp2_metric_contract(result, budget=6000):
     else:
         contract["status"] = "incomplete"
         lines.append("未保存有效final_eval，不由stage資料補出全部階段結束後的結果。")
+    totals = {k: result.get(k) for k in ("n_stages", "n_learned", "n_matched_config")} if isinstance(result, dict) else {}
+    if totals and all(isinstance(v, int) and not isinstance(v, bool) for v in totals.values()):
+        # #286：形成新類（discovered）不等於辨識出該段配置；兩個總數由實驗層算好，這裡只轉述
+        contract["totals"] = totals
+        lines.append(f"形成新類 {totals['n_learned']}／{totals['n_stages']} 段；對上本段配置 "
+                     f"{totals['n_matched_config']}／{totals['n_stages']} 段（matched_is_config，事後對照）。"
+                     "形成新類只表示該段學到一個 discovered-N，不表示辨識出該段配置。")
     if not contract["rows"]:
         contract["status"] = "incomplete"
     contract["tables"] = [table for table in (stage_table, final_table) if table["rows"]]

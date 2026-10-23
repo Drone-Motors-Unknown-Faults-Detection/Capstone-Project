@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 import re
@@ -40,14 +39,12 @@ class GuideHub(Hub):
         self.busy_state = None
         self.catalog_status = "available" if datasets else "no_datasets"
 
-    def candidate_id(self):
-        if self.demo is None or self.demo.session.candidate is None:
+    def public_adoption(self):
+        """最近一次自學的公開欄位：不含真值多數與純度（那些只在首頁事後對照出現）。"""
+        a = None if self.demo is None else self.demo.adoption
+        if a is None:
             return None
-        c = self.demo.session.candidate
-        identity = json.dumps({"indices": [int(i) for i in c.get("indices", [])],
-                               "t_range": c.get("t_range")}, sort_keys=True)
-        token = hashlib.sha256(identity.encode()).hexdigest()[:12]
-        return f"C{self.session_id}-{self.demo.epoch}-{token}"
+        return {k: a[k] for k in ("t", "action", "config", "display", "size", "median_score", "known_cal_max")}
 
     def public_config(self, config):
         if self.contract is None:
@@ -107,14 +104,14 @@ class GuideHub(Hub):
         state = {"type": "state", "datasets": [{"motor": d["motor"], "rpm": d["rpm"]} for d in self.datasets],
                  "seed": self.seed, "busy": self.busy, "running": self.running,
                  "rate": self.rate, "error": self.error, "session_id": self.session_id,
-                 "last_action": self.last_action, "t": 0, "epoch": 0, "candidate": None,
+                 "last_action": self.last_action, "t": 0, "epoch": 0, "adoption": None,
                  "configs": [], "quarantine": 0, "attempts": 0,
                  "evidence": "CSV舊資料展示；來源獨立性UNKNOWN；fresh INCOMPLETE"}
         state["preview"] = self.preview
         state["catalog_status"] = self.catalog_status
         if self.demo:
             d = self.demo
-            step = "待確認" if self.candidate_id() else "累積" if d.session.quarantine_X else "監測中"
+            step = "累積" if d.session.quarantine_X else "監測中"
             if not self.running:
                 step = "已更新" if self.last_action == "learned" else "可輸入" if d.t == 0 else "暫停"
             state.update(t=d.t, epoch=d.epoch, meta=d.meta, openset=d.session.monitor.summary(),
@@ -123,17 +120,13 @@ class GuideHub(Hub):
                          configs=[self.public_config(c["config"]) for c in self.contract["configs"]],
                          source=self.public_config(d.source)["id"],
                          known=list(d.session.monitor.known), quarantine=len(d.session.quarantine_X),
-                         attempts=d.session.cluster_attempts, fit_audit=split_audit(d),
+                         attempts=d.session.cluster_attempts, fit_audit=split_audit(d, include_rows=False),
                          data={"feature_dim": 105, "source_type": "CSV重播", "seed": self.seed},
                          scenario=None if d.scenario is None else d.scenario["key"])
             if d.scenario:
                 state["source"] = "劇本" + d.scenario["key"] + "（混合匿名來源）"
             state["scenario_completed"] = bool(d.scenario and self.scenario_end is None and not self.running)
-            if self.candidate_id():
-                state["candidate"] = {"id": self.candidate_id(), "size": int(d.session.candidate["size"]),
-                                      "t_range": d.session.candidate.get("t_range")}
-                if not self.busy and not self.error:
-                    step = "待確認"
+            state["adoption"] = self.public_adoption()
         if self.busy:
             step = "檢查資料中" if self.operation == "inspect" else "建基準中" if self.operation == "build" else "更新中"
         if self.error:
@@ -181,7 +174,11 @@ class GuideHub(Hub):
         # 暫停時狀態不變，不每拍廣播完整狀態（約 5.6 KB）；有新樣本或劇本播畢才送
         if not self.demo or self.busy or not self.running:
             return
+        before = self.demo.adoption
         super().tick()
+        if self.demo.adoption is not before:   # 這一拍成群並自學（learned／退回），寫下資料角色稽核
+            self.last_action = self.demo.adoption["action"]
+            self.persist()
         if self.scenario_end is not None and self.demo.t >= self.scenario_end:
             self.pause()
             self.scenario_end = None
@@ -278,15 +275,6 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
                 h.demo.start_scenario(name)
                 h.scenario_end = h.demo.t + sum(n for _, _, n in SCENARIOS[name]["phases"])
                 h.running = True
-            elif cmd == "confirm":
-                if not h.candidate_id() or msg.get("candidate_id") != h.candidate_id():
-                    raise CommandError("沒有可確認候選，或候選ID已過期")
-                def confirm():
-                    result = h.demo.confirm()
-                    h.last_action = result["action"]
-                    h.persist()
-                    return f"模擬操作員：{result['action']}，配置 {result.get('config')}；完整配置池重擬合／已知群退回"
-                await self.heavy(cmd, confirm)
             else:
                 raise CommandError("不支援的操作")
         except Exception as exc:

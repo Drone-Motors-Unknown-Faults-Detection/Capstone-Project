@@ -60,12 +60,17 @@ const RENDER = {
       + modelLine(r.model) + exp1Table(r.rows);
   },
   exp2(r){
-    const found = r.stages.filter(s => s.discovered).length;
-    return kpis([["發現的新故障", `${found} / ${r.stages.length}`], ["最終已知類別", r.final_known.length]])
+    // 形成新類（discovered）不等於辨識出本段配置；判定欄位由實驗層給（n_matched_config／matched_is_config，#286）。
+    // 舊存檔沒有總數欄位時才從 stage 列數。
+    const n = r.n_stages ?? r.stages.length;
+    const matched = r.n_matched_config ?? r.stages.filter(s => s.matched_is_config).length;
+    const learned = r.n_learned ?? r.stages.filter(s => s.discovered).length;
+    return kpis([["對上本階段配置", `${matched} / ${n}`], ["形成新類", `${learned} 次`], ["最終已知類別", r.final_known.length]])
+      + `<div class="mini">「形成新類」只表示該段學到一個 discovered-N；對不對得上本段注入的配置，看事後對照（候選群真值多數）。</div>`
       + modelLine(r.model)
-      + table([["display", "依序注入"], ["discovered", "發現", bool], ["learned_display", "模型新類"], ["matched_display", "事後對照"], ["samples_to_candidate", "到候選所需筆數", int],
+      + table([["display", "依序注入"], ["discovered", "形成新類", bool], ["matched_is_config", "對上本階段配置", bool],
+               ["learned_display", "模型新類"], ["matched_display", "事後對照（真值多數）"], ["samples_to_candidate", "到候選所需筆數", int],
                ["cluster_size", "叢大小", int], ["cluster_purity", "純度", v => pct(v, 0)],
-               ["matched_is_config", "學到當段配置", bool],
                ["own_holdout_acc", "本類 holdout 認出率", v => pct(v)], ["own_holdout_n", "本類 holdout 筆數", int],
                ["eval_known_rate", "外部評估被任一新類接受（學會當下）", v => pct(v)], ["eval_matched_rate", "判進對應新類（學會當下）", v => pct(v)], ["eval_n", "外部評估筆數", int],
                ["healthy_holdout_acc", "健康 holdout 認出率", v => pct(v)],
