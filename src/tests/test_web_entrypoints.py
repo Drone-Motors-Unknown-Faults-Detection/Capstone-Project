@@ -1,6 +1,7 @@
 """`python -m web.server`／`python -m web.guide` 要跑正式模組的 main，模組狀態只有一份。"""
 import runpy
 import unittest
+import warnings
 from unittest import mock
 
 import web.guide
@@ -11,7 +12,9 @@ class EntrypointTests(unittest.TestCase):
     def test_module_entrypoints_call_canonical_main(self):
         for module in (web.server, web.guide):
             with self.subTest(module=module.__name__), mock.patch.object(module, "main") as main:
-                runpy.run_module(module.__name__, run_name="__main__")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning)  # runpy 提示模組已在 sys.modules
+                    runpy.run_module(module.__name__, run_name="__main__")
                 main.assert_called_once_with()
 
     def test_allow_host_reaches_guide_socket_module(self):
