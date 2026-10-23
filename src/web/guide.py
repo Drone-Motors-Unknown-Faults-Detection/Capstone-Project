@@ -9,7 +9,6 @@ from pathlib import Path
 
 import tornado.ioloop
 import tornado.web
-import tornado.websocket
 from loguru import logger
 
 from core.data import HEALTHY, discover_datasets
@@ -18,7 +17,7 @@ from core.runner import add_openset_args
 from experiments.navigation_data_contract import run as data_contract, split_audit
 from experiments.exp3_trend import SCENARIOS
 from web.live import LiveDemo
-from web.server import CommandError, Hub, origin_allowed, reject_legacy_method, serve
+from web.server import CommandError, Hub, LocalSocketHandler, allow_hosts, reject_legacy_method, serve
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
@@ -190,13 +189,12 @@ class GuideHub(Hub):
         super().close_client(client)
 
 
-class GuideSocket(tornado.websocket.WebSocketHandler):
+class GuideSocket(LocalSocketHandler):
+    """Host／Origin 檢查與首頁 /ws 同一套（#285 R2-08、#304 F5-01）。"""
+
     @property
     def hub(self):
         return self.application.settings["guide_hub"]
-
-    def check_origin(self, origin):
-        return origin_allowed(origin, self.request.host)   # 與首頁同一套規則，含 --allow-origin（#285 R2-08）
 
     def open(self):
         self.hub.clients.add(self)
@@ -328,9 +326,12 @@ def main():
     parser.add_argument("--port", type=int, default=8601)
     parser.add_argument("--rate", type=int, default=4)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--allow-host", action="append", default=[],
+                        help="額外允許的 Host 名稱（任何 port）；預設只收 localhost 與本機 IP")
     add_openset_args(parser)
     args = parser.parse_args()
     reject_legacy_method(args.method)
+    allow_hosts("127.0.0.1", args.allow_host)
     log, paths = setup_run("web_guide", data_root=args.data_root)
     hub = GuideHub(discover_datasets(args.data_root), args.seed, args.rate, paths.output_dir,
                    {"openset_method": args.openset_method, "mahalanobis_method": args.method,

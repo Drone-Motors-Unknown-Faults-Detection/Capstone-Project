@@ -321,6 +321,17 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         finally:
             server.ALLOWED_ORIGINS.discard("https://demo.invalid")
 
+    def test_foreign_host_rejected(self):
+        """#304 F5-01：DNS rebinding 時 Origin 與 Host 同為攻擊者網域；Host 不在允許清單就 403，不佔執行鎖。"""
+        port = self.get_http_port()
+        rebind = {"Host": f"rebind.invalid:{port}", "Origin": f"http://rebind.invalid:{port}"}
+        self.assertEqual(self.fetch("/stream/exp1", headers=rebind).code, 403)
+        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}",
+                                    headers={**rebind, "Content-Type": "application/json"}).code, 403)
+        self.assertIsNone(server.JOBS.current)
+        local = {"Host": f"localhost:{port}", "Origin": f"http://localhost:{port}"}
+        self.assertEqual([f["event"] for f in self.frames(self.fetch("/stream/exp1", headers=local))], ["start", "done"])
+
     def test_non_object_parameters_and_non_finite_rate_rejected(self):
         for query in ("params=%5B1%5D", "rate=nan", "rate=inf"):
             with self.subTest(query=query):

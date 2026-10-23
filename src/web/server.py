@@ -13,7 +13,8 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
     GET  /api/experiments               實驗目錄、資料集、配置清單
     POST /api/experiments/{id}/run      以 JSON 參數執行一次，回傳結果並存檔
     GET  /api/experiments/{id}/stream   邊跑邊畫（Server-Sent Events）：?params=<JSON>&rate=<筆/秒>
-    run／stream／assistant/ask 先做跨站檢查（request_origin_allowed），run 與 ask 只收 application/json。
+    run／stream／assistant/ask 先檢查 Host（host_allowed，防 DNS rebinding）再做跨站檢查（request_origin_allowed），
+    run 與 ask 只收 application/json；/ws 與 /guide/ws 的握手也先檢查 Host。
     GET  /api/committed/{name}          已提交的矩陣結果（唯讀）
 
 AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
@@ -27,9 +28,11 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import ipaddress
 import json
 import math
 import re
+import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -40,6 +43,7 @@ import tornado.iostream
 import tornado.web
 import tornado.websocket
 from loguru import logger
+from tornado.httputil import split_host_and_port
 
 from core.data import discover_datasets
 from core.logger import setup_run
@@ -53,10 +57,52 @@ from web.playback import ANSWER_SCHEMA, PlaybackTracker
 
 STATIC_DIR = Path(__file__).parent / "static"
 ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 Origin（WebSocket 與實驗／AI 問答 HTTP 端點共用）
+# 可接受的 Host 名稱（不含 port）；main() 再加入綁定位址、本機介面 IP 與 --allow-host
+ALLOWED_HOSTS: set[str] = {"localhost", "127.0.0.1", "::1"}
 
 
 class CommandError(ValueError):
     """WebSocket 指令的參數錯誤；訊息只含固定文字，可直接廣播給所有瀏覽器。"""
+
+
+def _host_name(host: str) -> str:
+    """Host 標頭去掉 port、IPv6 方括號與結尾的點，轉小寫。"""
+    name, _ = split_host_and_port(host.strip().lower())
+    return name.strip("[]").rstrip(".")
+
+
+def _ip(value: str):
+    try:
+        ip = ipaddress.ip_address(value.split("%")[0])
+    except ValueError:
+        return None
+    return getattr(ip, "ipv4_mapped", None) or ip
+
+
+def local_addresses() -> set[str]:
+    """本機主機名解析到的 IP（盡力而為，查不到就空集合）。"""
+    try:
+        return {info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None)}
+    except OSError:
+        return set()
+
+
+def allow_hosts(bind_address: str, extra=()) -> None:
+    """把綁定位址、本機介面 IP 與 --allow-host 名稱加進 Host 允許清單。"""
+    ALLOWED_HOSTS.update(_host_name(h) for h in (bind_address, *extra, *local_addresses()) if h)
+
+
+def host_allowed(request) -> bool:
+    """DNS rebinding 防護（#304 F5-01）：Origin 與 Host 都是攻擊者網域時兩者相等，只比 Origin 擋不住，
+    所以 Host 本身必須是本機名稱：ALLOWED_HOSTS，或這條連線實際連到的本機 IP（區網用 IP 開頁時 Host 就是它）。"""
+    name = _host_name(request.host or "")
+    if name in ALLOWED_HOSTS:
+        return True
+    try:
+        local = request.connection.stream.socket.getsockname()[0]
+    except (AttributeError, OSError, IndexError):
+        return False
+    return _ip(name) is not None and _ip(name) == _ip(local)
 
 
 def origin_allowed(origin: str, host: str) -> bool:
@@ -273,7 +319,9 @@ class _SameSiteMixin:
     require_json = False
 
     def prepare(self) -> None:
-        if not request_origin_allowed(self.request):
+        if not host_allowed(self.request):
+            self._refuse(403, "Host 不是本機名稱，也不在 --allow-host 名單")
+        elif not request_origin_allowed(self.request):
             self._refuse(403, "跨站請求被拒絕：Origin／Referer 不是本站，也不在 --allow-origin 名單")
         elif self.require_json and self.request.headers.get(
                 "Content-Type", "").split(";")[0].strip().lower() != "application/json":
@@ -517,9 +565,19 @@ class AssistantAskHandler(_SameSiteMixin, tornado.web.RequestHandler):
             self.assistant_task = None
 
 
-class WSHandler(tornado.websocket.WebSocketHandler):
+class LocalSocketHandler(tornado.websocket.WebSocketHandler):
+    """首頁 /ws 與導覽 /guide/ws 共用：握手前先查 Host（沒帶 Origin 的握手 Tornado 不呼叫 check_origin），
+    再以 origin_allowed 查 Origin。"""
+
+    def prepare(self) -> None:
+        if not host_allowed(self.request):
+            raise tornado.web.HTTPError(403)
+
     def check_origin(self, origin: str) -> bool:
         return origin_allowed(origin, self.request.host)
+
+
+class WSHandler(LocalSocketHandler):
 
     def open(self) -> None:
         HUB.clients.add(self)
@@ -638,8 +696,11 @@ def main() -> None:
     parser.add_argument("--llm-api-key", default="EMPTY")
     parser.add_argument("--allow-origin", action="append", default=[],
                         help="額外允許的 Origin，WebSocket 與實驗／AI 問答 HTTP 端點共用（例：https://demo.example.com）；預設只允許同站")
+    parser.add_argument("--allow-host", action="append", default=[],
+                        help="額外允許的 Host 名稱（任何 port），例：demo.example.com；預設只收綁定位址、localhost 與本機 IP")
     args = parser.parse_args()
     ALLOWED_ORIGINS.update(o.rstrip("/").lower() for o in args.allow_origin)
+    allow_hosts(args.bind_address, args.allow_host)
     reject_legacy_method(args.method)
 
     log, paths = setup_run("web_server", data_root=args.data_root)
