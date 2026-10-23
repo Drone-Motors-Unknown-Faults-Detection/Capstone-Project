@@ -99,6 +99,7 @@ confirm 則使用確認後的完整標記配置池。不能把兩者的更新用
 - `eval_known_rate`／`final_eval.known_rate`：未參與重播的外部配置列被任一新類接受的比例，
   不要求判成自身配置對應的特定類。`eval_n` 或 `final_eval.<配置>.n` 是其保存分母。
 - `matched`／`cluster_purity`：候選真值多數／占比，只供事後對照，不是線上辨識出物理故障原因。
+- `discovered`：該段形成了新類，不表示辨識出該段配置。要問「幾段學到當段配置」，讀 `matched_is_config` 或 `summary.json` 的 `n_matched_config`／`n_stages`；`n_learned` 只是形成新類的段數。實驗頁 KPI「對上本階段配置 n / N」與「形成新類 m 次」就是這兩個數。
 - `confidence=0.95` 不能推出學會後必達 90–95%；群內正確率、外部接受、未知召回與純度須分開。
   沒有連續分數、真值與相同模型／資料角色，不能由上述彙總比例推估未知 AUROC。
 

@@ -257,8 +257,11 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    745 筆健康窗、0 筆進隔離區。完整數字見
    [reports/JW-Albert_20261023_aero_rerun/README.md](reports/JW-Albert_20261023_aero_rerun/README.md)。
    隔離區還沒成群時，web 顯示「已試分群 N 次」。
-3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名。事後對照看
-   `matched`／`matched_display`（候選群的真值多數）與 `matched_is_config`；候選叢集取自整個
+3. **exp2 的 stage 列 `learned` 欄是模型類名 `discovered-N`**，不是配置名；`discovered` 只表示
+   該段形成了新類，不表示辨識出該段配置（issue #286）。事後對照看
+   `matched`／`matched_display`（候選群的真值多數）與 `matched_is_config`（每段都有，未學成為 false）；
+   `summary.json` 的 `n_learned`／`n_matched_config`／`n_stages` 是實驗層算好的總數，實驗頁 KPI
+   「對上本階段配置 n / N」與「形成新類 m 次」直接讀它們。候選叢集取自整個
    隔離區，關掉密度階梯時多數常是前一段的配置。「某配置多久被發現」讀 `summary.json` 的
    `discovery`，「學會後認不認得」讀外部評估集 `final_eval`（每配置 20% 不參與重播），
    不要只看群內 7～18 筆的 `own_holdout_acc`。數字一律取自 Aero／Spark 的輸出（鐵則 13）。

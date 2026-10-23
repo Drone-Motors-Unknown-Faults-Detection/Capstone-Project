@@ -437,10 +437,12 @@ def iter_playback(
                                 "delay": global_tick - started[m]}
             res, found_at = outcome, tick
             break
+        # discovered 只表示這段形成了新類；是否對上本段注入配置看 matched_is_config（#286）
         row = {
             "config": config,
             "display": display_name(config),
             "discovered": res is not None,
+            "matched_is_config": res is not None and res["matched"] == config,
             "healthy_seen": healthy_seen,
             "healthy_quarantined": int(healthy_quarantined),
         }
@@ -454,7 +456,6 @@ def iter_playback(
                     "learned_display": res["display"],
                     "matched": res["matched"],
                     "matched_display": res["matched_display"],
-                    "matched_is_config": res["matched"] == config,
                     "samples_to_candidate": found_at,
                     "cluster_size": res["size"],
                     "cluster_purity": res["purity"],
@@ -477,6 +478,9 @@ def iter_playback(
     model = session.monitor.summary()
     yield {"event": "result", "result": {
         "stages": stages,
+        "n_stages": len(stages),
+        "n_learned": sum(s["discovered"] for s in stages),
+        "n_matched_config": sum(s["matched_is_config"] for s in stages),
         "discovery": discovery,
         "rejections": rejections,
         "final_eval": final_eval,
@@ -567,16 +571,19 @@ def main() -> None:
     frame.to_csv(paths.output_dir / "stages.csv", index=False)
     save_json(paths.output_dir / "summary.json", result)
 
-    log.info(f"{'注入配置':<14}{'發現(筆)':>9}{'叢集':>6}{'純度':>8}{'自類準確':>10}{'健康保持':>10}{'已知數':>8}")
+    log.info(f"{'注入配置':<14}{'學成(筆)':>9}{'叢集':>6}{'純度':>8}{'事後多數':<14}{'對上':>4}"
+             f"{'自類準確':>10}{'健康保持':>10}{'已知數':>8}")
     for s in result["stages"]:
         if not s["discovered"]:
-            log.info(f"{s['config']:<14}{'未發現':>9}")
+            log.info(f"{s['config']:<14}{'未學成':>9}")
             continue
         log.info(
             f"{s['config']:<14}{s['samples_to_candidate']:>9}{s['cluster_size']:>6}"
-            f"{s['cluster_purity']*100:>7.1f}%{s['own_holdout_acc']*100:>9.1f}%"
-            f"{s['healthy_holdout_acc']*100:>9.1f}%{s['known_after']:>8}"
+            f"{s['cluster_purity']*100:>7.1f}%{s['matched']:<14}{'✓' if s['matched_is_config'] else '✗':>4}"
+            f"{s['own_holdout_acc']*100:>9.1f}%{s['healthy_holdout_acc']*100:>9.1f}%{s['known_after']:>8}"
         )
+    log.info(f"形成新類 {result['n_learned']}／{result['n_stages']} 段；"
+             f"對上本段配置 {result['n_matched_config']}／{result['n_stages']} 段")
     log.info(f"最終已知類別：{' → '.join(result['final_known'])}")
     log.info(f"輸出：{paths.output_dir}")
 

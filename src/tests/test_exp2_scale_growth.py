@@ -1,4 +1,5 @@
-"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證、待確認不加列）。"""
+"""實驗二：密度階梯開關、adopt() 與隔離區規則（#268：清理套進入規則、不收重複列、平手決定論、min_cluster_size 驗證、待確認不加列）；
+#286 形成新類與對上本段配置分開計數。"""
 import unittest
 from unittest.mock import patch
 
@@ -59,7 +60,7 @@ class DensityLadderTests(unittest.TestCase):
 
         def fake_run(pools, **kwargs):
             captured.update(kwargs)
-            return {"stages": [], "final_known": [], "model": {}}
+            return {"stages": [], "n_stages": 0, "n_learned": 0, "n_matched_config": 0, "final_known": [], "model": {}}
 
         with patch.object(exp2, "resolve_dataset", return_value=({"motor": "T1", "rpm": "8000rpm"}, _pools())), \
                 patch.object(exp2, "run", side_effect=fake_run), \
@@ -291,3 +292,49 @@ class ResultProvenanceTests(unittest.TestCase):
         self.assertIsNone(default["knn_neighbors"])
         self.assertEqual(default["calibration_source"], "known-only 20% calibration split")
         self.assertEqual(default["split"], {"train": 0.6, "calibration": 0.2, "holdout": 0.2})
+
+
+def _three_pools() -> dict[str, np.ndarray]:
+    """golden fixture 用的池：src/tests/fixtures/exp2_run_synthetic_seed42.json 由同一組池在 origin/main b6e2b97 產出（#287 golden 比對用）。"""
+    rng = np.random.default_rng(5)
+    return {
+        "8screws": rng.normal(0.0, 0.3, (120, 6)),
+        "7screws": rng.normal(6.0, 0.3, (300, 6)),
+        "6screws": rng.normal(-6.0, 0.3, (300, 6)),
+    }
+
+
+class SemanticsTests(unittest.TestCase):
+    """#286：discovered 只表示該段形成新類；是否對上本段配置看 matched_is_config，總數由實驗層給。"""
+
+    NEW_KEYS = ("n_stages", "n_learned", "n_matched_config")
+
+    def test_every_stage_has_matched_is_config_and_totals(self):
+        result = exp2.run(_pools(), seed=42, max_ticks_per_stage=5)
+        stage = result["stages"][0]
+        self.assertFalse(stage["discovered"])
+        self.assertFalse(stage["matched_is_config"])
+        self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (1, 0, 0))
+
+    def test_learning_another_config_counts_as_formed_but_not_matched(self):
+        real_adopt = exp2.ScaleGrowthSession.adopt
+
+        def adopt_as_other(session):
+            out = real_adopt(session)
+            if out["action"] == "learned":
+                out["matched"], out["matched_display"] = "6screws", "6screws"
+            return out
+
+        with patch.object(exp2.ScaleGrowthSession, "adopt", adopt_as_other):
+            result = exp2.run(_pools(), seed=42, max_ticks_per_stage=300)
+        stage = result["stages"][0]
+        self.assertTrue(stage["discovered"])
+        self.assertEqual(stage["matched"], "6screws")
+        self.assertFalse(stage["matched_is_config"])
+        self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (1, 1, 0))
+        self.assertFalse(result["discovery"]["7screws"]["discovered"])
+
+    def test_totals_count_matched_stages(self):
+        result = exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300)
+        self.assertEqual([s["matched_is_config"] for s in result["stages"]], [True, True])
+        self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (2, 2, 2))

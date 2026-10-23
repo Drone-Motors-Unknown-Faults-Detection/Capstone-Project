@@ -65,9 +65,9 @@ Web啟動同[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)。「
 [main writer](../../src/experiments/exp2_scale_growth.py)寫`logs/exp2_scale_growth/{ts}.log`、`output/exp2_scale_growth/{ts}/environment.json`、`stages.csv`、`summary.json`；Web只由runner存結果JSON到`output/web_server/{ts}/experiments/`。模型不長期保存。
 
 - `config`是注入劇本，`learned`是模型新類，`matched`是事後多數配置；三者要一起看。
-- `discovered=false`表示該段未learned；不能當作故障不存在。失敗段不一定有delay等欄。
+- `discovered`只表示該段形成了一個新類（learned）；`discovered=true` 不等於辨識出該段配置，`discovered=false` 也不能當作故障不存在。失敗段不一定有delay等欄。
 - `samples_to_candidate`是該段到首次learned的tick；單位筆，不是秒。循環抽樣會重用列。它量的是「這段開始後多久有任一群學成」，不是「當段配置多久被發現」。
-- `matched_is_config`：這段學到的群，事後多數是否就是當段注入的配置。
+- `matched_is_config`：這段學到的群，事後多數是否就是當段注入的配置；每段都有，未學成為 false。`summary.json` 頂層的 `n_stages`／`n_learned`／`n_matched_config` 是段數、形成新類段數與對上本段配置段數，實驗頁 KPI 直接讀這三個欄位（#286）。
 - `summary.json` 的 `discovery`：每個配置第一次成為某個新類事後多數的時點。`delay` 從該配置開始注入起算到那一筆，可能跨到後面的段；從未成為多數則 `discovered=false`。這才是「某配置多久被發現」。
 - `cluster_purity`是事後 truth 的叢多數比例，不是模型當時知道的故障名稱。
 - `own_holdout_acc`是新類自己的 holdout 有沒有被分回這個新類，`own_holdout_n`是它的筆數（群31筆時只有7筆，一筆差14.3個百分點）；`healthy_holdout_acc`是健康有沒有被保住。兩者都含拒絕造成的錯誤。
