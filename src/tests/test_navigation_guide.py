@@ -203,6 +203,50 @@ class GuideTests(unittest.TestCase):
             self.assertEqual(self.hub.demo.t, 1)
             self.hub.demo.close()
 
+    def test_inspect_keeps_stream_error_until_reset(self):
+        """#304 F5-03：串流錯誤後檢查資料不重建 session，錯誤保留、start 仍被拒；重設或重建才清除。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+        sock.heavy = lambda cmd, fn: GuideSocket.heavy(sock, cmd, fn)
+
+        def send(msg):
+            asyncio.run(GuideSocket.on_message(sock, json.dumps(msg)))
+
+        self.hub.build("T1", "8000rpm")
+        for rebuild in ({"cmd": "reset"}, {"cmd": "build", "motor": "T1", "rpm": "8000rpm"}):
+            with self.subTest(rebuild=rebuild["cmd"]):
+                self.hub.event("error", "串流錯誤，已暫停：測試")
+                self.assertTrue(self.hub.demo.accepting)
+                send({"cmd": "inspect", "motor": "T1", "rpm": "8000rpm"})
+                self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+                self.assertIsNotNone(self.hub.preview)
+                send({"cmd": "start"})
+                self.assertFalse(self.hub.running)
+                send(rebuild)
+                self.assertIsNone(self.hub.error)
+                send({"cmd": "start"})
+                self.assertTrue(self.hub.running)
+                self.hub.running = False
+
+    def test_inspect_failure_before_build_is_cleared_by_next_inspect(self):
+        """還沒建基準時沒有 session 可保護：讀檔失敗後再檢查成功就清掉錯誤。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+
+        def failing():
+            raise OSError("測試讀取失敗")
+
+        asyncio.run(GuideSocket.heavy(sock, "inspect", failing))
+        self.assertIn("資料讀取失敗", self.hub.error)
+        asyncio.run(GuideSocket.heavy(sock, "inspect", lambda: self.hub.inspect("T1", "8000rpm")))
+        self.assertIsNone(self.hub.error)
+
     def test_busy_does_not_read_half_updated_model(self):
         self.hub.build("T1", "8000rpm")
         self.hub.busy_state = self.hub.full_state()

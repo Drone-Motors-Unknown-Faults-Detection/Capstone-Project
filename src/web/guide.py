@@ -189,6 +189,9 @@ class GuideHub(Hub):
         super().close_client(client)
 
 
+REBUILDS = ("build", "reset")   # 會換掉 session 的導覽操作；只有它們能清除錯誤
+
+
 class GuideSocket(LocalSocketHandler):
     """Host／Origin 檢查與首頁 /ws 同一套（#285 R2-08、#304 F5-01）。"""
 
@@ -211,8 +214,12 @@ class GuideSocket(LocalSocketHandler):
         h.broadcast(h.full_state())
         try:
             result = await tornado.ioloop.IOLoop.current().run_in_executor(h.executor, fn)
-            # 檢查資料不重建基準：紀錄檔已停用時錯誤保留，仍要重設或重建才能監測
-            h.error = None if h.demo is None or h.demo.accepting else "樣本紀錄已停用；請重設或重建健康基準後再監測"
+            # 只有重建 session 的操作（重設、建基準）清錯誤；檢查資料不動 session，串流錯誤與停用的紀錄檔
+            # 都要保留到重設或重建，否則可在只更新一半的 session 上按 start（#304 F5-03）。還沒有 session 時沒有可保護的狀態。
+            if command in REBUILDS or h.demo is None:
+                h.error = None
+            if h.error is None and h.demo is not None and not h.demo.accepting:
+                h.error = "樣本紀錄已停用；請重設或重建健康基準後再監測"
             h.event("success", str(result))
         except Exception as exc:
             logger.exception("導覽操作失敗")
