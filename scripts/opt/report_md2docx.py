@@ -298,7 +298,7 @@ def display_equation(doc, tex):
         p._p.insert(len(p._p.findall(qn("w:pPr"))), first)
         r = p.add_run()
         r.add_tab()
-        r2 = p.add_run(f"({number})")
+        p.add_run(f"({number})")
     return ok
 
 
@@ -306,7 +306,7 @@ def display_equation(doc, tex):
 
 def build():
     lines = MD.read_text(encoding="utf-8").split("\n")
-    start = next(i for i, l in enumerate(lines) if l.strip() == "## 封面")
+    start = next(i for i, line in enumerate(lines) if line.strip() == "## 封面")
     lines = lines[start:]
 
     doc = Document()
@@ -330,12 +330,12 @@ def build():
     sect = None
     i = 0
     while i < len(lines) and not lines[i].startswith("## 誌謝"):
-        l = lines[i]
-        if l.startswith("### "):
-            sect = l[4:].strip()
+        line = lines[i]
+        if line.startswith("### "):
+            sect = line[4:].strip()
             cover[sect] = []
-        elif sect and l.strip() and not l.startswith(">") and not l.startswith("追蹤："):
-            cover[sect].append(l.rstrip())
+        elif sect and line.strip() and not line.startswith(">") and not line.startswith("追蹤："):
+            cover[sect].append(line.rstrip())
         i += 1
     for _ in range(4):
         doc.add_paragraph()
@@ -364,11 +364,11 @@ def build():
     skip_section = False
     i = 0
     while i < len(lines):
-        l = lines[i]
-        s = l.strip()
+        line = lines[i]
+        s = line.strip()
 
-        if l.startswith("## "):
-            title = l[3:].strip()
+        if line.startswith("## "):
+            title = line[3:].strip()
             chapter = title
             skip_section = False
             in_refs = title == "參考文獻"
@@ -397,9 +397,9 @@ def build():
             i += 1
             continue
 
-        if l.startswith("### ") or l.startswith("#### "):
-            level = 2 if l.startswith("### ") else 3
-            title = l.lstrip("#").strip()
+        if line.startswith("### ") or line.startswith("#### "):
+            level = 2 if line.startswith("### ") else 3
+            title = line.lstrip("#").strip()
             if chapter == "摘要":
                 i += 1
                 continue
@@ -420,7 +420,7 @@ def build():
             j = i + 1
             while j < len(lines) and not lines[j].strip().startswith("```"):
                 p = doc.add_paragraph(style="程式碼")
-                r = p.add_run(lines[j])
+                p.add_run(lines[j])
                 i = j
                 j += 1
             i = j + 1
@@ -463,14 +463,14 @@ def build():
             i += 1
             continue
 
-        m = re.match(r"^(\s*)- (.*)$", l)
+        m = re.match(r"^(\s*)- (.*)$", line)
         if m:
             p = doc.add_paragraph(style="List Bullet")
             p.alignment = WD_ALIGN_PARAGRAPH.LEFT
             add_inline(p, m.group(2))
             i += 1
             continue
-        m = re.match(r"^(\s*)(\d+)\. (.*)$", l)
+        m = re.match(r"^(\s*)(\d+)\. (.*)$", line)
         if m:
             p = doc.add_paragraph()
             p.paragraph_format.left_indent = Cm(0.85)
