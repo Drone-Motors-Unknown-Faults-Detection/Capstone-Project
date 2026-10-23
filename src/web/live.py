@@ -28,7 +28,7 @@ from core.data import (
     load_pools,
 )
 from core.trend import TrendMonitor
-from experiments.exp2_scale_growth import ScaleGrowthSession
+from experiments.exp2_scale_growth import ScaleGrowthSession, label_kind
 from experiments.exp3_trend import KIND_DISPLAY, SCENARIOS
 
 SAMPLE_FIELDS = [
@@ -84,7 +84,8 @@ class LiveDemo:
         self.switch_t = 0
         self.fault_onset_t: int | None = None
         self.metrics = {
-            c: {"pre_streamed": 0, "pre_flagged": 0, "post_streamed": 0, "post_flagged": 0}
+            c: {f"{phase}_{kind}": 0 for phase in ("pre", "post")
+                for kind in ("streamed", "unknown", "healthy", "known")}
             for c in self.pools
         }
         self.alarms: list[dict] = []
@@ -302,17 +303,10 @@ class LiveDemo:
         tr = self.trend.update(r["score"])
         self.t += 1
 
+        verdict = label_kind(r["label"])
         phase_key = "post" if was_known else "pre"
         self.metrics[config][f"{phase_key}_streamed"] += 1
-        if r["label"] is None:
-            self.metrics[config][f"{phase_key}_flagged"] += 1
-
-        if r["label"] is None:
-            verdict = "unknown"
-        elif r["label"] == HEALTHY:
-            verdict = "healthy"
-        else:
-            verdict = "known"
+        self.metrics[config][f"{phase_key}_{verdict}"] += 1
         xy = self.session.monitor.project(x)[0]
 
         d = r["direction"]
@@ -444,17 +438,19 @@ class LiveDemo:
         for c, m in sorted(self.metrics.items(), key=lambda kv: config_sort_key(kv[0])):
             if m["pre_streamed"] + m["post_streamed"] == 0:
                 continue
+            post = m["post_streamed"]
             rows.append({
                 "config": c,
                 "display": display_name(c),
                 "pre_streamed": m["pre_streamed"],
                 # 擴張前（量尺只有健康）：判未知的比例；健康從一開始就是已知，歸擴張後
                 "pre_rate": None if m["pre_streamed"] == 0
-                else round(m["pre_flagged"] / m["pre_streamed"] * 100, 1),
-                "post_streamed": m["post_streamed"],
-                # 擴張後（已學到至少一個新類）：被判為任一已知類的比例；不要求判對自身配置
-                "post_rate": None if m["post_streamed"] == 0
-                else round((1 - m["post_flagged"] / m["post_streamed"]) * 100, 1),
+                else round(m["pre_unknown"] / m["pre_streamed"] * 100, 1),
+                "post_streamed": post,
+                # 擴張後（已學到至少一個新類）：判為未知／健康／任一新類三種比例（合計 100%）。
+                # 判為新類同實驗二 known_rate，只數非健康已知類，不要求判對自身配置（#301 F-14）
+                **{f"post_{kind}_rate": None if post == 0 else round(m[f"post_{kind}"] / post * 100, 1)
+                   for kind in ("unknown", "healthy", "known")},
             })
         return {"type": "metrics", "epoch": self.epoch, "t": self.t,
                 "meta": self.meta, "rows": rows, "alarms": self.alarms[-5:]}

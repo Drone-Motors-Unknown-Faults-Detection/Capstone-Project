@@ -66,6 +66,26 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertEqual((rows["6screws"]["pre_streamed"], rows["6screws"]["post_streamed"]), (0, 3))
         self.assertFalse(next(c for c in self.demo.state()["configs"] if c["config"] == "5screws")["known"])
 
+    def test_post_expansion_shares_count_healthy_separately(self):
+        """#301 F-14：擴張後分判為未知／健康／新類；故障被判為健康不算進判為新類（同實驗二 known_rate）。"""
+        self.demo.set_source("5screws")
+        with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):
+            self.demo.tick()
+        self.demo.set_source("6screws")
+        labels = iter([None, HEALTHY, HEALTHY, "discovered-1"])
+        original = ScaleGrowthSession.process
+
+        def relabel(session, *args):
+            return {**original(session, *args), "label": next(labels)}
+        with patch.object(ScaleGrowthSession, "process", relabel):
+            for _ in range(4):
+                self.demo.tick()
+        row = next(r for r in self.demo.metrics_msg()["rows"] if r["config"] == "6screws")
+        self.assertEqual(row["post_streamed"], 4)
+        self.assertEqual((row["post_unknown_rate"], row["post_healthy_rate"], row["post_known_rate"]),
+                         (25.0, 50.0, 25.0))
+        self.assertNotIn("post_rate", row)
+
     def test_fitted_rows_are_not_streamed_again_after_learning(self):
         # #296 R3-02：discovered-N 的 train／cal 列不再重抽，學後認出率只來自未擬合的列
         self.demo.set_source("5screws")
