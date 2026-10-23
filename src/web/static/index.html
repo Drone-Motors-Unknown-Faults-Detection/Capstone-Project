@@ -308,7 +308,7 @@ footer a:hover{color:var(--blue);}
       <canvas id="scatter" height="230"></canvas>
     </div>
     <div class="panel">
-      <h2>偵測統計（擴張前 = 量尺只有健康，該被判未知；擴張後 = 已學到新類，分成判為未知／健康／新類三種比例）</h2>
+      <h2>偵測統計（擴張前 = 量尺只有健康：故障來源的判未知率是偵測率，越高越好；健康來源的判未知率是誤報率，越低越好，不上色。擴張後 = 已學到新類，分成判為未知／健康／新類三種比例）</h2>
       <table id="metricsTable">
         <thead><tr><th>注入配置</th><th>擴張前</th><th>判未知率</th><th>擴張後</th><th>判為未知</th><th>判為健康</th><th>判為新類</th></tr></thead>
         <tbody></tbody>
@@ -545,14 +545,16 @@ function logLine(level, text, t){
 function onMetrics(m){
   if(state && m.meta && (m.meta.motor!==state.meta.motor || m.meta.rpm!==state.meta.rpm ||
     m.epoch!==state.epoch || m.t<state.t))return;
-  const fmt = (n, rate, good) => n === 0 ? "<td>—</td><td>—</td>"
-    : `<td>${n}</td><td style="color:${rate >= good ? "var(--green)" : "var(--yellow)"}">${rate.toFixed(1)}%</td>`;
+  // 故障來源擴張前判未知 = 偵測率（≥95% 綠）；健康來源擴張前判未知 = 誤報率，高低意義相反，不上色（#305）
+  const fmt = (r, good) => r.pre_streamed === 0 ? "<td>—</td><td>—</td>"
+    : r.config === "8screws" ? `<td>${r.pre_streamed}</td><td>${r.pre_rate.toFixed(1)}%</td>`
+    : `<td>${r.pre_streamed}</td><td style="color:${r.pre_rate >= good ? "var(--green)" : "var(--yellow)"}">${r.pre_rate.toFixed(1)}%</td>`;
   // 擴張後三種比例不上色：沒學會的故障判為未知是對的，不能當成「接受率偏低」（#301 F-14）
   const shares = r => r.post_streamed === 0 ? "<td>—</td><td>—</td><td>—</td><td>—</td>"
     : `<td>${r.post_streamed}</td>` + [r.post_unknown_rate, r.post_healthy_rate, r.post_known_rate]
       .map(v => `<td>${v.toFixed(1)}%</td>`).join("");
   $("metricsTable").querySelector("tbody").innerHTML = m.rows.map(r =>
-    `<tr><td>${escapeHtml(r.display)}</td>${fmt(r.pre_streamed, r.pre_rate, 95)}${shares(r)}</tr>`).join("");
+    `<tr><td>${escapeHtml(r.display)}</td>${fmt(r, 95)}${shares(r)}</tr>`).join("");
 }
 
 /* ---------- 分數串流圖 ---------- */
