@@ -89,7 +89,7 @@ CLI writer是[main()](../../src/experiments/exp1_cold_start.py)：
 | detect_rate | 健康列是誤報率；未知列才是未知召回率，範圍0～1 |
 | auroc | 未知分數能否排在健康前；0.5近隨機，1為本次樣本完全排序分離 |
 | median_score | 無單位正規化偏離；不是故障百分比 |
-| macro_detect_rate／macro_auroc | 各unknown配置等權平均，不按資料列數加權 |
+| macro_detect_rate／macro_auroc | 各unknown配置等權平均，不按資料列數加權；資料集只有健康池時兩者為 null（#271） |
 | model | train／cal／holdout數、方法、閾值與seed；不是已保存的模型權重 |
 
 預期是未知召回／AUROC高且健康誤報低；程式沒有全域「可靠模型PASS」門檻。名義0.95分位數不保證test只有5%誤報。同工況的高分不是跨馬達已知故障分類。

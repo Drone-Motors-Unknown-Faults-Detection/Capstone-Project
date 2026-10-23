@@ -30,7 +30,7 @@
 
 a：每工況healthy列按seed42切60/20/20，train fit RobustScaler與LW、cal定confidence0.95線；healthy holdout與fault全池score，≤1叫healthy、>1叫fault。各工況結果累加成2×2**原始筆數**矩陣，樣本多的工況權重較大。
 
-b：重用[實驗十一](exp11_ancestor_comparison.md)build_ancestor_monitor，known為8／1／2／3／4，unknown為5／6／7／3_14／4_146交集，分別LW與legacy。known各holdout、unknown全池classify後合併unknown，1screw／1screws顯示名統一成1screw，形成固定六標籤矩陣。缺類不代表完整coverage；legacy 的 score≤1 列取縮放空間中歐氏距離最近的類別 train 中心當已知名稱（見[實驗十一](exp11_ancestor_comparison.md#資料類別與切分)），score>1 才記 unknown；LW 與 legacy 的矩陣差仍含校準來源差異，不能解讀成單純協方差差異。unknown未進detector fit／cal。本實驗每個工況只擬合一次 LW 祖先 monitor，(b) 的 LW 矩陣與 (c) 的 t-SNE 共用同一個；(b) 的 legacy 另擬合一次。
+b：重用[實驗十一](exp11_ancestor_comparison.md)build_ancestor_monitor，known為8／1／2／3／4，unknown為5／6／7／3_14／4_146交集，分別LW與legacy。known各holdout、unknown全池classify後合併unknown，標籤用 `core.data` 的正規配置名（`1screw` 目錄載入時已是 `1screws`，#271），形成固定六標籤 8screws／1screws／2screws／3screws／4screws／unknown 矩陣。缺類不代表完整coverage；legacy 的 score≤1 列取縮放空間中歐氏距離最近的類別 train 中心當已知名稱（見[實驗十一](exp11_ancestor_comparison.md#資料類別與切分)），score>1 才記 unknown；LW 與 legacy 的矩陣差仍含校準來源差異，不能解讀成單純協方差差異。unknown未進detector fit／cal。本實驗每個工況只擬合一次 LW 祖先 monitor，(b) 的 LW 矩陣與 (c) 的 t-SNE 共用同一個；(b) 的 legacy 另擬合一次。
 
 c：每工況另建LW的A協定monitor，按default_rng(seed)每配置抽最多200列（不放回），**從完整池抽，包含known train／cal／holdout**。用該monitor的train-only scaler transform，再讓t-SNE在抽出的known＋unknown樣本上fit二維嵌入。unknown只參與事後視覺化、不回饋偵測器；這張圖不是獨立holdout準確率。
 

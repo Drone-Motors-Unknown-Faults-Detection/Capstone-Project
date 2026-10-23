@@ -120,7 +120,7 @@ def iter_run(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--motor", required=True)
     parser.add_argument("--rpm", required=True)
@@ -140,7 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="allow output without temporal identity; trend remains insufficient_history when absent",
     )
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_monitor")
+    log, paths = setup_run("exp8_health_monitor", data_root=args.data_root)
     log.info(f"參數：{vars(args)}")
     results = run(
         args.data_root,

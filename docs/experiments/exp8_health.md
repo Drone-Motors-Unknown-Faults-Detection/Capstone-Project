@@ -121,7 +121,7 @@ API：`run(data_root, seed=42, openset_method="mahalanobis", mahalanobis_method=
 
 矩陣不另學健康量尺。預設 seeds 42／123／2026、methods mahalanobis／knn，`run_id` 如 `seed_42_mahalanobis`。每個 seed×method 呼叫一次基準，共 6 次、54 列。實驗六的 54 是 run 目錄數，這裡 54 是工況列。confidence 0.95、LW 與 k=5 沿基準預設。
 
-CLI 經 `core.logger.setup_run("exp8_health_index_matrix")` 初始化，日誌寫 `logs/exp8_health_index_matrix/{ts}.log`。不給 `--output-root` 時結果寫本次的 `output/exp8_health_index_matrix/{ts}/`。要續跑既有輸出根才給 `--output-root`，不要指向 `reports/exp8_health_index_results/`。
+CLI 經 `core.logger.setup_run("exp8_health_index_matrix", data_root=args.data_root)` 初始化，日誌寫 `logs/exp8_health_index_matrix/{ts}.log`。不給 `--output-root` 時結果寫本次的 `output/exp8_health_index_matrix/{ts}/`。要續跑既有輸出根才給 `--output-root`，不要指向 `reports/exp8_health_index_results/`。
 
 ```bash
 uv run --locked python -m experiments.health_index_matrix --help
@@ -131,7 +131,7 @@ uv run --locked python -m experiments.health_index_matrix --data-root data --out
 
 API：`run_matrix(data_root, output_root, seeds=(42, 123, 2026), methods=("mahalanobis", "knn"), resume=True)`。`data_root` 與 `output_root` 都必須明確給。沒有 `run(pools)`，也沒有 Web 重跑入口。
 
-`resume` 只查 JSON 的 status、seed、method 及 `formal_condition_count==9`。它不核對 rows 長度、唯一工況、資料指紋、參數、CSV 或來源 SHA。`--no-resume` 覆寫同名 JSON／CSV。錯誤寫入 manifest 後繼續，最後 incomplete 退出碼 2。
+`resume` 查 JSON 的 status、seed、method、`formal_condition_count==9`，以及 `dataset_fingerprint` 是否等於本次 `--data-root` 的內容指紋（指紋也寫進 manifest 的 `dataset_fingerprint` 與每格，#269）；指紋不同就重算該格。它不核對 rows 長度、唯一工況、參數、CSV 或來源 SHA。`--no-resume` 覆寫同名 JSON／CSV。錯誤寫入 manifest 後繼續，最後 incomplete 退出碼 2。
 
 輸出在該次根目錄：`matrix_manifest.json`、`seed_{seed}/{method}.json` 與同名 csv。每個 run 的完成、續跑或失敗原因寫進 `logs/exp8_health_index_matrix/{ts}.log`。此模組不自動產生 `aggregate_summary.json`。Web 8-2 讀封存，不讀這個新根。
 

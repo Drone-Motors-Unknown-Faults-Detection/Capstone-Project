@@ -49,13 +49,13 @@ def split_audit(demo) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--motor", default="T1")
     parser.add_argument("--rpm", default="8000rpm")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
-    log, paths = setup_run("navigation_data_contract")
+    log, paths = setup_run("navigation_data_contract", data_root=args.data_root)
     ds = next(d for d in discover_datasets(args.data_root)
               if d["motor"] == args.motor and d["rpm"] == args.rpm)
     result = run(ds, args.seed)

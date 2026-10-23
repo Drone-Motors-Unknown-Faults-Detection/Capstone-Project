@@ -543,7 +543,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp2_scale_growth")
+    log, paths = setup_run("exp2_scale_growth", data_root=args.data_root)
     log.info(f"實驗二：量尺擴張重播 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
              f"confidence={args.confidence}, seed={args.seed}, "

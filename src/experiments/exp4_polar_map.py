@@ -227,7 +227,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp4_polar_map")
+    log, paths = setup_run("exp4_polar_map", data_root=args.data_root)
     log.info(f"實驗四：極座標健康地圖 — {ds['motor']}/{ds['rpm']}（part={args.part}, seed={args.seed}）")
 
     result = run(pools, seed=args.seed, parts=args.part)

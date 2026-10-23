@@ -23,23 +23,14 @@ from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import save_json
 
-_ANCESTOR_KNOWN_CANDIDATES = ["8screws", "1screw", "1screws", "2screws", "3screws", "4screws"]
+# 池的 key 由 core.data 統一成正規名（1screw 目錄讀成 1screws），這裡不再處理別名（#271）
+_ANCESTOR_KNOWN_CANDIDATES = ["8screws", "1screws", "2screws", "3screws", "4screws"]
 _ANCESTOR_UNKNOWN_CANDIDATES = ["5screws", "6screws", "7screws", "3_14screws", "4_146screws"]
 
 
 def _ancestor_known_configs(pools: dict[str, np.ndarray]) -> list[str]:
-    """原始論文協定的已知類別：8/1/2/3/4screws，1screw/1screws 兩種目錄名只取候選清單中第一個存在者。"""
-    seen_one = False
-    result = []
-    for name in _ANCESTOR_KNOWN_CANDIDATES:
-        if name not in pools:
-            continue
-        if name.startswith("1screw"):
-            if seen_one:
-                continue
-            seen_one = True
-        result.append(name)
-    return result
+    """原始論文協定的已知類別：8/1/2/3/4screws，只取池裡存在的。"""
+    return [name for name in _ANCESTOR_KNOWN_CANDIDATES if name in pools]
 
 
 def build_ancestor_monitor(pools: dict[str, np.ndarray], seed: int = 42,
@@ -182,7 +173,7 @@ def _figure(summary: dict):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seeds", default="42,123,2026")
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -192,7 +183,7 @@ def main() -> None:
     seeds = tuple(int(s) for s in args.seeds.split(","))
     methods = tuple(args.methods.split(","))
 
-    log, paths = setup_run("exp11_ancestor_comparison")
+    log, paths = setup_run("exp11_ancestor_comparison", data_root=args.data_root)
     log.info(f"實驗十一：原始論文對照（seeds={seeds}, methods={methods}）")
     result = run(args.data_root, seeds, args.confidence, methods)
     save_json(paths.output_dir / "summary.json", result)

@@ -102,13 +102,13 @@ def _figure(summary):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp6_osr_benchmark")
+    log, paths = setup_run("exp6_osr_benchmark", data_root=args.data_root)
     log.info(f"實驗六：OSR 方法基準比較（seed={args.seed}）")
     result = run(args.data_root, args.seed, args.confidence)
 

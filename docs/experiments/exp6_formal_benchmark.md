@@ -57,7 +57,7 @@ Web啟動見[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)，選
 
 main經setup_run寫logs/exp6_formal_benchmark/{ts}.log及output/exp6_formal_benchmark/{ts}/environment.json、summary.json、results.csv、osr_benchmark.png。Web另寫web_server的experiments JSON。
 
-API未傳 evidence_paths 時，以 setup_run("exp6_formal_api", unique=True) 寫 environment.json、provenance.json；CLI使用同一執行目錄。失敗紀錄保留 error_type，不公開任意例外內容；私人解析根只在被 Git 忽略的 `.lineage_private/`。
+`run()` 不呼叫 setup_run、不動 loguru（#269）：呼叫端給 `evidence_dir` 時才寫 provenance.json 與 environment.json（CLI 傳自己的 output 目錄並沿用 setup_run 已寫的 environment.json；[矩陣](exp6_matrix.md)傳每格的 `runs/{run_id}/`），`provenance_record_id` 記該目錄最後兩節；Web 不傳，磁碟上不留目錄，source 與 environment 只放在回傳值。資料來源只在執行前後各 capture_source 一次，`dataset_fingerprint` 沿用執行前那次。失敗紀錄保留 error_type，不公開任意例外內容；私人解析根只在被 Git 忽略的 `.lineage_private/`。
 
 | 欄位 | 含義 |
 |---|---|

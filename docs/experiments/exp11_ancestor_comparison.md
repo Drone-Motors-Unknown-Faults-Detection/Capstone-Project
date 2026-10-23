@@ -34,7 +34,7 @@
 | A | healthy 8screws＋1／2／3／4螺絲配置 | 5／6／7／3_14／4_146與現有池的交集 |
 | B | healthy 8screws | 所有其他現有配置 |
 
-1screw／1screws依候選順序只取一種，缺類會被交集略過，程式沒有保證一定五known／五unknown；A不在候選清單的額外配置也不會自動評估。這與老師healthy＋五known faulty／四unknown的另一協定不同，不能互稱已完成。
+known 候選只列正規名 `1screws`（`1screw` 目錄由 `core.data` 在載入時併入，#271），缺類會被交集略過，程式沒有保證一定五known／五unknown；A不在候選清單的額外配置也不會自動評估。這與老師healthy＋五known faulty／四unknown的另一協定不同，不能互稱已完成。
 
 每seed42／123／2026、每method legacy／ledoit_wolf分別從健康fit_initial，再依known順序add_class；各known列洗牌60/20/20。scaler只fit全部known train，LW逐類中心／共變異數只fit train、各cal定0.95線。unknown不fit／校準／選參；已知各holdout與unknown全池只評估。沒有神經網路epoch或共同winner選擇。
 

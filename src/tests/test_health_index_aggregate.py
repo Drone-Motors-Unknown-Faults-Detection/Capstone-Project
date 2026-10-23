@@ -291,6 +291,18 @@ class HealthAggregateTests(unittest.TestCase):
         self.assertTrue((output / "field_differences.csv").is_file())
         self.assertEqual(before, {p.relative_to(self.root).as_posix(): p.read_bytes() for p in self.root.rglob("*") if p.is_file()})
 
+    def test_run_without_git_records_null_commit_and_still_matches(self):
+        """沒有 .git 或 git 指令時 commit_sha 記 None，重算照常完成（#269 C16）。"""
+        output = self.base / "output"
+        output.mkdir()
+        paths = SimpleNamespace(output_dir=output, log_file=self.base / "run.log")
+        with patch.object(aggregate, "setup_run", return_value=(Mock(), paths)), \
+                patch.object(aggregate, "git_head", return_value=None):
+            result = aggregate.run(self.root, self.contract)
+        self.assertEqual(result["comparison_status"], "MATCH")
+        self.assertIsNone(result["commit_sha"])
+        self.assertIsNone(json.loads((output / "recomputation_audit.json").read_text(encoding="utf-8"))["commit_sha"])
+
     def test_run_failure_saves_failure_audit(self):
         output = self.base / "output"
         output.mkdir()

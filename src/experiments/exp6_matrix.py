@@ -264,11 +264,13 @@ def run_matrix(
         )
         started = time.perf_counter()
         try:
+            # 每格的 provenance.json／environment.json 寫進自己的 runs/{run_id}/，不另開 setup_run 目錄（#269）
             result = run(
                 data_path,
                 seed=entry["seed"],
                 openset_method=entry["method"],
                 require_nine=True,
+                evidence_dir=run_dir,
                 pool_cache=pool_cache,
             )
             result = _condition_result(result, entry)
@@ -329,7 +331,7 @@ def run_matrix(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     # 預設開新的時間戳目錄；output/exp6_formal_matrix 本身是 formal_local 歷史封存，不得被續跑覆寫（#253）
     parser.add_argument("--output-root", default=None,
@@ -338,7 +340,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--method", action="append", choices=FORMAL_METHODS, dest="methods")
     parser.add_argument("--no-resume", action="store_true")
     args = parser.parse_args(argv)
-    log, _ = setup_run("exp6_formal_matrix", make_output=False)
+    log, _ = setup_run("exp6_formal_matrix", make_output=False, data_root=args.data_root)
     log.info(f"參數：{vars(args)}")
     output_root = args.output_root or f"output/exp6_formal_matrix/{datetime.now():%Y-%m-%d-%H-%M-%S}"
     manifest = run_matrix(

@@ -51,9 +51,11 @@ class LoaderContracts(unittest.TestCase):
             self.assertEqual([(row["motor"], row["rpm"]) for row in found], [("T1", "8000rpm")])
             loaded = load_pools(dataset)
         self.assertEqual(next(iter(loaded)), "8screws")
-        self.assertIn("1screw", loaded)
+        # 1screw 目錄以正規名 1screws 進池（#271）
+        self.assertIn("1screws", loaded)
+        self.assertNotIn("1screw", loaded)
         for name, values in data.items():
-            np.testing.assert_allclose(loaded[name], values, rtol=1e-14, atol=1e-14)
+            np.testing.assert_allclose(loaded["1screws" if name == "1screw" else name], values, rtol=1e-14, atol=1e-14)
 
     def test_healthy_only_is_legal_and_missing_healthy_rejected(self):
         for healthy, accepted in ((True, True), (False, False)):

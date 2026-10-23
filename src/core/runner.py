@@ -16,6 +16,9 @@ from core.openset import SUPPORTED_OPENSET_METHODS
 
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
+    """加入資料集選擇參數；同時關掉 argparse 的前綴縮寫，`--data-r` 這類寫法直接報錯，
+    不會變成另一個旗標或讓 environment.json 記到錯的資料根（#269）。"""
+    parser.allow_abbrev = False
     parser.add_argument("--data-root", default="data", help="資料根目錄（預設 data）")
     parser.add_argument("--motor", default="T1", help="馬達代碼（預設 T1）")
     parser.add_argument("--rpm", default="8000rpm", help="轉速目錄名（預設 8000rpm）")
@@ -60,6 +63,7 @@ def resolve_dataset(args: argparse.Namespace) -> tuple[dict, dict]:
 
 
 def save_json(path: Path, obj) -> None:
+    """寫 summary.json；NaN／Infinity 直接拒絕（ValueError），空集合的統計要在來源轉成 None（#271）。"""
     def _default(o):
         if isinstance(o, (np.integer,)):
             return int(o)
@@ -69,4 +73,5 @@ def save_json(path: Path, obj) -> None:
             return o.tolist()
         raise TypeError(f"無法序列化 {type(o)}")
 
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=_default), encoding="utf-8")
+    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=_default, allow_nan=False),
+                    encoding="utf-8")

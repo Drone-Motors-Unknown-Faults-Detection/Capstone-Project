@@ -50,6 +50,7 @@ from core.openset import (
 )
 from core.runner import save_json
 from core.provenance import CONTENT_VERSION, capture_source, write_private_context
+from core.runtime_environment import collect_environment, source_data_info
 
 
 FORMAL_CONDITION_COUNT = 9
@@ -193,8 +194,13 @@ def _run_benchmark(
     *,
     require_nine: bool = True,
     pool_cache=None,
+    fingerprint: str | None = None,
 ) -> dict:
-    """Run one seed×method benchmark over every formal condition under data_root."""
+    """Run one seed×method benchmark over every formal condition under data_root.
+
+    ``fingerprint`` 由 run() 傳入執行前算好的內容指紋，避免再雜湊一次全部 CSV；
+    直接呼叫本函式時才自行計算。
+    """
     resolved = resolve_openset_config(openset_method, confidence=confidence,
                                       mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
     requested_method = str(openset_method)
@@ -284,7 +290,7 @@ def _run_benchmark(
         "seed": int(seed),
         "confidence": float(confidence),
         "formal_condition_count": len(rows),
-        "dataset_fingerprint": dataset_fingerprint(data_path),
+        "dataset_fingerprint": fingerprint if fingerprint is not None else dataset_fingerprint(data_path),
         "fingerprint_version": CONTENT_VERSION,
         # 只記資料根目錄名稱（例如 data、formal_local），不記使用者絕對路徑（#248）
         "dataset_root": data_path.name,
@@ -312,10 +318,20 @@ def _run_benchmark(
 
 def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95,
         openset_method: str = "mahalanobis", mahalanobis_method: str = "ledoit_wolf",
-        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None, pool_cache=None) -> dict:
-    """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。"""
-    if evidence_paths is None:
-        _, evidence_paths = setup_run("exp6_formal_api", unique=True)
+        knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None,
+        evidence_dir: Path | str | None = None, pool_cache=None) -> dict:
+    """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。
+
+    本函式不碰 loguru、不呼叫 setup_run：日誌與輸出目錄由呼叫端決定（#269）。
+    ``evidence_dir`` 給定時（CLI 的 output 目錄、exp6_matrix 的 runs/{run_id}/）寫入
+    provenance.json 與 environment.json（目錄裡已有 environment.json 就沿用）；
+    沒給（Web）就只把 source 與 environment 放進回傳值，不在磁碟留任何目錄。
+    ``evidence_paths``（setup_run 回傳的 RunPaths）是舊介面，只取其 output_dir。
+    資料來源只在執行前後各 capture_source 一次，指紋沿用執行前那次。
+    """
+    if evidence_dir is None and evidence_paths is not None:
+        evidence_dir = evidence_paths.output_dir
+    evidence_dir = Path(evidence_dir) if evidence_dir is not None else None
     try:
         recorded_method = canonical_openset_method(openset_method)
         recorded_requested_method = str(openset_method)
@@ -331,14 +347,23 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
                 "configuration_arguments": config, "fingerprint_version": CONTENT_VERSION}
     try:
         source, private = capture_source(data_root)
-        evidence["private_context_id"] = write_private_context(private)
+        if evidence_dir is not None:
+            evidence["private_context_id"] = write_private_context(private)
         evidence["source"] = source
         result = _run_benchmark(data_root, seed, confidence, openset_method, mahalanobis_method,
-                                knn_neighbors, require_nine=require_nine, pool_cache=pool_cache)
+                                knn_neighbors, require_nine=require_nine, pool_cache=pool_cache,
+                                fingerprint=source["dataset_fingerprint"])
         after = capture_source(data_root)[0]
         if source != after:
             raise ValueError("評估期間來源內容或manifest變動，拒絕完成")
-        result["environment"] = json.loads((evidence_paths.output_dir / "environment.json").read_text(encoding="utf-8"))
+        environment_path = evidence_dir / "environment.json" if evidence_dir is not None else None
+        if environment_path is not None and environment_path.is_file():
+            result["environment"] = json.loads(environment_path.read_text(encoding="utf-8"))
+        else:
+            result["environment"] = collect_environment(data_root=data_root, data=source_data_info(source))
+            if environment_path is not None:
+                evidence_dir.mkdir(parents=True, exist_ok=True)
+                save_json(environment_path, result["environment"])
         result["source"] = source
         evidence["effective_configuration"] = result["config"]
         evidence["resolved_config"] = result["resolved_config"]
@@ -346,10 +371,14 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         evidence["status"] = "COMPLETED"
     except BaseException as exc:
         evidence.update(status="FAILED", error_type=type(exc).__name__)
-        save_json(evidence_paths.output_dir / "provenance.json", evidence)
+        if evidence_dir is not None:
+            evidence_dir.mkdir(parents=True, exist_ok=True)
+            save_json(evidence_dir / "provenance.json", evidence)
         raise
-    save_json(evidence_paths.output_dir / "provenance.json", evidence)
-    result["provenance_record_id"] = f"{evidence_paths.program}/{evidence_paths.timestamp}"
+    if evidence_dir is not None:
+        save_json(evidence_dir / "provenance.json", evidence)
+    # 只記最後兩節（output/<program>/<ts> → "<program>/<ts>"、矩陣的 runs/<run_id>），不記絕對路徑（#248）
+    result["provenance_record_id"] = "/".join(evidence_dir.parts[-2:]) if evidence_dir is not None else None
     return result
 
 
@@ -374,7 +403,7 @@ def _figure(result: dict):
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -383,7 +412,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     args = parser.parse_args(argv)
 
-    log, paths = setup_run("exp6_formal_benchmark", unique=True)
+    log, paths = setup_run("exp6_formal_benchmark", unique=True, data_root=args.data_root)
     started = datetime.now(timezone.utc).isoformat()
     log.info(
         f"正式 OSR benchmark method={args.openset_method}, seed={args.seed}, "
@@ -396,7 +425,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.openset_method,
         args.mahalanobis_method,
         args.knn_neighbors,
-        evidence_paths=paths,
+        evidence_dir=paths.output_dir,
     )
     result["started_at_utc"] = started
     result["finished_at_utc"] = datetime.now(timezone.utc).isoformat()

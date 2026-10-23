@@ -55,6 +55,17 @@ class PoolCacheTests(unittest.TestCase):
         self.assertEqual(first_audit, expected_audit)
         self.assertEqual(second_audit, expected_audit)
 
+    def test_alias_directory_is_keyed_canonically_through_cache(self) -> None:
+        """PoolCache 回傳的 key 與 audit 跟 load_pools 一樣是正規名（#271 C33）。"""
+        dataset = write_condition(self.root / "b", seed=11)
+        (dataset / "7screws").rename(dataset / "1screw")
+        cache = PoolCache()
+        audit = {}
+        pools = cache.load(dataset, audit=audit)
+        self.assertEqual(sorted(pools), ["1screws", "8screws"])
+        self.assertEqual(audit["configuration_dirs"]["1screws"], "1screw")
+        self.assertEqual(sorted(cache.load(dataset)), ["1screws", "8screws"])
+
     def test_returned_arrays_do_not_alias_the_cache(self) -> None:
         cache = PoolCache()
         first = cache.load(self.dataset)

@@ -80,11 +80,6 @@ def visualization_counts(result: dict) -> dict:
     return {"status": "VERIFIED", "datasets": counts, "total": sum(counts.values())}
 
 
-def _canon(config: str) -> str:
-    """把 1screw/1screws 兩種目錄名併成同一個標籤，避免跨資料集疊混淆矩陣時多出虛假類別。"""
-    return "1screw" if config in ("1screw", "1screws") else config
-
-
 def _dataset_key(ds: dict) -> str:
     return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
 
@@ -121,13 +116,13 @@ def _collect_labels(monitor: OpenSetMonitor, unknown_configs: list[str],
     for config in monitor.known:
         X = monitor.holdout(config)
         preds = monitor.classify(X)
-        y_true += [_canon(config)] * len(X)
-        y_pred += [_canon(p) if p is not None else "unknown" for p in preds]
+        y_true += [config] * len(X)
+        y_pred += [p if p is not None else "unknown" for p in preds]
     for config in unknown_configs:
         X = pools[config]
         preds = monitor.classify(X)
         y_true += ["unknown"] * len(X)
-        y_pred += [_canon(p) if p is not None else "unknown" for p in preds]
+        y_pred += [p if p is not None else "unknown" for p in preds]
     return y_true, y_pred
 
 
@@ -146,7 +141,8 @@ def _openset_confusion(all_pools: dict[str, dict[str, np.ndarray]], seed: int,
         y_true += dy_true
         y_pred += dy_pred
 
-    labels = ["8screws", "1screw", "2screws", "3screws", "4screws", "unknown"]
+    # 標籤用 core.data 的正規配置名；1screw 目錄在載入時已併成 1screws（#271）
+    labels = ["8screws", "1screws", "2screws", "3screws", "4screws", "unknown"]
     matrix = confusion_matrix(y_true, y_pred, labels=labels)
     return {"labels": labels, "matrix": matrix.tolist()}
 
@@ -176,7 +172,7 @@ def _tsne_one_dataset(pools: dict[str, np.ndarray], seed: int, confidence: float
             else:
                 verdicts.append("unknown" if pred is None else "known_wrong")
         X_parts.append(sample)
-        config_labels += [_canon(config)] * n
+        config_labels += [config] * n
 
     X = np.vstack(X_parts)
     X_scaled = monitor.scaler.transform(X)
@@ -271,7 +267,7 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95,
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -279,7 +275,7 @@ def main() -> None:
     parser.add_argument("--tsne-max-per-class", type=int, default=200)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp12_confusion_tsne")
+    log, paths = setup_run("exp12_confusion_tsne", data_root=args.data_root)
     log.info(f"實驗十二：混淆矩陣與 t-SNE（seed={args.seed}, perplexity={args.perplexity}）")
     result = run(args.data_root, args.seed, args.confidence, args.perplexity, args.tsne_max_per_class)
     tsne_by_dataset = result.pop("_tsne_by_dataset")

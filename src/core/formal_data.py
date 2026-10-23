@@ -611,8 +611,11 @@ def _parse_condition(value: str) -> tuple[str, str, str]:
     parts = value.split("/")
     if len(parts) != 3:
         raise argparse.ArgumentTypeError("condition must be MOTOR/RPM/CONFIG, e.g. T2/8000rpm/8screws")
-    if parts[0] not in MOTORS or parts[1] not in RPMS or parts[2] not in CONFIGS:
-        raise argparse.ArgumentTypeError(f"unknown formal condition: {value}")
+    # 與 materialize() 同一個驗證器：`1screw` 這個 archive 內出現過的別名也接受（#271 C13）
+    try:
+        _validate_condition(parts[0], parts[1], parts[2])
+    except FormalDataError as exc:
+        raise argparse.ArgumentTypeError(f"unknown formal condition: {value}") from exc
     return parts[0], parts[1], parts[2]
 
 

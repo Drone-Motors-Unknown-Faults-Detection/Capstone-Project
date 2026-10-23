@@ -97,10 +97,36 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertEqual(info["status"], "UNKNOWN")
         self.assertIsNone(info["blas"])
 
-    def test_data_root_from_argv(self):
-        self.assertEqual(runtime._argv_data_root(["x", "--seed", "1"]), "data")
-        self.assertEqual(runtime._argv_data_root(["x", "--data-root", "d2"]), "d2")
-        self.assertEqual(runtime._argv_data_root(["x", "--data-root=d3"]), "d3")
+    def test_no_argv_sniffing(self):
+        """資料根只從呼叫端傳入；命令列的 --data-root 不再被偷看（#269）。"""
+        self.assertFalse(hasattr(runtime, "_argv_data_root"))
+        with patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}):
+            with patch("sys.argv", ["x", "--data-root", "from_argv"]):
+                self.assertEqual(runtime.collect_environment(ROOT)["data"], {"root": "data"})
+
+    def test_data_info_failed_keeps_error_type_but_not_message(self):
+        """manifest 與內容不符是 FAILED，不是「沒有資料」的 UNKNOWN（#269 C24）。"""
+        from core.provenance import ProvenanceError
+
+        with patch("core.provenance.capture_source", side_effect=ProvenanceError("private-path-secret")):
+            info = runtime.data_info("data")
+        self.assertEqual(info, {"content_version": None, "dataset_fingerprint": None, "n_files": 0,
+                                "status": "FAILED", "error_type": "ProvenanceError"})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            csv = root / "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv"
+            csv.parent.mkdir(parents=True)
+            csv.write_text("a,b\n1,2\n", encoding="utf-8")
+            (root / "formal_materialization_manifest.json").write_text("{not json", encoding="utf-8")
+            info = runtime.data_info(root)
+        self.assertEqual((info["status"], info["error_type"]), ("FAILED", "ProvenanceError"))
+
+    def test_git_head_tolerates_missing_git(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertIsNone(runtime.git_head(Path(directory)))
+        with patch.object(runtime.subprocess, "run", side_effect=OSError("no git")):
+            self.assertIsNone(runtime.git_head(ROOT))
+        self.assertRegex(runtime.git_head(ROOT) or "", r"^[0-9a-f]{40}$")
 
     def test_data_info_unknown_without_data(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -121,11 +147,21 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertNotEqual(first["dataset_fingerprint"], second["dataset_fingerprint"])
         self.assertNotIn(directory, json.dumps(first))
 
-    def test_explicit_data_root_overrides_argv(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}):
-            with patch.object(runtime.sys, "argv", ["x", "--data-root", "from_argv"]):
-                self.assertEqual(runtime.collect_environment(Path(directory))["data"], {"root": "from_argv"})
-                self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
+    def test_explicit_data_root_and_precomputed_data(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}) as info:
+            self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
+            precomputed = {"content_version": "v", "dataset_fingerprint": "f", "n_files": 1, "status": "VERIFIED"}
+            self.assertEqual(runtime.collect_environment(Path(directory), data=precomputed)["data"], precomputed)
+            self.assertEqual(info.call_count, 1)
+
+    def test_source_data_info_matches_capture_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            csv = Path(directory) / "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv"
+            csv.parent.mkdir(parents=True)
+            csv.write_text("a,b\n1,2\n", encoding="utf-8")
+            from core.provenance import capture_source
+
+            self.assertEqual(runtime.source_data_info(capture_source(directory)[0]), runtime.data_info(directory))
 
     def test_setup_run_writes_json(self):
         with tempfile.TemporaryDirectory() as directory, working_directory(directory):
