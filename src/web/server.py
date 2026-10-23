@@ -599,7 +599,7 @@ def main() -> None:
     ALLOWED_ORIGINS.update(o.rstrip("/").lower() for o in args.allow_origin)
     reject_legacy_method(args.method)
 
-    log, paths = setup_run("web_server")
+    log, paths = setup_run("web_server", data_root=args.data_root)
     PLAYBACK.results_root = Path(paths.output_dir).parent   # output/web_server：各次啟動的實驗存檔
 
     datasets = discover_datasets(args.data_root)

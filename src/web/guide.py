@@ -343,7 +343,7 @@ def main():
     add_openset_args(parser)
     args = parser.parse_args()
     reject_legacy_method(args.method)
-    log, paths = setup_run("web_guide")
+    log, paths = setup_run("web_guide", data_root=args.data_root)
     hub = GuideHub(discover_datasets(args.data_root), args.seed, args.rate, paths.output_dir,
                    {"openset_method": args.openset_method, "mahalanobis_method": args.method,
                     "confidence": args.confidence, "knn_neighbors": args.knn_neighbors})
