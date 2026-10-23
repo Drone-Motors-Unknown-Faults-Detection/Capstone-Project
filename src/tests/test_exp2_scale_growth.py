@@ -429,4 +429,6 @@ class NoConfirmTests(unittest.TestCase):
         result = _rounded(exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300))
         for key in SemanticsTests.NEW_KEYS:
             result.pop(key)
+        # 來源綁定是 metadata；記憶體池沒有檔案來源，只能標 UNVERIFIED_MEMORY
+        self.assertEqual(result.pop("provenance")["source"]["status"], "UNVERIFIED_MEMORY")
         _assert_close(self, golden, result)

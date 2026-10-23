@@ -16,6 +16,9 @@ from core.provenance import ProvenanceError, load_pool_source, source_for_pools
 from core.runner import execution_context, run_dataset
 from tests.test_exp6_benchmark import _fixture
 
+# 沒有來源 metadata 的主線版本（#297 之後的 exp1–3）；來源綁定只能多一個 provenance 欄，不能改科學輸出。
+SCIENCE_BASELINE = "6cd0347b5e0b719c18c3849d99258bb0c381bb2d"
+
 
 def fixture(tmp_path):
     root = _fixture(tmp_path / "data")
@@ -219,8 +222,7 @@ def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
     from web.experiments import jsonable
 
     root = Path(__file__).resolve().parents[2]
-    baseline = "ff28b438e87c3320f65195346e4a53f727475a5c"
-    text = subprocess.check_output(["git", "show", f"{baseline}:src/experiments/{name}.py"], cwd=root)
+    text = subprocess.check_output(["git", "show", f"{SCIENCE_BASELINE}:src/experiments/{name}.py"], cwd=root)
     old = types.ModuleType("_pool_provenance_" + name)
     exec(compile(text, name, "exec"), old.__dict__)
     current = importlib.import_module("experiments." + name)
@@ -246,7 +248,7 @@ def test_growth_healthy_mix_keeps_source_and_current_main_results(tmp_path, heal
     pools, source = load_pool_source(root, dataset)
     project = Path(__file__).resolve().parents[2]
     text = subprocess.check_output(["git", "show",
-        "ff28b438e87c3320f65195346e4a53f727475a5c:src/experiments/exp2_scale_growth.py"], cwd=project)
+        f"{SCIENCE_BASELINE}:src/experiments/exp2_scale_growth.py"], cwd=project)
     old = types.ModuleType("_growth_main_healthy_mix")
     exec(compile(text, "exp2_scale_growth", "exec"), old.__dict__)
     options = dict(sequence=["7screws"], seed=42, healthy_mix=healthy_mix, max_ticks_per_stage=5)
@@ -295,7 +297,8 @@ def test_cli_uses_traced_loader_and_same_run_environment(tmp_path, name):
     root, _ = fixture(tmp_path)
     module = importlib.import_module("experiments." + name)
     result = {"rows": [], "stages": [], "trials": [], "summary": {}, "final_known": [],
-              "healthy_fp_rate": 0, "macro_detect_rate": 0, "macro_auroc": 0}
+              "healthy_fp_rate": 0, "macro_detect_rate": 0, "macro_auroc": 0,
+              "n_stages": 0, "n_learned": 0, "n_matched_config": 0}
     argv = [name, "--data-root", str(root)]
     if name.startswith("exp2"):
         argv += ["--healthy-mix", "0.3"]
