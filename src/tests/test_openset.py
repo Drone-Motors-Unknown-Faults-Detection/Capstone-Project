@@ -276,5 +276,54 @@ class FprAtTprTests(unittest.TestCase):
         self.assertEqual(compare_openset._fpr_at_tpr95(y, np.r_[known, unknown]), expected)
 
 
+class OpensetMetricsTests(unittest.TestCase):
+    """#276 K01：八個開集指標只算一次，實驗六正式版與實驗七共用，鍵名別名不改數值。"""
+
+    known = np.array([0.5, 1.0, 1.5])
+    unknown = np.array([0.8, 2.0, 3.0])
+
+    def test_hand_computed_values(self):
+        from core.openset import OPENSET_METRIC_KEYS, openset_metrics
+
+        metrics = openset_metrics(self.known, self.unknown)
+        self.assertEqual(tuple(metrics), OPENSET_METRIC_KEYS)
+        # 分數 > 1 判 unknown：known 判對 2/3，unknown 判對 2/3，precision 2/3，F1 2/3
+        self.assertAlmostEqual(metrics["known_accuracy"], 2 / 3)
+        self.assertAlmostEqual(metrics["unknown_recall"], 2 / 3)
+        self.assertAlmostEqual(metrics["unknown_precision"], 2 / 3)
+        self.assertAlmostEqual(metrics["unknown_f1"], 2 / 3)
+        self.assertAlmostEqual(metrics["open_set_accuracy"], 4 / 6)
+        self.assertAlmostEqual(metrics["auroc"], 7 / 9)  # 9 對 (known, unknown)，unknown 分數較高 7 對
+        self.assertEqual(metrics["fpr_at_tpr95"], 2 / 3)  # 要收 0.8 才達 TPR 100%，known 有兩筆 ≥ 0.8
+        self.assertTrue(all(isinstance(value, float) for value in metrics.values()))
+
+    def test_exp6_formal_rounds_the_shared_values(self):
+        from core.openset import openset_metrics
+        from experiments.exp6_formal_benchmark import _condition_metrics
+
+        shared = openset_metrics(self.known, self.unknown)
+        formal = _condition_metrics(self.known, self.unknown)
+        for key, value in shared.items():
+            self.assertEqual(formal[key], round(value, 6))
+        self.assertEqual(formal["known_score_median"], 1.0)
+
+    def test_exp7_aliases_cover_every_shared_key(self):
+        from core.openset import OPENSET_METRIC_KEYS
+        from experiments.compare_openset import _EXP7_METRIC_KEYS
+
+        self.assertEqual(set(_EXP7_METRIC_KEYS), set(OPENSET_METRIC_KEYS))
+        self.assertEqual(_EXP7_METRIC_KEYS["fpr_at_tpr95"], "fpr_at_95_tpr")
+        self.assertEqual(_EXP7_METRIC_KEYS["unknown_f1"], "f1_unknown")
+        self.assertEqual(_EXP7_METRIC_KEYS["known_accuracy"], "known_class_accuracy")
+
+    def test_empty_batch_is_rejected(self):
+        from core.openset import openset_metrics
+
+        with self.assertRaises(ValueError):
+            openset_metrics(np.array([]), self.unknown)
+        with self.assertRaises(ValueError):
+            openset_metrics(self.known, np.array([]))
+
+
 if __name__ == "__main__":
     unittest.main()

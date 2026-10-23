@@ -22,6 +22,7 @@ import numpy as np
 from core.data import HEALTHY, discover_datasets, load_pools
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
+from core.openset import openset_metrics
 from core.runner import save_json
 
 
@@ -55,14 +56,12 @@ def _validate_n_values(n_values: tuple[int, ...], healthy_sizes: dict[str, int])
 
 
 def _metrics(healthy_scores: np.ndarray, fault_scores: np.ndarray) -> dict:
-    from sklearn.metrics import roc_auc_score
-
-    y = np.r_[np.zeros(len(healthy_scores)), np.ones(len(fault_scores))]
-    s = np.r_[healthy_scores, fault_scores]
+    """healthy_accept＝known_accuracy、fault_detect＝unknown_recall，同 core.openset.openset_metrics。"""
+    metrics = openset_metrics(healthy_scores, fault_scores)
     return {
-        "healthy_accept": round(float((healthy_scores <= 1).mean()), 4),
-        "fault_detect": round(float((fault_scores > 1).mean()), 4),
-        "auroc": round(float(roc_auc_score(y, s)), 4),
+        "healthy_accept": round(metrics["known_accuracy"], 4),
+        "fault_detect": round(metrics["unknown_recall"], 4),
+        "auroc": round(metrics["auroc"], 4),
     }
 
 
