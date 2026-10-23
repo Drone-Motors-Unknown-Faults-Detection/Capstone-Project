@@ -64,7 +64,7 @@
 
 | 頁面／入口 | runner／主要手冊 | 主問題與實際用途 | 資料角色與呈現限制 |
 |---|---|---|---|
-| 即時展示 `/` | `web.live.LiveDemo`；[導覽手冊](exp13_experiment_navigation.md) | 串起偵測、隔離、候選、模擬確認及模型更新 | 初始只 fit 健康；確認後使用完整配置池。首頁具名來源是展示真值，不是模型猜出的故障名稱 |
+| 即時展示 `/` | `web.live.LiveDemo`；[導覽手冊](exp13_experiment_navigation.md) | 串起偵測、隔離、候選、成群自學及模型更新 | 初始只 fit 健康；成群當拍 `adopt()` 只用群內樣本，不讀完整配置池（#287）。首頁具名來源是展示真值，不是模型猜出的故障名稱 |
 | `/#exp1`，ID `exp1` | `exp1_cold_start.run/iter_run`；[實驗一](exp1_cold_start.md) | 健康基準會誤報多少、能拒絕多少未知配置？ | 同工況健康 train/cal/holdout；故障全池只測試，沒有訓練故障分類器 |
 | `/#exp2`，ID `exp2` | `exp2_scale_growth.run`／`iter_playback`；[實驗二](exp2_scale_growth.md) | 候選群能不能只用自身樣本變成新類？ | 邊跑邊畫與批次都在群出現時自學。類名是模型新類；配置名只做事後對照。不用完整配置池 |
 | `/#exp3`，ID `exp3` | `exp3_trend.run/iter_run`；[實驗三](exp3_trend.md) | 合成的漸進／突發順序能否辨別？ | 頁上可只播劇本 A 或 B。「邊跑邊畫」兩個劇本一起跑。延遲單位是重播筆數，不是現場秒數或壽命 |
