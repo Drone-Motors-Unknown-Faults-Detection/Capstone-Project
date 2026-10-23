@@ -110,3 +110,5 @@ van der Maaten與Hinton（2008），*Visualizing Data using t-SNE*，JMLR9,2579�
 抽樣與資料角色核算另見`src/tests/test_exp12_semantics.py`；有限工具編排在`src/web/assistant_budget.py`，對應`src/tests/test_assistant_budget.py`。圖步數錯誤說明見[LangGraph官方文件](https://docs.langchain.com/oss/python/langgraph/errors/GRAPH_RECURSION_LIMIT)；本專案預算為應用層設計，不是官方對模型語意正確的保證。
 
 8787測試站的有限問答證據入口為`python -m tests.assistant_http_evidence --base-url http://140.134.138.33:8787 --saved <同次存檔> --source-sha <原檔SHA256> --deployment-sha <容器來源commit>`。只允許8787，不啟動研究實驗、不呼叫正式站；依setup_run寫入`logs/assistant_http_evidence/`與`output/assistant_http_evidence/`，保存六題結果與兩題一般方法的原始SSE、來源、耗時及實際前端JS驗證。HTTP通過不等於瀏覽器或自由解釋逐句通過；部署commit須另對OCI標籤與映像核實。
+
+8787測試站跑在容器裡，容器看不到主機的區網 IP；伺服器的 Host 允許清單（#304）預設只收 localhost，從 `http://140.134.138.33:8787` 送來的執行、邊跑邊畫與 AI 提問都會回 403。部署 8787 時要在 `docker/.env` 設 `ALLOW_HOST=140.134.138.33`（compose 傳給 `--allow-host`）再重建容器；證據腳本遇到這種 403 會直接提示這個設定。
