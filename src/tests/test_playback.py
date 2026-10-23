@@ -366,6 +366,20 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
             self.assertEqual(rec[key], payload[key])
             self.assertEqual(raw[key], payload[key])
 
+    def test_run_rejects_non_object_json_with_400(self):
+        """#305 G-07：/run 收到 list／字串／數字／null 回 400 JSON，不是 AttributeError 的 HTML 500。"""
+        for body in ("[1, 2]", '"seed"', "42", "null"):
+            with self.subTest(body=body):
+                resp = self.fetch("/api/experiments/exp12/run", method="POST", body=body,
+                                  headers={"Content-Type": "application/json"})
+                self.assertEqual(resp.code, 400)
+                self.assertTrue(resp.headers["Content-Type"].startswith("application/json"))
+                self.assertIn("JSON 物件", json.loads(resp.body)["error"])
+        self.assertNotIn("exp12", server.PLAYBACK.snapshot()["records"])
+        for call in (server.JOBS.runner.clean_params, server.JOBS.runner.stream_params):
+            with self.assertRaisesRegex(ValueError, "JSON 物件"):
+                call("exp3", ["dataset"])
+
     def test_time_http_and_saved_restart_do_not_call_model(self):
         from unittest.mock import patch
         from web.assistant import Assistant

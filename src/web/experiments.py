@@ -325,6 +325,8 @@ class ExperimentRunner:
         spec = _BY_ID.get(exp_id)
         if spec is None:
             raise ValueError(f"未知實驗：{exp_id}")
+        if raw_params is not None and not isinstance(raw_params, dict):
+            raise ValueError("參數必須是 JSON 物件")
         return self._clean(spec, raw_params or {})
 
     # -- 執行 ------------------------------------------------------------------
@@ -455,6 +457,8 @@ class ExperimentRunner:
         spec = _BY_ID.get(exp_id)
         if spec is None or not spec.get("stream"):
             raise ValueError(f"{exp_id} 不支援邊跑邊畫")
+        if raw_params is not None and not isinstance(raw_params, dict):
+            raise ValueError("參數必須是 JSON 物件")
         raw_params = raw_params or {}
         scenario = raw_params.get("scenario") if exp_id == "exp3" else None
         if exp_id == "exp3" and scenario not in (None, "A", "B"):

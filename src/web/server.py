@@ -304,6 +304,9 @@ class RunHandler(_SameSiteMixin, _JSONHandler):
         except json.JSONDecodeError:
             self.reply({"error": "參數不是合法 JSON"}, 400)
             return
+        if not isinstance(params, dict):   # list／字串／null 不能當參數，跟 StreamHandler 同規則（#305 G-07）
+            self.reply({"error": "參數必須是 JSON 物件"}, 400)
+            return
         try:
             params = JOBS.runner.clean_params(exp_id, params)   # 參數錯誤先回報；原始用戶端參數不進播放紀錄（#285 R2-10）
         except ValueError as exc:
