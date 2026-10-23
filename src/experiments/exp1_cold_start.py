@@ -100,21 +100,22 @@ def iter_run(
         yield {"event": "row", "row": rows[-1]}
 
     fault_rows = rows[1:]
+    model = monitor.summary()  # 方法、k、門檻來源一律取自 monitor（別名呼叫時與 model 區塊一致）
     yield {"event": "result", "result": {
         "rows": rows,
         "healthy_fp_rate": rows[0]["detect_rate"],
         "macro_detect_rate": float(np.mean([r["detect_rate"] for r in fault_rows])),
         "macro_auroc": float(np.mean([r["auroc"] for r in fault_rows])),
-        "model": monitor.summary(),
+        "model": model,
         "confidence": confidence,
-        "openset_method": openset_method,
-        "method": method,
-        "score_type": monitor.summary()["score_type"],
+        "openset_method": model["openset_method"],
+        "method": model["method"],
+        "score_type": model["score_type"],
         "threshold": 1.0,
-        "threshold_strategy": monitor.summary()["threshold_strategy"],
-        "calibration_source": "known-only 20% calibration split",
-        "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
-        "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "threshold_strategy": model["threshold_strategy"],
+        "calibration_source": model["calibration_source"],
+        "split": model["split"],
+        "knn_neighbors": model["knn_neighbors"],
         "seed": seed,
     }}
 

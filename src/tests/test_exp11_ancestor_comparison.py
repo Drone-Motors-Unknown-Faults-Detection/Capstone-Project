@@ -50,6 +50,29 @@ class BuildAncestorMonitorTests(unittest.TestCase):
         monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95, method="legacy")
         self.assertEqual(monitor.method, "legacy")
 
+    def test_build_matches_sequential_add_class(self):
+        pools = synthetic_ancestor_pools()
+        from core.monitor import OpenSetMonitor
+
+        reference = OpenSetMonitor(pools, seed=42, confidence=0.95)
+        reference.fit_initial()
+        for config in ["1screw", "2screws", "3screws", "4screws"]:
+            reference.add_class(config)
+        monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95)
+        query = pools["5screws"]
+        np.testing.assert_array_equal(monitor.score(query), reference.score(query))
+        self.assertEqual(monitor.summary(), reference.summary())
+
+    def test_legacy_classify_returns_known_names(self):
+        """#266：legacy 對 score≤1 的已知 holdout 回最近類別，不再全判 unknown。"""
+        pools = synthetic_ancestor_pools()
+        monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95, method="legacy")
+        metrics = _evaluate_protocol(monitor, ["5screws", "6screws", "3_14screws"], pools)
+        self.assertGreater(metrics["balanced_accuracy"], 1 / 6)
+        for config in monitor.known:
+            labels = monitor.classify(monitor.holdout(config))
+            self.assertIn(config, labels)
+
 
 class EvaluateProtocolTests(unittest.TestCase):
     def test_metrics_keys_present_and_in_range(self):

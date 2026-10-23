@@ -10,8 +10,10 @@ from __future__ import annotations
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import RobustScaler
+from threadpoolctl import threadpool_limits
 
 from core.data import HEALTHY, Split, make_split
+from core.mahalanobis import LEGACY_POOLED_LABEL
 from core.openset import OpenSetDetector, create_openset_detector, resolve_openset_config
 
 
@@ -61,6 +63,13 @@ class OpenSetMonitor:
         self._refit()
         return label
 
+    def add_classes(self, configs: list[str]) -> list[int]:
+        """一次註冊多個已知配置、只重擬合一次；結果與逐一 add_class 相同（切分 rng 順序不變）。"""
+        labels = [self._register(config) for config in configs]
+        if labels:
+            self._refit()
+        return labels
+
     def add_observed(self, name: str, samples: np.ndarray) -> int:
         """只用這批已到達樣本註冊新類並重擬合，不讀該配置的完整資料池。"""
         rows = np.atleast_2d(np.asarray(samples, dtype=float))
@@ -91,6 +100,11 @@ class OpenSetMonitor:
         return label
 
     def _refit(self) -> None:
+        # 105 維小矩陣在多執行緒 BLAS 下反而慢數十倍；單執行緒的數字逐位元相同
+        with threadpool_limits(limits=1):
+            self._refit_single_thread()
+
+    def _refit_single_thread(self) -> None:
         self._fitted = False
         X_tr, y_tr, X_ca, y_ca = [], [], [], []
         for config, label in self.known.items():
@@ -112,6 +126,7 @@ class OpenSetMonitor:
             confidence=effective["confidence"],
             mahalanobis_method=self.method,
             knn_neighbors=self.knn_neighbors,
+            random_state=self.seed,  # MCD 與其 PCA 的亂數來源跟著 seed 走（鐵則 7）
         ).fit(X_tr_s, y_tr, self.scaler.transform(X_ca), y_ca)
 
         self.pca = PCA(n_components=2, random_state=0).fit(X_tr_s)
@@ -136,11 +151,19 @@ class OpenSetMonitor:
         self._require_fitted()
         return self.detector.score_samples(self.scaler.transform(np.atleast_2d(X_raw)))
 
+    def _configs(self, labels: np.ndarray) -> list[str | None]:
+        return [self._label_to_config.get(int(label)) if label >= 0 else None for label in labels]
+
     def classify(self, X_raw: np.ndarray) -> list[str | None]:
         """回傳最近的已知配置名稱；未知回傳 None。"""
         self._require_fitted()
-        labels = self.detector.predict_known_class(self.scaler.transform(np.atleast_2d(X_raw)))
-        return [self._label_to_config.get(int(label)) if label >= 0 else None for label in labels]
+        return self._configs(self.detector.predict_known_class(self.scaler.transform(np.atleast_2d(X_raw))))
+
+    def score_and_classify(self, X_raw: np.ndarray) -> tuple[np.ndarray, list[str | None]]:
+        """同時回傳分數與類別；距離只算一次，結果與 score()＋classify() 相同。"""
+        self._require_fitted()
+        scores, labels = self.detector.score_and_predict(self.scaler.transform(np.atleast_2d(X_raw)))
+        return scores, self._configs(labels)
 
     def project(self, X_raw: np.ndarray) -> np.ndarray:
         """投影到已知資料擬合出的 PCA 平面（僅供視覺化）。"""
@@ -158,15 +181,16 @@ class OpenSetMonitor:
     def summary(self) -> dict:
         """目前擬合狀態的可序列化摘要（保存用：逐類閾值與樣本數）。"""
         self._require_fitted()
+        legacy = self.openset_method == "mahalanobis" and self.method == "legacy"
         classes = []
         for item in self.detector.class_summaries():
             label = int(item["label"])
-            if label in self._label_to_config:
-                config = self._label_to_config[label]
-                splits = [self.splits[config]]
-            else:  # legacy 以 -1 代表全部已知類合併成單一分布
+            if label == LEGACY_POOLED_LABEL:  # legacy：全部已知類合併成單一分布
                 config = "pooled_known"
                 splits = [self.splits[c] for c in self.known]
+            else:
+                config = self._label_to_config[label]
+                splits = [self.splits[config]]
             row = {
                 "config": config,
                 "label": label,
@@ -178,16 +202,23 @@ class OpenSetMonitor:
             }
             row.update({k: v for k, v in item.items() if k not in {"label", "threshold"}})
             classes.append(row)
+        if legacy:  # 門檻量在估分布的同一批 train 距離上，不讀校準集；已知列再取縮放空間中最近的類別 train 中心
+            score_type = "normalized_pooled_mahalanobis"
+            threshold_strategy = f"known_train_pooled_distance_quantile_{self.confidence:.4g}"
+            calibration_source = "known-only 60% train split (legacy: threshold on training distances)"
+        else:
+            score_type = ("normalized_class_mahalanobis" if self.openset_method == "mahalanobis"
+                          else "normalized_class_knn_mean_euclidean")
+            threshold_strategy = f"known_calibration_class_quantile_{self.confidence:.4g}"
+            calibration_source = "known-only 20% calibration split"
         return {
             "resolved_config": self.resolved_config,
             "openset_method": self.openset_method,
             "method": self.method,
-            "score_type": "normalized_class_mahalanobis"
-            if self.openset_method == "mahalanobis"
-            else "normalized_class_knn_mean_euclidean",
+            "score_type": score_type,
             "threshold": 1.0,
-            "threshold_strategy": f"known_calibration_class_quantile_{self.confidence:.4g}",
-            "calibration_source": "known-only 20% calibration split",
+            "threshold_strategy": threshold_strategy,
+            "calibration_source": calibration_source,
             "confidence": self.confidence,
             "knn_neighbors": self.knn_neighbors if self.openset_method == "knn" else None,
             "random_seed": self.seed,

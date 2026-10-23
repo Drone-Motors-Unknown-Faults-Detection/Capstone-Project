@@ -15,8 +15,10 @@ Cholesky 分解取白化矩陣 W = chol(P_H)^T，對任意樣本（已標準化�
     - new_direction：最相近射線的 cos 低於該射線的 τ → 走新類發現（隔離區）
 
 幾何基準固定為馬氏距離：不論開集偵測採用 Mahalanobis 或 k-NN（monitor 的
---openset-method），PolarMap 一律在 monitor 已知類的 train/calibration split
-上另行擬合 Ledoit–Wolf Mahalanobis，讓半徑與射線方向在方法比較實驗間可比。
+--openset-method），PolarMap 一律用 monitor 已知類的 train/calibration split
+擬合的 Ledoit–Wolf Mahalanobis，讓半徑與射線方向在方法比較實驗間可比。
+monitor 本身就是 mahalanobis/ledoit_wolf 時直接沿用 monitor.detector（同一批
+輸入、同一個估計器，結果相同），其他方法才另行擬合。
 """
 
 from __future__ import annotations
@@ -24,6 +26,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+from threadpoolctl import threadpool_limits
 
 from core.data import HEALTHY
 from core.mahalanobis import MahalanobisOpenSetDetector
@@ -45,6 +48,7 @@ class PolarMap:
     """
 
     polarmap_base_method = "mahalanobis"
+    polarmap_base_method_covariance = "ledoit_wolf"
 
     def __init__(self, monitor, tau_percentile: float = 5.0, healthy: str = HEALTHY):
         if monitor.scaler is None or not monitor.known:
@@ -52,25 +56,7 @@ class PolarMap:
         self.healthy = healthy
         self.tau_percentile = float(tau_percentile)
         self._scaler = monitor.scaler
-
-        X_train, y_train, X_calibration, y_calibration = [], [], [], []
-        for config, label in monitor.known.items():
-            pool = monitor._pool(config)
-            split = monitor.splits[config]
-            X_train.append(pool[split.train])
-            y_train.append(np.full(len(split.train), label, dtype=int))
-            X_calibration.append(pool[split.cal])
-            y_calibration.append(np.full(len(split.cal), label, dtype=int))
-        X_train_scaled = self._scaler.transform(np.vstack(X_train))
-        X_calibration_scaled = self._scaler.transform(np.vstack(X_calibration))
-        self._base_detector = MahalanobisOpenSetDetector(
-            method="ledoit_wolf", confidence=monitor.confidence, random_state=monitor.seed
-        ).fit(
-            X_train_scaled,
-            np.concatenate(y_train),
-            X_calibration_scaled,
-            np.concatenate(y_calibration),
-        )
+        self._base_detector = self._base_from(monitor)
         distributions = {
             monitor._label_to_config[int(item.label)]: item
             for item in self._base_detector.distributions_
@@ -92,6 +78,35 @@ class PolarMap:
             cos_own = self._cosines(monitor.holdout(config), [direction])[:, 0]
             tau = float(np.percentile(cos_own, self.tau_percentile))
             self.rays.append(Ray(config, direction, radius, tau))
+
+    @staticmethod
+    def _base_from(monitor) -> MahalanobisOpenSetDetector:
+        """monitor 已是 mahalanobis/ledoit_wolf 就沿用它的 detector；否則在同一組 split 上另擬合。"""
+        detector = monitor.detector
+        if (
+            isinstance(detector, MahalanobisOpenSetDetector)
+            and detector.method == PolarMap.polarmap_base_method_covariance
+            and detector.confidence == monitor.confidence
+        ):
+            return detector
+        X_train, y_train, X_calibration, y_calibration = [], [], [], []
+        for config, label in monitor.known.items():
+            pool = monitor._pool(config)
+            split = monitor.splits[config]
+            X_train.append(pool[split.train])
+            y_train.append(np.full(len(split.train), label, dtype=int))
+            X_calibration.append(pool[split.cal])
+            y_calibration.append(np.full(len(split.cal), label, dtype=int))
+        with threadpool_limits(limits=1):  # 小矩陣擬合，單執行緒較快且數字相同
+            return MahalanobisOpenSetDetector(
+                method=PolarMap.polarmap_base_method_covariance, confidence=monitor.confidence,
+                random_state=monitor.seed,
+            ).fit(
+                monitor.scaler.transform(np.vstack(X_train)),
+                np.concatenate(y_train),
+                monitor.scaler.transform(np.vstack(X_calibration)),
+                np.concatenate(y_calibration),
+            )
 
     def _whiten_scaled(self, X_scaled: np.ndarray) -> np.ndarray:
         return (np.atleast_2d(X_scaled) - self._mu_h) @ self._W.T

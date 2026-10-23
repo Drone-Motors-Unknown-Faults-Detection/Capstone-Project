@@ -36,8 +36,7 @@ COMPOUND = ["3_14screws", "4_146screws"]
 def _fit_monitor(pools, known_faults, seed, confidence=0.95, method="ledoit_wolf"):
     monitor = OpenSetMonitor(pools, seed=seed, confidence=confidence, method=method)
     monitor.fit_initial()
-    for config in known_faults:
-        monitor.add_class(config)
+    monitor.add_classes(list(known_faults))  # 一次註冊、只重擬合一次（結果與逐一 add_class 相同）
     return monitor
 
 

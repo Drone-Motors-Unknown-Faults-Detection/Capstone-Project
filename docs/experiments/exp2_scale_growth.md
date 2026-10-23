@@ -34,12 +34,12 @@
 
 ## 候選如何出現與自學
 
-1. `ScaleGrowthSession.process(x, truth)`先打分、分類。score嚴格大於1才未知；未知且嚴格大於隔離線2.0才存隔離區。1～2的邊界未知不分群。truth 只存起來供事後對照，不參與要不要學。
+1. `ScaleGrowthSession.process(x, truth)`一次算出分數與類別（`OpenSetMonitor.score_and_classify`）。score嚴格大於1才未知；未知且嚴格大於隔離線2.0才存隔離區。1～2的邊界未知不分群。與隔離區既有列完全相同的原始特徵向量不再存第二份（比對特徵值，不讀 truth），次數記在 `quarantine_duplicates`。候選待確認（首頁 `confirm()` 路徑）期間不再往隔離區加列；批次與實驗頁成群後立刻 `adopt()`，不會處於待確認狀態。truth 只存起來供事後對照，不參與要不要學。
 2. 隔離區至少25筆、距上次嘗試至少10筆新隔離樣本，才在縮放後特徵跑HDBSCAN。先(25,3)，累積75筆加試(15,3)，100筆加試(10,2)；候選仍至少25筆，噪聲-1不當新類。
-3. 選足夠大的叢。HDBSCAN fit只收特徵。`_try_cluster` 會順便算出 truth 多數與純度，但 `adopt()` 不拿它當類名，也不拿它決定是否納入。
+3. 選足夠大的叢。HDBSCAN fit只收特徵。`_try_cluster` 會順便算出 truth 多數與純度，但 `adopt()` 不拿它當類名，也不拿它決定是否納入。多數平手時取配置名字串排序最小者（`_majority`），同 seed 不同行程結果相同。
 4. 邊界退回：先用目前模型重打這一群的分數。群的中位分數若不超過已知類校準資料的最大分數（`known_cal_max`），表示這群沒有比已知資料更遠，回 `rejected_boundary`，清掉這一群、不擴張。這一步不讀 truth。
-5. 群至少 5 筆就 `learned`：類名 `discovered-N`，移除這一群在隔離區的列。樣本不足則 `insufficient`，不擴張。
-6. 學會後清理隔離區：用重擬合後的模型重新分類隔離區剩下的列，已被任一已知類接受（分數 ≤ 1）的列移出隔離區，數量記在 `pruned`。同一配置的殘餘因此不會在下一段被學成第二個類。這一步也不讀 truth。
+5. 群至少 5 筆就 `learned`：類名 `discovered-N`，移除這一群在隔離區的列。`ScaleGrowthSession.__init__` 要求 `min_cluster_size >= 5`，候選群至少 `min_cluster_size` 筆，所以 `_try_cluster` 產生的候選不會走到 `insufficient`；這個分支只擋直接塞進 `candidate` 的小群，仍會清掉該群。
+6. 學會後清理隔離區：用重擬合後的模型重打隔離區剩下的列，再套一次進入規則——被任一已知類接受（分數 ≤ 1）或分數 ≤ 隔離線 2.0 的列都移出隔離區，數量記在 `pruned`。留下的列在新模型下仍滿足「未知且超過隔離線」。這一步也不讀 truth。
 7. 批次與邊跑邊畫都在第一個 learned 結束該段。每段最多 600 tick。API 可設 max_ticks_per_stage，CLI 沒有這個選項。`learned` 是模型新類，`matched` 才是事後多數配置，兩者不必相同。
 
 這不是完整配置池的 oracle 更新。首頁即時展示的 `confirm()` 仍是另一條手動確認路徑。
@@ -148,6 +148,32 @@ uv run --locked python -m experiments.exp2_scale_growth --seed 42 --healthy-mix 
 - 學到當段配置的段數可能因延遲拉長而改變；比較時看同 seed 的 0 與 0.3。
 
 結果見 [reports/JW-Albert_20261023_aero_rerun](../../reports/JW-Albert_20261023_aero_rerun/README.md)（Aero、commit `46ed4d5`，輸出 `output/exp2_scale_growth/2026-10-23-01-30-54`～`01-32-23`），不回填本節。
+
+## 隔離區規則一致化（issue #268）
+
+問題：Aero 以 commit `46ed4d5` 重跑的輸出（`output/exp2_scale_growth/2026-10-23-01-30-54` 等）顯示四件事。(1) 進入隔離區要 score>2，學會後 `_prune_explained` 只移出 score≤1 的列，(1,2] 的舊列留著再成群：seed 42 預設 19 筆 5screws 殘餘被吸進 4screws 群（`cluster_purity` 68.33%，5screws `matched_rate` 51.16%）；`--fixed-density` 時 5screws 被學成三個類。(2) `CycleSampler` 一圈後重抽相同列，隔離區有完全相同的列，`add_observed` 60/20/20 切分時 cal／holdout 含 train 的複本（fixed-density seed 42：9 個新類有 5 個受影響）。(3) 候選多數 `max(set(...), key=count)` 平手時依字串雜湊順序。(4) `insufficient` 分支在 `min_cluster_size=25` 下到不了；首頁候選待確認期間隔離區無上限成長。
+
+方法（全部不讀 truth；truth 仍只進事後對照）：
+- 清理改用進入規則：`_prune_explained` 以 `score_and_classify` 重打隔離區，移出 `label is not None` 或 `score <= quarantine_margin` 的列。
+- 隔離區不收重複列：`process()` 以 `np.array_equal` 比對原始特徵向量，已有相同列就不再存，`quarantine_duplicates` 計數寫進 `summary.json`。
+- 多數決平手取字串排序最小的配置名；外部評估的 `top_class` 同規則。
+- `ScaleGrowthSession(min_cluster_size < 5)` 直接 `ValueError`；`insufficient` 分支保留為防呆。
+- 候選待確認期間 `process()` 不往隔離區加列（只影響 `confirm()` 路徑；批次立刻 `adopt()`，不受影響）。
+- 其他參數不變：T1／8000rpm、預設序列、隔離線 2.0、候選至少 25 筆、每段最多 600 tick；seed 42、123、2026，預設與 `--fixed-density` 各跑一次。
+
+```bash
+uv run --locked python -m experiments.exp2_scale_growth --seed 42
+uv run --locked python -m experiments.exp2_scale_growth --seed 42 --fixed-density
+```
+
+預期：
+- 支持修正：seed 42 預設的 4screws 群 `cluster_purity` 高於 68.33%，5screws `final_eval.matched_rate` 高於 51.16%；三個 seed 合計 `matched_is_config` 段數不少於改前（預設 9／9／9）；`--fixed-density` 下同一 `matched` 被學成兩個以上新類的次數比改前少。
+- 預設 seed 42 改前的隔離區沒有重複列（`quarantine_duplicates` 應為 0，預設的數字只會因清理規則改變）；`--fixed-density` 的 `quarantine_duplicates` 大於 0，且新類 cal／holdout 不再含 train 的複本。
+- `healthy_holdout_acc` 不低於改前範圍；`rejected_boundary` 仍應為 0 次。
+- 修正不成立：`discovery` 裡從未被發現的配置變多（清理把當段樣本也移出），或 `matched_is_config` 段數減少。
+- 平手規則在 seed 42 的改前輸出沒有觸發（0 次平手），預期數字不因它改變。
+
+結果在 Aero 重跑後另記，不回填本節。
 
 ## 來源與對應程式
 

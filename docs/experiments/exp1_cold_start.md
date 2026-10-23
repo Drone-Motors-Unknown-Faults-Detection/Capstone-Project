@@ -57,7 +57,7 @@
 
 模型學的是健康特徵的位置與散布。RobustScaler只在train學每欄中位數與四分位距；其餘集合只transform。預設Mahalanobis-Ledoit–Wolf從縮放後train估中心／收縮共變異數，距離除以calibration的0.95分位數。改k-NN則保存train近鄰索引，取平均歐氏距離；k預設5，樣本不足時取較小的有效k。多已知類時分數取各類正規化距離的最小值；本實驗初始只有健康一類。`score > 1`才判未知，等於1仍接受。
 
-**legacy例外**：[src/core/mahalanobis.py](../../src/core/mahalanobis.py)的`legacy`刻意用train本身的距離定門檻，而非獨立calibration；不能把它寫成與LW相同的校準規則。它的類別label為-1，不適合作為多類配置辨識的成功證據。本實驗只比較score。OAS、MCD是可選共變異數方法；MCD另fit train-only PCA。顯示用2維PCA固定random_state0，不是主要偵測特徵，分數仍走105維（MCD除外）。這些統計／近鄰方法沒有epoch、loss或optimizer。
+**legacy例外**：[src/core/mahalanobis.py](../../src/core/mahalanobis.py)的`legacy`刻意用train本身的距離定門檻，而非獨立calibration；不能把它寫成與LW相同的校準規則。它的合併分布標籤是 `LEGACY_POOLED_LABEL`（-2），score≤1 時取縮放空間中歐氏距離最近的類別 train 中心；本實驗只比較score，多類判讀見實驗十一。OAS、MCD是可選共變異數方法；MCD另fit train-only PCA。顯示用2維PCA固定random_state0，不是主要偵測特徵，分數仍走105維（MCD除外）。這些統計／近鄰方法沒有epoch、loss或optimizer。
 
 ## 實驗怎麼跑與怎麼使用
 
