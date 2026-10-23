@@ -308,12 +308,12 @@ footer a:hover{color:var(--blue);}
       <canvas id="scatter" height="230"></canvas>
     </div>
     <div class="panel">
-      <h2>偵測統計（學會前 = 該被判未知；學會後 = 該被認出）</h2>
+      <h2>偵測統計（擴張前 = 量尺只有健康，該被判未知；擴張後 = 已學到新類，看被任一已知接受的比例）</h2>
       <table id="metricsTable">
-        <thead><tr><th>注入配置</th><th>學會前</th><th>偵測率</th><th>學會後</th><th>認出率</th></tr></thead>
+        <thead><tr><th>注入配置</th><th>擴張前</th><th>判未知率</th><th>擴張後</th><th>接受率</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="mini" style="margin-top:6px">認出率天生 ≈ 90–95%：校準閾值取第 95 百分位，已知樣本本來就有少數落在線外。</div>
+      <div class="mini" style="margin-top:6px">分段只看模型狀態（學到第一個新類之後，所有來源都算擴張後），不看注入真值。接受率不要求判對自身配置；已學會的來源天生 ≈ 90–95%：校準閾值取第 95 百分位，已知樣本本來就有少數落在線外。</div>
     </div>
   </div>
 </main>

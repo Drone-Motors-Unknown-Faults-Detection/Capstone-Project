@@ -89,7 +89,6 @@ class LiveDemo:
         }
         self.alarms: list[dict] = []
         self.adoption: dict | None = None      # 最近一次 adopt() 的結果（含事後對照欄位）
-        self.learned_by_truth: dict[str, str] = {}  # 事後對照：真值配置 → 對上的模型新類；只供展示統計，不進模型
         # 已拿去擬合某個 discovered-N 的池列（config → 列號）：之後不再重抽，學後統計不灌水（#296 R3-02）
         self.fitted_rows: dict[str, set[int]] = {}
         self.samplers: dict[str, CycleSampler] = {}
@@ -211,7 +210,6 @@ class LiveDemo:
         result = self.session.adopt()
         self.adoption = {"t": self.t, **result}
         if result["action"] == "learned":
-            self.learned_by_truth.setdefault(result["matched"], result["config"])
             for config, row in result["fitted_rows"]:
                 if row is not None:
                     self.fitted_rows.setdefault(config, set()).add(row)
@@ -272,8 +270,9 @@ class LiveDemo:
         if self._closed or self._write_error is not None:
             raise RuntimeError("session 已關閉或寫入失敗，不接受新樣本")
         config, msgs = self._draw_config()
-        # 學會前／後的統計以事後對照分段：真值配置已對上某個模型新類就算「學會後」
-        was_known = config in self.session.monitor.known or config in self.learned_by_truth
+        # 擴張前／後的統計只看模型狀態，不看真值：量尺還只有健康時是「擴張前」，學到第一個新類後
+        # 所有來源一律算「擴張後」（導覽才不會因某個來源獨自轉段而洩漏它就是新類的多數，#296 R3-01）
+        was_known = config in self.session.monitor.known or len(self.session.monitor.known) > 1
         prev_attempts = self.session.cluster_attempts
         x = self.samplers[config].draw()
         r = self.session.process(x, config, self.samplers[config].last_index)
@@ -393,7 +392,7 @@ class LiveDemo:
             ],
             "configs": [
                 {"config": c, "display": display_name(c), "n": int(len(p)),
-                 "known": c in mon.known or c in self.learned_by_truth}   # 事後對照，供下拉標記
+                 "known": c in mon.known}
                 for c, p in sorted(self.pools.items(), key=lambda kv: config_sort_key(kv[0]))
             ],
             "quarantine": len(self.session.quarantine_X),
@@ -426,11 +425,11 @@ class LiveDemo:
                 "config": c,
                 "display": display_name(c),
                 "pre_streamed": m["pre_streamed"],
-                # 學會前：判未知 = 偵測成功
+                # 擴張前（量尺只有健康）：判未知的比例；健康從一開始就是已知，歸擴張後
                 "pre_rate": None if m["pre_streamed"] == 0
                 else round(m["pre_flagged"] / m["pre_streamed"] * 100, 1),
                 "post_streamed": m["post_streamed"],
-                # 學會後：判為已知 = 認出成功
+                # 擴張後（已學到至少一個新類）：被判為任一已知類的比例；不要求判對自身配置
                 "post_rate": None if m["post_streamed"] == 0
                 else round((1 - m["post_flagged"] / m["post_streamed"]) * 100, 1),
             })

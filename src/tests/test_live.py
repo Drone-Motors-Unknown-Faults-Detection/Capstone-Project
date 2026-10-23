@@ -44,7 +44,6 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertEqual(msgs[-1]["type"], "state_patch")
         # 模型只多了 discovered-1；真值配置名沒有進模型，只留在事後對照的對應表
         self.assertEqual(list(self.demo.session.monitor.known), [HEALTHY, "discovered-1"])
-        self.assertEqual(self.demo.learned_by_truth, {"5screws": "discovered-1"})
         adoption = self.demo.state()["adoption"]
         self.assertEqual((adoption["action"], adoption["config"], adoption["t"]), ("learned", "discovered-1", 1))
         self.assertIsNone(self.demo.session.candidate)
@@ -52,15 +51,20 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertTrue((self.out / "model_epoch01_02classes.json").exists())
         json.dumps(self.demo.state(), ensure_ascii=False)   # 狀態可序列化
 
-    def test_metrics_split_before_and_after_learning_by_post_hoc_match(self):
+    def test_metrics_split_by_model_expansion_not_by_truth(self):
+        # #296 R3-01：學到第一個新類之後，所有來源一律算「擴張後」；分段不讀真值
         self.demo.set_source("5screws")
         self.demo.tick()
         with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):
             self.demo.tick()
         self.demo.tick()
-        row = next(r for r in self.demo.metrics_msg()["rows"] if r["config"] == "5screws")
-        self.assertEqual((row["pre_streamed"], row["post_streamed"]), (2, 1))
-        self.assertTrue(next(c for c in self.demo.state()["configs"] if c["config"] == "5screws")["known"])
+        self.demo.set_source("6screws")
+        for _ in range(3):
+            self.demo.tick()
+        rows = {r["config"]: r for r in self.demo.metrics_msg()["rows"]}
+        self.assertEqual((rows["5screws"]["pre_streamed"], rows["5screws"]["post_streamed"]), (2, 1))
+        self.assertEqual((rows["6screws"]["pre_streamed"], rows["6screws"]["post_streamed"]), (0, 3))
+        self.assertFalse(next(c for c in self.demo.state()["configs"] if c["config"] == "5screws")["known"])
 
     def test_fitted_rows_are_not_streamed_again_after_learning(self):
         # #296 R3-02：discovered-N 的 train／cal 列不再重抽，學後認出率只來自未擬合的列
@@ -88,7 +92,6 @@ class AutoAdoptTests(unittest.TestCase):
             self.demo.tick()
         self.demo._build()
         self.assertIsNone(self.demo.adoption)
-        self.assertEqual(self.demo.learned_by_truth, {})
         self.assertEqual(list(self.demo.session.monitor.known), [HEALTHY])
 
 

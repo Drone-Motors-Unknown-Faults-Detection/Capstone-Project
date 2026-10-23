@@ -74,7 +74,7 @@ regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配�
 
 各main經setup_run寫logs/navigation_data_contract、logs/navigation_regression、logs/web_guide及對應output/{program}/{ts}/environment.json。規則工具寫data_contract.json；回歸寫summary.json含paired_methods／ledger／fit_audits。Web在sessionNNN下保存data_contract、各fit_epoch與原LiveDemo紀錄。精確writer見下方程式；不能把未保存的raw距離／最近中心／confusion matrix說成已提供。
 
-score是無因次偏離，學會前拒絕率與學會後接受率分開；接受為任一known不等於自身配置分類正確，更不代表健康恢復。EWMA／CUSUM／latency單位按筆解讀，沒有秒級事件真值、損壞百分比或RUL。
+score是無因次偏離，擴張前拒絕率與擴張後接受率分開（分段看模型是否已學到新類，不看來源答案）；接受為任一known不等於自身配置分類正確，更不代表健康恢復。EWMA／CUSUM／latency單位按筆解讀，沒有秒級事件真值、損壞百分比或RUL。
 
 2026-10-23在Aero（aero01）以commit `46ed4d5`、`--data-root data`（資料指紋`1b55b847…`）跑上方兩支CLI。[navigation_regression/2026-10-23-02-04-52](../../output/navigation_regression/2026-10-23-02-04-52/summary.json)：Mahalanobis與k-NN各595組配對、0筆不一致，兩法都在故障到達75筆時出現候選，確認的群為5screws（51筆、purity 1、`action=learned`）；`source_unchanged=true`。規則工具的輸出在[navigation_data_contract/2026-10-23-02-04-50](../../output/navigation_data_contract/2026-10-23-02-04-50/)。
 

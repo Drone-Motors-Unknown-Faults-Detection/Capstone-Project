@@ -234,6 +234,21 @@ class GuideTests(unittest.TestCase):
             everything = json.dumps([state] + client.messages, ensure_ascii=False)
             self.assertNotIn("5screws", everything)
             self.assertNotIn("純度", everything)
+            # #296 R3-01：學會後再播幾筆、換另一個匿名來源：兩個來源都只有「擴張後」筆數在增加，
+            # 沒有哪個來源獨自從 pre 轉 post，看統計推不出新類的真值多數
+            for _ in range(4):
+                self.hub.tick()
+            self.hub.demo.set_source("6screws")
+            for _ in range(4):
+                self.hub.tick()
+            metrics = self.hub.public_metrics(self.hub.demo.metrics_msg())
+            rows = {r["source"]["id"]: r for r in metrics["rows"]}
+            s5 = next(r["id"] for r in self.hub.contract["configs"] if r["config"] == "5screws")
+            s6 = next(r["id"] for r in self.hub.contract["configs"] if r["config"] == "6screws")
+            self.assertEqual((rows[s5]["pre_streamed"], rows[s5]["post_streamed"]), (1, 4))
+            self.assertEqual((rows[s6]["pre_streamed"], rows[s6]["post_streamed"]), (0, 4))
+            self.assertTrue(all(r["source"]["name"].startswith("匿名來源") for r in metrics["rows"]))
+            self.assertNotIn("5screws", json.dumps(metrics, ensure_ascii=False))
             self.hub.running = False
             self.assertEqual(self.hub.full_state()["step"], "已更新")
             self.hub.demo.close()

@@ -90,7 +90,7 @@ function mode(){research=!research;el("research").hidden=!research;el("mode").te
 function showMetrics(m){
  if(older(m,state)||older(m,lastMetrics))return;
  lastMetrics={...m,meta:true};
- el("metrics").replaceChildren(...m.rows.map(r=>{const p=document.createElement("p");p.textContent=`${r.source.name}：學會前拒絕為未知 ${r.pre_rate===null?"未計算":r.pre_rate+"%"}（n=${r.pre_streamed}）；已知後接受為已知 ${r.post_rate===null?"未計算":r.post_rate+"%"}（n=${r.post_streamed}）。接受率不等自身分類準確率。`;return p;}));
+ el("metrics").replaceChildren(...m.rows.map(r=>{const p=document.createElement("p");p.textContent=`${r.source.name}：擴張前拒絕為未知 ${r.pre_rate===null?"未計算":r.pre_rate+"%"}（n=${r.pre_streamed}）；擴張後接受為任一已知 ${r.post_rate===null?"未計算":r.post_rate+"%"}（n=${r.post_streamed}）。分段只看模型是否已學到新類，不看來源答案；接受率不等自身分類準確率。`;return p;}));
  el("alarm").textContent=m.alarms.length?"趨勢警報："+m.alarms.map(a=>`${a.kind}，t=${a.t}，中間帶${a.transition}筆／延遲${a.latency??"未計算"}筆`).join("；"):"趨勢警報：目前沒有";
 }
 function connect(){

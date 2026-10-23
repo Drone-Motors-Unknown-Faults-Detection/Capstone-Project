@@ -243,8 +243,9 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
    `insufficient`。學會後用新模型重判隔離區，已被接受的殘餘移出（`pruned`）。全程不讀真值；
    未學成的候選記在 `summary.json` 的 `rejections`。首頁把 `adopt()` 的結果放在 `state["adoption"]`
    與事件日誌，真值多數／純度只在「事後對照」訊息出現；導覽的 `public_adoption()` 連這兩欄也不給。
-   web 偵測統計拆「學會前偵測率／學會後認出率」兩組（首頁以事後對照 `learned_by_truth`
-   分段），認出率天生 ≈ 90–95%。
+   web 偵測統計拆「擴張前判未知率／擴張後接受率」兩組，分段只看模型狀態（學到第一個新類後
+   所有來源都算擴張後），不讀真值，導覽才不會因某來源獨自轉段而洩漏它是新類多數（#296 R3-01）；
+   已學會來源的接受率天生 ≈ 90–95%。
 2. **實驗二的發現延遲讀 `summary.json` 的 `discovery`**：某配置從開始注入到第一次成為某新類事後多數的
    到達筆數（含重複抽樣）。`stages.csv` 的 `samples_to_candidate` 是該段開始後任一群學成的筆數，
    不等於當段配置被發現；`discovered` 欄只表示該段形成了一個新類，不代表該段配置被辨識，
