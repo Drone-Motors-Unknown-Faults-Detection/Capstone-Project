@@ -18,7 +18,7 @@ Web 實驗頁的 8-1、8-2、8-3 都指到本頁。8-2 讀 `reports/exp8_health_
 | 入口 | 資料角色 | 有效數量 | 比例與分母 | 用途 | 重疊 |
 |---|---|---:|---|---|---|
 | 基準 8-1 | train | 187 | 187/313 | scaler 與 LW／k-NN 參考 | 不含 test |
-| 基準 8-1 | calibration | 62 | 62/313 | 開集距離線與兩個健康錨點 | detector 與指數映射共用這 62 列 |
+| 基準 8-1 | calibration | 62 | 62/313 | 開集距離線與三個健康錨點（q10、q95、由 q95 推得的 2×q95） | detector 與指數映射共用這 62 列 |
 | 基準 8-1 | healthy test | 64 | 64/313 | 健康指數分布與誤報 | 與 train／cal 互斥 |
 | 基準 8-1 | unknown test | 2736 | 故障池 100% | 指數分離、拒絕與排序 | 不 fit、不校準、不選參 |
 | 矩陣 8-2 | 正式矩陣 | 6 run、54 列 | run 與工況列是不同單位 | 保存 3 seed × 2 方法 | 每 run 重用同一份資料，不等於 54 顆馬達 |
@@ -81,7 +81,7 @@ h = clip(h, 0, 1)
 
 ## 基準
 
-流程：train 建偏離模型，cal 定距離線和兩個健康錨點，test 只 predict。T1／8000rpm 的健康池 313 列是 187 train／62 cal／64 holdout；同工況故障池 2736 列只測試。數量依 [用量總表](README.md#資料用量與分母怎麼讀)，本頁沒有新 fit。
+流程：train 建偏離模型，cal 定距離線和三個健康錨點（q10、q95，以及由 q95 推得的 2×q95），test 只 predict。T1／8000rpm 的健康池 313 列是 187 train／62 cal／64 holdout；同工況故障池 2736 列只測試。數量依 [用量總表](README.md#資料用量與分母怎麼讀)，本頁沒有新 fit。
 
 排序 motor／rpm 後，一個 `default_rng(seed=42)` 連續把各健康池洗牌 60/20/20。train 只 fit RobustScaler 與 LW 中心／共變異數，或 k=5 的 k-NN 參考。cal 定 confidence 0.95 距離線，並把同一 cal 的正規化分數交給校準器。unknown 不 fit、不選參、不校準。legacy 因用 train 定線，基準入口拒絕。CLI 預設要求九工況；`--allow-partial` 只放寬數量。
 
