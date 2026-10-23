@@ -136,7 +136,7 @@ class EmptyInputTests(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaisesRegex(FileNotFoundError, "no clean feature datasets"):
+            with self.assertRaises(FileNotFoundError):  # 來源綁定（#213）或 _run 都會先擋下
                 run(data_root=directory, seeds=(1,))
 
     def test_no_pairs_reports_none(self):
