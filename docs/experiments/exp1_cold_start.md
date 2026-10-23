@@ -71,7 +71,7 @@ uv run --locked python -m experiments.exp1_cold_start --data-root data --motor T
 
 兩方法比較時固定來源、馬達、RPM、seed、confidence；不要挑較好seed再報提升。`--method`預設ledoit_wolf，只控制Mahalanobis；k-NN忽略它。`--confidence`預設0.95，不能用unknown結果掃門檻再稱獨立驗證。
 
-執行依序為健康fit → 健康holdout打分 → 每個unknown配置全池打分 → 計算逐配置及等權macro指標 → 存CSV／JSON／圖。Python API是`experiments.exp1_cold_start.run(pools, seed=42)`，回傳dict；API本身不寫CLI輸出。`iter_run`回傳fitted、scores、row、result事件，批次run把同一generator跑完。
+執行依序為健康fit → 健康holdout打分 → 每個unknown配置全池打分 → 計算逐配置及等權macro指標 → 存CSV／JSON／圖。Python API是`experiments.exp1_cold_start.run(pools, seed=42)`，回傳dict；API本身不寫CLI輸出。`iter_run`回傳fitted、scores、row、result事件，批次run把同一generator跑完；scores事件同時帶每筆的`unknown`旗標（`score > 1`），Web實驗頁與AI紀錄只抄旗標、不在Web層重算。
 
 Web實際入口為`uv run --locked python -m web.server --bind-address 127.0.0.1 --data-root data --port 8600`。開http://localhost:8600，切「實驗一」，選資料集、Open Set方法與seed，按「▶ 執行」。要逐筆看就選速度、按「⏵ 邊跑邊畫」；「■ 停止」關閉串流，不代表保存完整done結果，已在執行緒運算的一步可能仍在完成。待鎖釋放再重試。批次沒有中途取消按鈕；切頁不能當作運算取消。每次重跑重新fit，不載入長期模型。
 

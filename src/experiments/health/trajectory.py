@@ -197,14 +197,24 @@ class SessionTrajectoryMonitor:
                 state.clear_streak = 0
             state.candidate_streak = 0
         elif state.alarm_state == "warning":
-            if smoothed >= self.config.warning_clear:
+            # Escalate after enter_persistence consecutive windows below
+            # critical_enter; clear after clear_persistence windows at or
+            # above warning_clear.  The two streaks never grow together.
+            if smoothed < self.config.critical_enter:
+                state.clear_streak = 0
+                state.candidate_streak += 1
+                if state.candidate_streak >= self.config.enter_persistence:
+                    state.alarm_state = "critical"
+                    state.candidate_streak = 0
+            elif smoothed >= self.config.warning_clear:
+                state.candidate_streak = 0
                 state.clear_streak += 1
                 if state.clear_streak >= self.config.clear_persistence:
                     state.alarm_state = "normal"
                     state.clear_streak = 0
             else:
                 state.clear_streak = 0
-            state.candidate_streak = 0
+                state.candidate_streak = 0
         elif candidate != "normal":
             state.clear_streak = 0
             state.candidate_streak += 1

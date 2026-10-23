@@ -15,6 +15,7 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 
 from web import server
 from web.experiments import CATALOG, ROOT, ExperimentRunner, jsonable
+from web.playback import PlaybackTracker
 
 BASE = "64cb71d84663e1745ec54db74abad68def67e8e6"
 
@@ -150,6 +151,11 @@ class FakeRunner:
     def run(self, exp_id, params):
         return {"seconds": 0, "saved": None, "result": {"ok": True}}
 
+    def stream_params(self, exp_id, params):
+        if self.mode == "bad_params":
+            raise ValueError("測試參數錯誤")
+        return params
+
     def stream(self, exp_id, params):
         try:
             if self.mode == "error":
@@ -236,6 +242,22 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         conn.close()
         await tornado.gen.sleep(.2)
         self.assertIsNone(server.JOBS.current)
+
+    def test_invalid_parameters_keep_previous_playback_record(self):
+        # 參數錯誤在 PLAYBACK.start 之前就回報；上一次完成的紀錄不會被換成錯誤（#274）
+        previous = server.PLAYBACK
+        server.PLAYBACK = PlaybackTracker()
+        try:
+            server.PLAYBACK.record_run("exp1", {"params": {"seed": 42}, "result": {"ok": True}, "seconds": 1.0})
+            self.runner.mode = "bad_params"
+            frames = self.frames(self.fetch("/stream/exp1"))
+            self.assertEqual([f["event"] for f in frames], ["error"])
+            self.assertIn("測試參數錯誤", frames[0]["error"])
+            record = server.PLAYBACK.snapshot()["records"]["exp1"]
+            self.assertEqual((record["mode"], record["status"]), ("run", "done"))
+            self.assertIsNone(server.JOBS.current)
+        finally:
+            server.PLAYBACK = previous
 
     def test_non_object_parameters_and_non_finite_rate_rejected(self):
         for query in ("params=%5B1%5D", "rate=nan", "rate=inf"):
