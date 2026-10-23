@@ -376,6 +376,8 @@ footer a:hover{color:var(--blue);}
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
+// 伺服器送來的字串進 innerHTML 一律先跳脫；事件文字走 textContent（#265）
+const escapeHtml = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const COLORS = {healthy:"#22c55e", known:"#60a5fa", unknown:"#ef4444"};
 let ws = null, state = null, running = false, busy = false;
 let samples = [];          // {t, score, verdict}
@@ -431,7 +433,7 @@ function onState(m){
   // 資料集下拉
   if (m.datasets && $("datasetSel").options.length !== m.datasets.length){
     $("datasetSel").innerHTML = m.datasets.map(d =>
-      `<option value="${d.motor}|${d.rpm}">${d.motor} / ${d.rpm}</option>`).join("");
+      `<option value="${escapeHtml(d.motor)}|${escapeHtml(d.rpm)}">${escapeHtml(d.motor)} / ${escapeHtml(d.rpm)}</option>`).join("");
   }
   if (m.meta) $("datasetSel").value = m.meta.motor + "|" + m.meta.rpm;
 
@@ -439,14 +441,17 @@ function onState(m){
   if (m.configs){
     const cur = $("sourceSel").value;
     $("sourceSel").innerHTML = m.configs.map(c =>
-      `<option value="${c.config}">${c.known ? "✓ " : ""}${c.display}（${c.n} 筆）</option>`).join("");
+      `<option value="${escapeHtml(c.config)}">${c.known ? "✓ " : ""}${escapeHtml(c.display)}（${escapeHtml(c.n)} 筆）</option>`).join("");
     $("sourceSel").value = m.source || cur || "8screws";
   }
   $("scenarioLabel").textContent = m.scenario ? "⏵ " + m.scenario.name + " 進行中" : "";
 
   // 已知量尺 chips
-  const chips = m.known.map((k, i) =>
-    `<div class="chip ${k.config === "8screws" ? "healthy" : "fault"}${i === m.known.length-1 && m.known.length > knownChipsLast ? " new" : ""}">${k.label}｜${k.display}</div>`).join("");
+  const chips = m.known.map((k, i) => {
+    const kind = k.config === "8screws" ? "healthy" : "fault";
+    const fresh = i === m.known.length-1 && m.known.length > knownChipsLast ? " new" : "";
+    return `<div class="chip ${kind}${fresh}">${escapeHtml(k.label)}｜${escapeHtml(k.display)}</div>`;
+  }).join("");
   $("knownChips").innerHTML = chips;
   knownChipsLast = m.known.length;
 
@@ -500,10 +505,9 @@ function onSample(m){
       di.textContent = m.direction.cos === null ? "—（尚無已知故障射線）" : "—";
       di.className = "";
     } else {
-      const c = m.direction.cos;
-      const tag = c >= 0.6 ? "接近已知家族" : c <= 0.45 ? "新方向" : "不明確";
-      di.textContent = `cos ${c.toFixed(2)} → ${tag}（最近：${m.direction.ray_display}）`;
-      di.className = c >= 0.6 ? "verdict-known" : c <= 0.45 ? "verdict-unknown" : "";
+      const same = m.direction.verdict === "same_ray";   // PolarMap 依射線 τ 判定（實驗四）
+      di.textContent = `cos ${m.direction.cos.toFixed(2)} → ${same ? "接近已知家族" : "新方向"}（最近：${m.direction.ray_display}）`;
+      di.className = same ? "verdict-known" : "verdict-unknown";
     }
   }
 
@@ -511,7 +515,7 @@ function onSample(m){
   const v = $("verdict");
   v.textContent = m.verdict === "unknown" ? "⚠ 未知（不在量尺上）" : m.cls;
   v.className = "verdict-" + m.verdict;
-  $("score").textContent = m.score.toFixed(2) + (m.score > 1 ? "（> 1 未知）" : "");
+  $("score").textContent = m.score.toFixed(2) + (m.verdict === "unknown" ? "（> 1 未知）" : "");
   $("healthPct").textContent = m.health.toFixed(0) + "%";
   const hb = $("healthBar");
   hb.style.width = m.health + "%";
@@ -524,7 +528,7 @@ function onSample(m){
     if (m.attempts > 0) q += `（已試分群 ${m.attempts} 次）`;
     $("qCount").textContent = q;
   }
-  $("miniInfo").innerHTML = `#${m.t}　注入 ${m.truth_display}　判定 <span class="verdict-${m.verdict}">${m.verdict === "unknown" ? "未知" : m.cls}</span>　分數 ${m.score.toFixed(2)}　EWMA ${m.ewma.toFixed(2)}`;
+  $("miniInfo").innerHTML = `#${escapeHtml(m.t)}　注入 ${escapeHtml(m.truth_display)}　判定 <span class="verdict-${escapeHtml(m.verdict)}">${escapeHtml(m.verdict === "unknown" ? "未知" : m.cls)}</span>　分數 ${m.score.toFixed(2)}　EWMA ${m.ewma.toFixed(2)}`;
   if ($("page-exp").hidden){ drawChart(); drawScatter(); drawPolar(); }
   else drawChart("chartMini", 110);
 }
@@ -538,7 +542,10 @@ function onEvent(m){
 function logLine(level, text, t){
   const div = document.createElement("div");
   div.className = level;
-  div.innerHTML = `<span class="t">#${t}</span>${text}`;
+  const stamp = document.createElement("span");
+  stamp.className = "t";
+  stamp.textContent = `#${t}`;
+  div.append(stamp, String(text));   // 文字節點，不解析 HTML
   const log = $("log");
   log.prepend(div);
   while (log.children.length > 80) log.removeChild(log.lastChild);
@@ -550,7 +557,7 @@ function onMetrics(m){
   const fmt = (n, rate, good) => n === 0 ? "<td>—</td><td>—</td>"
     : `<td>${n}</td><td style="color:${rate >= good ? "var(--green)" : "var(--yellow)"}">${rate.toFixed(1)}%</td>`;
   $("metricsTable").querySelector("tbody").innerHTML = m.rows.map(r =>
-    `<tr><td>${r.display}</td>${fmt(r.pre_streamed, r.pre_rate, 95)}${fmt(r.post_streamed, r.post_rate, 85)}</tr>`).join("");
+    `<tr><td>${escapeHtml(r.display)}</td>${fmt(r.pre_streamed, r.pre_rate, 95)}${fmt(r.post_streamed, r.post_rate, 85)}</tr>`).join("");
 }
 
 /* ---------- 分數串流圖 ---------- */

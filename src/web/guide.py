@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 from pathlib import Path
 from urllib.parse import urlparse
@@ -19,7 +20,7 @@ from core.runner import add_openset_args
 from experiments.navigation_data_contract import run as data_contract, split_audit
 from experiments.exp3_trend import SCENARIOS
 from web.live import LiveDemo
-from web.server import Hub, serve
+from web.server import CommandError, Hub, reject_legacy_method, serve
 
 ROOT = Path(__file__).resolve().parents[2]
 STATIC = Path(__file__).resolve().parent / "static"
@@ -178,7 +179,8 @@ class GuideHub(Hub):
         super().pause(publish=publish)
 
     def tick(self):
-        if not self.demo or self.busy:
+        # 暫停時狀態不變，不每拍廣播完整狀態（約 5.6 KB）；有新樣本或劇本播畢才送
+        if not self.demo or self.busy or not self.running:
             return
         super().tick()
         if self.scenario_end is not None and self.demo.t >= self.scenario_end:
@@ -232,15 +234,18 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
         h = self.hub
         try:
             msg = json.loads(raw)
+            if not isinstance(msg, dict) or not isinstance(msg.get("cmd"), str):
+                raise CommandError("指令格式錯誤")
             cmd = msg["cmd"]
             if h.busy:
-                raise ValueError("工作進行中，拒絕重複操作")
-            if cmd == "inspect":
-                await self.heavy(cmd, lambda: h.inspect(msg["motor"], msg["rpm"]))
-            elif cmd == "build":
-                await self.heavy(cmd, lambda: h.build(msg["motor"], msg["rpm"]))
+                raise CommandError("工作進行中，拒絕重複操作")
+            if cmd in ("inspect", "build"):
+                motor, rpm = msg.get("motor"), msg.get("rpm")
+                if not any(d["motor"] == motor and d["rpm"] == rpm for d in h.datasets):
+                    raise CommandError("所選工況不存在")
+                await self.heavy(cmd, (lambda: h.inspect(motor, rpm)) if cmd == "inspect" else (lambda: h.build(motor, rpm)))
             elif h.demo is None:
-                raise ValueError("請先選資料並建立健康基準")
+                raise CommandError("請先選資料並建立健康基準")
             elif cmd == "pause":
                 h.pause(publish=False)
             elif cmd == "reset":
@@ -251,26 +256,32 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
                     return "已重設健康基準；新epoch，保留舊紀錄"
                 await self.heavy(cmd, reset)
             elif h.error:
-                raise ValueError("目前有錯誤，請明確重設或重建後再監測")
+                raise CommandError("目前有錯誤，請明確重設或重建後再監測")
             elif cmd == "start":
                 h.running = True
             elif cmd == "rate":
-                h.set_rate(msg["value"])
+                value = msg.get("value")
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+                    raise CommandError("速率必須是數字")
+                h.set_rate(value)
             elif cmd == "source":
-                row = next(r for r in h.contract["configs"] if r["id"] == msg["id"])
+                row = next((r for r in h.contract["configs"] if r["id"] == msg.get("id")), None)
+                if row is None:
+                    raise CommandError("來源編號不存在")
                 h.demo.set_source(row["config"])
                 h.scenario_end = None
                 h.event("info", "訊號來源已切換；匿名不代表推論出故障名稱")
             elif cmd == "scenario":
                 name = msg["name"]
-                if name not in SCENARIOS or any(c not in h.demo.pools for c, _, _ in SCENARIOS[name]["phases"]):
-                    raise ValueError("劇本所需配置不完整")
+                if not isinstance(name, str) or name not in SCENARIOS \
+                        or any(c not in h.demo.pools for c, _, _ in SCENARIOS[name]["phases"]):
+                    raise CommandError("劇本所需配置不完整")
                 h.demo.start_scenario(name)
                 h.scenario_end = h.demo.t + sum(n for _, _, n in SCENARIOS[name]["phases"])
                 h.running = True
             elif cmd == "confirm":
                 if not h.candidate_id() or msg.get("candidate_id") != h.candidate_id():
-                    raise ValueError("沒有可確認候選，或候選ID已過期")
+                    raise CommandError("沒有可確認候選，或候選ID已過期")
                 def confirm():
                     result = h.demo.confirm()
                     h.last_action = result["action"]
@@ -278,9 +289,11 @@ class GuideSocket(tornado.websocket.WebSocketHandler):
                     return f"模擬操作員：{result['action']}，配置 {result.get('config')}；完整配置池重擬合／已知群退回"
                 await self.heavy(cmd, confirm)
             else:
-                raise ValueError("不支援的操作")
+                raise CommandError("不支援的操作")
         except Exception as exc:
-            h.event("error", str(exc))
+            # 只回固定文字；用戶端字串不回送到其他瀏覽器（#279）
+            logger.warning(f"導覽指令失敗：{exc!r}")
+            h.event("error", str(exc) if isinstance(exc, CommandError) else type(exc).__name__)
         h.broadcast(h.full_state())
 
 
@@ -329,7 +342,8 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     add_openset_args(parser)
     args = parser.parse_args()
-    log, paths = setup_run("web_guide")
+    reject_legacy_method(args.method)
+    log, paths = setup_run("web_guide", data_root=args.data_root)
     hub = GuideHub(discover_datasets(args.data_root), args.seed, args.rate, paths.output_dir,
                    {"openset_method": args.openset_method, "mahalanobis_method": args.method,
                     "confidence": args.confidence, "knn_neighbors": args.knn_neighbors})

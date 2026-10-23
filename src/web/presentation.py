@@ -15,9 +15,30 @@ VERSION = "assistant_presentation_v1"
 EXP2_METRICS = {
     "own_holdout_acc": ("群內保留列正確辨識模型新類的比例", "own_holdout_n"),
     "eval_known_rate": ("本段配置外部評估列被任一新類接受的比例", "eval_n"),
+    "eval_matched_rate": ("本段配置外部評估列被判進事後多數等於該配置的新類的比例（事後對照）", "eval_n"),
     "healthy_holdout_acc": ("健康保留列仍被判健康的比例", None),
     "cluster_purity": ("候選群中真值多數配置的占比（事後對照）", "cluster_size"),
 }
+# 重播結束後各配置外部評估列（result["final_eval"][config]）的比例欄位
+FINAL_EVAL_METRICS = {
+    "known_rate": ("重播結束後該配置外部評估列被任一新類接受的比例", "n"),
+    "matched_rate": ("重播結束後該配置外部評估列被判進事後多數等於該配置的新類的比例（事後對照）", "n"),
+}
+
+
+def _metric_row(container: dict, key: str, meaning: str, denominator_key, **where) -> dict:
+    value = container[key]
+    valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
+             and math.isfinite(value) and 0 <= value <= 1)
+    denominator = container.get(denominator_key) if denominator_key else None
+    # 沒有分母欄位的比例（healthy_holdout_acc）只看值本身；有分母欄位才要求正整數
+    count_valid = denominator_key is None or (isinstance(denominator, int) and not isinstance(denominator, bool)
+                                              and denominator > 0)
+    status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
+    if denominator is not None and not count_valid:
+        status, valid = "INVALID_DENOMINATOR", False
+    return {**where, "metric": key, "meaning": meaning, "value": value if valid else None,
+            "denominator": denominator if count_valid else None, "status": status}
 
 
 def exp2_metric_contract(result, budget=6000):
@@ -40,29 +61,28 @@ def exp2_metric_contract(result, budget=6000):
                 contract["status"] = "incomplete"
                 continue
             for key, (meaning, denominator_key) in EXP2_METRICS.items():
-                if key not in stage:
-                    continue
-                value = stage[key]
-                valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
-                         and math.isfinite(value) and 0 <= value <= 1)
-                denominator = stage.get(denominator_key) if denominator_key else None
-                count_valid = (isinstance(denominator, int) and not isinstance(denominator, bool)
-                               and denominator > 0)
-                status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
-                if denominator is not None and not count_valid:
-                    status, valid = "INVALID_DENOMINATOR", False
-                if status != "VERIFIED_SAVED_FIELDS":
-                    contract["status"] = "incomplete"
-                contract["rows"].append({"stage_index": index, "metric": key, "meaning": meaning,
-                    "value": value if valid else None,
-                    "denominator": denominator if count_valid else None, "status": status})
-        rows = [[r["stage_index"], r["metric"], r["value"], r["denominator"], r["meaning"], r["status"]]
+                if key in stage:
+                    contract["rows"].append(_metric_row(stage, key, meaning, denominator_key, stage_index=index))
+        final_eval = result.get("final_eval")
+        for config, breakdown in (final_eval.items() if isinstance(final_eval, dict) else ()):
+            if not isinstance(breakdown, dict):
+                contract["status"] = "incomplete"
+                continue
+            for key, (meaning, denominator_key) in FINAL_EVAL_METRICS.items():
+                if key in breakdown:
+                    contract["rows"].append(_metric_row(breakdown, key, meaning, denominator_key,
+                                                        stage_index="final_eval", config=str(config)))
+        if any(r["status"] != "VERIFIED_SAVED_FIELDS" for r in contract["rows"]):
+            contract["status"] = "incomplete"
+        rows = [[r["stage_index"] if "config" not in r else f"final_eval：{r['config']}",
+                 r["metric"], r["value"], r["denominator"], r["meaning"], r["status"]]
                 for r in contract["rows"]]
         if not rows:
             contract["status"] = "incomplete"
         lines.append(table_text(["階段（零起算）", "欄位", "保存比例", "保存分母", "意思", "欄位狀態"], rows))
     lines += ["VERIFIED_SAVED_FIELDS 只表示保存欄位的型別與分母齊全，不表示採集獨立或模型可靠。",
-              "final_eval 的 known_rate 是外部列被任一新類接受的比例，unknown_rate 是仍被拒絕的比例；兩者都不是自身配置分類準確率。",
+              "final_eval 的 known_rate 是外部列被任一新類接受的比例，unknown_rate 是仍被拒絕的比例，"
+              "matched_rate 才要求判進事後多數等於該配置的新類；三者都不是自身配置分類準確率。",
               "confidence=0.95 是校準距離分位數，不是 95% 正確機率；187／62／64 只屬手冊的指定示例。",
               "同池 20% 外部列未參與重播，仍不等於新採集或 fresh final；相對量尺不是損壞百分比或 RUL。"]
     text = "\n\n".join(lines)

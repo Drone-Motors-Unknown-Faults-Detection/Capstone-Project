@@ -47,8 +47,9 @@ def iter_run(
 ):
     """逐步產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
-    事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數）與 row
-    （該配置的統計列），最後一個是 result（與 run() 回傳值相同）。
+    事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數 scores 與同長度的
+    判未知旗標 unknown，Web 只呈現不重算）與 row（該配置的統計列），最後一個是 result
+    （與 run() 回傳值相同）。
     """
     monitor = OpenSetMonitor(
         pools,
@@ -63,7 +64,8 @@ def iter_run(
 
     healthy_scores = monitor.score(monitor.holdout(HEALTHY))
     yield {"event": "scores", "config": HEALTHY, "display": display_name(HEALTHY),
-           "kind": "healthy-holdout", "scores": healthy_scores.tolist()}
+           "kind": "healthy-holdout", "scores": healthy_scores.tolist(),
+           "unknown": (healthy_scores > 1).tolist()}
     rows = [
         {
             "config": HEALTHY,
@@ -82,7 +84,7 @@ def iter_run(
             continue
         scores = monitor.score(pool)
         yield {"event": "scores", "config": config, "display": display_name(config),
-               "kind": "unknown-fault", "scores": scores.tolist()}
+               "kind": "unknown-fault", "scores": scores.tolist(), "unknown": (scores > 1).tolist()}
         rows.append(
             {
                 "config": config,
