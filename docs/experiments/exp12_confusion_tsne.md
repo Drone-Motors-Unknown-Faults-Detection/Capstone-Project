@@ -95,9 +95,9 @@ main經setup_run寫logs/exp12_confusion_tsne/{ts}.log、output/exp12_confusion_t
 
 部署核對可讀`/api/assistant/status`的`app.git_head`、`tracked_dirty`與`answer_schema`；只提供版本識別，不公開環境變數、套件清冊或私人路徑。映像沒有Git資訊時版本為null，不能拿schema或某一支JS含有handler就宣稱整套部署已核實。HTML的script版本參數與內容雜湊仍需另比對。
 
-legacy 的判讀規則要核對來源版本：改成最近類別判讀之前，`fit()` 的合併分布標籤是 -1、`classify()` 把它轉 None，矩陣全落在 unknown 欄；之後合併分布標籤是 `LEGACY_POOLED_LABEL`（-2），score≤1 的列會回到已知欄。預期重跑後 legacy 矩陣的對角不再只有 unknown 一格；若仍全在 unknown 欄，先查版本再查資料。只憑矩陣全部unknown不足以確認原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
+legacy 的判讀規則要核對來源版本：改成最近類別判讀之前，`fit()` 的合併分布標籤是 -1、`classify()` 把它轉 None，矩陣全落在 unknown 欄；之後合併分布標籤是 `LEGACY_POOLED_LABEL`（-2），score≤1 的列會回到已知欄。預期重跑後 legacy 矩陣的對角不再只有 unknown 一格；若仍全在 unknown 欄，先查版本再查資料。只憑矩陣全部unknown不足以確認原因；缺版本證據時標為未核實。任何版本都不能把unknown對角的正確拒絕說成零判對。2026-10-23 以 `b6e2b97` 在 Aero 重跑（`output/exp12_confusion_tsne/2026-10-23-11-56-55`）：legacy 的已知五類對角 464／464／581／554／537，誤拒 108／137／23／37／32（合計 337／2,938＝11.47%），2screws→4screws 錯分 1 筆，unknown 14,381 筆仍全部拒絕；預期成立。二元矩陣與 LW 矩陣和 `46ed4d5` 那份相同。本核算不改detector、校準或t-SNE，也不能只由誤拒率斷言邊界過嚴、用同批test調線、或宣稱跨馬達泛化。
 
-預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [output/exp12_confusion_tsne/2026-10-23-01-36-16](../../output/exp12_confusion_tsne/2026-10-23-01-36-16/summary.json)（Aero、commit `46ed4d5`；與 2026-10-09 的舊輸出扣掉環境欄位後相同）。
+預期圖能揭露錯誤來源，低分／重疊也照留；沒有「圖上分群漂亮」成功門檻。t-SNE群聚不證明高維泛化或排序嚴重度，不能用它支持部署、fresh final或RUL。圖與數字在 [output/exp12_confusion_tsne/2026-10-23-11-56-55](../../output/exp12_confusion_tsne/2026-10-23-11-56-55/summary.json)（Aero、commit `b6e2b97`；標籤為正規名 `1screws`）。legacy 全判 unknown、標籤仍是 `1screw` 的舊版在 [2026-10-23-01-36-16](../../output/exp12_confusion_tsne/2026-10-23-01-36-16/summary.json)（`46ed4d5`）。
 
 ## 方法來源與程式碼
 
