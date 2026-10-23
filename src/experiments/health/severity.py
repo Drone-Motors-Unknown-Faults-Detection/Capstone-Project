@@ -14,10 +14,14 @@ class RelativeSeverityPolicy:
     The current formal data has no ordinal severity annotation.  Therefore the
     policy is explicitly relative to the known calibration population and its
     metadata must accompany any report that displays these stages.
+
+    ``healthy_min`` equals ``HealthIndexCalibrator.warning_health`` so that
+    ``healthy`` means "score inside the Open Set rejection line";
+    ``degraded_min`` equals ``TrajectoryConfig.critical_enter``.
     """
 
-    healthy_min: float = 0.8
-    early_warning_min: float = 0.5
+    healthy_min: float = 0.5
+    early_warning_min: float = 0.35
     degraded_min: float = 0.2
     basis: str = "relative_calibrated"
 

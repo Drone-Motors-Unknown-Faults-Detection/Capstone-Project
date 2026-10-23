@@ -158,6 +158,7 @@ def run(
                 "unknown_recall": round(open_set["unknown_recall"], 6),
                 "unknown_f1": round(open_set["unknown_f1"], 6),
                 "calibration_healthy_anchor": metadata["calibration"]["healthy_anchor"],
+                "calibration_warning_anchor": metadata["calibration"]["warning_anchor"],
                 "calibration_critical_anchor": metadata["calibration"]["critical_anchor"],
                 "rul_available": False,
                 "status": "completed",
