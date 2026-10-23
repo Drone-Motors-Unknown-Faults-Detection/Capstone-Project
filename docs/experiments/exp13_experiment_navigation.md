@@ -76,7 +76,7 @@ regression CLI固定找T1／8000rpm，不支援motor參數，需完整劇本配�
 
 score是無因次偏離，擴張前拒絕率與擴張後接受率分開（分段看模型是否已學到新類，不看來源答案）；接受為任一known不等於自身配置分類正確，更不代表健康恢復。EWMA／CUSUM／latency單位按筆解讀，沒有秒級事件真值、損壞百分比或RUL。
 
-2026-10-23在Aero（aero01）以commit `46ed4d5`、`--data-root data`（資料指紋`1b55b847…`）跑上方兩支CLI。[navigation_regression/2026-10-23-02-04-52](../../output/navigation_regression/2026-10-23-02-04-52/summary.json)：Mahalanobis與k-NN各595組配對、0筆不一致，兩法都在故障到達75筆時出現候選，確認的群為5screws（51筆、purity 1、`action=learned`）；`source_unchanged=true`。規則工具的輸出在[navigation_data_contract/2026-10-23-02-04-50](../../output/navigation_data_contract/2026-10-23-02-04-50/)。
+2026-10-23在Aero（aero01）以commit `8756c51`、`--data-root data`（資料指紋`1b55b847…`）重跑回歸CLI。[navigation_regression/2026-10-23-12-48-17](../../output/navigation_regression/2026-10-23-12-48-17/summary.json)（schema `navigation_regression_v3`）：Mahalanobis與k-NN各595組配對、0筆不一致，兩法都在故障到達75筆時出現候選，同一拍 `adopt()` 學成 `discovered-1`（session第115筆、51筆、`source=cluster_only`；群中位分數85.52／44.65，已知校準最大1.119／1.081）；事後對照多數為5screws、purity 1，這兩欄只在回歸輸出與首頁事件出現。`adopted` 階段的fit audit（`navigation_fit_v2`）記 discovered-1 的 train／cal／holdout 為30／10／11、`fit_source` 為隔離區候選群、`cluster_rows` 51列；`source_unchanged=true`。舊輸出[02-04-52](../../output/navigation_regression/2026-10-23-02-04-52/summary.json)是 `46ed4d5` 的 `confirm()` 版（schema v2，沒有 `adoption`），配對數、不一致數與候選到達筆數相同，但新類當時讀5screws完整池切127／42／43。規則工具的輸出在[navigation_data_contract/2026-10-23-02-04-50](../../output/navigation_data_contract/2026-10-23-02-04-50/)（schema `navigation_data_v1` 未變，沒有重跑）。
 
 預期匿名／busy等防護與配對數值一致；不一致要留失敗紀錄。這是工程驗收，不是部署可靠性／獨立盲測。研究分支另有未進 main 的 runner，手冊標成「分支舊編號」，不是本實驗十三。[來源索引](../navigation/exp13_來源索引.md)只連到固定研究提交。本頁不能跑那些研究。導覽的[七問表](../navigation/exp13_實驗總覽.md)由guide.js解析，維持原24列×8欄，不把本手冊重寫成另一張分數表。
 

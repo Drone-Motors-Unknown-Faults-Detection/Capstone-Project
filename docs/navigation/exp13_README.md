@@ -18,4 +18,4 @@ uv run --locked python -m web.guide --data-root data --port 8601 --seed 42
 
 暫停後可沿原順序繼續；重設或換工況會明確重建。斷線後不自動播放。更新失敗先停止，按錯誤狀態明確重建，不連續重送確認；[共用模型生命週期](../experiments/README.md#共用模型生命週期)說明重訓失敗的限制。
 
-輸入是 CSV 重播，沒有連接實體馬達。健康-only 展示與跨馬達多類研究分開；學前未知拒絕、學後已知接受、自身配置分類 accuracy 的分母不同。沒有物理損壞百分比、RUL 或部署保證。歷史人工驗收見[固定導覽報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/navigation_20261007/final_report.md)，不代表目前所有環境已重新驗收。
+輸入是 CSV 重播，沒有連接實體馬達。健康-only 展示與跨馬達多類研究分開；擴張前未知拒絕、擴張後已知接受（以模型是否已學到新類分段，所有來源同時轉段）、自身配置分類 accuracy 的分母不同。沒有物理損壞百分比、RUL 或部署保證。歷史人工驗收見[固定導覽報告](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/blob/b3d68f145cfa187e208e38cae74bf33f68d7c367/reports/navigation_20261007/final_report.md)，不代表目前所有環境已重新驗收。
