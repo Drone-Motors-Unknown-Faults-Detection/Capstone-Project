@@ -26,10 +26,16 @@ from core.data import HEALTHY, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import run_root_sources, save_json
+from core.data import dataset_key
 
 
 def _dataset_key(ds: dict) -> str:
-    return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+    return dataset_key(ds["motor"], ds["rpm"])
+
+
+def _mean_or_none(values: list[float]) -> float | None:
+    """空集合（例如只有一個工況時沒有非對角格）回 None，不寫 NaN 進 summary.json（#271）。"""
+    return round(float(np.mean(values)), 4) if values else None
 
 
 def _fit_healthy_monitor(pools, seed: int, confidence: float, method: str) -> OpenSetMonitor:
@@ -80,11 +86,11 @@ def run_matrix(all_pools, seed: int = 42, confidence: float = 0.95,
         "keys": keys,
         "cells": cells,
         "summary": {
-            "diag_auroc_mean": round(float(np.mean(diag)), 4),
-            "offdiag_auroc_mean": round(float(np.mean(off)), 4),
-            "offdiag_auroc_min": round(float(np.min(off)), 4),
-            "same_rpm_cross_motor_auroc_mean": round(float(np.mean(same_rpm_off)), 4),
-            "same_motor_cross_rpm_auroc_mean": round(float(np.mean(same_motor_off)), 4),
+            "diag_auroc_mean": _mean_or_none(diag),
+            "offdiag_auroc_mean": _mean_or_none(off),
+            "offdiag_auroc_min": round(float(np.min(off)), 4) if off else None,
+            "same_rpm_cross_motor_auroc_mean": _mean_or_none(same_rpm_off),
+            "same_motor_cross_rpm_auroc_mean": _mean_or_none(same_motor_off),
         },
     }
 
@@ -139,8 +145,8 @@ def run_strategy(all_pools, seed: int = 42, confidence: float = 0.95,
 
     summary = {
         name: {
-            "healthy_accept_mean": round(float(np.mean([v["healthy_accept"] for v in rows.values()])), 4),
-            "fault_detect_mean": round(float(np.mean([v["fault_detect"] for v in rows.values()])), 4),
+            "healthy_accept_mean": _mean_or_none([v["healthy_accept"] for v in rows.values()]),
+            "fault_detect_mean": _mean_or_none([v["fault_detect"] for v in rows.values()]),
         }
         for name, rows in strategies.items()
     }
@@ -221,6 +227,9 @@ def run(data_root: str = "data", seed: int = 42, parts: str = "abc",
 
 def _run(data_root, seed, parts, confidence, method, *, source_run) -> dict:
     all_pools = source_run.load_all()
+
+    if not all_pools:
+        raise FileNotFoundError(f"{data_root} 下找不到任何 Step-*/myfeature 資料集")
     result = {"seed": seed, "datasets": sorted(all_pools)}
     if "a" in parts:
         result["matrix"] = run_matrix(all_pools, seed, confidence, method)
@@ -232,7 +241,7 @@ def _run(data_root, seed, parts, confidence, method, *, source_run) -> dict:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--part", default="abc")

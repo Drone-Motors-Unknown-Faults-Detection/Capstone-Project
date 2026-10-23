@@ -17,7 +17,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from core.runtime_environment import collect_environment
+from core.runtime_environment import collect_environment, source_data_info
 
 
 @dataclass
@@ -81,7 +81,7 @@ def setup_run(program: str, make_output: bool = True, *, unique: bool = False, d
     logger.info(f"log_file={log_file}")
     if output_dir is not None:
         logger.info(f"output_dir={output_dir}")
-    environment = collect_environment(data_root=data_root, include_data=include_data)
+    environment = collect_environment(data_root=data_root, data=None if include_data else source_data_info(None))
     if output_dir is not None:
         (output_dir / "environment.json").write_text(
             json.dumps(environment, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

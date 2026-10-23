@@ -10,7 +10,7 @@ from core.provenance import capture_source, file_sha
 
 
 def run(data_root: Path, baseline: Path) -> dict:
-    log, paths = setup_run("provenance_delivery_evidence", unique=True)
+    log, paths = setup_run("provenance_delivery_evidence", unique=True, data_root=data_root)
     before, _ = capture_source(data_root)
     inventory = {row["source_id"]: row["sha256"] for row in before["files"]}
     previous = json.loads(baseline.read_text(encoding="utf-8"))

@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import copy
-import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +16,7 @@ from pathlib import Path
 import numpy as np
 from core.feature_schema import (FEATURE_DIM as FEATURE_DIM, REGISTRY_VERSION, CONFIGURATIONS, CONFIG_ALIASES,
                                  FeatureSchemaError, read_feature_csv, validate_pool_coverage)
+from core.provenance import sha256_bytes, sha256_file
 
 HEALTHY = "8screws"
 
@@ -52,6 +52,15 @@ def display_name(config: str | None) -> str:
     if config is None:
         return "未知"
     return DISPLAY_NAMES.get(config, config)
+
+
+def dataset_key(motor: str, rpm: str) -> str:
+    """實驗輸出的工況鍵：`T1/8000`（目錄名 `8000rpm` 去掉 rpm 後綴）。
+
+    exp5／exp6／exp8／exp10／exp11／exp12 的 `dataset` 欄與彙整都用這個格式；
+    web 實驗頁的資料集參數是 `T1/8000rpm`（含後綴），另有定義（#276 K02）。
+    """
+    return f"{motor}/{rpm.replace('rpm', '')}"
 
 
 def discover_datasets(data_root: Path | str) -> list[dict]:
@@ -102,17 +111,21 @@ class PoolCache:
         self.misses = 0
 
     @staticmethod
-    def content_key(dataset_path: Path | str, *, require_complete: bool = False) -> str:
+    def content_key(dataset_path: Path | str, *, require_complete: bool = False,
+                    file_hashes: dict[str, str] | None = None) -> str:
+        """內容鍵。``file_hashes`` 是 load_pools audit 已算好的 {相對 posix 路徑: sha256}，
+        有列的檔案直接取用，不再讀第二次；目錄結構仍重新掃描。"""
         root = Path(dataset_path)
+        known = file_hashes or {}
         listing = []
         if root.is_dir():
             for folder in sorted(p for p in root.iterdir() if p.is_dir()):
-                files = [[path.name, hashlib.sha256(path.read_bytes()).hexdigest()]
+                files = [[path.name, known.get(path.relative_to(root).as_posix()) or sha256_file(path)]
                          for path in sorted(folder.glob("*_Group_feature_data_clean.csv"))]
                 listing.append([folder.name, files])
         payload = {"registry": REGISTRY_VERSION, "require_complete": bool(require_complete),
                    "is_dir": root.is_dir(), "folders": listing}
-        return hashlib.sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        return sha256_bytes(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode())
 
     def load(self, dataset_path: Path | str, *, require_complete: bool = False,
              audit: dict | None = None) -> dict[str, np.ndarray]:
@@ -128,7 +141,10 @@ class PoolCache:
         self.misses += 1
         report: dict = {}
         pools = load_pools(dataset_path, require_complete=require_complete, audit=report)
-        if self.content_key(dataset_path, require_complete=require_complete) == key:
+        # 載入後重算鍵時沿用 read_feature_csv 對同一批 bytes 算出的 SHA：鍵對應的就是存進快取的內容，
+        # 讀檔途中被改掉的檔案會讓兩次鍵不同而不存（docs/profiling_contract.md）。
+        loaded = {record["file_id"]: record["sha256"] for record in report.get("files", [])}
+        if self.content_key(dataset_path, require_complete=require_complete, file_hashes=loaded) == key:
             self._entries[key] = ({name: values.copy() for name, values in pools.items()}, copy.deepcopy(report))
         if audit is not None:
             audit.clear()
@@ -137,7 +153,10 @@ class PoolCache:
 
 
 def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:
+    """池的 key 一律是正規配置名（`1screw` 目錄讀成 `1screws`，CONFIG_ALIASES）；
+    原目錄名留在 audit 的 ``configuration_dirs`` 與每個檔案的 file_id，實驗端不再各自處理別名（#271）。"""
     pools: dict[str, np.ndarray] = {}
+    report["configuration_dirs"] = {}
     if not dataset_path.is_dir():
         raise FeatureSchemaError("missing_dataset")
     config_dirs = sorted(
@@ -153,12 +172,16 @@ def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:
             continue
         if not files:
             raise FeatureSchemaError("empty_configuration", config_dir.name)
+        if canonical in pools:
+            raise FeatureSchemaError("ambiguous_configuration_alias", config_dir.name,
+                                     detail=f"{report['configuration_dirs'][canonical]} 與 {config_dir.name} 同時存在")
         matrices = []
         for path in files:
             values, record = read_feature_csv(path, path.relative_to(dataset_path).as_posix())
             report["files"].append(record)
             matrices.append(values)
-        pools[config_dir.name] = np.concatenate(matrices, axis=0)
+        pools[canonical] = np.concatenate(matrices, axis=0)
+        report["configuration_dirs"][canonical] = config_dir.name
     return pools
 
 

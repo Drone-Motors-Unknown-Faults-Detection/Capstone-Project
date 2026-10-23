@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -12,8 +11,8 @@ from typing import Sequence
 import pandas as pd
 
 from core.logger import setup_run
-from core.provenance import file_sha
-from core.runtime_environment import collect_environment
+from core.provenance import file_sha, sha256_bytes
+from core.runtime_environment import collect_environment, source_data_info
 from experiments.exp6_matrix import METRIC_COLUMNS as METRICS
 from experiments.exp6_matrix import (MATRIX_SCHEMA, artifact_hashes, artifact_snapshot,
                                     run_contract_problems, run_directory, run_key, validate_manifest_contract,
@@ -89,7 +88,7 @@ def _verify_parents(path: Path, proof: dict) -> None:
 
 
 def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False,
-                _audit: dict | None = None) -> tuple[dict, pd.DataFrame, list[dict]]:
+                _audit: dict | None = None) -> tuple[dict, pd.DataFrame, list[dict], str]:
     """讀同一份bytes快照再驗父SHA；partial不能掩蓋程式／資料／設定混版。"""
     path = Path(manifest_path).expanduser().resolve()
     try:
@@ -105,9 +104,9 @@ def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False,
         contract = validate_manifest_contract(manifest, allow_missing_runs=allow_partial)
     elif schema != 1 or "contract" in manifest:
         raise ValueError("未知或降級的matrix schema，拒絕混版")
-    environment = collect_environment(include_data=False)
+    environment = collect_environment(data=source_data_info(None))
     environment["data"]["reason"] = "ARTIFACT_INPUTS_ONLY"
-    manifest_sha = hashlib.sha256(raw_manifest).hexdigest()
+    manifest_sha = sha256_bytes(raw_manifest)
     proof = {"version": "formal_aggregate_provenance_v2",
              "verification_status": "VERIFIED" if contract is not None else "LEGACY_UNVERIFIED",
              "manifest_source_id": f"sha256:{manifest_sha}",
@@ -204,12 +203,13 @@ def load_matrix(manifest_path: Path | str, *, allow_partial: bool = False,
     if _audit is not None:
         _audit.update(proof)
     frame = pd.DataFrame(rows).sort_values("run_id", kind="mergesort").reset_index(drop=True)
-    return manifest, frame, rejected
+    (fingerprint,) = fingerprints
+    return manifest, frame, rejected, fingerprint
 
 
 def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict:
     provenance = {}
-    manifest, frame, rejected = load_matrix(manifest_path, allow_partial=allow_partial, _audit=provenance)
+    manifest, frame, rejected, fingerprint = load_matrix(manifest_path, allow_partial=allow_partial, _audit=provenance)
     partial = bool(rejected)
     methods = [str(method) for method in manifest.get("methods", sorted(frame["method"].unique()))]
     methods = [method for method in methods if method in set(frame["method"])]
@@ -241,18 +241,19 @@ def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict
         joined = left[list(METRICS)].join(right[list(METRICS)], lsuffix="_mahalanobis", rsuffix="_knn", how="inner")
         if not partial and (len(joined) != len(left) or len(joined) != len(right)):
             raise ValueError("Mahalanobis and kNN rows are not paired one-to-one")
-        if joined.empty:
+        if joined.empty and not partial:
             raise ValueError("沒有共同工況／seed配對，不能以空集合計算方法差值")
         for metric in METRICS:
             difference = joined[f"{metric}_knn"] - joined[f"{metric}_mahalanobis"]
-            mean, std = _mean_std(difference)
+            # allow_partial 下兩方法可能沒有共同的 (dataset, seed)：空 join 寫 None，不寫 NaN（#285 R2-02）
+            mean, std = _mean_std(difference) if len(difference) else (None, None)
             paired_rows.append(
                 {
                     "comparison": "knn_minus_mahalanobis",
                     "metric": metric,
                     "n_pairs": int(len(difference)),
-                    "mean_difference": _round(mean),
-                    "std_difference": _round(std),
+                    "mean_difference": None if mean is None else _round(mean),
+                    "std_difference": None if std is None else _round(std),
                     "knn_better_pairs": int((difference > 0).sum()),
                     "mahalanobis_better_pairs": int((difference < 0).sum()),
                     "ties": int((difference == 0).sum()),
@@ -264,7 +265,8 @@ def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict
         "status": "PARTIAL" if partial else "completed",
         "source_manifest": "matrix_manifest.json",
         "dataset_root": manifest.get("data_root"),
-        "dataset_fingerprint": provenance["dataset_fingerprint"],
+        # 只用 load_matrix 核對過、所有接受格一致的指紋；不取 runs[0]（它可能是被拒的格，#269 C07）
+        "dataset_fingerprint": fingerprint,
         "expected_runs": int(manifest["expected_runs"]),
         "completed_runs": provenance["observed_completed_runs"],
         "methods": methods,
@@ -302,7 +304,8 @@ def write_aggregate(manifest_path: Path | str, output_root: Path | str | None = 
     if result["paired_differences"]:
         lines.extend(["", "## Paired differences", "", "Positive values mean kNN is higher than Mahalanobis for that metric.", "", "| metric | mean difference | std difference | pairs |", "|---|---:|---:|---:|"])
         for row in result["paired_differences"]:
-            lines.append(f"| {row['metric']} | {row['mean_difference']:.6f} | {row['std_difference']:.6f} | {row['n_pairs']} |")
+            cells = ["n/a" if row[key] is None else f"{row[key]:.6f}" for key in ("mean_difference", "std_difference")]
+            lines.append(f"| {row['metric']} | {cells[0]} | {cells[1]} | {row['n_pairs']} |")
     if result.get("rejected_runs"):
         lines.extend(["", "## Rejected runs (PARTIAL)", "", "| run | reasons |", "|---|---|"])
         for item in result["rejected_runs"]:

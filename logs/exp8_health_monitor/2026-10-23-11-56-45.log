@@ -1,0 +1,5 @@
+2026-10-23 11:56:45 | INFO    | Logger initialized: exp8_health_monitor
+2026-10-23 11:56:45 | INFO    | log_file=logs/exp8_health_monitor/2026-10-23-11-56-45.log
+2026-10-23 11:56:45 | INFO    | output_dir=output/exp8_health_monitor/2026-10-23-11-56-45
+2026-10-23 11:56:45 | INFO    | 參數：{'data_root': 'data', 'motor': 'T1', 'rpm': '8000rpm', 'config': '1screws', 'seed': 42, 'openset_method': 'mahalanobis', 'mahalanobis_method': 'ledoit_wolf', 'confidence': 0.95, 'knn_neighbors': 5, 'motor_id': 'demo-T1', 'session_id': 'demo-1screws', 'max_windows': None, 'output_mode': 'full', 'allow_no_identity': False}
+2026-10-23 11:56:45 | INFO    | 完成：349 窗，結果寫入 output/exp8_health_monitor/2026-10-23-11-56-45/windows.jsonl

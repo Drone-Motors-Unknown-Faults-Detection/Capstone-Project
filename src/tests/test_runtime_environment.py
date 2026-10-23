@@ -63,7 +63,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             for cwd in (program, program / "src", outside, caller):
                 with self.subTest(cwd=cwd.name), working_directory(cwd), \
                         patch.object(runtime, "__file__", str(module)):
-                    result = runtime.collect_environment(include_data=False)
+                    result = runtime.collect_environment(data=runtime.source_data_info(None))
                     self.assertEqual(result["git"]["head"], expected_head)
                     self.assertIs(result["git"]["tracked_dirty"], True)
                     self.assertEqual(result["constraints_sha256"], expected_lock)
@@ -83,7 +83,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             data = _fixture(Path(directory) / "features")
             manifest = write_matrix(Path(directory) / "parents")
             with working_directory(caller), patch.object(runtime, "__file__", str(module)):
-                result = runtime.collect_environment(include_data=False)
+                result = runtime.collect_environment(data=runtime.source_data_info(None))
                 aggregate_env = aggregate_exp6.aggregate(manifest)["provenance"]["environment"]
                 formal_result = formal.run(data, openset_method="knn", require_nine=False)
                 health_result = health.run(data, openset_method="knn", require_nine=False)
@@ -107,7 +107,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             module = fixture_repository(program, "program")
             fixture_repository(caller, "caller")
             with working_directory(program), patch.object(runtime, "__file__", str(module)):
-                result = runtime.collect_environment(caller / "src", include_data=False)
+                result = runtime.collect_environment(caller / "src", data=runtime.source_data_info(None))
             self.assertEqual(result["git"]["head"], runtime._git(caller, "rev-parse", "HEAD"))
             self.assertEqual(result["constraints_sha256"], hashlib.sha256((caller / "uv.lock").read_bytes()).hexdigest())
             self.assertEqual(result["program_source"]["selection"], "EXPLICIT_ROOT")
@@ -121,7 +121,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             installed.parent.mkdir(parents=True)
             installed.touch()
             with working_directory(caller), patch.object(runtime, "__file__", str(installed)):
-                result = runtime.collect_environment(include_data=False)
+                result = runtime.collect_environment(data=runtime.source_data_info(None))
             self.assertEqual(result["git"], {"head": None, "tracked_dirty": None, "status": "UNKNOWN"})
             self.assertIsNone(result["constraints_sha256"])
             self.assertEqual(result["program_source"]["git_reason"], "PROGRAM_ROOT_UNAVAILABLE")
@@ -132,7 +132,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             root = Path(directory) / "exported"
             module = fixture_repository(root, "exported", commit=False)
             with patch.object(runtime, "__file__", str(module)):
-                result = runtime.collect_environment(include_data=False)
+                result = runtime.collect_environment(data=runtime.source_data_info(None))
             self.assertIsNone(result["git"]["head"])
             self.assertIsNone(result["git"]["tracked_dirty"])
             self.assertEqual(result["program_source"]["lock_status"], "VERIFIED")
@@ -145,8 +145,8 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             for reason in ("LOCK_MISSING", "LOCK_UNREADABLE"):
                 error = FileNotFoundError("私人路徑") if reason == "LOCK_MISSING" else PermissionError("私人路徑")
                 with self.subTest(reason=reason), patch.object(runtime, "__file__", str(module)), \
-                        patch.object(Path, "read_bytes", side_effect=error):
-                    result = runtime.collect_environment(include_data=False)
+                        patch.object(runtime, "sha256_file", side_effect=error):
+                    result = runtime.collect_environment(data=runtime.source_data_info(None))
                 self.assertEqual(result["git"]["status"], "VERIFIED")
                 self.assertIsNone(result["constraints_sha256"])
                 self.assertEqual(result["program_source"]["lock_reason"], reason)
@@ -156,7 +156,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         for error in (OSError("私人 Git 路徑"), subprocess.TimeoutExpired("git", 3)):
             with self.subTest(error=type(error).__name__), \
                     patch.object(runtime.subprocess, "run", side_effect=error):
-                result = runtime.collect_environment(include_data=False)
+                result = runtime.collect_environment(data=runtime.source_data_info(None))
             self.assertEqual(result["git"], {"head": None, "tracked_dirty": None, "status": "UNKNOWN"})
             self.assertEqual(result["program_source"]["git_reason"], "GIT_UNAVAILABLE_OR_INCOMPLETE")
             self.assertNotIn("私人", json.dumps(result))
@@ -177,7 +177,7 @@ class RuntimeEnvironmentTests(unittest.TestCase):
             fixture_repository(caller, "caller")
             data = _fixture(base / "features")
             manifest = write_matrix(base / "parents")
-            expected = runtime.collect_environment(ROOT, include_data=False)
+            expected = runtime.collect_environment(ROOT, data=runtime.source_data_info(None))
             with working_directory(caller):
                 _, paths = setup_run("program_fixture", unique=True, data_root=data)
                 saved = json.loads((paths.output_dir / "environment.json").read_text())
@@ -275,10 +275,36 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertEqual(info["status"], "UNKNOWN")
         self.assertIsNone(info["blas"])
 
-    def test_data_root_from_argv(self):
-        self.assertEqual(runtime._argv_data_root(["x", "--seed", "1"]), "data")
-        self.assertEqual(runtime._argv_data_root(["x", "--data-root", "d2"]), "d2")
-        self.assertEqual(runtime._argv_data_root(["x", "--data-root=d3"]), "d3")
+    def test_no_argv_sniffing(self):
+        """資料根只從呼叫端傳入；命令列的 --data-root 不再被偷看（#269）。"""
+        self.assertFalse(hasattr(runtime, "_argv_data_root"))
+        with patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}):
+            with patch("sys.argv", ["x", "--data-root", "from_argv"]):
+                self.assertEqual(runtime.collect_environment(ROOT)["data"], {"root": "data"})
+
+    def test_data_info_failed_keeps_error_type_but_not_message(self):
+        """manifest 與內容不符是 FAILED，不是「沒有資料」的 UNKNOWN（#269 C24）。"""
+        from core.provenance import ProvenanceError
+
+        with patch("core.provenance.capture_source", side_effect=ProvenanceError("private-path-secret")):
+            info = runtime.data_info("data")
+        self.assertEqual(info, {"content_version": None, "dataset_fingerprint": None, "n_files": 0,
+                                "status": "FAILED", "error_type": "ProvenanceError"})
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            csv = root / "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv"
+            csv.parent.mkdir(parents=True)
+            csv.write_text("a,b\n1,2\n", encoding="utf-8")
+            (root / "formal_materialization_manifest.json").write_text("{not json", encoding="utf-8")
+            info = runtime.data_info(root)
+        self.assertEqual((info["status"], info["error_type"]), ("FAILED", "ProvenanceError"))
+
+    def test_git_head_tolerates_missing_git(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertIsNone(runtime.git_head(Path(directory)))
+        with patch.object(runtime.subprocess, "run", side_effect=OSError("no git")):
+            self.assertIsNone(runtime.git_head(ROOT))
+        self.assertRegex(runtime.git_head(ROOT) or "", r"^[0-9a-f]{40}$")
 
     def test_data_info_unknown_without_data(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -299,15 +325,25 @@ class RuntimeEnvironmentTests(unittest.TestCase):
         self.assertNotEqual(first["dataset_fingerprint"], second["dataset_fingerprint"])
         self.assertNotIn(directory, json.dumps(first))
 
-    def test_explicit_data_root_overrides_argv(self):
-        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}):
-            with patch.object(runtime.sys, "argv", ["x", "--data-root", "from_argv"]):
-                self.assertEqual(runtime.collect_environment(Path(directory))["data"], {"root": "from_argv"})
-                self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
+    def test_explicit_data_root_and_precomputed_data(self):
+        with tempfile.TemporaryDirectory() as directory, patch.object(runtime, "data_info", side_effect=lambda r: {"root": str(r)}) as info:
+            self.assertEqual(runtime.collect_environment(Path(directory), data_root="explicit")["data"], {"root": "explicit"})
+            precomputed = {"content_version": "v", "dataset_fingerprint": "f", "n_files": 1, "status": "VERIFIED"}
+            self.assertEqual(runtime.collect_environment(Path(directory), data=precomputed)["data"], precomputed)
+            self.assertEqual(info.call_count, 1)
+
+    def test_source_data_info_matches_capture_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            csv = Path(directory) / "Step-1/myfeature/T1/8000rpm/8screws/T1_Group_feature_data_clean.csv"
+            csv.parent.mkdir(parents=True)
+            csv.write_text("a,b\n1,2\n", encoding="utf-8")
+            from core.provenance import capture_source
+
+            self.assertEqual(runtime.source_data_info(capture_source(directory)[0]), runtime.data_info(directory))
 
     def test_memory_environment_does_not_inspect_default_data(self):
         with patch.object(runtime, "data_info", side_effect=AssertionError("不得讀預設資料根")):
-            result = runtime.collect_environment(ROOT, include_data=False)
+            result = runtime.collect_environment(ROOT, data=runtime.source_data_info(None))
         self.assertEqual(result["data"]["status"], "UNKNOWN")
         self.assertIsNone(result["data"]["dataset_fingerprint"])
         self.assertEqual(result["data"]["reason"], "UNVERIFIED_MEMORY")

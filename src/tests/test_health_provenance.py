@@ -17,7 +17,7 @@ def test_health_source_roles_cache_and_original_metrics(tmp_path, method):
     root = _fixture(tmp_path / "data")
     project = Path(__file__).resolve().parents[2]
     code = subprocess.check_output(["git", "show",
-        "edc6a0f052379df52c6874b702badcc000ba742d:src/experiments/health_index_benchmark.py"], cwd=project)
+        "ff28b438e87c3320f65195346e4a53f727475a5c:src/experiments/health_index_benchmark.py"], cwd=project)
     old = types.ModuleType("_paired_health")
     old.__file__ = module.__file__
     exec(compile(code, "health_index_benchmark", "exec"), old.__dict__)
@@ -125,7 +125,7 @@ def test_monitor_calibration_metadata_keeps_all_scientific_windows(tmp_path):
 
     project = Path(__file__).resolve().parents[2]
     code = subprocess.check_output(["git", "show",
-        "720cf7a110d6ebdc448259ac8a091b646387d850:src/experiments/health_monitor.py"], cwd=project)
+        "ff28b438e87c3320f65195346e4a53f727475a5c:src/experiments/health_monitor.py"], cwd=project)
     old = types.ModuleType("_paired_calibration_metadata")
     exec(compile(code, "health_monitor", "exec"), old.__dict__)
     root = _fixture(tmp_path / "features")
@@ -136,5 +136,7 @@ def test_monitor_calibration_metadata_keeps_all_scientific_windows(tmp_path):
     for left, right in zip(actual, expected, strict=True):
         assert left["event"] == right["event"]
         if left["event"] == "window":
-            assert {key: value for key, value in left["window"].items() if key != "provenance"} == {
+            assert 0 <= left["window"]["source_pool_index"] < 30
+            assert {key: value for key, value in left["window"].items()
+                    if key not in {"provenance", "source_pool_index"}} == {
                 key: value for key, value in right["window"].items() if key != "provenance"}

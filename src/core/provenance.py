@@ -27,15 +27,25 @@ def canonical_sha(value) -> str:
                                      separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
 
 
-def file_sha(path: Path) -> str:
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    """分塊讀檔算 SHA256；讀不到就丟原本的 OSError。專案內所有檔案雜湊都走這裡（#276 K03）。"""
     digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        while block := handle.read(chunk_size):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def file_sha(path: Path) -> str:
+    """sha256_file 的來源驗證版：OSError 包成可公開的 ProvenanceError，不帶路徑。"""
     try:
-        with path.open("rb") as handle:
-            while block := handle.read(1024 * 1024):
-                digest.update(block)
+        return sha256_file(path)
     except OSError as exc:
         raise ProvenanceError(f"來源無法讀取：{type(exc).__name__}") from exc
-    return digest.hexdigest()
 
 
 def _manifest_id(value: str, *, legacy: bool) -> str:
@@ -161,7 +171,7 @@ class PoolSource:
 
 def load_pool_source(data_root, dataset_path, *, cache=None) -> tuple[dict, PoolSource]:
     """以 parser 實際讀到的 bytes SHA 綁定池與 CSV 原列；載入變動時拒絕。"""
-    from core.data import load_pools
+    from core.data import CONFIG_ALIASES, load_pools
 
     root = Path(data_root).resolve()
     dataset = Path(dataset_path).resolve()
@@ -185,7 +195,8 @@ def load_pool_source(data_root, dataset_path, *, cache=None) -> tuple[dict, Pool
         source_id = f"{prefix}/{row['file_id']}"
         if files.get(source_id) != row["sha256"]:
             raise ProvenanceError("parser／快取實際載入內容與來源 SHA 不符")
-        config = row["file_id"].split("/")[0]
+        physical_config = row["file_id"].split("/")[0]
+        config = CONFIG_ALIASES.get(physical_config, physical_config)
         start = offsets[config]
         offsets[config] += row["rows"]
         mapping.append({"configuration": config, "source_id": source_id,
@@ -225,7 +236,7 @@ def source_for_pools(pools, source: PoolSource | None = None) -> dict:
 def run(data_root: Path | str) -> dict:
     from core.logger import setup_run
 
-    log, paths = setup_run("source_provenance", unique=True)
+    log, paths = setup_run("source_provenance", unique=True, data_root=data_root)
     try:
         public, private = capture_source(data_root)
         public["private_context_id"] = write_private_context(private)

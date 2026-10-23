@@ -18,7 +18,7 @@ import argparse
 import numpy as np
 
 from core.confusion_summary import summarize_confusion
-from core.data import HEALTHY, config_sort_key, make_split
+from core.data import HEALTHY, config_sort_key, dataset_key, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import run_root_sources, save_json
@@ -80,13 +80,8 @@ def visualization_counts(result: dict) -> dict:
     return {"status": "VERIFIED", "datasets": counts, "total": sum(counts.values())}
 
 
-def _canon(config: str) -> str:
-    """把 1screw/1screws 兩種目錄名併成同一個標籤，避免跨資料集疊混淆矩陣時多出虛假類別。"""
-    return "1screw" if config in ("1screw", "1screws") else config
-
-
 def _dataset_key(ds: dict) -> str:
-    return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+    return dataset_key(ds["motor"], ds["rpm"])
 
 
 # ── (a) 二元混淆矩陣 ─────────────────────────────────────────────────────────
@@ -121,29 +116,33 @@ def _collect_labels(monitor: OpenSetMonitor, unknown_configs: list[str],
     for config in monitor.known:
         X = monitor.holdout(config)
         preds = monitor.classify(X)
-        y_true += [_canon(config)] * len(X)
-        y_pred += [_canon(p) if p is not None else "unknown" for p in preds]
+        y_true += [config] * len(X)
+        y_pred += [p if p is not None else "unknown" for p in preds]
     for config in unknown_configs:
         X = pools[config]
         preds = monitor.classify(X)
         y_true += ["unknown"] * len(X)
-        y_pred += [_canon(p) if p is not None else "unknown" for p in preds]
+        y_pred += [p if p is not None else "unknown" for p in preds]
     return y_true, y_pred
 
 
 def _openset_confusion(all_pools: dict[str, dict[str, np.ndarray]], seed: int,
-                        confidence: float, method: str) -> dict:
+                        confidence: float, method: str,
+                        monitors: dict[str, OpenSetMonitor] | None = None) -> dict:
+    """monitors：已建好的祖先 monitor（鍵同 all_pools）；沒給就逐工況建。"""
     from sklearn.metrics import confusion_matrix
 
     y_true, y_pred = [], []
-    for pools in all_pools.values():
+    for key, pools in all_pools.items():
         unknown = [c for c in _ANCESTOR_UNKNOWN_CANDIDATES if c in pools]
-        monitor = build_ancestor_monitor(pools, seed=seed, confidence=confidence, method=method)
+        monitor = (monitors or {}).get(key) or build_ancestor_monitor(
+            pools, seed=seed, confidence=confidence, method=method)
         dy_true, dy_pred = _collect_labels(monitor, unknown, pools)
         y_true += dy_true
         y_pred += dy_pred
 
-    labels = ["8screws", "1screw", "2screws", "3screws", "4screws", "unknown"]
+    # 標籤用 core.data 的正規配置名；1screw 目錄在載入時已併成 1screws（#271）
+    labels = ["8screws", "1screws", "2screws", "3screws", "4screws", "unknown"]
     matrix = confusion_matrix(y_true, y_pred, labels=labels)
     return {"labels": labels, "matrix": matrix.tolist()}
 
@@ -152,10 +151,12 @@ def _openset_confusion(all_pools: dict[str, dict[str, np.ndarray]], seed: int,
 
 
 def _tsne_one_dataset(pools: dict[str, np.ndarray], seed: int, confidence: float,
-                       perplexity: float, max_per_class: int) -> dict:
+                       perplexity: float, max_per_class: int,
+                       monitor: OpenSetMonitor | None = None) -> dict:
     from sklearn.manifold import TSNE
 
-    monitor = build_ancestor_monitor(pools, seed=seed, confidence=confidence, method="ledoit_wolf")
+    if monitor is None:
+        monitor = build_ancestor_monitor(pools, seed=seed, confidence=confidence, method="ledoit_wolf")
     rng = np.random.default_rng(seed)
 
     X_parts, config_labels, verdicts = [], [], []
@@ -171,7 +172,7 @@ def _tsne_one_dataset(pools: dict[str, np.ndarray], seed: int, confidence: float
             else:
                 verdicts.append("unknown" if pred is None else "known_wrong")
         X_parts.append(sample)
-        config_labels += [_canon(config)] * n
+        config_labels += [config] * n
 
     X = np.vstack(X_parts)
     X_scaled = monitor.scaler.transform(X)
@@ -251,11 +252,14 @@ def _run(data_root, seed, confidence, perplexity, tsne_max_per_class, *, source_
     all_pools = source_run.load_all()
 
     binary = _binary_confusion(all_pools, seed, confidence)
-    openset_lw = _openset_confusion(all_pools, seed, confidence, "ledoit_wolf")
+    # LW 祖先 monitor 每個工況只擬合一次，(b) 的 LW 矩陣與 (c) 的 t-SNE 共用
+    lw_monitors = {key: build_ancestor_monitor(pools, seed=seed, confidence=confidence, method="ledoit_wolf")
+                   for key, pools in all_pools.items()}
+    openset_lw = _openset_confusion(all_pools, seed, confidence, "ledoit_wolf", monitors=lw_monitors)
     openset_legacy = _openset_confusion(all_pools, seed, confidence, "legacy")
 
     tsne_by_dataset = {
-        key: _tsne_one_dataset(pools, seed, confidence, perplexity, tsne_max_per_class)
+        key: _tsne_one_dataset(pools, seed, confidence, perplexity, tsne_max_per_class, monitor=lw_monitors[key])
         for key, pools in all_pools.items()
     }
 
@@ -269,7 +273,7 @@ def _run(data_root, seed, confidence, perplexity, tsne_max_per_class, *, source_
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)

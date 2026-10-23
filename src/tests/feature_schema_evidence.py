@@ -34,7 +34,7 @@ def source_inventory(data_root):
 
 
 def run(data_root: Path | str, *, generation_script: Path | str | None = None) -> dict:
-    log, paths = setup_run("feature_schema_evidence")
+    log, paths = setup_run("feature_schema_evidence", data_root=data_root)
     root = Path(data_root).resolve()
     before = source_inventory(root)
     old = baseline_module()

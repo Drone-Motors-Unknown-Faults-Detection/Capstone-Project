@@ -25,6 +25,30 @@ _ALARM_STATES = {"normal", "warning", "critical"}
 _SEVERITY_BASES = {"relative_calibrated", "supervised_ordinal"}
 _CHANGE_POINT_STATES = {"none", "candidate", "confirmed"}
 
+# Fields of to_dict("health"); health_monitor's CLI filters its rows by the same tuple.
+HEALTH_FIELDS = (
+    "is_fault",
+    "health_index",
+    "degradation_score",
+    "severity_stage",
+    "trend",
+    "degradation_rate",
+    "openset_method",
+    "openset_score",
+    "is_unknown_fault",
+    "prediction_confidence",
+    "uncertainty",
+    "timestamp",
+    "condition",
+    "data_quality",
+    "alarm_state",
+    "alarm_reason",
+    "severity_basis",
+    "raw_health_index",
+    "smoothed_health_index",
+    "change_point_state",
+)
+
 
 def _bounded(value: float, name: str) -> float:
     value = float(value)
@@ -120,29 +144,5 @@ class HealthMonitoringResult:
         payload = asdict(self)
         payload["is_fault"] = int(self.is_fault)
         if mode == "health":
-            return {
-                key: payload[key]
-                for key in (
-                    "is_fault",
-                    "health_index",
-                    "degradation_score",
-                    "severity_stage",
-                    "trend",
-                    "degradation_rate",
-                    "openset_method",
-                    "openset_score",
-                    "is_unknown_fault",
-                    "prediction_confidence",
-                    "uncertainty",
-                    "timestamp",
-                    "condition",
-                    "data_quality",
-                    "alarm_state",
-                    "alarm_reason",
-                    "severity_basis",
-                    "raw_health_index",
-                    "smoothed_health_index",
-                    "change_point_state",
-                )
-            }
+            return {key: payload[key] for key in HEALTH_FIELDS}
         return payload

@@ -46,7 +46,7 @@ def test_root_methods_match_fixed_scientific_baseline(tmp_path, name):
     root = fixture(tmp_path)
     project = Path(__file__).resolve().parents[2]
     code = subprocess.check_output(["git", "show",
-        f"edc6a0f052379df52c6874b702badcc000ba742d:src/experiments/{name}.py"], cwd=project)
+        f"ff28b438e87c3320f65195346e4a53f727475a5c:src/experiments/{name}.py"], cwd=project)
     old = types.ModuleType("_paired_" + name)
     exec(compile(code, name, "exec"), old.__dict__)
     current = importlib.import_module("experiments." + name)
@@ -54,7 +54,7 @@ def test_root_methods_match_fixed_scientific_baseline(tmp_path, name):
         {"seeds": (42,)} if name.startswith("exp11") else {})
     # 此配對核對混淆矩陣；嵌入函數未改，避免為來源測試執行昂貴 t-SNE。
     if name.startswith("exp12"):
-        def embedding(pools, *args):
+        def embedding(pools, *args, **kwargs):
             return {"embedding": np.zeros((1, 2)), "config_labels": ["8screws"], "verdicts": ["unknown"]}
         with patch.object(old, "_tsne_one_dataset", side_effect=embedding), \
                 patch.object(current, "_tsne_one_dataset", side_effect=embedding):

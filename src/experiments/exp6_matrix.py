@@ -21,8 +21,8 @@ from core.data import PoolCache, discover_datasets
 from core.logger import setup_run
 from core.openset import resolve_openset_config
 from core.provenance import (CONTENT_VERSION, ProvenanceError, canonical_sha, capture_source,
-                             file_sha, write_private_context)
-from core.runtime_environment import collect_environment
+                             file_sha, sha256_bytes, write_private_context)
+from core.runtime_environment import collect_environment, source_data_info
 from experiments.exp6_formal_benchmark import (
     FORMAL_CONDITION_COUNT,
     FORMAL_METHODS,
@@ -161,8 +161,7 @@ def artifact_snapshot(run_dir: Path) -> dict[str, bytes]:
 
 
 def artifact_hashes(payloads: dict[str, bytes]) -> dict[str, str]:
-    import hashlib
-    return {name: hashlib.sha256(payload).hexdigest() for name, payload in sorted(payloads.items())}
+    return {name: sha256_bytes(payload) for name, payload in sorted(payloads.items())}
 
 
 def run_contract_problems(summary: dict, expected: dict, contract: dict) -> list[str]:
@@ -402,7 +401,7 @@ def _write_run_csv(run_dir: Path, result: dict) -> None:
 def _assert_source(data_root: Path, contract: dict) -> None:
     if capture_source(data_root)[0] != contract["source"]:
         raise ProvenanceError("矩陣執行期間來源變動，不能沿用或完成")
-    if _execution_identity(collect_environment(include_data=False)) != contract["execution"]:
+    if _execution_identity(collect_environment(data=source_data_info(None))) != contract["execution"]:
         raise ProvenanceError("矩陣執行期間程式或數值環境變動")
 
 
@@ -525,7 +524,7 @@ def run_matrix(
         try:
             result = run(data_path, seed=entry["seed"], openset_method=entry["method"],
                          confidence=0.95, mahalanobis_method="ledoit_wolf", knn_neighbors=5,
-                         require_nine=True, pool_cache=pool_cache)
+                         require_nine=True, evidence_dir=run_dir, pool_cache=pool_cache)
             _assert_source(data_path, contract)
             result = _condition_result(result, entry)
             config = contract["method_configs"][entry["method"]]
@@ -589,7 +588,7 @@ def run_matrix(
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     # 預設開新的時間戳目錄；output/exp6_formal_matrix 本身是 formal_local 歷史封存，不得被續跑覆寫（#253）
     parser.add_argument("--output-root", default=None,

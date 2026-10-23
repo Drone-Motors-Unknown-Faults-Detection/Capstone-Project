@@ -219,8 +219,7 @@ def test_all_events_and_scientific_outputs_match_fixed_baseline(name):
     from web.experiments import jsonable
 
     root = Path(__file__).resolve().parents[2]
-    baseline = ("99f46327d6b7b6f58e45dd402fda6dc566a90b83" if name.startswith("exp2")
-                else "db47d244345e0263ff9101f0eeec4757ed92d0fe")
+    baseline = "ff28b438e87c3320f65195346e4a53f727475a5c"
     text = subprocess.check_output(["git", "show", f"{baseline}:src/experiments/{name}.py"], cwd=root)
     old = types.ModuleType("_pool_provenance_" + name)
     exec(compile(text, name, "exec"), old.__dict__)
@@ -247,7 +246,7 @@ def test_growth_healthy_mix_keeps_source_and_current_main_results(tmp_path, heal
     pools, source = load_pool_source(root, dataset)
     project = Path(__file__).resolve().parents[2]
     text = subprocess.check_output(["git", "show",
-        "99f46327d6b7b6f58e45dd402fda6dc566a90b83:src/experiments/exp2_scale_growth.py"], cwd=project)
+        "ff28b438e87c3320f65195346e4a53f727475a5c:src/experiments/exp2_scale_growth.py"], cwd=project)
     old = types.ModuleType("_growth_main_healthy_mix")
     exec(compile(text, "exp2_scale_growth", "exec"), old.__dict__)
     options = dict(sequence=["7screws"], seed=42, healthy_mix=healthy_mix, max_ticks_per_stage=5)

@@ -15,6 +15,7 @@ from tornado.testing import AsyncHTTPTestCase, gen_test
 
 from web import server
 from web.experiments import CATALOG, ROOT, ExperimentRunner, jsonable
+from web.playback import PlaybackTracker
 
 BASE = "64cb71d84663e1745ec54db74abad68def67e8e6"
 
@@ -156,7 +157,17 @@ class FakeRunner:
     closed = False
 
     def run(self, exp_id, params):
+        if self.mode == "run_crash":
+            raise RuntimeError("測試執行失敗")
         return {"seconds": 0, "saved": None, "result": {"ok": True}}
+
+    def clean_params(self, exp_id, params):
+        if self.mode == "bad_params":
+            raise ValueError("測試參數錯誤")
+        return {"seed": 42}   # 清洗後的參數：原始用戶端鍵不保留
+
+    def stream_params(self, exp_id, params):
+        return self.clean_params(exp_id, params)
 
     def stream(self, exp_id, params):
         try:
@@ -244,6 +255,41 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         conn.close()
         await tornado.gen.sleep(.2)
         self.assertIsNone(server.JOBS.current)
+
+    def test_invalid_parameters_keep_previous_playback_record(self):
+        # 參數錯誤在 PLAYBACK.start 之前就回報；上一次完成的紀錄不會被換成錯誤（#274）
+        previous = server.PLAYBACK
+        server.PLAYBACK = PlaybackTracker()
+        try:
+            server.PLAYBACK.record_run("exp1", {"params": {"seed": 42}, "result": {"ok": True}, "seconds": 1.0})
+            self.runner.mode = "bad_params"
+            frames = self.frames(self.fetch("/stream/exp1"))
+            self.assertEqual([f["event"] for f in frames], ["error"])
+            self.assertIn("測試參數錯誤", frames[0]["error"])
+            record = server.PLAYBACK.snapshot()["records"]["exp1"]
+            self.assertEqual((record["mode"], record["status"]), ("run", "done"))
+            self.assertIsNone(server.JOBS.current)
+        finally:
+            server.PLAYBACK = previous
+
+    def test_batch_run_records_cleaned_params_only(self):
+        """參數錯誤回 400 且不進 PLAYBACK；執行失敗只記清洗後的參數，不記原始用戶端字串（#285 R2-10）。"""
+        previous = server.PLAYBACK
+        server.PLAYBACK = PlaybackTracker()
+        try:
+            self.runner.mode = "bad_params"
+            response = self.fetch("/run/exp1", method="POST", body='{"seed": "<img src=x>"}')
+            self.assertEqual(response.code, 400)
+            self.assertIsNone(server.PLAYBACK.snapshot())
+            self.runner.mode = "run_crash"
+            response = self.fetch("/run/exp1", method="POST", body='{"seed": 42, "evil": "<img src=x>"}')
+            self.assertEqual(response.code, 500)
+            record = server.PLAYBACK.snapshot()["records"]["exp1"]
+            self.assertEqual(record["status"], "error")
+            self.assertNotIn("<img", json.dumps(record, ensure_ascii=False))
+            self.assertIsNone(server.JOBS.current)
+        finally:
+            server.PLAYBACK = previous
 
     def test_non_object_parameters_and_non_finite_rate_rejected(self):
         for query in ("params=%5B1%5D", "rate=nan", "rate=inf"):

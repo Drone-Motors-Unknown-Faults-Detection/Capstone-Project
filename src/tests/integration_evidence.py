@@ -38,7 +38,7 @@ def data_index(root):
 
 
 def run(phase, data_root):
-    log, paths = setup_run("branch_integration")
+    log, paths = setup_run("branch_integration", data_root=data_root)
     # 沙箱系統暫存目錄可能缺少子目錄權限；只改本測試行程的暫存根。
     test_temp = paths.output_dir / "test_temp"
     test_temp.mkdir()

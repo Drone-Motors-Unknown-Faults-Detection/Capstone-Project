@@ -34,6 +34,11 @@ class HealthIndexTests(unittest.TestCase):
         self.assertEqual(results[-1].fault_type, "unknown")
         self.assertTrue(results[-1].is_unknown_fault)
         self.assertEqual(results[-1].to_dict("binary"), {"is_fault": 1})
+        # cal windows sit inside the rejection line → healthy; far probe saturates at 0
+        self.assertTrue(all(item.health_index >= 0.5 and item.severity_stage == "healthy" for item in results[:2]))
+        self.assertEqual(results[-1].health_index, 0.0)
+        self.assertEqual(results[-1].severity_stage, "critical")
+        self.assertAlmostEqual(model.metadata()["calibration"]["warning_anchor"], 1.0)
 
     def test_knn_uses_same_output_contract(self):
         model = CalibratedHealthIndex.fit(
@@ -57,6 +62,15 @@ class HealthIndexTests(unittest.TestCase):
                 self.X_cal,
                 np.ones(len(self.X_cal), dtype=int),
             )
+
+    def test_mcd_random_state_follows_caller_seed(self):
+        """MCD 的亂數來源要跟呼叫端 seed 走，不能固定 42（#285 R2-06）。"""
+        for seed in (7, 42):
+            model = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal,
+                                              mahalanobis_method="mcd", random_state=seed)
+            self.assertEqual(model.detector.random_state, seed)
+        default = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal)
+        self.assertEqual(default.detector.random_state, 42)
 
     def test_fit_is_reproducible(self):
         first = CalibratedHealthIndex.fit(self.X_train, self.y_train, self.X_cal, self.y_cal)

@@ -18,7 +18,7 @@ import numpy as np
 from loguru import logger
 
 from core.provenance import (CONTENT_VERSION, MATERIALIZATION_VERSION, ProvenanceError,
-                             capture_source, file_sha, run, write_private_context)
+                             capture_source, file_sha, run, sha256_bytes, sha256_file, write_private_context)
 from core import formal_data
 from core.logger import setup_run
 from core.openset import create_openset_detector
@@ -53,6 +53,28 @@ def manifest(root, version=MATERIALIZATION_VERSION):
 
 
 class ProvenanceTests(unittest.TestCase):
+    def test_pool_source_keeps_physical_alias_path_and_canonical_configuration(self):
+        from core.data import discover_datasets
+        from core.provenance import load_pool_source, source_for_pools
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            dataset = discover_datasets(root)[0]
+            folder = Path(dataset["path"]) / "1screws"
+            if not folder.exists():
+                folder.mkdir()
+                healthy = next((Path(dataset["path"]) / "8screws").glob("*_clean.csv"))
+                shutil.copyfile(healthy, folder / healthy.name)
+            folder.rename(folder.with_name("1screw"))
+            pools, context = load_pool_source(root, dataset["path"])
+            self.assertIn("1screws", pools)
+            self.assertNotIn("1screw", pools)
+            source = source_for_pools(pools, context)
+            rows = [row for row in source["row_mapping"] if row["configuration"] == "1screws"]
+            self.assertTrue(rows)
+            self.assertTrue(all("/1screw/" in row["source_id"] for row in rows))
+            self.assertEqual(sum(row["pool_stop"] - row["pool_start"] for row in rows), len(pools["1screws"]))
+
     def test_same_stat_different_bytes_and_explicit_legacy(self):
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory))
@@ -146,6 +168,21 @@ class ProvenanceTests(unittest.TestCase):
                     file_sha(Path(directory) / "hidden")
             self.assertNotIn("private-token", str(caught.exception))
 
+    def test_shared_sha256_helpers_match_hashlib(self):
+        """#276 K03：所有檔案雜湊走 sha256_file／sha256_bytes，file_sha 只是加上錯誤包裝。"""
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "blob.bin"
+            payload = bytes(range(256)) * 5000  # 超過一個 1 MiB 分塊
+            path.write_bytes(payload)
+            expected = hashlib.sha256(payload).hexdigest()
+            self.assertEqual(sha256_bytes(payload), expected)
+            self.assertEqual(sha256_file(path), expected)
+            self.assertEqual(file_sha(path), expected)
+            with self.assertRaises(OSError):
+                sha256_file(Path(directory) / "missing")
+
     def test_private_sidecar_is_atomic_and_git_ignored(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory) / ".lineage_private"
@@ -215,16 +252,14 @@ class ProvenanceTests(unittest.TestCase):
             root = _fixture(Path(directory))
             before = capture_source(root)
             changed = dict(before[0], dataset_fingerprint="a" * 64)
-            with patch.object(formal, "capture_source", side_effect=[before, before, (changed, before[1])]):
+            # run() 只在執行前後各 capture_source 一次（#269 F3）
+            with patch.object(formal, "capture_source", side_effect=[before, (changed, before[1])]):
                 with self.assertRaisesRegex(ValueError, "來源內容"):
                     formal.run(root, require_nine=False)
             output = root / "failure_evidence"
-            output.mkdir()
-            paths = types.SimpleNamespace(output_dir=output, program="fixture", timestamp="fixed")
-            with patch.object(formal, "setup_run", return_value=(logger, paths)), \
-                    patch.object(formal, "capture_source", side_effect=ProvenanceError("private-path-secret")):
+            with patch.object(formal, "capture_source", side_effect=ProvenanceError("private-path-secret")):
                 with self.assertRaises(ProvenanceError):
-                    formal.run(root, require_nine=False)
+                    formal.run(root, require_nine=False, evidence_dir=output)
             record = json.loads((output / "provenance.json").read_text(encoding="utf-8"))
             self.assertEqual(record["status"], "FAILED")
             self.assertEqual(record["error_type"], "ProvenanceError")

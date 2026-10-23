@@ -34,7 +34,9 @@ def test_counts_rounding_known_roles_and_no_training(tmp_path):
         assert (cold["train"], cold["cal"], cold["holdout"]) == (31, 10, 12)
         assert cold["classes"][0]["overlap_n"] == 0
         assert cold["classes"][0]["all_rows_accounted"]
-    assert ds["ancestor_a"][0]["registration_order"] == [HEALTHY, "1screw", "2screws", "3screws", "4screws"]
+    assert ds["ancestor_a"][0]["registration_order"] == [HEALTHY, "1screws", "2screws", "3screws", "4screws"]
+    one = next(r for r in ds["configurations"] if r["config"] == "1screws")
+    assert one["directory"] == "1screw"
     assert ds["ancestor_a_unknown_n"] == 53
     assert ds["monitor_default_120"]["5screws"] == 53
     assert ds["monitor_default_120"][HEALTHY] == 12

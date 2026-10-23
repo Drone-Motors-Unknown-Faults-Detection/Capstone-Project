@@ -12,11 +12,11 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from core.data import HEALTHY, discover_datasets, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, make_split
 from core.logger import setup_run
 from core.openset import resolve_openset_config
 from core.runner import run_root_sources
-from core.runtime_environment import collect_environment
+from core.runtime_environment import git_head
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
 from experiments.health.severity import DEFAULT_SEVERITY_POLICY
@@ -117,6 +117,7 @@ def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
             mahalanobis_method=mahalanobis_method,
             confidence=confidence,
             knn_neighbors=knn_neighbors,
+            random_state=seed,
         )
         known_results = model.predict(X_known, condition=f"{dataset['motor']}/{dataset['rpm']}")
         unknown_results = model.predict(X_unknown, condition=f"{dataset['motor']}/{dataset['rpm']}")
@@ -129,7 +130,7 @@ def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
         metadata = model.metadata()
         rows.append(
             {
-                "dataset": f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}",
+                "dataset": dataset_key(dataset["motor"], dataset["rpm"]),
                 "motor": dataset["motor"],
                 "rpm": dataset["rpm"],
                 "seed": int(seed),
@@ -161,6 +162,7 @@ def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
                 "unknown_recall": round(open_set["unknown_recall"], 6),
                 "unknown_f1": round(open_set["unknown_f1"], 6),
                 "calibration_healthy_anchor": metadata["calibration"]["healthy_anchor"],
+                "calibration_warning_anchor": metadata["calibration"]["warning_anchor"],
                 "calibration_critical_anchor": metadata["calibration"]["critical_anchor"],
                 "rul_available": False,
                 "status": "completed",
@@ -182,7 +184,7 @@ def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
         "health_interpretation": "relative calibration only; no physical damage or RUL claim",
         "unknown_calibration_leakage": False,
         "rul_available": False,
-        "commit_sha": collect_environment(include_data=False)["git"]["head"] or "unknown",
+        "commit_sha": git_head() or "unknown",
         "python": platform.python_version(),
         "rows": rows,
         "fit_audit": fit_audit,
@@ -196,7 +198,7 @@ def _dataset_fingerprint(data_path: Path) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--openset-method", default="mahalanobis")

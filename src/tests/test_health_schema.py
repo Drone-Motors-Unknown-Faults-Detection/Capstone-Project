@@ -1,6 +1,6 @@
 import unittest
 
-from experiments.health.schema import HealthMonitoringResult
+from experiments.health.schema import HEALTH_FIELDS, HealthMonitoringResult
 
 
 def _result(**overrides):
@@ -37,6 +37,8 @@ class HealthSchemaTests(unittest.TestCase):
         self.assertEqual(payload["is_fault"], 1)
         self.assertEqual(payload["degradation_score"], 0.58)
         self.assertNotIn("estimated_rul", payload)
+        self.assertEqual(tuple(payload), HEALTH_FIELDS)
+        self.assertTrue(set(HEALTH_FIELDS) < set(_result().to_dict("full")))
 
     def test_full_mode_contains_rul_disabled_explicitly(self):
         payload = _result().to_dict("full")

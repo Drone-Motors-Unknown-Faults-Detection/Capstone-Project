@@ -24,10 +24,10 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, make_split, discover_datasets
+from core.data import HEALTHY, dataset_key, make_split, discover_datasets
 from core.detectors import ALL_DETECTORS
 from core.logger import save_plot, setup_run
-from core.openset import fpr_at_tpr
+from core.openset import openset_metrics
 from core.runner import run_root_sources, save_json
 
 
@@ -37,13 +37,16 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95, *, ou
 
 
 def _run(data_root, seed, confidence, *, source_run) -> dict:
-    from sklearn.metrics import roc_auc_score
-
     datasets = discover_datasets(data_root)
+    if not datasets:
+        # 空資料根不能算成 NaN 再讓 save_json 崩潰；與 exp6_formal_benchmark 一樣先拒絕（#285 R2-04）
+        raise FileNotFoundError(f"no clean feature datasets found under {data_root}")
+    if len({(ds["motor"], ds["rpm"]) for ds in datasets}) != len(datasets):
+        raise ValueError(f"duplicate conditions discovered under {data_root}")
     rng = np.random.default_rng(seed)
     rows = []
     for ds in datasets:
-        key = f"{ds['motor']}/{ds['rpm'].replace('rpm','')}"
+        key = dataset_key(ds["motor"], ds["rpm"])
         pools = source_run.load(ds)
         sp = make_split(len(pools[HEALTHY]), rng)
         X_tr = pools[HEALTHY][sp.train]
@@ -55,12 +58,12 @@ def _run(data_root, seed, confidence, *, source_run) -> dict:
             det = det_cls(confidence=confidence, seed=seed).fit(X_tr, X_ca)
             h = det.score(X_ho)
             f = det.score(X_faults)
-            y = np.r_[np.zeros(len(h)), np.ones(len(f))]
+            metrics = openset_metrics(h, f)
             rows.append({
                 "dataset": key,
                 "method": det.name,
-                "auroc": round(float(roc_auc_score(y, np.r_[h, f])), 4),
-                "fpr_at_tpr95": round(fpr_at_tpr(h, f), 4),
+                "auroc": round(metrics["auroc"], 4),
+                "fpr_at_tpr95": round(metrics["fpr_at_tpr95"], 4),
                 "healthy_fp": round(float((h > 1).mean()), 4),
                 "fault_detect": round(float((f > 1).mean()), 4),
             })
@@ -107,7 +110,7 @@ def _figure(summary):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)

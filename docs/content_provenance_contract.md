@@ -24,9 +24,9 @@
 
 `core.runner.execution_context()` 重用既有環境 collector 與 Open Set resolver；`run_dataset()` 必須在入口 `setup_run(..., unique=True)` 後呼叫，載入／執行失敗仍保存去敏 `source.json`，不輸出任意例外 payload。
 
-環境資料根必須與實際來源相同：`execution_context()` 先驗證 `PoolSource`，再把行程內的 `root` 傳給 `collect_environment(data_root=...)`；root API 直接傳實際的 `data_root`。CLI 的 `setup_run()` 明確帶 `args.data_root`，`run_dataset()` 與有輸出目錄的 root runner 也將同一實際根的環境寫回該次 `environment.json`。這只更新本次新建紀錄，不回寫歷史產物。公開環境只保留內容指紋，不序列化 `PoolSource` 或絕對根。
+環境與實際來源共用同一份已驗證清冊：`execution_context()`、`run_dataset()` 與 root runner 透過 `source_data_info()`／`collect_environment(data=...)` 重用來源，不為環境紀錄再雜湊一次資料。CLI 的 `setup_run()` 明確帶 `args.data_root`，載入後將實際來源環境寫入該次 `environment.json`；載入前後的來源防變動核對仍保留。這只更新本次新建紀錄，不回寫歷史產物。公開環境只保留內容指紋，不序列化 `PoolSource` 或絕對根。
 
-純記憶體 pools 呼叫 `collect_environment(include_data=False)`：`environment.data.status=UNKNOWN`、指紋為空並標 `reason=UNVERIFIED_MEMORY`，不查工作目錄或命令列中的另一份 `data` 來背書。一般環境查核入口仍保留既有命令列預設；此選項僅供已知沒有可信檔案來源的呼叫者明確關閉資料蒐集。
+純記憶體 pools 與狀態查詢傳入 `collect_environment(data=source_data_info(None))`：`environment.data.status=UNKNOWN`、指紋為空並標 `reason=UNVERIFIED_MEMORY`，不查工作目錄或命令列中的另一份 `data` 來背書。一般環境查核入口使用明確的 `data_root` 或程式預設資料根，不解析 `sys.argv`。
 
 程式根與資料根分開：collector 預設由載入的模組定位程式樹，Git 與 uv.lock 不隨 CWD 改變；明確 root 查詢沿原契約。`program_source` 的 program_location_v1 區分預設／明確定位與 Git／lock 未知原因，不公開絕對根。無 Git 匯出或已安裝套件不借其他 repo 的版本；輸出位置仍由 setup_run 相對工作目錄建立。matrix／aggregate 的既有程式根查詢與版本拒絕保留，新程式內容 SHA 不得補回舊契約後原根續跑，細節見[環境操作](runtime_policy.md#執行環境紀錄)。
 

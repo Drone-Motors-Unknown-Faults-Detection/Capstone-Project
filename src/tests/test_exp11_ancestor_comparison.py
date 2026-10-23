@@ -17,31 +17,46 @@ from experiments.exp11_ancestor_comparison import (
 def synthetic_ancestor_pools(seed: int = 7) -> dict[str, np.ndarray]:
     rng = np.random.default_rng(seed)
     centers = {
-        "8screws": 0.0, "1screw": 2.0, "2screws": 4.0, "3screws": 6.0, "4screws": 8.0,
+        "8screws": 0.0, "1screws": 2.0, "2screws": 4.0, "3screws": 6.0, "4screws": 8.0,
         "5screws": 10.0, "6screws": 12.0, "3_14screws": 14.0,
     }
     return {name: rng.normal(center, 0.2, size=(40, 5)) for name, center in centers.items()}
 
 
 class AncestorKnownConfigsTests(unittest.TestCase):
-    def test_known_configs_intersect_with_pool_and_avoid_duplicate_one_screw(self):
+    def test_known_configs_intersect_with_pool_in_protocol_order(self):
         pools = synthetic_ancestor_pools()
         known = _ancestor_known_configs(pools)
-        self.assertEqual(known, ["8screws", "1screw", "2screws", "3screws", "4screws"])
+        self.assertEqual(known, ["8screws", "1screws", "2screws", "3screws", "4screws"])
+        pools.pop("2screws")
+        self.assertEqual(_ancestor_known_configs(pools), ["8screws", "1screws", "3screws", "4screws"])
 
-    def test_1screws_variant_also_recognized(self):
-        pools = synthetic_ancestor_pools()
-        pools["1screws"] = pools.pop("1screw")
-        known = _ancestor_known_configs(pools)
-        self.assertIn("1screws", known)
-        self.assertNotIn("1screw", known)
+    def test_loaded_pools_use_canonical_key_so_1screw_directory_is_known(self):
+        """core.data 把 1screw 目錄讀成 1screws，本實驗只認正規名（#271）。"""
+        import tempfile
+        from pathlib import Path
+
+        import pandas as pd
+
+        from core.data import load_pools
+        from core.feature_schema import SCHEMAS
+
+        with tempfile.TemporaryDirectory() as directory:
+            rng = np.random.default_rng(1)
+            for name in ("8screws", "1screw"):
+                target = Path(directory) / name
+                target.mkdir()
+                pd.DataFrame(rng.normal(size=(12, 105)), columns=SCHEMAS["historical_clean_v1"]).to_csv(
+                    target / "T1_Group_feature_data_clean.csv", index=False)
+            pools = load_pools(directory)
+        self.assertEqual(_ancestor_known_configs(pools), ["8screws", "1screws"])
 
 
 class BuildAncestorMonitorTests(unittest.TestCase):
     def test_monitor_only_learns_ancestor_known_configs(self):
         pools = synthetic_ancestor_pools()
         monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95, method="ledoit_wolf")
-        self.assertEqual(set(monitor.known), {"8screws", "1screw", "2screws", "3screws", "4screws"})
+        self.assertEqual(set(monitor.known), {"8screws", "1screws", "2screws", "3screws", "4screws"})
         # 未知配置從未被 add_class 納入已知
         self.assertNotIn("5screws", monitor.known)
         self.assertNotIn("6screws", monitor.known)
@@ -51,6 +66,29 @@ class BuildAncestorMonitorTests(unittest.TestCase):
         pools = synthetic_ancestor_pools()
         monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95, method="legacy")
         self.assertEqual(monitor.method, "legacy")
+
+    def test_build_matches_sequential_add_class(self):
+        pools = synthetic_ancestor_pools()
+        from core.monitor import OpenSetMonitor
+
+        reference = OpenSetMonitor(pools, seed=42, confidence=0.95)
+        reference.fit_initial()
+        for config in ["1screws", "2screws", "3screws", "4screws"]:
+            reference.add_class(config)
+        monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95)
+        query = pools["5screws"]
+        np.testing.assert_array_equal(monitor.score(query), reference.score(query))
+        self.assertEqual(monitor.summary(), reference.summary())
+
+    def test_legacy_classify_returns_known_names(self):
+        """#266：legacy 對 score≤1 的已知 holdout 回最近類別，不再全判 unknown。"""
+        pools = synthetic_ancestor_pools()
+        monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95, method="legacy")
+        metrics = _evaluate_protocol(monitor, ["5screws", "6screws", "3_14screws"], pools)
+        self.assertGreater(metrics["balanced_accuracy"], 1 / 6)
+        for config in monitor.known:
+            labels = monitor.classify(monitor.holdout(config))
+            self.assertIn(config, labels)
 
 
 class EvaluateProtocolTests(unittest.TestCase):

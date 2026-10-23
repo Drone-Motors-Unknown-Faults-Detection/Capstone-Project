@@ -70,10 +70,10 @@ contract_sha256 是固定內容的 canonical JSON SHA，不含進度、時間或
 
 ## 輸出怎麼看
 
-main經`setup_run("exp6_formal_matrix", make_output=False)`寫`logs/exp6_formal_matrix/{ts}.log`（含執行環境與每格狀態）；結果仍由_atomic_json／_write_run_csv寫output-root，讓同一根可以續跑。
+main經`setup_run("exp6_formal_matrix", make_output=False, data_root=args.data_root)`寫`logs/exp6_formal_matrix/{ts}.log`（含執行環境與每格狀態）；結果仍由_atomic_json／_write_run_csv寫output-root，讓同一根可以續跑。
 
 - matrix_manifest.json：固定契約、預期清單、每格狀態、耗時、摘要相對路徑與三檔SHA；已有根先唯讀核對，不先重寫。
-- runs/{run_id}/summary.json：正式benchmark設定、fingerprint、單目標工況列。
+- runs/{run_id}/summary.json：正式benchmark設定、fingerprint、單目標工況列；同目錄的 provenance.json／environment.json 是該格 `run(..., evidence_dir=runs/{run_id})` 寫的來源與環境紀錄（#269）。
 - runs/{run_id}/results.csv：相同單列的表格。
 - runs/{run_id}/run.log：開始、狀態與錯誤；duration_seconds含整次九工況運算，不等於該列單獨推論耗時。
 

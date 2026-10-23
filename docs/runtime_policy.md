@@ -25,7 +25,7 @@ uv pip check --python venv/bin/python
 
 預設程式根由實際載入的 `src/core/runtime_environment.py` 與同一棵程式樹的 `pyproject.toml` 定位；Git 頂層必須正好是該根，不能借用呼叫端或匯出副本外層 repo。從其他工作目錄呼叫 API，程式 HEAD／dirty 與 lock 仍屬於載入的程式；資料根依 `data_root`，logs／output 仍相對於呼叫端工作目錄。明確傳 `collect_environment(root=...)` 保留查詢指定 repo（含其子目錄）的相容行為。
 
-`GET /api/assistant/status` 同樣使用預設載入程式定位，以 `include_data=False` 略過資料掃描；無可靠 Git 時，`app.git_head` 與 `app.tracked_dirty` 均為 null，模型 `reachable` 狀態仍獨立回覆。
+`GET /api/assistant/status` 使用載入程式的 Git 定位與啟動快取，傳入 `data=source_data_info(None)` 略過資料掃描；無可靠 Git 時，`app.git_head` 與 `app.tracked_dirty` 均為 null，模型 `reachable` 狀態仍獨立回覆。
 
 `program_source` 是附加的 `program_location_v1` 紀錄：selection 區分 LOADED_MODULE／EXPLICIT_ROOT，git_reason 與 lock_status／lock_reason 分開說明未知。沒有可辨識程式樹、匯出副本無 Git、Git 失敗或 lock 缺失時，不回退採用呼叫端版本；Git dirty 未知維持 null。匯出樹若仍有自己的 lock，只能證明該檔 SHA，不能當成 Git checkout；一般已安裝套件無法確認程式根時，HEAD 與 lock 均 UNKNOWN／null，不補造版本。既有 runtime_environment_v1 欄位保留，新紀錄不回填歷史 JSON。
 
@@ -33,7 +33,7 @@ uv pip check --python venv/bin/python
 
 ## 執行主機
 
-提交前檢查（pytest、ruff）與所有實驗 CLI（會寫 `logs/`、`output/` 的程式）只在 Aero 或 Spark 執行（AGENT.md 鐵則 13）。兩台都是 Linux，numpy 連結 scipy-openblas 0.3.29：Aero 為 x86_64、Spark 為 aarch64。實驗二 seed 42 在兩台的 `stages.csv` 逐位元組相同；`summary.json` 裡的門檻、PCA 座標等連續值只在第 13 位有效數字之後不同（`output/exp2_scale_growth/2026-10-23-00-05-08` 對 `2026-10-23-00-05-22`）。macOS 的 numpy 連結 Apple Accelerate，同 seed、同套件版本，實驗二從第 4 段起分岔（#224），所以本機 Mac 的結果不作為文件或報告的數字來源。`environment.json` 的 `os.host` 與 `numeric.blas` 用來核對一份輸出是在哪台、用哪個 BLAS 跑的。`data` 欄記資料內容指紋：呼叫 `setup_run(..., data_root=...)` 時用傳入的資料根，否則從命令列的 `--data-root`（預設 `data`）推得；直接呼叫 API 而沒有傳入時，記錄的是推得的根目錄。
+提交前檢查（pytest、ruff）與所有實驗 CLI（會寫 `logs/`、`output/` 的程式）只在 Aero 或 Spark 執行（AGENT.md 鐵則 13）。兩台都是 Linux，numpy 連結 scipy-openblas 0.3.29：Aero 為 x86_64、Spark 為 aarch64。實驗二 seed 42 在兩台的 `stages.csv` 逐位元組相同；`summary.json` 裡的門檻、PCA 座標等連續值只在第 13 位有效數字之後不同（`output/exp2_scale_growth/2026-10-23-00-05-08` 對 `2026-10-23-00-05-22`）。macOS 的 numpy 連結 Apple Accelerate，同 seed、同套件版本，實驗二從第 4 段起分岔（#224），所以本機 Mac 的結果不作為文件或報告的數字來源。`environment.json` 的 `os.host` 與 `numeric.blas` 用來核對一份輸出是在哪台、用哪個 BLAS 跑的。`data` 欄記資料內容指紋：每支 CLI 的 main 都以 `setup_run(..., data_root=args.data_root)` 明確傳入資料根，沒傳就記預設的 `data`，不再從 `sys.argv` 猜（#269）；共用參數的 parser 關掉 argparse 前綴縮寫，`--data-r` 直接報錯。`status` 三種：VERIFIED（算出指紋）、UNKNOWN（目錄沒有正式 CSV）、FAILED（manifest 與內容不符等 ProvenanceError，另記 `error_type`）。
 
 前端測試（`test_ai_chat_frontend.py`、`test_guide_frontend.py`、`test_markdown_frontend.py`、`test_assistant_presentation.py`、`test_result_presentation.py`、`test_web_experiment_alignment.py`，以及 `test_assistant.py` 的 HTTP→前端案例）以 `shutil.which("node")` 找 Node.js，缺少時判失敗、不當通過。兩台主機以使用者權限安裝 Node.js 官方 LTS tarball，不用系統套件：
 

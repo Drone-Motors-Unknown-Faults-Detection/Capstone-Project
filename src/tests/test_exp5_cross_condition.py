@@ -1,10 +1,13 @@
 """實驗五 (b)：三種策略的擬合資料都不得含評估 holdout（鐵則 6）。"""
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
 
 from core.data import HEALTHY, make_split
+from core.runner import save_json
 from experiments import exp5_cross_condition as exp5
 
 
@@ -47,6 +50,32 @@ class StrategyHoldoutTests(unittest.TestCase):
         for rows in fitted:
             self.assertFalse(holdout_ids & set(rows[:, 0].tolist()))
         self.assertEqual(set(result["strategies"]["per_condition"]), set(pools))
+
+
+class EmptyAggregateTests(unittest.TestCase):
+    """少工況時空集合記 None、沒有工況直接報錯，summary.json 不會出現 NaN（#271）。"""
+
+    def test_single_dataset_matrix_has_none_for_offdiagonal_stats(self):
+        pools = {"T1/8000": _pools()["T1/8000"]}
+        result = exp5.run_matrix(pools, seed=42)
+        summary = result["summary"]
+        self.assertIsNotNone(summary["diag_auroc_mean"])
+        for key in ("offdiag_auroc_mean", "offdiag_auroc_min",
+                    "same_rpm_cross_motor_auroc_mean", "same_motor_cross_rpm_auroc_mean"):
+            self.assertIsNone(summary[key], key)
+        with tempfile.TemporaryDirectory() as directory:
+            save_json(Path(directory) / "summary.json", result)
+
+    def test_two_datasets_different_rpm_and_motor_keep_finite_means(self):
+        pools = {k: v for k, v in _pools().items() if k in ("T1/8000", "T2/8000")}
+        summary = exp5.run_matrix(pools, seed=42)["summary"]
+        self.assertIsNotNone(summary["same_rpm_cross_motor_auroc_mean"])
+        self.assertIsNone(summary["same_motor_cross_rpm_auroc_mean"])
+
+    def test_no_datasets_is_an_error_not_nan(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(FileNotFoundError):
+                exp5.run(directory, seed=42)
 
 
 if __name__ == "__main__":

@@ -77,11 +77,12 @@ confirm 則使用確認後的完整標記配置池。不能把兩者的更新用
 
 - 預設 (min_cluster_size, min_samples) = (25, 3)。
 - 隔離區 ≥ 75 筆加試 (15, 3)；≥ 100 筆加試 (10, 2)。候選叢集仍需 ≥ 25 筆。
-- 實驗二現行走 `adopt()` 自學，並加了邊界退回與學會後清理殘餘。`output/exp2_scale_growth/2026-10-23-01-30-54/summary.json`（Aero，commit 46ed4d5，seed 42，T1/8000rpm）九段都學到當段注入的配置，發現延遲 51～75 筆；seed 123、2026 也都九段學到當段配置，延遲最多 118 筆。
-- 每個配置先切 20% 外部評估集不參與重播。九段全部結束後（`summary.json` 的 `final_eval`），外部評估集被任一新類接受的比例 seed 42 是 53.8%～96.6%，最低是 7screws；三個 seed 的最低值是 53.85%、56.92%、63.49%。學成新類不代表之後都認得。
-- 「判進對應新類」（`matched_rate`）要求判進事後多數等於該配置的新類，比「被任一新類接受」（`known_rate`）嚴格。三個 seed 的最低值是 51.16%、56.92%、63.49%；只有 seed 42 的 5screws 兩者不同（95.35% 被某個新類接受，51.16% 判進對應新類）。`stages.csv` 的 `eval_known_rate`／`eval_matched_rate` 是每段學會當下的值，和全部段結束後的 `final_eval` 時點不同。
-- 健康混入（`--healthy-mix 0.3`）：三個 seed 共送入 745 筆健康 holdout 窗，0 筆進入隔離區，沒有形成事後多數為 8screws 的新類；輸出 `output/exp2_scale_growth/2026-10-23-01-31-17`、`01-31-49`、`01-32-23`。
-- 關掉密度階梯（`--fixed-density`）時修正無效：三個 seed 只有 2～3 段學到當段配置，最慢一段 696 筆。報告在 `reports/JW-Albert_20261023_exp2_adopt_fix_aero/README.md`；同一批設定以 commit 46ed4d5 重跑的結果在 `reports/JW-Albert_20261023_aero_rerun/README.md`。
+- 實驗二現行走 `adopt()` 自學，並加了邊界退回、學會後清理殘餘（清理套進入規則）與隔離區不收重複列。`output/exp2_scale_growth/2026-10-23-11-56-10/summary.json`（Aero，commit b6e2b97，seed 42，T1/8000rpm）：形成新類 8 次，對上本階段配置 7／9 段（`matched_is_config`）。「形成新類」（`discovered`）只表示該段成形了一個新類，不代表該段配置被辨識；4screws 段在 600 tick 內沒成群，到 3screws 段第 21 tick 才學到 4screws，3screws 從此沒被認出。seed 123、2026 同樣是 7／9，最後都是 9 類。
+- 每個配置先切 20% 外部評估集不參與重播。九段全部結束後（`summary.json` 的 `final_eval`），`matched_rate`（判進事後多數等於該配置的新類）達 80% 的組數 seed 42／123／2026 為 7／3／5（分母 9 個配置）；沒被認出的那個配置是 0%，7screws 在 seed 42 只有 53.85%。學成新類不代表之後都認得。
+- 「判進對應新類」（`matched_rate`）比「被任一新類接受」（`known_rate`）嚴格；這批三個 seed 兩欄相同。`stages.csv` 的 `eval_known_rate`／`eval_matched_rate` 是每段學會當下的值，和全部段結束後的 `final_eval` 時點不同。
+- 隔離區不收重複列：`quarantine_duplicates` seed 42／123／2026 為 117／362／408。單一配置一段只有約 240 筆不重複列，改前的 9／9 有一部分是靠重複列撐起候選（issue #280）；依 #280 不調 `max_ticks_per_stage`。改前（commit 46ed4d5）的結果在 `reports/JW-Albert_20261023_aero_rerun/README.md`。
+- 健康混入（`--healthy-mix 0.3`）：三個 seed 共送入 1430 筆健康 holdout 窗，0 筆進入隔離區，沒有形成事後多數為 8screws 的新類；輸出 `output/exp2_scale_growth/2026-10-23-11-56-14`、`11-56-21`、`11-56-28`。
+- 關掉密度階梯（`--fixed-density`）：三個 seed 只有 4／1／5 段對上本階段配置，最慢一段 641 筆。逐項對照在 `reports/JW-Albert_20261023_rerun_after_review/README.md`。
 - 實驗只在 Aero 或 Spark 主機跑；macOS 的 numpy 用 Apple Accelerate，同 seed 數字不同（issue #224），不拿來引用。
 - 畫面顯示「已試分群 N 次」代表隔離區仍在累積、還沒成群。
 

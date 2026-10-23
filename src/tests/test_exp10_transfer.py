@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
@@ -87,6 +88,27 @@ class Exp10TransferTests(unittest.TestCase):
             self.assertFalse({row.tobytes() for row in support} & {row.tobytes() for row in eval_pool})
         # 每對依序算 direct、adapted、scratch；後兩者的健康分母只有 eval 的 35 列
         self.assertEqual(healthy_lengths, [40, 35, 35] * 6)
+
+
+class NValueValidationTests(unittest.TestCase):
+    """N 必須小於最小目標健康池，否則評估集是空的（#271 S5）；少於兩個工況直接報錯。"""
+
+    def test_n_at_or_above_smallest_healthy_pool_is_rejected_with_pool_size(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            for bad in (40, 41, 0, -1):
+                with self.subTest(n=bad), self.assertRaisesRegex(ValueError, "40 筆"):
+                    run(str(root), seed=42, n_values=(5, bad))
+            with self.assertRaises(ValueError):
+                run(str(root), seed=42, n_values=())
+
+    def test_single_dataset_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            for motor in ("T2", "T3"):
+                shutil.rmtree(root / "Step-1" / "myfeature" / motor)
+            with self.assertRaisesRegex(ValueError, "至少要兩個工況"):
+                run(str(root), seed=42, n_values=(5,))
 
 
 if __name__ == "__main__":

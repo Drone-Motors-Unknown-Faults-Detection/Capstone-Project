@@ -131,14 +131,18 @@ class FeatureSchemaTests(unittest.TestCase):
             with self.assertRaisesRegex(FeatureSchemaError, "empty_configuration"):
                 load_pools(root)
 
-    def test_alias_preserved_but_double_alias_rejected(self):
+    def test_alias_loads_under_canonical_key_but_double_alias_rejected(self):
+        """`1screw` 目錄讀成 `1screws` key，原目錄名留在 audit；兩個別名目錄同時存在仍拒絕（#271）。"""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             write(root)
             write(root, "1screw")
-            loaded = load_pools(root)
-            self.assertIn("1screw", loaded)
-            self.assertNotIn("1screws", loaded)
+            audit = {}
+            loaded = load_pools(root, audit=audit)
+            self.assertIn("1screws", loaded)
+            self.assertNotIn("1screw", loaded)
+            self.assertEqual(audit["configuration_dirs"], {"8screws": "8screws", "1screws": "1screw"})
+            self.assertTrue(any(record["file_id"].startswith("1screw/") for record in audit["files"]))
             write(root, "1screws")
             with self.assertRaisesRegex(FeatureSchemaError, "ambiguous_configuration_alias"):
                 load_pools(root)

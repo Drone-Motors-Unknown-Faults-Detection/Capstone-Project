@@ -14,10 +14,13 @@ import numpy as np
 from core.data import discover_datasets, load_pools
 from core.openset import SUPPORTED_OPENSET_METHODS, resolve_openset_config
 from core.provenance import capture_source, load_pool_source, ProvenanceError, source_for_pools
-from core.runtime_environment import collect_environment
+from core.runtime_environment import collect_environment, source_data_info
 
 
 def add_dataset_args(parser: argparse.ArgumentParser) -> None:
+    """加入資料集選擇參數；同時關掉 argparse 的前綴縮寫，`--data-r` 這類寫法直接報錯，
+    不會變成另一個旗標或讓 environment.json 記到錯的資料根（#269）。"""
+    parser.allow_abbrev = False
     parser.add_argument("--data-root", default="data", help="資料根目錄（預設 data）")
     parser.add_argument("--motor", default="T1", help="馬達代碼（預設 T1）")
     parser.add_argument("--rpm", default="8000rpm", help="轉速目錄名（預設 8000rpm）")
@@ -71,9 +74,7 @@ def execution_context(pools, source_context=None, *, seed=42, confidence=0.95,
                       **parameters) -> dict:
     """共用來源／環境與既有設定解析，不參與實驗數值計算。"""
     source = source_for_pools(pools, source_context)
-    environment = collect_environment(
-        data_root=source_context.root if source_context is not None else None,
-        include_data=source_context is not None)
+    environment = collect_environment(data=source_data_info(source if source_context is not None else None))
     if source_context is not None and environment["data"]["dataset_fingerprint"] != source["dataset_fingerprint"]:
         raise ProvenanceError("環境資料指紋與已驗證資料池不符")
     return {"schema_version": "experiment_provenance_v1",
@@ -91,10 +92,11 @@ def run_dataset(args, paths, callback, **parameters):
               "raw_session_independence": "UNKNOWN"}
     save_json(target, source)
     try:
-        save_json(paths.output_dir / "environment.json", collect_environment(data_root=args.data_root))
         ds = _dataset_info(args)
         pools, context = load_pool_source(args.data_root, ds["path"])
         source = source_for_pools(pools, context)
+        save_json(paths.output_dir / "environment.json", collect_environment(
+            data=source_data_info(source if context is not None else None)))
         save_json(target, {**source, "status": "RUNNING"})
         result = callback(pools, source_context=context, **parameters)
         source = source_for_pools(pools, context)
@@ -149,14 +151,15 @@ def run_root_sources(callback, data_root, *, output_dir=None, pool_cache=None, *
     target = Path(output_dir) / "source.json" if output_dir is not None else None
     source = {"status": "LOADING", "data_version": "UNKNOWN",
               "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}
-    environment = collect_environment(data_root=data_root)
+    environment = collect_environment(data=source_data_info(None))
     if target is not None:
         save_json(target.parent / "environment.json", environment)
         save_json(target, source)
     try:
         tracker = RootSources(data_root, pool_cache=pool_cache)
-        if environment["data"]["dataset_fingerprint"] != tracker.initial["dataset_fingerprint"]:
-            raise ProvenanceError("環境資料指紋與跨工況起始來源不符")
+        environment["data"] = source_data_info(tracker.initial)
+        if target is not None:
+            save_json(target.parent / "environment.json", environment)
         result = callback(data_root, source_run=tracker, **parameters)
         source = tracker.finish()
         result["provenance"] = {"schema_version": "experiment_provenance_v1",
@@ -173,6 +176,7 @@ def run_root_sources(callback, data_root, *, output_dir=None, pool_cache=None, *
 
 
 def save_json(path: Path, obj) -> None:
+    """寫 summary.json；NaN／Infinity 直接拒絕（ValueError），空集合的統計要在來源轉成 None（#271）。"""
     def _default(o):
         if isinstance(o, (np.integer,)):
             return int(o)
@@ -182,4 +186,5 @@ def save_json(path: Path, obj) -> None:
             return o.tolist()
         raise TypeError(f"無法序列化 {type(o)}")
 
-    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=_default), encoding="utf-8")
+    path.write_text(json.dumps(obj, ensure_ascii=False, indent=2, default=_default, allow_nan=False),
+                    encoding="utf-8")

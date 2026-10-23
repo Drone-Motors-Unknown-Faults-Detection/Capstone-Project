@@ -24,6 +24,7 @@ import numpy as np
 
 from core.data import HEALTHY, PoolCache, config_sort_key, display_name, load_pools
 from core.detectors import ALL_DETECTORS
+from core.feature_schema import CONFIG_ALIASES
 from core.openset import SUPPORTED_OPENSET_METHODS
 from core.provenance import load_pool_source
 from core.runtime_environment import collect_environment
@@ -281,13 +282,28 @@ class ExperimentRunner:
                 if value not in p["options"]:
                     raise ValueError(f"{p['label']} 不接受 {value!r}")
             elif p["type"] == "config":
+                # 池 key 是正規名；在 PLAYBACK.start 之前就確認配置存在，錯的參數不進播放紀錄（#285 R2-07）
                 value = value or p["default"]
+                value = CONFIG_ALIASES.get(value, value) if isinstance(value, str) else value
+                dataset = out.get("dataset") or self._dataset_key(self.datasets[0])
+                if not isinstance(value, str) or value not in self._pools(dataset):
+                    raise ValueError(f"資料集 {dataset} 沒有配置 {value!r}")
             elif p["type"] == "int":
-                value = int(p["default"] if value in (None, "") else value)
+                try:
+                    value = int(p["default"] if value in (None, "") else value)
+                except (TypeError, ValueError, OverflowError) as exc:  # list／Infinity／NaN 一律是參數錯誤（#285 R2-10）
+                    raise ValueError(f"{p['label']} 必須是整數") from exc
                 if not p["min"] <= value <= p["max"]:
                     raise ValueError(f"{p['label']} 必須在 {p['min']}～{p['max']}")
             out[name] = value
         return out
+
+    def clean_params(self, exp_id: str, raw_params: dict | None) -> dict:
+        """「▶ 執行」的參數驗證；錯誤丟 ValueError。伺服器先呼叫這裡，失敗的參數不進播放紀錄。"""
+        spec = _BY_ID.get(exp_id)
+        if spec is None:
+            raise ValueError(f"未知實驗：{exp_id}")
+        return self._clean(spec, raw_params or {})
 
     # -- 執行 ------------------------------------------------------------------
 
@@ -309,7 +325,7 @@ class ExperimentRunner:
         spec = _BY_ID.get(exp_id)
         if spec is None:
             raise ValueError(f"未知實驗：{exp_id}")
-        params = self._clean(spec, raw_params or {})
+        params = self.clean_params(exp_id, raw_params)
         timer = RunTimer("batch_execution")
         with self._record_source_failure(exp_id, params):
             result = jsonable(self._dispatch(exp_id, params))
@@ -370,8 +386,7 @@ class ExperimentRunner:
         if exp_id == "exp6_formal":
             run = getattr(importlib.import_module("experiments.exp6_formal_benchmark"), entry)
             return run(self.data_root, seed=seed, confidence=conf, openset_method=method,
-                       mahalanobis_method="ledoit_wolf" if mahal == "legacy" else mahal,
-                       knn_neighbors=k, require_nine=False)
+                       mahalanobis_method=mahal, knn_neighbors=k, require_nine=False)
         if exp_id == "exp7":
             run = getattr(importlib.import_module("experiments.compare_openset"), entry)
             return run(pools, seed=seed, confidence=conf,
@@ -384,10 +399,8 @@ class ExperimentRunner:
         if exp_id == "exp8_monitor":
             run = getattr(importlib.import_module("experiments.health_monitor"), entry)
             ds = self._find_dataset(p["dataset"])
-            if p["config"] not in self._pools(p["dataset"]):
-                raise ValueError(f"資料集 {p['dataset']} 沒有配置 {p['config']}")
             return run(self.data_root, ds["motor"], ds["rpm"], p["config"], seed=seed,
-                       openset_method=method, mahalanobis_method=mahal, knn_neighbors=k,
+                       openset_method=method, mahalanobis_method=mahal, confidence=conf, knn_neighbors=k,
                        motor_id="web-demo", session_id=f"{p['dataset']}-{p['config']}",
                        max_windows=p["max_windows"], require_identity=True)
         if exp_id == "exp9":
@@ -403,13 +416,8 @@ class ExperimentRunner:
             return run(self.data_root, seed=seed, confidence=conf)
         raise ValueError(f"未知實驗：{exp_id}")
 
-    def stream(self, exp_id: str, raw_params: dict):
-        """邊跑邊畫：逐步產生 (frame, units)。
-
-        frame 直接送給前端；units 是這個 frame 含的樣本數，伺服器依此控制播放速度
-        （units=0 的 frame 不等待）。計算走實驗模組的 iter_run()（實驗二為 iter_playback()），數字與 run() 相同。
-        最後一個 frame 是 done，內容與 run() 的回傳值同格式，並已存檔。
-        """
+    def stream_params(self, exp_id: str, raw_params: dict | None) -> dict:
+        """邊跑邊畫的參數驗證；錯誤丟 ValueError。伺服器先呼叫這裡，再開始記錄播放。"""
         spec = _BY_ID.get(exp_id)
         if spec is None or not spec.get("stream"):
             raise ValueError(f"{exp_id} 不支援邊跑邊畫")
@@ -418,8 +426,18 @@ class ExperimentRunner:
         if exp_id == "exp3" and scenario not in (None, "A", "B"):
             raise ValueError(f"scenario: expected A or B, got {scenario!r}")
         params = self._clean(spec, raw_params)
-        if scenario:
-            params = {**params, "scenario": scenario}
+        return {**params, "scenario": scenario} if scenario else params
+
+    def stream(self, exp_id: str, raw_params: dict):
+        """邊跑邊畫：逐步產生 (frame, units)。
+
+        frame 直接送給前端；units 是這個 frame 含的樣本數，伺服器依此控制播放速度
+        （units=0 的 frame 不等待）。計算走實驗模組的 iter_run()（實驗二為 iter_playback()），數字與 run() 相同。
+        最後一個 frame 是 done，內容與 run() 的回傳值同格式，並已存檔。
+        """
+        params = self.stream_params(exp_id, raw_params)
+        spec = _BY_ID[exp_id]
+        scenario = params.get("scenario")
         timer = RunTimer("stream_elapsed_including_playback")
         yield {"event": "start", "params": params, **timer.start_fields()}, 0
         result: Any = None
@@ -432,9 +450,10 @@ class ExperimentRunner:
                     result = event["result"]
                 elif kind == "scores":
                     scores = event.pop("scores")
+                    flags = event.pop("unknown")
                     for i in range(0, len(scores), SCORE_CHUNK):
                         chunk = scores[i:i + SCORE_CHUNK]
-                        yield {**event, "offset": i, "scores": chunk}, len(chunk)
+                        yield {**event, "offset": i, "scores": chunk, "unknown": flags[i:i + SCORE_CHUNK]}, len(chunk)
                 elif kind == "tick":
                     # 劇本只播放第一次 trial；實驗二沒有 trial，全部播放。
                     if event.get("trial", 0) == 0:

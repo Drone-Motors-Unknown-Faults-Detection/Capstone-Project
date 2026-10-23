@@ -16,7 +16,7 @@
 
 ## 發表與理解檢查
 
-口頭主軸：「先區分看過的配置與保留未知，再比較輸出分類。必須注意legacy把label固定為-1，現行classify無法返回known名稱；所以大分差混合了分類介面、逐類結構與校準差異，不能報成單改LW的純提升。」結果及5pp內部門檻見下方，未自動產生可靠性PASS。
+口頭主軸：「先區分看過的配置與保留未知，再比較輸出分類。legacy 只建一個合併分布，score≤1 的列取縮放空間中歐氏距離最近的類別 train 中心當已知名稱（原始論文 Step 4 的 `LABEL_ORDER[closest_known_cluster]`）；所以分差仍混合了逐類結構與校準來源差異，不能報成單改LW的純提升。」結果及5pp內部門檻見下方，未自動產生可靠性PASS。
 
 - 全判unknown能否有高accuracy？未知佔多數時可以，所以還要看各known召回與balanced accuracy。
 - 是否完整重跑原始論文？不是，只重建指定類別角色，未重建原notebook資料協定。
@@ -34,11 +34,15 @@
 | A | healthy 8screws＋1／2／3／4螺絲配置 | 5／6／7／3_14／4_146與現有池的交集 |
 | B | healthy 8screws | 所有其他現有配置 |
 
-1screw／1screws依候選順序只取一種，缺類會被交集略過，程式沒有保證一定五known／五unknown；A不在候選清單的額外配置也不會自動評估。這與老師healthy＋五known faulty／四unknown的另一協定不同，不能互稱已完成。
+known 候選只列正規名 `1screws`（`1screw` 目錄由 `core.data` 在載入時併入，#271），缺類會被交集略過，程式沒有保證一定五known／五unknown；A不在候選清單的額外配置也不會自動評估。這與老師healthy＋五known faulty／四unknown的另一協定不同，不能互稱已完成。
 
 每seed42／123／2026、每method legacy／ledoit_wolf分別從健康fit_initial，再依known順序add_class；各known列洗牌60/20/20。scaler只fit全部known train，LW逐類中心／共變異數只fit train、各cal定0.95線。unknown不fit／校準／選參；已知各holdout與unknown全池只評估。沒有神經網路epoch或共同winner選擇。
 
-**legacy的比較例外很大**：忽略類別標籤、只建全域分布，用train距離定線，distribution label=-1。monitor.classify把-1當拒絕，已知名稱無法返回，即使score≤1也可能輸出unknown。因此大幅多類F1差距同時包含分類介面／逐類結構／校準來源差異，不能稱「只把協方差改LW就提升這麼多」，也不是可正常分類的原始論文基線證明。
+**legacy的比較例外仍在**：擬合時忽略類別標籤、只建一個全域分布，門檻用 train 本身距離的 0.95 分位數，合併分布在 `class_summaries()` 的標籤是 `LEGACY_POOLED_LABEL`（-2），與未知的 -1 分開。分類走兩步：score>1 判 unknown；score≤1 的列取縮放空間（RobustScaler 之後）中到各已知類 train 中心歐氏距離最小的類別（`MahalanobisOpenSetDetector.predict_known_class`）。這對應原始論文 Step 4 的判決：全域馬氏距離超線為 Unknown，否則給最近的已知叢（[Step4_Unknown_Detection.md](../Step4_Unknown_Detection.md)）。因此多類 F1 差距包含逐類結構與校準來源差異，仍不能稱「只把協方差改LW就提升這麼多」。
+
+預期（改成最近類別判讀後、重跑前寫下）：Protocol A 的 legacy balanced accuracy 應高於 1/6（六類全判 unknown 的下限），各已知類 recall 不為 0；LW−legacy 的 `mean_diff_pp` 應比改前的 82pp 縮小；Protocol B 只有健康一類，score≤1 一律是 8screws，legacy 與 LW 的差只來自門檻來源。若 legacy 的已知類 recall 仍全為 0，表示縮放空間的中心距離分不開配置，要回頭查 `predict_known_class`，不是 LW 的證據。
+
+結果（2026-10-23，Aero、`b6e2b97`，[output/exp11_ancestor_comparison/2026-10-23-11-56-48](../../output/exp11_ancestor_comparison/2026-10-23-11-56-48/summary.json)）：Protocol A 的 legacy 為 accuracy 98.20%、balanced accuracy 90.82%、macro-F1 94.08%、unknown F1 98.94%（改前 83.00%／16.67%／15.12%／90.71%）；Protocol B 的 legacy 為 98.17%／57.12%／61.26%／99.07%（改前 97.84%／50.00%／49.46%／98.91%）；LW 兩個協定都不變。Wilcoxon 的 LW−legacy macro-F1 平均差 Protocol A 從 82.18pp 縮到 3.21pp（W=8），Protocol B 從 49.02pp 縮到 37.21pp（W=0）。預期的三條都成立；但程式設定的內部門檻 `threshold_pp=5` 在 Protocol A 已達不到。Protocol B 的 legacy balanced accuracy 只有 57.12%，表示健康 holdout 大多仍被 train 自身 q95 的門檻拒絕，這是門檻來源的差，不是分類介面的差。比對見 [reports/JW-Albert_20261023_rerun_after_review](../../reports/JW-Albert_20261023_rerun_after_review/README.md)。
 
 ## 如何執行
 
@@ -59,10 +63,10 @@ main經setup_run寫logs/exp11_ancestor_comparison/{ts}.log、output/exp11_ancest
 
 rows先round4，summary按protocol×method等工況-seed平均；Wilcoxon只對dataset×seed的**macro-F1**配對，不是對balanced_accuracy檢定，輸出mean_diff_pp、W與p（round6，0不表示機率真為0）。同motor多RPM／seed共用來源，27pairs不滿足27個獨立馬達，p值只能作此依賴資料下描述，不能宣稱motor母體顯著保證。
 
-原約定主指標balanced_accuracy與macro-F1，LW−legacy絕對提升≥5個百分點（pp）；threshold_pp只是輸出設定，程式未自動判PASS。滿足這個內部門檻仍受legacy介面問題與列切分限制。完整分數見 [output/exp11_ancestor_comparison/2026-10-23-01-35-07](../../output/exp11_ancestor_comparison/2026-10-23-01-35-07/summary.json)（Aero、commit `46ed4d5`、seed 42／123／2026；與 2026-10-09 的舊輸出扣掉環境欄位後相同）。不能取代[#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9)跨馬達研究、fresh final或可靠fault-type驗證。
+原約定主指標balanced_accuracy與macro-F1，LW−legacy絕對提升≥5個百分點（pp）；threshold_pp只是輸出設定，程式未自動判PASS。legacy 改成最近類別判讀後，Protocol A 的 macro-F1 差只剩 3.21pp，Protocol B 仍有 37.21pp；內部門檻在 A 不成立，且仍受列切分限制。完整分數見 [output/exp11_ancestor_comparison/2026-10-23-11-56-48](../../output/exp11_ancestor_comparison/2026-10-23-11-56-48/summary.json)（Aero、commit `b6e2b97`、seed 42／123／2026）；legacy 全判 unknown 的舊版在 [2026-10-23-01-35-07](../../output/exp11_ancestor_comparison/2026-10-23-01-35-07/summary.json)（`46ed4d5`）。不能取代[#9](https://github.com/Drone-Motors-Unknown-Faults-Detection/Lineage/issues/9)跨馬達研究、fresh final或可靠fault-type驗證。
 
 ## 來源與程式碼
 
 馬氏／LW與原始論文沿用來源見[實驗一](exp1_cold_start.md#方法來源與程式定位)。Wilcoxon（1945），*Individual Comparisons by Ranking Methods*，Biometrics Bulletin1,80–83，[DOI](https://doi.org/10.2307/3001968)。類別角色、5pp與兩協定是Lineage操作約定，不由文獻保證成效。
 
-[exp11](../../src/experiments/exp11_ancestor_comparison.py)建monitor／評估／writer；[monitor](../../src/core/monitor.py)分割與classify；[mahalanobis](../../src/core/mahalanobis.py)兩分布實作；[test_exp11_ancestor_comparison](../../src/tests/test_exp11_ancestor_comparison.py)核對known集合與unknown不add_class。測試不證明原始論文完整重現或錄製獨立。
+[exp11](../../src/experiments/exp11_ancestor_comparison.py)建monitor／評估／writer（`build_ancestor_monitor` 以 `add_classes` 一次註冊 1／2／3／4screws、只重擬合一次）；[monitor](../../src/core/monitor.py)分割與classify；[mahalanobis](../../src/core/mahalanobis.py)兩分布實作與 legacy 的最近類別判讀；[test_exp11_ancestor_comparison](../../src/tests/test_exp11_ancestor_comparison.py)核對known集合與unknown不add_class。測試不證明原始論文完整重現或錄製獨立。

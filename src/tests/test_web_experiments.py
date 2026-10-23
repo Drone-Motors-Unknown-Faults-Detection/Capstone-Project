@@ -2,6 +2,7 @@ import json
 import math
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 
@@ -43,6 +44,24 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
 
 
+class DispatchOptionTests(unittest.TestCase):
+    """伺服器的 --method／--confidence 原樣傳給實驗模組：不在實驗頁各自替換（#266、#267）。"""
+
+    def test_formal_benchmark_receives_server_method_unchanged(self):
+        runner = ExperimentRunner(FAKE_DATASETS, "data", detector_options={"mahalanobis_method": "legacy"})
+        with patch("experiments.exp6_formal_benchmark.run", return_value={}) as run:
+            runner._dispatch("exp6_formal", {"seed": 42, "openset_method": "mahalanobis"})
+        self.assertEqual(run.call_args.kwargs["mahalanobis_method"], "legacy")
+
+    def test_health_monitor_receives_server_confidence(self):
+        runner = ExperimentRunner(FAKE_DATASETS, "data", detector_options={"confidence": 0.9})
+        runner._pools_cache["T1/8000rpm"] = {"8screws": None}
+        with patch("experiments.health_monitor.run", return_value=[]) as run:
+            runner._dispatch("exp8_monitor", {"seed": 42, "openset_method": "mahalanobis", "dataset": "T1/8000rpm",
+                                              "config": "8screws", "max_windows": 5})
+        self.assertEqual(run.call_args.kwargs["confidence"], 0.9)
+
+
 class ParameterTests(unittest.TestCase):
     def setUp(self):
         self.runner = ExperimentRunner(FAKE_DATASETS, "data")
@@ -71,6 +90,38 @@ class ParameterTests(unittest.TestCase):
     def test_unknown_experiment(self):
         with self.assertRaises(ValueError):
             self.runner.run("exp99", {})
+        with self.assertRaises(ValueError):
+            self.runner.clean_params("exp99", {})
+
+    def test_config_checked_and_canonicalised_before_streaming(self):
+        """exp8_monitor 的配置在 _clean 就驗證（不等 PLAYBACK.start 之後的 _dispatch），別名轉正規名（#285 R2-07）。"""
+        self.runner._pools_cache["T1/8000rpm"] = {"8screws": None, "1screws": None}
+        base = {"dataset": "T1/8000rpm", "max_windows": 5}
+        self.assertEqual(self.runner.stream_params("exp8_monitor", {**base, "config": "1screw"})["config"], "1screws")
+        self.assertEqual(self.runner.clean_params("exp8_monitor", base)["config"], "8screws")
+        for config in ("9screws", ["8screws"], ""):
+            with self.subTest(config=config):
+                params = {**base, "config": config}
+                if config == "":
+                    self.assertEqual(self.runner.clean_params("exp8_monitor", params)["config"], "8screws")
+                    continue
+                with self.assertRaises(ValueError):
+                    self.runner.stream_params("exp8_monitor", params)
+
+    def test_non_integer_values_are_parameter_errors(self):
+        """list／Infinity／NaN 不能漏成 TypeError／OverflowError（#285 R2-10）。"""
+        for value in (["3"], math.inf, math.nan, "abc", {"n": 1}):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.runner._clean(self.spec["exp3"], {"n_trials": value})
+
+    def test_stream_params_validates_before_streaming(self):
+        self.assertEqual(self.runner.stream_params("exp3", {"scenario": "B", "n_trials": 3}),
+                         {"dataset": "T1/8000rpm", "openset_method": "mahalanobis", "seed": 42,
+                          "n_trials": 3, "scenario": "B"})
+        for exp_id, params in (("exp5", {}), ("exp99", {}), ("exp3", {"scenario": "C"}),
+                               ("exp1", {"dataset": "T9/1rpm"}), ("exp1", {"seed": -1})):
+            with self.subTest(exp_id=exp_id, params=params), self.assertRaises(ValueError):
+                self.runner.stream_params(exp_id, params)
 
 
 class JsonableTests(unittest.TestCase):

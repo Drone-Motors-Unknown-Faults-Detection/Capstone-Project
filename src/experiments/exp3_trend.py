@@ -107,6 +107,8 @@ def iter_run(
     unknown = [key for key in (scenarios or ()) if key not in SCENARIOS]
     if unknown:
         raise ValueError(f"scenario: unknown {unknown[0]!r}; choose A or B")
+    if n_trials < 1:
+        raise ValueError(f"n_trials must be at least 1, got {n_trials}")  # 0 會讓 alarm_rate 除以零（#285 R2-05）
     selected = SCENARIOS if scenarios is None else {key: SCENARIOS[key] for key in scenarios}
     provenance = execution_context(pools, source_context, seed=seed, confidence=confidence,
         method=method, openset_method=openset_method, knn_neighbors=knn_neighbors,
@@ -133,7 +135,8 @@ def iter_run(
                 score = float(monitor.score(x)[0])
                 tr = trend.update(score)
                 yield {"event": "tick", "scenario": key, "trial": k, "t": t, "truth": truth,
-                       "score": score, "ewma": tr["ewma"], "cusum": tr["cusum"],
+                       "score": score, "unknown": bool(score > 1),   # 監測器判定，Web 只呈現
+                       "ewma": tr["ewma"], "cusum": tr["cusum"],
                        "alarm_now": tr["alarm_now"], "kind": tr["kind"], "onset": onset}
                 if tr["alarm_now"]:
                     verdict, alarm_t, transition = tr["kind"], t, tr["transition"]
@@ -173,14 +176,14 @@ def iter_run(
         "seed": seed,
         "n_trials": n_trials,
         "provenance": finish_execution(provenance, pools, source_context),
-        "openset_method": openset_method,
-        "method": method,
+        "openset_method": model["openset_method"],
+        "method": model["method"],
         "score_type": model["score_type"],
         "threshold": 1.0,
         "threshold_strategy": model["threshold_strategy"],
-        "calibration_source": "known-only 20% calibration split",
-        "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
-        "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "calibration_source": model["calibration_source"],
+        "split": model["split"],
+        "knn_neighbors": model["knn_neighbors"],
     }}
 
 

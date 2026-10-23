@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from importlib import metadata
 from pathlib import Path
 import platform
 import subprocess
-import sys
+
+from core.provenance import sha256_file
+
+
+DEFAULT_DATA_ROOT = "data"
 
 
 def lock_versions(root: Path) -> dict[str, str]:
@@ -45,6 +48,16 @@ def _program_root() -> Path | None:
     return None
 
 
+def git_head(root: Path | None = None) -> str | None:
+    """HEAD 的 commit SHA；沒有 git、沒有 .git 或逾時都回 None，不中斷呼叫端。"""
+    if root is None:
+        root = _program_root()
+        top = _git(root, "rev-parse", "--show-toplevel") if root is not None else None
+        if not top or Path(top).resolve() != root:
+            return None
+    return _git(Path(root), "rev-parse", "HEAD")
+
+
 def blas_info() -> dict:
     """numpy 連結的 BLAS／LAPACK。同 seed 的數字會因 BLAS 不同而分岔（macOS Accelerate vs OpenBLAS，#224）。"""
     try:
@@ -57,34 +70,36 @@ def blas_info() -> dict:
         return {"blas": None, "blas_version": None, "lapack": None, "status": "UNKNOWN"}
 
 
-def _argv_data_root(argv: list[str]) -> str:
-    """實驗 CLI 一律用 --data-root（預設 data）；從命令列取，免得逐支傳入。"""
-    for i, arg in enumerate(argv):
-        if arg == "--data-root" and i + 1 < len(argv):
-            return argv[i + 1]
-        if arg.startswith("--data-root="):
-            return arg.split("=", 1)[1]
-    return "data"
+def source_data_info(public: dict | None) -> dict:
+    """重用公開來源摘要；None表示未驗證記憶體來源，不掃描另一份資料。"""
+    if public is None:
+        return {"content_version": None, "dataset_fingerprint": None, "n_files": 0,
+                "status": "UNKNOWN", "reason": "UNVERIFIED_MEMORY"}
+    return {"content_version": public["schema_version"], "dataset_fingerprint": public["dataset_fingerprint"],
+            "n_files": len(public["files"]), "status": "VERIFIED"}
 
 
 def data_info(data_root: str | Path) -> dict:
     """資料內容指紋（core.provenance 的 source_content 版本）；只記相對 source_id 數量，不記絕對路徑（#242）。
 
-    呼叫端沒有傳入 data_root 時，才從命令列的 --data-root 推得（#249）。
+    沒有資料目錄或沒有正式 CSV（例如單元測試）記 UNKNOWN；manifest 與內容不符等
+    ProvenanceError、其他讀取錯誤記 FAILED 並留 error_type，兩種都不中斷執行（#269）。
     """
-    try:
-        from core.provenance import capture_source
+    from core.provenance import ProvenanceError, capture_source
 
+    try:
         public, _ = capture_source(data_root)
-        return {"content_version": public["schema_version"], "dataset_fingerprint": public["dataset_fingerprint"],
-                "n_files": len(public["files"]), "status": "VERIFIED"}
-    except Exception:  # 沒有資料目錄（例如單元測試）時保留 UNKNOWN，不中斷執行
+        return source_data_info(public)
+    except FileNotFoundError:
         return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "UNKNOWN"}
+    except (ProvenanceError, OSError, ValueError) as exc:
+        return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "FAILED",
+                "error_type": type(exc).__name__}
 
 
 def collect_environment(root: Path | None = None, data_root: str | Path | None = None,
-                        *, include_data: bool = True) -> dict:
-    """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
+                        *, data: dict | None = None) -> dict:
+    """依載入程式定位Git／lock；明確資料根或既有data摘要不從argv推斷。"""
     explicit = root is not None
     root = Path(root) if explicit else _program_root()
     top = _git(root, "rev-parse", "--show-toplevel") if root is not None else None
@@ -93,14 +108,14 @@ def collect_environment(root: Path | None = None, data_root: str | Path | None =
         # 匯出程式樹可能放在另一個 repo 裡；外層版本不能替這份程式背書。
         top = None
         git_reason = "NOT_PROGRAM_CHECKOUT"
-    head = _git(root, "rev-parse", "HEAD") if top else None
+    head = git_head(root) if top else None
     dirty = _git(root, "status", "--porcelain", "--untracked-files=no") if top else None
     constraint_root = Path(top) if explicit and top else root
     constraint_sha = None
     lock_reason = "LOCK_MISSING" if constraint_root is not None else "PROGRAM_ROOT_UNAVAILABLE"
     if constraint_root is not None:
         try:
-            constraint_sha = hashlib.sha256((constraint_root / "uv.lock").read_bytes()).hexdigest()
+            constraint_sha = sha256_file(constraint_root / "uv.lock")
         except FileNotFoundError:
             pass
         except OSError:
@@ -110,15 +125,15 @@ def collect_environment(root: Path | None = None, data_root: str | Path | None =
         name = distribution.metadata.get("Name")
         if name:
             packages[name.lower().replace("_", "-")] = distribution.version
+    if data is None:
+        data = data_info(DEFAULT_DATA_ROOT if data_root is None else data_root)
     return {
         "schema_version": "runtime_environment_v1",
         "python": {"version": platform.python_version(), "implementation": platform.python_implementation()},
         "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
                "host": platform.node()},
         "numeric": blas_info(),
-        "data": (data_info(data_root if data_root is not None else _argv_data_root(sys.argv))
-                 if include_data else {"content_version": None, "dataset_fingerprint": None,
-                                       "n_files": 0, "status": "UNKNOWN", "reason": "UNVERIFIED_MEMORY"}),
+        "data": data,
         "packages": dict(sorted(packages.items())),
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},

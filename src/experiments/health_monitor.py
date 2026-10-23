@@ -10,10 +10,12 @@ from typing import Sequence
 import numpy as np
 
 from core.data import HEALTHY, discover_datasets, make_split
+from core.feature_schema import CONFIG_ALIASES
 from core.logger import setup_run
 from core.provenance import load_pool_source
 from core.runner import execution_context, finish_execution, run_dataset, save_json
 from experiments.health.index import CalibratedHealthIndex
+from experiments.health.schema import HEALTH_FIELDS
 from experiments.health.trajectory import SessionTrajectoryMonitor
 
 
@@ -40,6 +42,7 @@ def run(
     seed: int = 42,
     openset_method: str = "mahalanobis",
     mahalanobis_method: str = "ledoit_wolf",
+    confidence: float = 0.95,
     knn_neighbors: int = 5,
     motor_id: str | None = None,
     session_id: str | None = None,
@@ -51,7 +54,7 @@ def run(
         event["window"]
         for event in iter_run(
             data_root, motor, rpm, config, seed=seed, openset_method=openset_method,
-            mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors,
+            mahalanobis_method=mahalanobis_method, confidence=confidence, knn_neighbors=knn_neighbors,
             motor_id=motor_id, session_id=session_id, max_windows=max_windows,
             require_identity=require_identity,
         )
@@ -68,6 +71,7 @@ def iter_run(
     seed: int = 42,
     openset_method: str = "mahalanobis",
     mahalanobis_method: str = "ledoit_wolf",
+    confidence: float = 0.95,
     knn_neighbors: int = 5,
     motor_id: str | None = None,
     session_id: str | None = None,
@@ -82,15 +86,16 @@ def iter_run(
     dataset = _dataset(data_root, motor, rpm)
     pools, source_context = load_pool_source(data_root, dataset["path"])
     yield from _iter_pools(pools, motor, dataset["rpm"], config, seed=seed,
-        openset_method=openset_method, mahalanobis_method=mahalanobis_method,
+        openset_method=openset_method, mahalanobis_method=mahalanobis_method, confidence=confidence,
         knn_neighbors=knn_neighbors, motor_id=motor_id, session_id=session_id,
         max_windows=max_windows, require_identity=require_identity, source_context=source_context)
 
 
 def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanobis",
-                mahalanobis_method="ledoit_wolf", knn_neighbors=5, motor_id=None,
+                mahalanobis_method="ledoit_wolf", confidence=.95, knn_neighbors=5, motor_id=None,
                 session_id=None, max_windows=None, require_identity=True, source_context=None):
-    context = execution_context(pools, source_context, seed=seed, method=mahalanobis_method,
+    config = CONFIG_ALIASES.get(config, config)
+    context = execution_context(pools, source_context, seed=seed, confidence=confidence, method=mahalanobis_method,
         openset_method=openset_method, knn_neighbors=knn_neighbors, motor=motor, rpm=rpm,
         configuration=config, max_windows=max_windows, require_identity=require_identity)
     if config not in pools:
@@ -105,7 +110,9 @@ def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanob
         np.zeros(len(split.cal), dtype=int),
         openset_method=openset_method,
         mahalanobis_method=mahalanobis_method,
+        confidence=confidence,
         knn_neighbors=knn_neighbors,
+        random_state=seed,
     )
     monitor = SessionTrajectoryMonitor(model, require_identity=require_identity)
     metadata = model.metadata()
@@ -137,7 +144,7 @@ def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanob
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--motor", required=True)
     parser.add_argument("--rpm", required=True)
@@ -145,6 +152,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--openset-method", default="mahalanobis")
     parser.add_argument("--method", dest="mahalanobis_method", default="ledoit_wolf")
+    parser.add_argument("--confidence", type=float, default=0.95)
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--motor-id")
     parser.add_argument("--session-id")
@@ -166,6 +174,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         seed=args.seed,
         openset_method=args.openset_method,
         mahalanobis_method=args.mahalanobis_method,
+        confidence=args.confidence,
         knn_neighbors=args.knn_neighbors,
         motor_id=args.motor_id,
         session_id=args.session_id,
@@ -178,18 +187,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         "source_pool_indices": [row["source_pool_index"] for row in results]})
     lines = []
     for result in results:
-        # iter_run 已輸出 full 模式；此處依 --output-mode 篩欄，health 欄位須與
-        # HealthMonitoringResult.to_dict("health") 一致（另加 window_index）。
+        # iter_run 已輸出 full 模式；此處依 --output-mode 篩欄，health 模式取
+        # HEALTH_FIELDS 另加 window_index。
         if args.output_mode == "binary":
             lines.append(json.dumps({"is_fault": result["is_fault"]}, ensure_ascii=False))
         elif args.output_mode == "health":
-            lines.append(json.dumps({key: result[key] for key in (
-                "is_fault", "health_index", "degradation_score", "severity_stage", "trend",
-                "degradation_rate", "openset_method", "openset_score", "is_unknown_fault",
-                "prediction_confidence", "uncertainty", "timestamp", "condition", "data_quality",
-                "alarm_state", "alarm_reason", "severity_basis", "raw_health_index",
-                "smoothed_health_index", "change_point_state", "window_index",
-            )}, ensure_ascii=False))
+            lines.append(json.dumps({key: result[key] for key in (*HEALTH_FIELDS, "window_index")},
+                                    ensure_ascii=False))
         else:
             lines.append(json.dumps(result, ensure_ascii=False))
     (paths.output_dir / "windows.jsonl").write_text("".join(line + "\n" for line in lines), encoding="utf-8")

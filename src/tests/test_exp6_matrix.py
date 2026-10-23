@@ -137,6 +137,7 @@ class RunMatrixResumeTests(unittest.TestCase):
 
         def fake_run(data_path, *, seed, openset_method, **kwargs):
             calls.append((seed, openset_method))
+            self.assertEqual(Path(kwargs["evidence_dir"]), output / "runs" / "T1_6000rpm_seed42_knn")
             return producer_result(data_path, condition_row("T1", "6000rpm", seed, openset_method))
 
         data = source_fixture(output.parent / "features")
