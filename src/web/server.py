@@ -804,4 +804,7 @@ def serve(loop, hub, jobs=None, *, extra_hubs=()) -> None:
 
 
 if __name__ == "__main__":
-    main()
+    # `python -m web.server` 會把本檔另載成 __main__；改呼叫正式模組的 main，
+    # 讓 ALLOWED_HOSTS／ALLOWED_ORIGINS 等模組狀態只有一份（guide 掛載的 socket 讀的是 web.server）
+    from web.server import main as _main
+    _main()
