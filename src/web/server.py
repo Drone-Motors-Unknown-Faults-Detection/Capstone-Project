@@ -57,6 +57,7 @@ ALLOWED_ORIGINS: set[str] = set()   # --allow-origin 額外放行的 WebSocket O
 class CommandError(ValueError):
     """WebSocket 指令的參數錯誤；訊息只含固定文字，可直接廣播給所有瀏覽器。"""
 
+
 def origin_allowed(origin: str, host: str) -> bool:
     """WebSocket Origin 檢查，首頁與導覽共用（#285 R2-08）：只接受同站（Origin 的 host[:port]
     等於請求的 Host，不分大小寫）或 --allow-origin 名單；區網展示的網頁由同一台伺服器送出，
@@ -495,9 +496,9 @@ class WSHandler(tornado.websocket.WebSocketHandler):
     async def dispatch(self, msg: dict) -> None:
         cmd = msg.get("cmd")
         if HUB.busy:
-            raise ValueError("工作進行中，拒絕重複操作")
+            raise CommandError("工作進行中，拒絕重複操作")   # 固定文字要讓畫面看到，不是只顯示 ValueError（#285 R2-09）
         if HUB.error and cmd not in ("pause", "reset", "dataset"):
-            raise ValueError("目前有錯誤，請明確重設／重建後再監測")
+            raise CommandError("目前有錯誤，請明確重設／重建後再監測")
         if cmd == "start":
             HUB.running = True
             HUB.event("info", "▶ 串流開始")
