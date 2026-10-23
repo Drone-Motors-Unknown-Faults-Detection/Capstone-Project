@@ -171,11 +171,11 @@ uv run --locked python -m experiments.health_monitor --data-root data --motor T1
 
 ## 封存重算
 
-這個入口不載入正式資料，不 fit、不校準、不 predict。它讀 `reports/exp8_health_index_results/` 的 manifest、六個 JSON、六個 CSV、舊彙總與 README，共 16 檔，再重算七欄平均並與封存逐欄比較。
+這個入口不載入正式資料，不 fit、不校準、不 predict。它讀 `reports/exp8_health_index_results/` 的 manifest、六個 JSON、六個 CSV、舊彙總與 README，共 16 檔，再重算七欄平均並與封存逐欄比較。README 是人寫說明，列入檔案集合但不釘 SHA；其餘 15 檔逐 byte 對 `src/experiments/exp8_health_index_aggregate_contract.json`。`src/tests/test_health_index_aggregate.py` 用 repo 內的封存跑一次合約，資料漂移會在測試失敗。
 
 七欄：`health_gap_known_minus_unknown`、`open_set_accuracy`、`auroc`、`unknown_recall`、`unknown_f1`、`known_health_mean`、`unknown_health_mean`。全域每個 method 的 27 列等權（九工況 × 三 seed）；逐工況是 method×dataset 的三個 seed 等權。mean 為 sum/n，std 用 ddof=1。JSON 平均／std round 6。比對 JSON 的 atol=5e-7、rtol=0；CSV 的 atol=1e-12、rtol=1e-10。
 
-退出碼 0 是 MATCH，3 是算完但 DIFFERENT，2 是來源或 schema 失敗。3 要保留差異。新矩陣根的 SHA 對不上這 16 檔時不能套用同一份鎖檔。
+退出碼 0 是 MATCH，3 是算完但 DIFFERENT，2 是來源或 schema 失敗。3 要保留差異。新矩陣根的 SHA 對不上這 15 檔時不能套用同一份鎖檔。
 
 ```bash
 uv run --locked python -m experiments.health_index_aggregate --help

@@ -41,6 +41,8 @@ ROW_FIELDS = (
     *COUNTS, *NUMERIC[:8], "health_gap_known_minus_unknown", "health_effect_size",
     *NUMERIC[9:], "rul_available", "status",
 )
+# README 是人寫的封存說明，改字不改資料：列入來源檔案集合但不釘 SHA；其餘 15 檔逐 byte 核對（#278）。
+UNPINNED_SOURCES = frozenset({"README.md"})
 RUN_FIELDS = (
     "schema_version", "status", "experiment", "method", "seed", "confidence",
     "formal_condition_count", "dataset_root", "dataset_fingerprint", "score_direction",
@@ -104,11 +106,11 @@ def _contract(data: bytes) -> dict:
     for field, value in fixed.items():
         _require(contract.get(field) == value and type(contract.get(field)) is type(value), f"規範規則不符：{field}")
     _require(bool(re.fullmatch(r"[0-9a-f]{64}", str(contract.get("dataset_fingerprint", "")))), "規範資料指紋錯誤")
-    names = {"matrix_manifest.json", "aggregate_summary.json", "aggregate_by_condition.csv", "README.md"}
+    names = {"matrix_manifest.json", "aggregate_summary.json", "aggregate_by_condition.csv"}
     names.update(f"seed_{seed}/{method}.{suffix}" for seed in fixed["seeds"]
                  for method in fixed["methods"] for suffix in ("json", "csv"))
     hashes = contract.get("source_sha256", {})
-    _require(isinstance(hashes, dict) and set(hashes) == names, "規範必須列出完整 16 檔")
+    _require(isinstance(hashes, dict) and set(hashes) == names, "規範必須列出完整 15 檔資料 SHA，README 不釘")
     _require(all(re.fullmatch(r"[0-9a-f]{64}", str(value)) for value in hashes.values()), "規範 SHA 格式錯誤")
     git_hashes = contract.get("source_git_lf_sha256", {})
     _require(isinstance(git_hashes, dict) and set(git_hashes) == names, "規範必須列出完整 Git LF SHA")
@@ -118,14 +120,16 @@ def _contract(data: bytes) -> dict:
 
 def _snapshot(root: Path, contract: dict) -> dict[str, bytes]:
     expected = contract["source_sha256"]
+    names = set(expected) | UNPINNED_SOURCES
     actual = {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()}
-    _require(actual == set(expected), f"來源檔案集合不符：缺 {sorted(set(expected)-actual)}；多 {sorted(actual-set(expected))}")
+    _require(actual == names, f"來源檔案集合不符：缺 {sorted(names-actual)}；多 {sorted(actual-names)}")
     snapshot = {}
-    for name, checksum in sorted(expected.items()):
+    for name in sorted(names):
         path = (root / name).resolve()
         _require(path.is_relative_to(root), f"來源路徑超出目錄：{name}")
         data = path.read_bytes()
-        _require(sha256_bytes(data) in (checksum, contract["source_git_lf_sha256"][name]), f"來源 SHA 不符：{name}")
+        if name in expected:
+            _require(sha256_bytes(data) in (expected[name], contract["source_git_lf_sha256"][name]), f"來源 SHA 不符：{name}")
         snapshot[name] = data
     return snapshot
 
@@ -236,7 +240,8 @@ def load_matrix(source_root: Path | str, contract_path: Path | str) -> tuple[dic
     _require(old.get("dataset_fingerprint") == contract["dataset_fingerprint"], "舊彙總指紋不符")
     rows.sort(key=lambda row: (row["method"], row["dataset"], row["seed"]))
     inventory = {"contract_sha256": sha256_bytes(contract_bytes), "dataset_fingerprint": contract["dataset_fingerprint"],
-                 "files": [{"path": name, "sha256": sha256_bytes(data), "bytes": len(data)} for name, data in sorted(snapshot.items())],
+                 "files": [{"path": name, "sha256": sha256_bytes(data), "bytes": len(data), "pinned": name not in UNPINNED_SOURCES}
+                           for name, data in sorted(snapshot.items())],
                  "runs": sorted(provenance, key=lambda item: item["run_id"]),
                  "configuration_names_status": "UNKNOWN：來源 JSON 只記錄未知配置數，不含名稱或逐窗 ID"}
     return contract, rows, {"inventory": inventory, "snapshot": snapshot}
