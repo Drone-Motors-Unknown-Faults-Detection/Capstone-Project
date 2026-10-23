@@ -17,11 +17,9 @@ used only after scoring to calculate evaluation metrics.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import platform
 import random
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,46 +27,25 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
 from sklearn.preprocessing import RobustScaler
 
-from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.openset import (
     OpenSetMethod,
     canonical_openset_method,
     create_openset_detector,
     fpr_at_tpr,
+    openset_metrics,
     resolve_openset_config,
 )
 from core.runner import save_json
-from core.provenance import CONTENT_VERSION, capture_source, write_private_context
-from core.runtime_environment import collect_environment, source_data_info
+from core.provenance import CONTENT_VERSION, capture_source, sha256_bytes, write_private_context
+from core.runtime_environment import collect_environment, git_head, source_data_info
 
 
 FORMAL_CONDITION_COUNT = 9
 FORMAL_METHODS: tuple[OpenSetMethod, ...] = ("mahalanobis", "knn")
-
-
-def _git_sha(project_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return result.stdout.strip()
 
 
 def legacy_dataset_fingerprint(data_root: Path | str) -> str:
@@ -95,7 +72,7 @@ def legacy_dataset_fingerprint(data_root: Path | str) -> str:
             stat = path.stat()
             entries.append((str(path.relative_to(root)), stat.st_size, stat.st_mtime_ns))
         payload = json.dumps(entries, ensure_ascii=False).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    return sha256_bytes(payload)
 
 
 def dataset_fingerprint(data_root: Path | str, *, version: str = CONTENT_VERSION) -> str:
@@ -135,26 +112,12 @@ def _validate_datasets(datasets: list[dict], data_root: Path, require_nine: bool
 
 
 def _condition_metrics(known_scores: np.ndarray, unknown_scores: np.ndarray) -> dict:
-    """單一工況的八個指標與兩個分數中位數；unknown 為正類，分數 > 1 判 unknown。
-
-    兩組都不得為空：AUROC／AUPR 需要兩類都存在，空輸入直接拒絕，不回傳 NaN。
-    """
+    """單一工況的八個指標（core.openset.openset_metrics，round 6 位）與兩個分數中位數。"""
     known_scores = np.asarray(known_scores, dtype=float)
     unknown_scores = np.asarray(unknown_scores, dtype=float)
-    if known_scores.size == 0 or unknown_scores.size == 0:
-        raise ValueError("known and unknown score batches must both be non-empty")
-    scores = np.concatenate((known_scores, unknown_scores))
-    labels = np.concatenate((np.zeros(len(known_scores), dtype=int), np.ones(len(unknown_scores), dtype=int)))
-    predictions = (scores > 1.0).astype(int)
+    metrics = {key: round(value, 6) for key, value in openset_metrics(known_scores, unknown_scores).items()}
     return {
-        "known_accuracy": round(float((predictions[: len(known_scores)] == 0).mean()), 6),
-        "open_set_accuracy": round(float(accuracy_score(labels, predictions)), 6),
-        "auroc": round(float(roc_auc_score(labels, scores)), 6),
-        "aupr_unknown_positive": round(float(average_precision_score(labels, scores)), 6),
-        "fpr_at_tpr95": round(float(_fpr_at_tpr95(known_scores, unknown_scores)), 6),
-        "unknown_precision": round(float(precision_score(labels, predictions, zero_division=0)), 6),
-        "unknown_recall": round(float(recall_score(labels, predictions, zero_division=0)), 6),
-        "unknown_f1": round(float(f1_score(labels, predictions, zero_division=0)), 6),
+        **metrics,
         "known_score_median": round(float(np.median(known_scores)), 6),
         "unknown_score_median": round(float(np.median(unknown_scores)), 6),
     }
@@ -260,7 +223,7 @@ def _run_benchmark(
         metadata = _detector_metadata(detector, confidence, openset_method, knn_neighbors)
         rows.append(
             {
-                "dataset": f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}",
+                "dataset": dataset_key(dataset["motor"], dataset["rpm"]),
                 "motor": dataset["motor"],
                 "rpm": dataset["rpm"],
                 "seed": int(seed),
@@ -310,7 +273,7 @@ def _run_benchmark(
             "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
             "checkpoint_identifier": None,
         },
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
+        "commit_sha": git_head(Path(__file__).resolve().parents[2]) or "unknown",
         "python": platform.python_version(),
         "rows": rows,
     }
