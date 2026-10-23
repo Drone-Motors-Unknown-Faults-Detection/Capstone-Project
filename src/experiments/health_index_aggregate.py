@@ -272,8 +272,10 @@ def aggregate_rows(rows: list[dict], contract: dict) -> tuple[dict, list[dict]]:
                 record[f"{metric}_mean"] = statistics.mean(values)
                 record[f"{metric}_std"] = statistics.stdev(values)
             table.append(record)
+    # 差值用已 round 的兩個平均相減，讀者手算 overall 兩欄會得到同一個數（與封存公式一致，#288）
+    overall = summary["overall"]
     summary["difference_knn_minus_mahalanobis"] = {
-        metric: round(raw_means["knn"][metric]-raw_means["mahalanobis"][metric], 6) for metric in METRICS}
+        metric: round(overall["knn"][metric]["mean"]-overall["mahalanobis"][metric]["mean"], 6) for metric in METRICS}
     return summary, table
 
 
