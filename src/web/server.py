@@ -568,6 +568,8 @@ class WSHandler(tornado.websocket.WebSocketHandler):
             name = msg.get("name")
             if not isinstance(name, str) or name not in SCENARIOS:
                 raise CommandError("劇本名稱不存在")
+            if any(c not in HUB.demo.pools for c, _, _ in SCENARIOS[name]["phases"]):
+                raise CommandError("劇本所需配置不在此資料集")   # 與導覽同一檢查，不在串流中途 KeyError（#301 F-16）
             for m in HUB.demo.start_scenario(name):
                 HUB.broadcast(m)
             HUB.running = True   # 劇本驗證並啟動後才開始串流

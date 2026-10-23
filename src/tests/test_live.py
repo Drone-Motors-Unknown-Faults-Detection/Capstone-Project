@@ -66,6 +66,21 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertEqual((rows["6screws"]["pre_streamed"], rows["6screws"]["post_streamed"]), (0, 3))
         self.assertFalse(next(c for c in self.demo.state()["configs"] if c["config"] == "5screws")["known"])
 
+    def test_scenario_needing_missing_config_is_rejected_before_start(self):
+        """#301 F-16：首頁劇本在啟動前檢查所需配置都在已載入的池，缺配置時不改來源也不開始串流。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.server import CommandError, Hub
+
+        hub = Hub(self.demo, [], 4, 42)
+        self.addCleanup(hub.executor.shutdown)
+        pools = {c: p for c, p in self.demo.pools.items() if c != "4screws"}   # 劇本 B 需要 4screws
+        with patch.object(self.demo, "pools", pools), patch("web.server.HUB", hub), \
+                self.assertRaises(CommandError):
+            asyncio.run(WSHandler.dispatch(Mock(), {"cmd": "scenario", "name": "B"}))
+        self.assertIsNone(self.demo.scenario)
+        self.assertFalse(hub.running)
+
     def test_post_expansion_shares_count_healthy_separately(self):
         """#301 F-14：擴張後分判為未知／健康／新類；故障被判為健康不算進判為新類（同實驗二 known_rate）。"""
         self.demo.set_source("5screws")
