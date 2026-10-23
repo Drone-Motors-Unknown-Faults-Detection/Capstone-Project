@@ -24,4 +24,4 @@
 `src/tests/test_feature_schema.py` 以暫存 fixture 檢查兩套 header、拒絕案例、alias、coverage、重現與 CLI 錯誤，不依賴 ignored data。預期非法輸入整批拒絕、合法數值與列順序不變；格式通過不等於採集獨立性通過。`src/tests/feature_schema_evidence.py` 是唯讀載入與切分的證據入口，經 setup_run 寫 logs/output，不擬合模型。
 
 `rejected_rows` 指已查明的違規列數；錯header時整檔列都違規，數值問題則另列零起算的 `rejected_row_indices`。遇到錯誤整個載入失敗、不回傳合法子集；其他尚未讀檔列數不能由此計數推定。無法讀取的來源不補造列數。`discarded_rows=0` 表示沒有清洗／刪點；不等於整批輸入已被接受。
-CLI：`uv run --locked python -m core.data --dataset <RPM目錄>`；完整配置加 `--require-complete`。API失敗拋 `FeatureSchemaError`，可由 `audit={}` 取得portable拒絕紀錄；CLI保存 `output/formal_schema_audit/*/schema_audit.json` 並exit 1。回歸檢查：`uv run --locked --extra test python -m pytest src/tests/test_feature_schema.py`。
+CLI：`uv run --locked python -m core.data --dataset <RPM目錄>`；完整配置加 `--require-complete`。API失敗拋 `FeatureSchemaError`，可由 `audit={}` 取得portable拒絕紀錄；CLI保存 `output/formal_schema_audit/*/schema_audit.json` 並exit 1。同目錄的 `environment.json` 以 `core.data.dataset_data_root(--dataset)`（RPM目錄往上找到 `Step-*` 的上一層）當資料根算指紋。回歸檢查：`uv run --locked --extra test python -m pytest src/tests/test_feature_schema.py`。

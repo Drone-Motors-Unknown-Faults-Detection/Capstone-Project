@@ -102,6 +102,14 @@ class NValueValidationTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 run(str(root), seed=42, n_values=())
 
+    def test_n_below_scratch_minimum_is_rejected(self):
+        """N < 5 時 scratch 的 60/20/20 切不出 train／cal，跟 add_observed 同下限（#301 F-07）。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            for bad in (1, 2, 3, 4):
+                with self.subTest(n=bad), self.assertRaisesRegex(ValueError, "N 必須是 5 到 39"):
+                    run(str(root), seed=42, n_values=(bad,))
+
     def test_single_dataset_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory))

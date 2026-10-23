@@ -16,6 +16,9 @@ from core.data import HEALTHY, Split, make_split
 from core.mahalanobis import LEGACY_POOLED_LABEL
 from core.openset import OpenSetDetector, create_openset_detector, resolve_openset_config
 
+# 60/20/20 切分後 train、cal、holdout 都至少一筆的最少樣本數（5 → 3／1／1）
+MIN_FIT_ROWS = 5
+
 
 class OpenSetMonitor:
     def __init__(
@@ -73,8 +76,8 @@ class OpenSetMonitor:
     def add_observed(self, name: str, samples: np.ndarray) -> int:
         """只用這批已到達樣本註冊新類並重擬合，不讀該配置的完整資料池。"""
         rows = np.atleast_2d(np.asarray(samples, dtype=float))
-        if len(rows) < 5:
-            raise ValueError("發現樣本少於 5 筆，無法切出訓練與校準")
+        if len(rows) < MIN_FIT_ROWS:
+            raise ValueError(f"發現樣本少於 {MIN_FIT_ROWS} 筆，無法切出訓練與校準")
         if name in self.known:
             raise ValueError(f"{name} 已是已知類別")
         label = len(self.known)

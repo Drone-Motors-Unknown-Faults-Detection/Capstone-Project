@@ -27,7 +27,7 @@
 
 資料是單工況的105維clean特徵，每列、單位、清理與未去重限制見[實驗一](exp1_cold_start.md#資料與載入)。同來源／seed下，每方法各建OpenSetMonitor，健康列洗牌60/20/20一致；seed預設42。RobustScaler及參考模型只fit train；healthy cal定confidence0.95門檻；healthy holdout與其他配置全池只評估。unknown不選參、不fit、不校準。不同motor是不同個體，這不是跨馬達群組切分。
 
-mahalanobis用LW中心／共變異數；knn保存train庫、平均歐氏距離，k=5且資料少時縮減；score>1判未知，等於1接受。--method可選legacy／ledoit_wolf／oas／mcd，只影響馬氏方法。legacy用train定線、label=-1，classify無法對應healthy，因此known_class_accuracy可能為0；fairness欄的known-only calibration宣告不適用此例外。正式矩陣拒絕legacy。顯示PCA train-only，MCD另有train-only降維；沒有神經網路epoch。
+mahalanobis用LW中心／共變異數；knn保存train庫、平均歐氏距離，k=5且資料少時縮減；score>1判未知，等於1接受。--method可選legacy／ledoit_wolf／oas／mcd，只影響馬氏方法。legacy用train距離的confidence分位數定線（不讀cal），合併分布的內部標籤是-2（`LEGACY_POOLED_LABEL`）；分數≤1的列取縮放空間最近的已知類train中心，所以classify對單一已知類回healthy，>1才是-1未知（`core.mahalanobis._labels_from`，#266）。這時known_class_accuracy就是healthy holdout分數≤1的比例；門檻量在train上，holdout常超線，數字偏低不是介面限制。該列的calibration_source記「known-only 60% train split (legacy: threshold on training distances)」，fairness欄的known-only calibration宣告不適用此例外。正式矩陣拒絕legacy。顯示PCA train-only，MCD另有train-only降維；沒有神經網路epoch。
 
 ## 怎麼執行與使用
 

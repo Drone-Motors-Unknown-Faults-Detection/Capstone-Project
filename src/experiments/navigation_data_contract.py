@@ -11,7 +11,8 @@ from core.provenance import sha256_file
 
 
 def run(dataset: dict, seed: int = 42) -> dict:
-    pools = load_pools(dataset["path"])
+    audit: dict = {}
+    pools = load_pools(dataset["path"], audit=audit)
     if any(len(p) < 10 for p in pools.values()):
         raise ValueError("展示資料池不足10筆，不能建立可重播的基準")
     configs = sorted(pools, key=config_sort_key)
@@ -20,10 +21,12 @@ def run(dataset: dict, seed: int = 42) -> dict:
     dataset_dir = Path(dataset["path"]).resolve()
     data_root = next((p.parent for p in (dataset_dir, *dataset_dir.parents) if p.name.startswith("Step-")), dataset_dir)
     for config in configs:
+        # 池 key 是正規名；實際目錄可能是別名（1screw），雜湊要讀 audit 記下的原目錄（#301 F-03）
+        folder = Path(dataset["path"]) / audit["configuration_dirs"][config]
         sources[config] = [
             {"sha256": sha256_file(p),
              "path": p.resolve().relative_to(data_root).as_posix()}
-            for p in sorted((Path(dataset["path"]) / config).glob("*_Group_feature_data_clean.csv"))
+            for p in sorted(folder.glob("*_Group_feature_data_clean.csv"))
         ]
     return {"schema": "navigation_data_v1", "motor": dataset["motor"],
             "rpm": dataset["rpm"], "seed": seed, "feature_dim": 105,

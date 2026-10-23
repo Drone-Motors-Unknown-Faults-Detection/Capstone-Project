@@ -185,12 +185,19 @@ def _load_pools(dataset_path: Path, report: dict) -> dict[str, np.ndarray]:
     return pools
 
 
+def dataset_data_root(dataset_path: Path | str) -> Path:
+    """RPM 目錄（data/Step-*/myfeature/T1/8000rpm）所屬的資料根；不在 Step-* 底下就回傳目錄本身。"""
+    path = Path(dataset_path).expanduser().resolve()
+    return next((p.parent for p in (path, *path.parents) if p.name.startswith("Step-")), path)
+
+
 def run(dataset_path: Path | str, *, require_complete: bool = False) -> dict:
     """唯讀格式稽核入口；結果只含相對file ID與品質摘要。"""
     import json
     from core.logger import setup_run
 
-    log, paths = setup_run("formal_schema_audit")
+    # 環境指紋記這個 RPM 目錄所屬的資料根（Step-* 的上一層），不是預設的 data（#301 F-05）
+    log, paths = setup_run("formal_schema_audit", data_root=dataset_data_root(dataset_path))
     audit = {}
     try:
         load_pools(dataset_path, require_complete=require_complete, audit=audit)

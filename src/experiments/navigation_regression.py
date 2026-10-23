@@ -13,6 +13,27 @@ from experiments.navigation_data_contract import run as contract, split_audit
 from web.guide import GuideHub
 from web.live import LiveDemo
 
+SCHEMA = "navigation_regression_v3"
+MAX_MISMATCH_DETAILS = 20
+
+
+class MismatchLedger:
+    """逐項比對原 LiveDemo（cli）與導覽（guide）；不一致計數並留前幾筆細節。
+    不用 assert：python -O 會略過 assert，回歸就會在不一致時照樣回報 0 筆（#301 F-04）。"""
+
+    def __init__(self, limit: int = MAX_MISMATCH_DETAILS):
+        self.count = 0
+        self.details: list[dict] = []
+        self.limit = limit
+
+    def check(self, pair_id: str, field: str, cli, guide) -> bool:
+        if cli == guide:
+            return True
+        self.count += 1
+        if len(self.details) < self.limit:
+            self.details.append({"pair_id": pair_id, "field": field, "cli": cli, "guide": guide})
+        return False
+
 
 class Collector:
     def __init__(self):
@@ -42,7 +63,8 @@ def tick_with_row(demo, tick):
         sampler.draw = recorded
     try:
         value = tick()
-        assert len(rows) == 1
+        if len(rows) != 1:
+            raise RuntimeError(f"一拍應抽 1 筆來源列，實際 {len(rows)} 筆")
         return value, rows[0]
     finally:
         for sampler, draw in originals:
@@ -63,6 +85,7 @@ def run(dataset, seed=42):
         hub.clients.add(collector)
         paired = 0
         ledger = []
+        mismatch = MismatchLedger()
         audits = [{"stage": "initial", "fit": split_audit(original)}]
         def tick():
             nonlocal paired
@@ -70,10 +93,13 @@ def run(dataset, seed=42):
             expected = next(m for m in messages if m["type"] == "sample")
             hub.running = True
             _, guide_row = tick_with_row(hub.demo, hub.tick)
-            assert expected_row == guide_row
-            assert all(expected[k] == collector.sample[k] for k in keys)
-            assert original.session.monitor.summary() == hub.demo.session.monitor.summary()
-            ledger.append({"pair_id": f"{method}/{paired}", "epoch": original.epoch,
+            pair_id = f"{method}/{paired}"
+            mismatch.check(pair_id, "source", expected_row, guide_row)
+            for k in keys:
+                mismatch.check(pair_id, k, expected[k], collector.sample[k])
+            mismatch.check(pair_id, "monitor_summary", original.session.monitor.summary(),
+                           hub.demo.session.monitor.summary())
+            ledger.append({"pair_id": pair_id, "epoch": original.epoch,
                            "source": expected_row, "cli": {k: expected[k] for k in keys},
                            "guide": {k: collector.sample[k] for k in keys}})
             paired += 1
@@ -91,8 +117,9 @@ def run(dataset, seed=42):
             adopted = None
             if found:
                 adopted = {k: v for k, v in original.adoption.items() if k != "label"}
-                assert adopted == {k: v for k, v in hub.demo.adoption.items() if k != "label"}
-                assert split_audit(original) == split_audit(hub.demo)
+                mismatch.check(f"{method}/adopted", "adoption", adopted,
+                               {k: v for k, v in hub.demo.adoption.items() if k != "label"})
+                mismatch.check(f"{method}/adopted", "fit_audit", split_audit(original), split_audit(hub.demo))
                 audits.append({"stage": "adopted", "fit": split_audit(original)})
                 for _ in range(60):
                     tick()
@@ -105,36 +132,51 @@ def run(dataset, seed=42):
                 hub.scenario_end = total
                 for _ in range(total):
                     tick()
-                assert not hub.running
-                assert original.alarms == hub.demo.alarms
+                mismatch.check(f"{method}/scenario_{name}", "guide_running_after_end", False, hub.running)
+                mismatch.check(f"{method}/scenario_{name}", "alarms", original.alarms, hub.demo.alarms)
                 trends[name] = hub.demo.alarms
             results.append({"method": method, "candidate_found": found,
                             "fault_arrival_count": arrival, "adoption": adopted,
-                            "paired_samples": paired, "mismatches": 0, "trend_alarms": trends,
+                            "paired_samples": paired, "mismatches": mismatch.count,
+                            "mismatch_details": mismatch.details, "trend_alarms": trends,
                             "ledger": ledger, "fit_audits": audits})
         finally:
             original.close()
             hub.demo.close()
             hub.executor.shutdown()
-    assert source == contract(dataset, seed)
-    return {"schema": "navigation_regression_v3", "data": source, "seed": seed,
-            "paired_methods": results, "source_unchanged": True,
+    source_unchanged = source == contract(dataset, seed)
+    mismatches = sum(item["mismatches"] for item in results)
+    return {"schema": SCHEMA, "status": "VERIFIED" if mismatches == 0 and source_unchanged else "FAILED",
+            "data": source, "seed": seed, "paired_methods": results, "mismatches": mismatches,
+            "source_unchanged": source_unchanged,
             "claim": "工程計算一致性，非模型可靠性或fresh盲測"}
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     log, paths = setup_run("navigation_regression", data_root=args.data_root)
     dataset = next(d for d in discover_datasets(args.data_root)
                    if d["motor"] == "T1" and d["rpm"] == "8000rpm")
-    result = run(dataset, args.seed)
-    (paths.output_dir / "summary.json").write_text(
-        json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    summary_path = paths.output_dir / "summary.json"
+    try:
+        result = run(dataset, args.seed)
+    except Exception as exc:
+        # 中途崩潰也留失敗紀錄，不讓 output 只剩 environment.json
+        failure = {"schema": SCHEMA, "status": "FAILED", "seed": args.seed,
+                   "error": f"{type(exc).__name__}: {exc}"}
+        summary_path.write_text(json.dumps(failure, ensure_ascii=False, indent=2), encoding="utf-8")
+        log.error("回歸中斷：{}", failure["error"])
+        raise
+    summary_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
+    if result["status"] != "VERIFIED":
+        log.error("回歸不一致：{} 筆不一致，來源未變={}", result["mismatches"], result["source_unchanged"])
+        return 1
     log.info("兩方法逐筆配對完成；來源未變")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

@@ -126,6 +126,10 @@ class CalibratedHealthIndex:
         resolved = resolve_openset_config(openset_method, confidence=confidence,
                                           mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
         canonical_method = resolved["openset_method"]
+        # legacy 的門檻量在 train 距離上，cal 分數不再以 1 為拒絕線，0.5 就不等於拒絕線（#301 F-02）
+        if canonical_method == "mahalanobis" and mahalanobis_method == "legacy":
+            raise ValueError("health index rejects mahalanobis_method='legacy' (training-distance threshold); "
+                             "use ledoit_wolf, oas or mcd")
         scaler = RobustScaler().fit(X_train)
         X_train_scaled = scaler.transform(X_train)
         X_calibration_scaled = scaler.transform(X_calibration)

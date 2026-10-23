@@ -53,7 +53,7 @@ uv run --locked python -m experiments.exp3_trend --help
 uv run --locked python -m experiments.exp3_trend --data-root data --motor T1 --rpm 8000rpm --seed 42 --trials 40
 ```
 
-CLI支援共用openset-method／method／confidence／knn-neighbors；`--trials`預設20，README與[40次結果](../../output/exp3_trend/2026-10-23-01-32-36/summary.json)用40，重現時明寫`--trials 40`；必須正整數，程式未完整驗證0或負值，可能零分母；不要當空跑成功。API為`run(pools,n_trials=20,seed=42)`，回傳trials與summary；iter_run逐事件計算，不自行持久化；每個tick事件帶監測器的`unknown`旗標（`score > 1`），Web實驗頁只抄旗標著色，不用真值也不重算。
+CLI支援共用openset-method／method／confidence／knn-neighbors；`--trials`預設20，README與[40次結果](../../output/exp3_trend/2026-10-23-01-32-36/summary.json)用40，重現時明寫`--trials 40`；必須正整數：`iter_run` 在擬合前檢查 `n_trials < 1`，0或負值直接丟ValueError（#285），不會產生零分母的alarm_rate。API為`run(pools,n_trials=20,seed=42)`，回傳trials與summary；iter_run逐事件計算，不自行持久化；每個tick事件帶監測器的`unknown`旗標（`score > 1`），Web實驗頁只抄旗標著色，不用真值也不重算。
 
 Web啟動見[實驗一](exp1_cold_start.md#實驗怎麼跑與怎麼使用)，切「實驗三」、選資料集／方法／seed／每劇本次數，按「▶ 執行」。「劇本 A：漸進磨損」與「劇本 B：突發外力」只播放並統計該劇本；「⏵ 邊跑邊畫」仍兩個劇本一起跑，可看各劇本首trial的分數／EWMA，其餘trial出統計。「■ 停止」會取消後續串流，不把未收到done的結果當完整。批次沒有中途停止按鈕。即時展示的A/B劇本與本頁共享SCENARIOS，但session可能已擴張，不能直接當冷啟動同一設定比較。
 
