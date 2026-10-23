@@ -211,8 +211,13 @@ class GuideSocket(LocalSocketHandler):
         h.broadcast(h.full_state())
         try:
             result = await tornado.ioloop.IOLoop.current().run_in_executor(h.executor, fn)
-            # 檢查資料不重建基準：紀錄檔已停用時錯誤保留，仍要重設或重建才能監測
-            h.error = None if h.demo is None or h.demo.accepting else "樣本紀錄已停用；請重設或重建健康基準後再監測"
+            stopped = h.demo is not None and not h.demo.accepting
+            if command in ("reset", "build"):
+                # 只有重建 session 的操作才清除錯誤（#304 F5-03）
+                h.error = "樣本紀錄已停用；請重設或重建健康基準後再監測" if stopped else None
+            elif stopped and h.error is None:
+                # 檢查資料不重建基準：串流與寫入錯誤都保留到重設或重建
+                h.error = "樣本紀錄已停用；請重設或重建健康基準後再監測"
             h.event("success", str(result))
         except Exception as exc:
             logger.exception("導覽操作失敗")

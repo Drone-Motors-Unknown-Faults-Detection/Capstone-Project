@@ -203,6 +203,30 @@ class GuideTests(unittest.TestCase):
             self.assertEqual(self.hub.demo.t, 1)
             self.hub.demo.close()
 
+    def test_inspect_keeps_stream_error_until_reset(self):
+        """#304 F5-03：檢查資料不重建 session，串流錯誤（非寫入類，紀錄檔仍可寫）要保留，start 仍拒絕；reset 才清除。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+        sock.heavy = lambda cmd, fn: GuideSocket.heavy(sock, cmd, fn)
+
+        def send(msg):
+            asyncio.run(GuideSocket.on_message(sock, json.dumps(msg)))
+
+        self.hub.build("T1", "8000rpm")
+        self.hub.event("error", "串流錯誤，已暫停：測試")
+        self.assertTrue(self.hub.demo.accepting)
+        send({"cmd": "inspect", "motor": "T1", "rpm": "8000rpm"})
+        self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+        send({"cmd": "start"})
+        self.assertFalse(self.hub.running)
+        send({"cmd": "reset"})
+        self.assertIsNone(self.hub.error)
+        send({"cmd": "start"})
+        self.assertTrue(self.hub.running)
+
     def test_busy_does_not_read_half_updated_model(self):
         self.hub.build("T1", "8000rpm")
         self.hub.busy_state = self.hub.full_state()
