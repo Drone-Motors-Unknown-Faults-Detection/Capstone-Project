@@ -86,6 +86,17 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertEqual(self.demo.fitted_rows, {})
         self.assertEqual(len(self.demo.samplers["5screws"].indices), 60)
 
+    def test_healthy_fitted_rows_excluded_and_exhausted_pool_keeps_streaming(self):
+        # #299：健康列被併進 discovered-N 也要從健康 holdout 排除；整池擬合用完時不讓串流中斷
+        holdout = self.demo.session.monitor.splits[HEALTHY].holdout
+        self.demo.fitted_rows[HEALTHY] = {int(holdout[0])}
+        self.demo.fitted_rows["5screws"] = set(range(len(self.demo.pools["5screws"])))
+        self.demo._refresh_samplers()
+        self.assertNotIn(int(holdout[0]), self.demo.samplers[HEALTHY].indices.tolist())
+        self.assertEqual(len(self.demo.samplers["5screws"].indices), len(self.demo.pools["5screws"]))
+        self.demo.set_source("5screws")
+        self.demo.tick()
+
     def test_reset_clears_adoption(self):
         self.demo.set_source("5screws")
         with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):
