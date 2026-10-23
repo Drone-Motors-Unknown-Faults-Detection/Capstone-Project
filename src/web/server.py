@@ -426,6 +426,10 @@ ASSISTANT: Assistant | None = None
 MAX_QUESTION_CHARS = 2000
 MAX_HISTORY_ITEMS = 20
 MAX_HISTORY_CHARS = 20000
+# 請求 body 上限：歷史上限 20 則 × 20000 字，中文 UTF-8 每字 3 bytes 約 1.2 MB，再留 JSON 外框餘裕；
+# Tornado 預設 100 MB，會在 IOLoop 上整段讀進來再 json.loads（#305 G-09）
+MAX_BODY_BYTES = 2 * 1024 * 1024
+HTTP_SERVER_OPTIONS = {"max_body_size": MAX_BODY_BYTES}
 
 
 def _history_too_long(history: list) -> bool:
@@ -682,7 +686,7 @@ def main() -> None:
     log.info(f"程式版本 {app_git_info()['head']}（狀態輪詢讀這份快取）")
 
     app = make_app()
-    app.listen(args.port, address=args.bind_address)
+    app.listen(args.port, address=args.bind_address, **HTTP_SERVER_OPTIONS)
     HUB.set_rate(args.rate)
     guide_hub = app.settings["guide_hub"]
     guide_hub.set_rate(args.rate)

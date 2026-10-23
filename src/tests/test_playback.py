@@ -337,6 +337,9 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return server.make_app()
 
+    def get_httpserver_options(self):
+        return server.HTTP_SERVER_OPTIONS   # 與 main() 的 app.listen 同一份設定
+
     def stream(self, exp_id, params):
         query = urllib.parse.quote(json.dumps(params))
         return self.fetch(f"/api/experiments/{exp_id}/stream?params={query}&rate=1000", request_timeout=60)
@@ -379,6 +382,28 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
         for call in (server.JOBS.runner.clean_params, server.JOBS.runner.stream_params):
             with self.assertRaisesRegex(ValueError, "JSON 物件"):
                 call("exp3", ["dataset"])
+
+    def test_oversize_body_is_rejected_before_handler(self):
+        """#305 G-09：body 上限不是 Tornado 預設 100 MB；超過上限在讀 body 時就被擋，handler 不會 json.loads。"""
+        import inspect
+        from unittest.mock import patch
+
+        self.assertEqual(server.HTTP_SERVER_OPTIONS["max_body_size"], server.MAX_BODY_BYTES)
+        self.assertLessEqual(server.MAX_BODY_BYTES, 4 * 1024 * 1024)
+        self.assertIn("**HTTP_SERVER_OPTIONS", inspect.getsource(server.main))
+        # 上限內：歷史上限的最壞情況（20 則 × 20000 個中文字）仍能送進 handler
+        history = [{"role": "user", "content": "健" * server.MAX_HISTORY_CHARS}] * server.MAX_HISTORY_ITEMS
+        within = json.dumps(history, ensure_ascii=False).encode("utf-8")
+        self.assertLess(len(within), server.MAX_BODY_BYTES)
+        resp = self.fetch("/api/experiments/exp12/run", method="POST", body=within,
+                          headers={"Content-Type": "application/json"})
+        self.assertEqual((resp.code, json.loads(resp.body)["error"]), (400, "參數必須是 JSON 物件"))
+        with patch.object(server.JOBS.runner, "clean_params", side_effect=AssertionError("不該進 handler")) as clean:
+            resp = self.fetch("/api/experiments/exp12/run", method="POST", raise_error=False,
+                              body=b"{" + b" " * (server.MAX_BODY_BYTES + 1) + b"}",
+                              headers={"Content-Type": "application/json"})
+        self.assertIn(resp.code, (400, 599))   # 伺服器回 400 後關連線；用戶端可能還在送 body
+        clean.assert_not_called()
 
     def test_time_http_and_saved_restart_do_not_call_model(self):
         from unittest.mock import patch
