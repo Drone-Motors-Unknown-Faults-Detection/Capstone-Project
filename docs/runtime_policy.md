@@ -23,6 +23,12 @@ uv pip check --python venv/bin/python
 
 `core.runtime_environment.collect_environment()` 收集 Python、OS、架構、主機名稱、numpy 連結的 BLAS／LAPACK（`numeric`）、套件版本、Git HEAD／tracked dirty 與鎖版 SHA。`constraints_sha256` 沿用欄位名稱，現行值取自 uv.lock；不保存環境變數、token、使用者名稱或絕對 executable／資料路徑。Git 無法讀取時記 UNKNOWN。
 
+預設程式根由實際載入的 `src/core/runtime_environment.py` 與同一棵程式樹的 `pyproject.toml` 定位；Git 頂層必須正好是該根，不能借用呼叫端或匯出副本外層 repo。從其他工作目錄呼叫 API，程式 HEAD／dirty 與 lock 仍屬於載入的程式；資料根依 `data_root`，logs／output 仍相對於呼叫端工作目錄。明確傳 `collect_environment(root=...)` 保留查詢指定 repo（含其子目錄）的相容行為。
+
+`GET /api/assistant/status` 使用載入程式的 Git 定位與啟動快取，傳入 `data=source_data_info(None)` 略過資料掃描；無可靠 Git 時，`app.git_head` 與 `app.tracked_dirty` 均為 null，模型 `reachable` 狀態仍獨立回覆。
+
+`program_source` 是附加的 `program_location_v1` 紀錄：selection 區分 LOADED_MODULE／EXPLICIT_ROOT，git_reason 與 lock_status／lock_reason 分開說明未知。沒有可辨識程式樹、匯出副本無 Git、Git 失敗或 lock 缺失時，不回退採用呼叫端版本；Git dirty 未知維持 null。匯出樹若仍有自己的 lock，只能證明該檔 SHA，不能當成 Git checkout；一般已安裝套件無法確認程式根時，HEAD 與 lock 均 UNKNOWN／null，不補造版本。既有 runtime_environment_v1 欄位保留，新紀錄不回填歷史 JSON。
+
 `core.logger.setup_run()` 將紀錄寫入該 run 的 `environment.json`；`make_output=False` 則寫 log。安裝入口呼叫 `python -m core.runtime_environment`，寫入 `logs/environment_install/` 與 `output/environment_install/`。健康 CLI（`experiments.health_index_benchmark`、`health_index_matrix`、`health_monitor`、`health_index_aggregate`）都經 `setup_run` 寫 sidecar；直接呼叫、未經 `setup_run` 初始化的 API 不會自動保存 sidecar。
 
 ## 執行主機

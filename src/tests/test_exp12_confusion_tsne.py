@@ -83,10 +83,10 @@ class SharedMonitorTests(unittest.TestCase):
             calls.append(kwargs.get("method"))
             return original(pools_, **kwargs)
 
-        with patch.object(mod, "discover_datasets", return_value=[{"motor": "T1", "rpm": "8000rpm", "path": "x"}]), \
-                patch.object(mod, "load_pools", return_value=pools), \
-                patch.object(mod, "build_ancestor_monitor", side_effect=counting):
-            mod.run(data_root="unused", seed=42, perplexity=5.0, tsne_max_per_class=20)
+        from types import SimpleNamespace
+        with patch.object(mod, "build_ancestor_monitor", side_effect=counting):
+            mod._run(data_root="unused", seed=42, confidence=0.95, perplexity=5.0,
+                     tsne_max_per_class=20, source_run=SimpleNamespace(load_all=lambda: {"T1/8000": pools}))
         self.assertEqual(sorted(calls), ["ledoit_wolf", "legacy"])
 
 

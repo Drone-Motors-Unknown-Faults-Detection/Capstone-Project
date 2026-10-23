@@ -6,7 +6,8 @@ import subprocess
 import time
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
 
 import tornado.testing
 import tornado.web
@@ -292,7 +293,8 @@ class AskTests(unittest.TestCase):
         assistant = Assistant("http://unused/v1", llm=model)
 
         async def collect():
-            return [f async for f in assistant.ask(None, "實驗十二的原理", load_saved=changing_saved)]
+            # 明確要求存檔的混合問題仍驗證快取；純方法問題不可讀取這些結果。
+            return [f async for f in assistant.ask(None, "實驗十二的原理，請核對存檔來源", load_saved=changing_saved)]
 
         frames = asyncio.run(collect())
         facts = [f for f in frames if f["event"] == "facts"]
@@ -304,13 +306,14 @@ class AskTests(unittest.TestCase):
 
 class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
     def setUp(self):
-        self.saved = (server.PLAYBACK, server.ASSISTANT)
+        self.saved = (server.PLAYBACK, server.ASSISTANT, server._APP_GIT)
+        server._APP_GIT = None
         server.PLAYBACK = PlaybackTracker(results_root=Path("不存在的目錄"))   # 尚未執行，也沒有存檔
         super().setUp()
 
     def tearDown(self):
         super().tearDown()
-        server.PLAYBACK, server.ASSISTANT = self.saved
+        server.PLAYBACK, server.ASSISTANT, server._APP_GIT = self.saved
 
     def get_app(self):
         return tornado.web.Application([
@@ -399,6 +402,99 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(status["app"]["answer_schema"], "exp12_standard_answer_v2")
         self.assertNotIn("packages", status["app"])
 
+    def status_snapshot(self):
+        server._APP_GIT = None
+        model_status = {"reachable": True, "model": "fixture-model"}
+        server.ASSISTANT = SimpleNamespace(status=AsyncMock(return_value=model_status))
+        response = self.fetch("/api/assistant/status")
+        self.assertEqual(response.code, 200)
+        status = json.loads(response.body)
+        server.ASSISTANT.status.assert_awaited_once_with()
+        self.assertEqual({k: v for k, v in status.items() if k != "app"}, model_status)
+        self.assertEqual(set(status["app"]), {"git_head", "tracked_dirty", "answer_schema"})
+        self.assertEqual(status["app"]["answer_schema"], server.ANSWER_SCHEMA)
+        return status
+
+    def test_status_origin_matches_loaded_repo_across_cwds(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        program = Path(runtime.__file__).resolve().parents[2]
+        expected = runtime.collect_environment(data=runtime.source_data_info(None))["git"]
+        self.assertIsNotNone(expected["head"])
+        caller = Path("caller").resolve()
+        fixture_repository(caller, "caller")
+        outside = Path("outside").resolve()
+        outside.mkdir()
+        for cwd in (program, caller, outside):
+            with self.subTest(cwd=cwd.name), working_directory(cwd):
+                status = self.status_snapshot()
+            self.assertEqual(status["app"]["git_head"], expected["head"])
+            self.assertEqual(status["app"]["tracked_dirty"], expected["tracked_dirty"])
+
+    def test_status_export_inside_parent_repo_keeps_unknown(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        caller = Path("caller").resolve()
+        fixture_repository(caller, "caller")
+        self.assertIsNotNone(runtime._git(caller, "rev-parse", "HEAD"))
+        exported = caller / "exported"
+        module = fixture_repository(exported, "exported", commit=False)
+        with working_directory(caller), patch.object(runtime, "__file__", str(module)), \
+                patch.object(server, "__file__", str(exported / "src/web/server.py")), \
+                patch.object(runtime, "data_info", return_value={}) as data:
+            status = self.status_snapshot()
+        self.assertIsNone(status["app"]["git_head"])
+        self.assertIsNone(status["app"]["tracked_dirty"])
+        self.assertNotIn(str(caller), json.dumps(status))
+        data.assert_not_called()
+
+    def test_status_installed_program_root_unavailable_keeps_unknown(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        caller = Path("caller").resolve()
+        fixture_repository(caller, "caller")
+        installed = caller / "site-packages/core/runtime_environment.py"
+        installed.parent.mkdir(parents=True)
+        installed.touch()
+        with working_directory(caller), patch.object(runtime, "__file__", str(installed)):
+            status = self.status_snapshot()
+        self.assertIsNone(status["app"]["git_head"])
+        self.assertIsNone(status["app"]["tracked_dirty"])
+
+    def test_status_git_missing_or_timeout_keeps_unknown(self):
+        from core import runtime_environment as runtime
+        for error in (OSError("私人路徑與測試secret"), subprocess.TimeoutExpired("git", 3)):
+            with self.subTest(error=type(error).__name__), patch.object(runtime.subprocess, "run", side_effect=error):
+                status = self.status_snapshot()
+            self.assertIsNone(status["app"]["git_head"])
+            self.assertIsNone(status["app"]["tracked_dirty"])
+            self.assertNotIn("secret", json.dumps(status))
+
+    def test_status_does_not_scan_data_or_expose_environment(self):
+        from core import runtime_environment as runtime
+        with patch.object(runtime, "data_info", return_value={}) as data, \
+                patch("core.provenance.capture_source", side_effect=AssertionError("不得掃描資料")) as capture, \
+                patch.dict("os.environ", {"CAPSTONE_TEST_SECRET": "private-status-sentinel"}):
+            status = self.status_snapshot()
+        data.assert_not_called()
+        capture.assert_not_called()
+        self.assertNotIn("private-status-sentinel", json.dumps(status))
+        self.assertNotIn(str(Path(runtime.__file__).resolve().parents[2]), json.dumps(status))
+
+    def test_status_fixture_program_reports_dirty_without_using_caller(self):
+        from core import runtime_environment as runtime
+        from tests.test_runtime_environment import fixture_repository, working_directory
+        program, caller = Path("program").resolve(), Path("caller").resolve()
+        module = fixture_repository(program, "program")
+        fixture_repository(caller, "caller")
+        (program / "uv.lock").write_text('identity = "dirty"\n', encoding="utf-8")
+        expected = runtime._git(program, "rev-parse", "HEAD")
+        self.assertNotEqual(expected, runtime._git(caller, "rev-parse", "HEAD"))
+        with working_directory(caller), patch.object(runtime, "__file__", str(module)), \
+                patch.object(server, "__file__", str(program / "src/web/server.py")):
+            status = self.status_snapshot()
+        self.assertEqual(status["app"]["git_head"], expected)
+        self.assertIs(status["app"]["tracked_dirty"], True)
     def test_status_poll_reads_cached_git_info(self):
         # collect_environment 跑 git 子行程並雜湊資料集；輪詢只讀啟動時的快取（#274）
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
@@ -466,6 +562,45 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
         self.assertIn("HTTP to frontend primary OK", process.stdout)
         self.assertEqual(model.seen, [])
+
+    def test_http_semantic_guards_reach_frontend_with_source_and_without_model_text(self):
+        from tests.test_exp2_metric_semantics import paired_result
+        for mode, experiment, question, result in (
+            ("data_usage", "exp1", "實驗一資料切分筆數", {"model": {"classes": [
+                {"config": "8screws", "n_train": 18, "n_cal": 6, "n_holdout": 7}]}}),
+            ("exp2_metrics", "exp2", "實驗二結果的接受率、matched_rate與未知召回", paired_result()),
+        ):
+            with self.subTest(mode=mode):
+                root = Path("saved") / mode
+                folder = root / "session/experiments"
+                folder.mkdir(parents=True)
+                name = f"{experiment}_2026-10-23-00-00-00.json"
+                path = folder / name
+                raw = json.dumps({"experiment": experiment, "result": result}).encode()
+                path.write_bytes(raw)
+                server.PLAYBACK = PlaybackTracker(root)
+                model = fake_model(AIMessage(content="錯答：接受率就是配置正確率與未知召回，187筆適用全部。"))
+                server.ASSISTANT = Assistant("unused", llm=model)
+                frames = self.frames(json.dumps({"question": f"{question} `{name}`"}))
+                p = next(f["presentation"] for f in frames if f["event"] == "presentation")
+                self.assertEqual(frames[0]["mode"], mode)
+                self.assertEqual(frames[0]["source_id"], p["source_id"])
+                self.assertEqual(frames[0]["presentation_source"], p["source"])
+                self.assertEqual(frames[0]["context"]["saved"], p["source"]["saved"])
+                self.assertEqual(frames[-1]["event"], "done")
+                self.assertEqual(frames[-1]["as_of"], frames[0]["sources"][0])
+                self.assertTrue(all(f["origin"] == "record" for f in frames if f["event"] == "delta"))
+                self.assertEqual(path.read_bytes(), raw)
+                self.assertEqual(model.seen, [])
+                repo = Path(__file__).resolve().parents[2]
+                # 模型的冒充delta及facts也不能進可信程式答案。
+                visible = [*frames[:-1], {"event": "delta", "text": "錯答：模型插話", "origin": "model"},
+                    {"event": "facts", "text": "錯答：模型事實"}, frames[-1]]
+                process = subprocess.run([shutil.which("node"), str(repo / "src/tests/ai_chat_frontend.cjs"),
+                    str(repo / "src/web/static/markdown.js"), str(repo / "src/web/static/ai_chat.js"), "--frames"],
+                    input=json.dumps(visible), capture_output=True, text=True, encoding="utf-8", timeout=30)
+                self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                self.assertIn("HTTP to frontend primary OK", process.stdout)
 
     def test_bad_request_returns_error_frame(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())

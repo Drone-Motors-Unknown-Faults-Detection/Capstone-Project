@@ -96,11 +96,12 @@
           if (!line.startsWith("data: ") || completed) continue;
           const f = JSON.parse(line.slice(6));
           if (failed && f.event !== "done") continue;
-          if (f.event === "mode" && ["matrix_summary", "record_timing", "verified_fallback"].includes(f.mode) && !answer && !presentation) {
+          if (f.event === "mode" && ["matrix_summary", "record_timing", "data_usage", "exp2_metrics", "verified_fallback"].includes(f.mode) && !answer && !presentation) {
             binding = f; responseMode = f.mode; responseContext = f.context;
             box.setAttribute("data-response-mode", responseMode);
             progress.textContent = responseMode === "matrix_summary" ? "正在核算矩陣" :
-              responseMode === "record_timing" ? "正在讀取時間欄位" : "查詢未完整完成";
+              responseMode === "record_timing" ? "正在讀取時間欄位" :
+              ["data_usage", "exp2_metrics"].includes(responseMode) ? "正在核對保存欄位" : "查詢未完整完成";
             addSources(f.source_records || f.sources);
           }
           else if (f.event === "presentation") {
@@ -114,7 +115,7 @@
             addSources(f.source_records || f.sources);
           }
           else if (f.event === "facts") {
-            if (["matrix_summary", "record_timing"].includes(responseMode)) continue;
+            if (["matrix_summary", "record_timing", "data_usage", "exp2_metrics"].includes(responseMode)) continue;
             if (!factsBox) {
               factsBox = document.createElement("div"); factsBox.className = "ai-facts";
               factsBox.style.whiteSpace = "pre-wrap"; box.appendChild(factsBox);
@@ -124,7 +125,7 @@
           }
           else if (f.event === "delta") {
             if (responseMode === "matrix_summary" && f.origin !== "matrix") continue;
-            if (responseMode === "record_timing" && f.origin !== "record") continue;
+            if (["record_timing", "data_usage", "exp2_metrics"].includes(responseMode) && f.origin !== "record") continue;
             if (responseMode === "verified_fallback" && f.origin !== "fallback") continue;
             if (typeof f.text !== "string") throw new Error("回覆文字格式無效");
             answer += f.text;
@@ -165,7 +166,7 @@
           aiHistory.push({role: "user", content: question});
           if (responseMode === "model") aiHistory.push({role: "assistant", content: answer});
         }
-        aiContext = ["matrix_summary", "record_timing"].includes(responseMode) ? responseContext : null;
+        aiContext = ["matrix_summary", "record_timing", "data_usage", "exp2_metrics"].includes(responseMode) ? responseContext : null;
       }
     } catch (e) {
       failed = true; box.className = "ai-msg error"; body.textContent = "連線或回覆失敗：" + e;

@@ -288,3 +288,110 @@ def test_explicit_record_after_restart_does_not_probe_latest(saved_pair):
                          snap={"latest": None, "records": {}}, load_saved=tracker.load_saved,
                          load_selected=tracker.load_saved_record)
     assert str(paths[0]) in frames[0]["sources"][0]
+
+
+def usage_snapshot(counts=(18, 6, 7)):
+    tracker = PlaybackTracker()
+    tracker.record_run("exp1", {"params": {"seed": 17, "dataset": "T2/6000rpm"},
+        "result": {"model": {"classes": [{"config": "8screws",
+            **dict(zip(("n_train", "n_cal", "n_holdout"), counts))}]}}})
+    return tracker.snapshot()
+
+
+def test_data_usage_without_run_cannot_turn_manual_example_into_current_counts():
+    model = fake_model(AIMessage(content="", tool_calls=[
+        {"name": "get_experiment", "args": {"number": "1"}, "id": "usage"}]),
+        AIMessage(content="錯答：這次每顆馬達都用187筆訓練，95%就是分類準確率。"))
+    frames = collect(Assistant("unused", llm=model),
+        "實驗一資料怎麼切？每顆都187筆，95%就是95%分類準確嗎？",
+        snap={"latest": None, "records": {}})
+    assert model.seen == []
+    assert frames[0]["mode"] == "data_usage"
+    assert frames[0]["status"] == "incomplete"
+    visible = "".join(f.get("text", "") for f in frames)
+    assert "60/20/20" in visible and "指定示例" in visible
+    assert "本次未保存" in visible and "不是分類準確率" in visible
+    assert all("錯答" not in f.get("text", "") and f.get("origin") != "model" for f in frames)
+
+
+@pytest.mark.parametrize("counts", [(18, 6, 7), (24, 8, 9)])
+def test_data_usage_reads_actual_saved_model_counts_instead_of_example(counts):
+    frames = collect(OfflineAssistant("unused"), "實驗一這次訓練、校準、holdout用多少筆？",
+                     snap=usage_snapshot(counts))
+    presentation = next(f["presentation"] for f in frames if f["event"] == "presentation")
+    usage = next(s for s in presentation["sections"] if s["id"] == "usage")
+    assert usage["rows"] == [["8screws", *counts]]
+    assert frames[0]["context"]["experiment"] == "exp1"
+    assert "本次已保存" in frames[-1]["text"]
+    assert all(f.get("origin") != "model" for f in frames)
+
+
+def test_data_usage_missing_methods_does_not_invent_document_rules(tmp_path):
+    assistant = OfflineAssistant("unused", knowledge_dir=tmp_path / "missing-kb",
+                                 experiments_dir=tmp_path / "missing-docs")
+    frames = collect(assistant, "實驗一資料如何切分，confidence代表什麼？",
+                     snap={"latest": None, "records": {}})
+    text = frames[-1]["text"]
+    assert "方法文件未提供" in text
+    assert "60/20/20" not in text and "187" not in text
+    assert frames[0]["status"] == "incomplete"
+
+
+@pytest.mark.parametrize("value", [None, True, -1, "18", float("nan"), float("inf")])
+def test_data_usage_invalid_count_never_becomes_a_supported_quantity(value):
+    frames = collect(OfflineAssistant("unused"), "實驗一這次訓練用多少筆？",
+                     snap=usage_snapshot((value, 6, 7)))
+    assert frames[0]["status"] == "incomplete"
+    presentation = next(f["presentation"] for f in frames if f["event"] == "presentation")
+    assert not any(s["id"] == "usage" for s in presentation["sections"])
+
+
+@pytest.mark.parametrize("status", ["running", "stopped", "error"])
+def test_data_usage_unfinished_run_does_not_claim_completed_quantities(status):
+    snap = usage_snapshot()
+    snap["records"]["exp1"]["status"] = status
+    frames = collect(OfflineAssistant("unused"), "實驗一資料切分筆數", snap=snap)
+    assert frames[0]["status"] == "incomplete"
+    assert "尚未完成" in frames[-1]["text"]
+
+
+def test_data_usage_pins_exact_file_across_followup_and_explicit_latest(tmp_path):
+    import hashlib
+    root = tmp_path / "saved"
+    folder = root / "session/experiments"
+    folder.mkdir(parents=True)
+    paths = []
+    for index, count in enumerate((18, 24)):
+        path = folder / f"exp1_2026-10-23-00-00-0{index}.json"
+        path.write_text(json.dumps({"experiment": "exp1", "result": {"model": {"classes": [
+            {"config": "8screws", "n_train": count, "n_cal": 6, "n_holdout": 7}]}}}), encoding="utf-8")
+        paths.append(path)
+    before = [p.read_bytes() for p in paths]
+    tracker = PlaybackTracker(root)
+    assistant = OfflineAssistant("unused")
+    options = dict(snap={"latest": None, "records": {}}, load_selected=tracker.load_saved_record,
+                   load_saved=tracker.load_saved)
+    first = collect(assistant, f"實驗一 `{paths[0].name}` 訓練用多少筆", **options)
+    context = first[0]["context"]
+    follow = collect(assistant, "那校準呢？", context=context, **options)
+    latest = collect(assistant, "實驗一最新結果的切分筆數", context=context, **options)
+    def counts(frames):
+        presentation = next(f["presentation"] for f in frames if f["event"] == "presentation")
+        assert presentation["source"]["saved_sha256"] == hashlib.sha256(
+            before[1 if frames is latest else 0]).hexdigest()
+        return next(s["rows"] for s in presentation["sections"] if s["id"] == "usage")
+    assert counts(first) == counts(follow) == [["8screws", 18, 6, 7]]
+    assert counts(latest) == [["8screws", 24, 6, 7]]
+    assert [p.read_bytes() for p in paths] == before
+
+
+def test_data_usage_conflicting_context_and_large_source_do_not_reach_model():
+    frames = collect(OfflineAssistant("unused"), "實驗一資料切分", snap=usage_snapshot(),
+                     context={"experiment": "exp2"})
+    assert frames[0]["event"] == "error"
+    snap = usage_snapshot()
+    snap["records"]["exp1"]["params"]["padding"] = "x" * 9000
+    frames = collect(OfflineAssistant("unused"), "實驗一資料切分", snap=snap)
+    assert frames[0]["status"] == "incomplete"
+    assert not any(f["event"] == "presentation" for f in frames)
+    assert "不完整" in frames[-1]["text"]

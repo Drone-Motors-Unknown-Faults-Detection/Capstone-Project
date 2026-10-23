@@ -65,6 +65,15 @@ class Exp6BenchmarkTests(unittest.TestCase):
                     self.assertEqual(row["mahalanobis_method"], covariance)
                     self.assertEqual(row["distance_metric"], f"{covariance}_mahalanobis")
 
+    def test_api_environment_uses_actual_data_root(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory) / "actual_features")
+            with patch("sys.argv", ["api", "--data-root", "missing_fixture_root"]):
+                result = run(root, openset_method="knn", require_nine=False)
+            self.assertEqual(result["environment"]["data"]["dataset_fingerprint"],
+                             result["source"]["dataset_fingerprint"])
+            self.assertEqual(result["environment"]["data"]["status"], "VERIFIED")
+
     def test_exp6_calls_shared_factory_and_canonicalizes_alias(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory))

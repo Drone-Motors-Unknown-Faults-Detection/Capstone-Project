@@ -12,9 +12,10 @@ from typing import Sequence
 import numpy as np
 import pandas as pd
 
-from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, make_split
 from core.logger import setup_run
 from core.openset import resolve_openset_config
+from core.runner import run_root_sources
 from core.runtime_environment import git_head
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
@@ -64,6 +65,7 @@ def run(
     *,
     require_nine: bool = True,
     pool_cache=None,
+    output_dir=None,
 ) -> dict:
     """Run one seed/method across all formal conditions.
 
@@ -72,6 +74,14 @@ def run(
     evaluation only; they never alter the health scale.
     """
 
+    return run_root_sources(_run, data_root, output_dir=output_dir, pool_cache=pool_cache,
+                            seed=seed, openset_method=openset_method,
+                            mahalanobis_method=mahalanobis_method, confidence=confidence,
+                            knn_neighbors=knn_neighbors, require_nine=require_nine)
+
+
+def _run(data_root, seed, openset_method, mahalanobis_method, confidence,
+         knn_neighbors, require_nine, *, source_run):
     resolved = resolve_openset_config(openset_method, confidence=confidence,
                                       mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
     canonical_method = resolved["openset_method"]
@@ -83,14 +93,21 @@ def run(
     random.seed(seed)
     rng = np.random.default_rng(seed)
     rows: list[dict] = []
+    fit_audit = {}
     for dataset in datasets:
-        pools = pool_cache.load(dataset["path"]) if pool_cache is not None else load_pools(dataset["path"])
+        pools = source_run.load(dataset)
         healthy_pool = pools[HEALTHY]
         split = make_split(len(healthy_pool), rng)
         X_train = healthy_pool[split.train]
         X_cal = healthy_pool[split.cal]
         X_known = healthy_pool[split.holdout]
         unknown_configs = [config for config in sorted(pools) if config != HEALTHY]
+        fit_audit[dataset_key(dataset["motor"], dataset["rpm"])] = {
+            "known_configuration": HEALTHY, "train": split.train.tolist(),
+            "calibration": split.cal.tolist(), "known_test": split.holdout.tolist(),
+            "unknown_test": {config: {"pool_start": 0, "pool_stop": len(pools[config])}
+                             for config in unknown_configs},
+            "row_semantics": "zero_based_clean_pool_indices_not_raw_windows"}
         if not unknown_configs:
             raise ValueError(f"{dataset['motor']}/{dataset['rpm']} has no unknown configurations")
         X_unknown = np.vstack([pools[config] for config in unknown_configs])
@@ -163,16 +180,17 @@ def run(
         "seed": int(seed),
         "confidence": float(confidence),
         "formal_condition_count": len(rows),
-        "dataset_root": data_path.name,
+        "dataset_root": "formal_features",
         "dataset_fingerprint": _dataset_fingerprint(data_path),
         "score_direction": "higher_is_worse",
         "health_direction": "higher_is_better",
         "health_interpretation": "relative calibration only; no physical damage or RUL claim",
         "unknown_calibration_leakage": False,
         "rul_available": False,
-        "commit_sha": git_head(Path(__file__).resolve().parents[2]) or "unknown",
+        "commit_sha": git_head() or "unknown",
         "python": platform.python_version(),
         "rows": rows,
+        "fit_audit": fit_audit,
     }
 
 
@@ -192,8 +210,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_index_benchmark", data_root=args.data_root)
-    log.info(f"參數：{vars(args)}")
+    log, paths = setup_run("exp8_health_index_benchmark", unique=True, data_root=args.data_root)
+    log.info("執行實驗八健康指數比較；來源絕對路徑僅留本機 sidecar")
     result = run(
         args.data_root,
         seed=args.seed,
@@ -202,6 +220,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         confidence=args.confidence,
         knn_neighbors=args.knn_neighbors,
         require_nine=not args.allow_partial,
+        output_dir=paths.output_dir,
     )
     (paths.output_dir / "result.json").write_text(
         json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

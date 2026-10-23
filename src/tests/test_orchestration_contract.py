@@ -22,7 +22,7 @@ import pandas as pd
 from core.feature_schema import SCHEMAS
 from experiments import exp6_formal_benchmark as formal
 from experiments import exp6_matrix as matrix
-from tests.exp6_fixture import condition_row
+from tests.exp6_fixture import condition_row, producer_result, source_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 BASE = "39d39931e9573d6b70b3822420b085aa496f52da"  # exp6 orchestration 基準 commit
@@ -156,6 +156,8 @@ class MatrixContract(unittest.TestCase):
 
     def _run(self, module, output: Path, fail: set[str] = frozenset(), resume: bool = True) -> tuple[dict, list]:
         calls = []
+        data = source_fixture(output.parent / "features")
+        fingerprint = matrix.capture_source(data)[0]["dataset_fingerprint"]
 
         def fake_run(data_path, *, seed, openset_method, require_nine, **_):
             run_id = matrix.run_key("T1", "6000rpm", seed, openset_method)
@@ -164,21 +166,27 @@ class MatrixContract(unittest.TestCase):
                 raise RuntimeError("注入中斷")
             row = condition_row("T1", "6000rpm", seed, openset_method)
             other = dict(row, motor="T3", rpm="8000rpm", dataset="T3/8000")
-            return {"status": "completed", "method": openset_method, "seed": seed, "dataset_fingerprint": "fp",
-                    "commit_sha": "fixture", "formal_condition_count": 2, "rows": [other, row]}
+            return dict(producer_result(data_path, row), formal_condition_count=2, rows=[other, row])
 
         with patch.object(module, "expected_run_matrix", side_effect=lambda *a, **k: self._entries()), \
-                patch.object(module, "dataset_fingerprint", return_value="fp"), \
+                patch.object(module, "dataset_fingerprint", return_value=fingerprint), \
                 patch.object(module, "run", side_effect=fake_run):
-            manifest = module.run_matrix("data", output, seeds=(42, 123), methods=("mahalanobis", "knn"),
+            manifest = module.run_matrix(data, output, seeds=(42, 123), methods=("mahalanobis", "knn"),
                                          resume=resume)
         return manifest, calls
 
     @staticmethod
     def _stable(manifest: dict) -> dict:
-        drop = {"started_at_utc", "finished_at_utc", "duration_seconds"}
-        stable = {k: v for k, v in manifest.items() if k not in drop}
-        stable["runs"] = [{k: v for k, v in run.items() if k not in drop} for run in manifest["runs"]]
+        volatile = {"started_at_utc", "finished_at_utc", "duration_seconds"}
+        metadata = {"schema_version", "contract", "contract_sha256", "environment", "fingerprint_version",
+                    "data_version", "source_verification_status", "private_context_id"}
+        run_metadata = {"artifact_sha256", "fingerprint_version", "data_version", "attempt_history", "error", "error_type"}
+        stable = {k: v for k, v in manifest.items() if k not in volatile | metadata}
+        stable["runs"] = [{k: v for k, v in run.items() if k not in volatile | run_metadata}
+                          for run in manifest["runs"]]
+        for original, normalized in zip(manifest["runs"], stable["runs"]):
+            if original.get("error_type") or original.get("error"):
+                normalized["error_type"] = original.get("error_type") or original["error"].split(":", 1)[0]
         return stable
 
     def test_signatures_only_grow(self) -> None:
@@ -195,7 +203,14 @@ class MatrixContract(unittest.TestCase):
                 for name in ("summary.json", "results.csv"):
                     old_bytes = (roots[0] / "runs" / entry["run_id"] / name).read_bytes()
                     new_bytes = (roots[1] / "runs" / entry["run_id"] / name).read_bytes()
-                    self.assertEqual(new_bytes, old_bytes, f"{entry['run_id']}/{name}")
+                    if name == "results.csv":
+                        self.assertEqual(new_bytes, old_bytes, f"{entry['run_id']}/{name}")
+                    else:
+                        import json
+                        new = json.loads(new_bytes)
+                        self.assertIn("matrix_provenance", new)
+                        new.pop("matrix_provenance")
+                        self.assertEqual(new, json.loads(old_bytes))
 
     def test_interrupted_run_is_recorded_and_only_it_reruns(self) -> None:
         failing = matrix.run_key("T1", "6000rpm", 42, "knn")
@@ -209,7 +224,7 @@ class MatrixContract(unittest.TestCase):
             first, second, calls = results[1]
             self.assertEqual((first["status"], first["failed_runs"]), ("incomplete", 1))
             failed = next(run for run in first["runs"] if run["run_id"] == failing)
-            self.assertEqual(failed["error"], "RuntimeError: 注入中斷")
+            self.assertEqual(failed["error_type"], "RuntimeError")
             self.assertEqual(calls, [failing])
             self.assertEqual(second["status"], "completed")
 
@@ -220,16 +235,19 @@ class MatrixContract(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as directory:
             errors = []
+            data = source_fixture(Path(directory) / "features")
+            fingerprint = matrix.capture_source(data)[0]["dataset_fingerprint"]
             for module, root in ((self.old, Path(directory) / "old"), (matrix, Path(directory) / "new")):
                 with patch.object(module, "expected_run_matrix", side_effect=lambda *a, **k: self._entries()[:1]), \
-                        patch.object(module, "dataset_fingerprint", return_value="fp"), \
+                        patch.object(module, "dataset_fingerprint", return_value=fingerprint), \
                         patch.object(module, "run", side_effect=zero_rows):
-                    manifest = module.run_matrix("data", root, seeds=(42,), methods=("mahalanobis",))
-                errors.append(manifest["runs"][0]["error"])
+                    manifest = module.run_matrix(data, root, seeds=(42,), methods=("mahalanobis",))
+                failed = manifest["runs"][0]
+                errors.append(failed.get("error_type") or failed["error"].split(":", 1)[0])
                 log = (root / "runs" / manifest["runs"][0]["run_id"] / "run.log").read_text(encoding="utf-8")
                 self.assertIn("status=failed", log)
             self.assertEqual(errors[1], errors[0])
-            self.assertEqual(errors[0], "ValueError: expected one row for T1/6000rpm, found 0")
+            self.assertEqual(errors[0], "ValueError")
 
 
 if __name__ == "__main__":

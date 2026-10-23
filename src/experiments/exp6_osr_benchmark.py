@@ -24,14 +24,19 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, make_split, discover_datasets
 from core.detectors import ALL_DETECTORS
 from core.logger import save_plot, setup_run
 from core.openset import openset_metrics
-from core.runner import save_json
+from core.runner import run_root_sources, save_json
 
 
-def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> dict:
+def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95, *, output_dir=None) -> dict:
+    return run_root_sources(_run, data_root, output_dir=output_dir,
+                            seed=seed, confidence=confidence)
+
+
+def _run(data_root, seed, confidence, *, source_run) -> dict:
     datasets = discover_datasets(data_root)
     if not datasets:
         # 空資料根不能算成 NaN 再讓 save_json 崩潰；與 exp6_formal_benchmark 一樣先拒絕（#285 R2-04）
@@ -42,7 +47,7 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> di
     rows = []
     for ds in datasets:
         key = dataset_key(ds["motor"], ds["rpm"])
-        pools = load_pools(ds["path"])
+        pools = source_run.load(ds)
         sp = make_split(len(pools[HEALTHY]), rng)
         X_tr = pools[HEALTHY][sp.train]
         X_ca = pools[HEALTHY][sp.cal]
@@ -111,9 +116,9 @@ def main() -> None:
     parser.add_argument("--confidence", type=float, default=0.95)
     args = parser.parse_args()
 
-    log, paths = setup_run("exp6_osr_benchmark", data_root=args.data_root)
+    log, paths = setup_run("exp6_osr_benchmark", unique=True, data_root=args.data_root)
     log.info(f"實驗六：OSR 方法基準比較（seed={args.seed}）")
-    result = run(args.data_root, args.seed, args.confidence)
+    result = run(args.data_root, args.seed, args.confidence, output_dir=paths.output_dir)
 
     import pandas as pd
 

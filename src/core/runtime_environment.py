@@ -35,8 +35,26 @@ def _git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
-def git_head(root: Path) -> str | None:
+def _program_root() -> Path | None:
+    """只辨識實際載入的 src/core 程式樹，不借用呼叫端工作目錄。"""
+    try:
+        module = Path(__file__).resolve()
+        if module.parent.name == "core" and module.parent.parent.name == "src":
+            root = module.parents[2]
+            if (root / "pyproject.toml").is_file():
+                return root
+    except OSError:
+        pass
+    return None
+
+
+def git_head(root: Path | None = None) -> str | None:
     """HEAD 的 commit SHA；沒有 git、沒有 .git 或逾時都回 None，不中斷呼叫端。"""
+    if root is None:
+        root = _program_root()
+        top = _git(root, "rev-parse", "--show-toplevel") if root is not None else None
+        if not top or Path(top).resolve() != root:
+            return None
     return _git(Path(root), "rev-parse", "HEAD")
 
 
@@ -52,8 +70,11 @@ def blas_info() -> dict:
         return {"blas": None, "blas_version": None, "lapack": None, "status": "UNKNOWN"}
 
 
-def source_data_info(public: dict) -> dict:
-    """把 core.provenance.capture_source 的公開紀錄縮成 environment.json 的 data 欄；不再重算雜湊。"""
+def source_data_info(public: dict | None) -> dict:
+    """重用公開來源摘要；None表示未驗證記憶體來源，不掃描另一份資料。"""
+    if public is None:
+        return {"content_version": None, "dataset_fingerprint": None, "n_files": 0,
+                "status": "UNKNOWN", "reason": "UNVERIFIED_MEMORY"}
     return {"content_version": public["schema_version"], "dataset_fingerprint": public["dataset_fingerprint"],
             "n_files": len(public["files"]), "status": "VERIFIED"}
 
@@ -76,20 +97,29 @@ def data_info(data_root: str | Path) -> dict:
                 "error_type": type(exc).__name__}
 
 
-def collect_environment(root: Path | None = None, data_root: str | Path | None = None, *,
-                        data: dict | None = None) -> dict:
-    """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。
-
-    ``data_root`` 由呼叫端（CLI 的 ``--data-root``、Web 的 ``args.data_root``）明確傳入，
-    沒傳就記預設的 ``data``（不再從 sys.argv 推斷，#269）。``data`` 給定時直接採用
-    已算好的 data_info（例如 exp6 正式版 run() 已 capture_source 過），不再雜湊一次。
-    """
-    root = Path.cwd() if root is None else Path(root)
-    top = _git(root, "rev-parse", "--show-toplevel")
+def collect_environment(root: Path | None = None, data_root: str | Path | None = None,
+                        *, data: dict | None = None) -> dict:
+    """依載入程式定位Git／lock；明確資料根或既有data摘要不從argv推斷。"""
+    explicit = root is not None
+    root = Path(root) if explicit else _program_root()
+    top = _git(root, "rev-parse", "--show-toplevel") if root is not None else None
+    git_reason = "GIT_UNAVAILABLE_OR_INCOMPLETE" if root is not None else "PROGRAM_ROOT_UNAVAILABLE"
+    if not explicit and top and Path(top).resolve() != root:
+        # 匯出程式樹可能放在另一個 repo 裡；外層版本不能替這份程式背書。
+        top = None
+        git_reason = "NOT_PROGRAM_CHECKOUT"
     head = git_head(root) if top else None
     dirty = _git(root, "status", "--porcelain", "--untracked-files=no") if top else None
-    constraint = Path(top) / "uv.lock" if top else root / "uv.lock"
-    constraint_sha = sha256_file(constraint) if constraint.is_file() else None
+    constraint_root = Path(top) if explicit and top else root
+    constraint_sha = None
+    lock_reason = "LOCK_MISSING" if constraint_root is not None else "PROGRAM_ROOT_UNAVAILABLE"
+    if constraint_root is not None:
+        try:
+            constraint_sha = sha256_file(constraint_root / "uv.lock")
+        except FileNotFoundError:
+            pass
+        except OSError:
+            lock_reason = "LOCK_UNREADABLE"
     packages = {}
     for distribution in metadata.distributions():
         name = distribution.metadata.get("Name")
@@ -108,6 +138,11 @@ def collect_environment(root: Path | None = None, data_root: str | Path | None =
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},
         "constraints_sha256": constraint_sha,
+        "program_source": {"schema_version": "program_location_v1",
+                           "selection": "EXPLICIT_ROOT" if explicit else "LOADED_MODULE",
+                           "git_reason": None if head and dirty is not None else git_reason,
+                           "lock_status": "VERIFIED" if constraint_sha is not None else "UNKNOWN",
+                           "lock_reason": None if constraint_sha is not None else lock_reason},
         "scope": "呼叫 setup_run 的執行；版本紀錄不等於依賴相容或資料獨立性驗證",
     }
 

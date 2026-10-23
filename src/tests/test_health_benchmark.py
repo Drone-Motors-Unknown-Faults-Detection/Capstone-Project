@@ -107,6 +107,11 @@ class HealthBenchmarkTests(unittest.TestCase):
                     logger.remove()
                     os.chdir(previous)
             expected = run(root, seed=42, require_nine=False)
+            source_cli = saved.pop("provenance")["source"]
+            source_api = expected.pop("provenance")["source"]
+            self.assertEqual(source_cli["data_version"], source_api["data_version"])
+            self.assertEqual(source_cli["datasets"]["T1/8000"]["row_mapping"],
+                             source_api["datasets"]["T1/8000"]["row_mapping"])
             self.assertEqual(saved, json.loads(json.dumps(expected)))
             self.assertEqual(len(table), len(expected["rows"]))
         finally:

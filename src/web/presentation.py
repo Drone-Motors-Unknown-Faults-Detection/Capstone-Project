@@ -23,6 +23,7 @@ EXP2_METRICS = {
 FINAL_EVAL_METRICS = {
     "known_rate": ("重播結束後該配置外部評估列被任一新類接受的比例", "n"),
     "matched_rate": ("重播結束後該配置外部評估列被判進事後多數等於該配置的新類的比例（事後對照）", "n"),
+    "unknown_rate": ("重播結束後仍被拒絕為未知；不是學會前未知召回", "n"),
 }
 
 
@@ -37,21 +38,42 @@ def _metric_row(container: dict, key: str, meaning: str, denominator_key, **wher
     status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
     if denominator is not None and not count_valid:
         status, valid = "INVALID_DENOMINATOR", False
-    return {**where, "metric": key, "meaning": meaning, "value": value if valid else None,
-            "denominator": denominator if count_valid else None, "status": status}
+    return {**where, "metric": key, "meaning": meaning, "value": value if valid and count_valid else None,
+            "denominator": denominator if count_valid else None, "denominator_required": denominator_key is not None,
+            "status": status}
 
 
 def exp2_metric_contract(result, budget=6000):
     """只標示既有比例的資料角色與分母欄位；不重算統計或補推未知指標。"""
     if not isinstance(budget, int) or isinstance(budget, bool) or budget < 1:
         raise ValueError("摘要預算必須為正整數")
-    contract = {"version": "exp2_metric_semantics_v1", "status": "complete", "rows": [],
+    contract = {"version": "exp2_metric_semantics_v2", "status": "complete", "rows": [], "tables": [],
                 "unknown_auroc": "NOT_PROVIDED", "unknown_recall": "NOT_PROVIDED"}
     lines = ["【實驗二指標契約：保存結果的事後評估，不是即時配置辨識】",
              "比例原值介於 0 與 1；分母只讀保存欄位，缺值不由示例或其他實驗補入。",
              "own_holdout_acc 不等於未知召回；eval_known_rate 不要求判對自身配置；純度不參與線上病因判定。",
              "本份彙總未提供可核算的未知 AUROC／未知召回，不能從群內準確率推估。"]
+    def saved_rows(item, definitions, timepoint, index, config):
+        selected = {}
+        for key, (meaning, denominator_key) in definitions.items():
+            if key not in item:
+                continue
+            row = _metric_row(item, key, meaning, denominator_key,
+                              stage_index=index if timepoint == "stage" else "final_eval",
+                              config=config, configuration=config, timepoint=timepoint)
+            if row["status"] != "VERIFIED_SAVED_FIELDS":
+                contract["status"] = "incomplete"
+            contract["rows"].append(row)
+            selected[key] = row
+        return [(f"{selected[key]['value']}（n={selected[key]['denominator']}）" if selected[key]["denominator_required"] else
+                 f"{selected[key]['value']}（此欄未定義分母）")
+                if key in selected and selected[key]["status"] == "VERIFIED_SAVED_FIELDS" else
+                selected[key]["status"] if key in selected else "未保存" for key in definitions]
+
     stages = result.get("stages") if isinstance(result, dict) else None
+    stage_table = {"id": "stages", "title": "各段學會當下的保存欄位",
+                   "headers": ["階段（零起算）", "注入配置（事後）", "候選群多數（事後）", "對上本段配置（事後）",
+                               *EXP2_METRICS], "rows": []}
     if not isinstance(stages, list) or not stages:
         contract["status"] = "incomplete"
         lines.append("缺少有效 stages，未列推測數字。")
@@ -60,41 +82,52 @@ def exp2_metric_contract(result, budget=6000):
             if not isinstance(stage, dict):
                 contract["status"] = "incomplete"
                 continue
-            for key, (meaning, denominator_key) in EXP2_METRICS.items():
-                if key in stage:
-                    contract["rows"].append(_metric_row(stage, key, meaning, denominator_key, stage_index=index))
-        final_eval = result.get("final_eval")
-        for config, breakdown in (final_eval.items() if isinstance(final_eval, dict) else ()):
-            if not isinstance(breakdown, dict):
+            config = stage.get("config") if isinstance(stage.get("config"), str) else None
+            values = saved_rows(stage, EXP2_METRICS, "stage", index, config)
+            if any(key in stage for key in EXP2_METRICS):
+                matched = stage.get("matched")
+                is_config = stage.get("matched_is_config")
+                stage_table["rows"].append([index, config or "未保存配置",
+                    matched if isinstance(matched, str) else "未保存",
+                    ("是" if is_config else "否") if isinstance(is_config, bool) else "未保存", *values])
+    final_table = {"id": "final", "title": "全部階段結束後的外部評估",
+                   "headers": ["事後配置", *FINAL_EVAL_METRICS], "rows": []}
+    final = result.get("final_eval") if isinstance(result, dict) else None
+    if isinstance(final, dict):
+        for config, item in final.items():
+            if not isinstance(item, dict):
                 contract["status"] = "incomplete"
                 continue
-            for key, (meaning, denominator_key) in FINAL_EVAL_METRICS.items():
-                if key in breakdown:
-                    contract["rows"].append(_metric_row(breakdown, key, meaning, denominator_key,
-                                                        stage_index="final_eval", config=str(config)))
-        totals = {k: result.get(k) for k in ("n_stages", "n_learned", "n_matched_config")}
-        if all(isinstance(v, int) and not isinstance(v, bool) for v in totals.values()):
-            # #286：形成新類（discovered）不等於辨識出該段配置；兩個總數由實驗層算好，這裡只轉述
-            contract["totals"] = totals
-            lines.append(f"形成新類 {totals['n_learned']}／{totals['n_stages']} 段；對上本段配置 "
-                         f"{totals['n_matched_config']}／{totals['n_stages']} 段（matched_is_config，事後對照）。"
-                         "形成新類只表示該段學到一個 discovered-N，不表示辨識出該段配置。")
-        if any(r["status"] != "VERIFIED_SAVED_FIELDS" for r in contract["rows"]):
-            contract["status"] = "incomplete"
-        rows = [[r["stage_index"] if "config" not in r else f"final_eval：{r['config']}",
-                 r["metric"], r["value"], r["denominator"], r["meaning"], r["status"]]
-                for r in contract["rows"]]
-        if not rows:
-            contract["status"] = "incomplete"
-        lines.append(table_text(["階段（零起算）", "欄位", "保存比例", "保存分母", "意思", "欄位狀態"], rows))
-    lines += ["VERIFIED_SAVED_FIELDS 只表示保存欄位的型別與分母齊全，不表示採集獨立或模型可靠。",
-              "final_eval 的 known_rate 是外部列被任一新類接受的比例，unknown_rate 是仍被拒絕的比例，"
-              "matched_rate 才要求判進事後多數等於該配置的新類；三者都不是自身配置分類準確率。",
+            values = saved_rows(item, FINAL_EVAL_METRICS, "final", None, config)
+            if any(key in item for key in FINAL_EVAL_METRICS):
+                final_table["rows"].append([f"final_eval：{config}", *values])
+    else:
+        contract["status"] = "incomplete"
+        lines.append("未保存有效final_eval，不由stage資料補出全部階段結束後的結果。")
+    totals = {k: result.get(k) for k in ("n_stages", "n_learned", "n_matched_config")} if isinstance(result, dict) else {}
+    if totals and all(isinstance(v, int) and not isinstance(v, bool) for v in totals.values()):
+        # #286：形成新類（discovered）不等於辨識出該段配置；兩個總數由實驗層算好，這裡只轉述
+        contract["totals"] = totals
+        lines.append(f"形成新類 {totals['n_learned']}／{totals['n_stages']} 段；對上本段配置 "
+                     f"{totals['n_matched_config']}／{totals['n_stages']} 段（matched_is_config，事後對照）。"
+                     "形成新類只表示該段學到一個 discovered-N，不表示辨識出該段配置。")
+    if not contract["rows"]:
+        contract["status"] = "incomplete"
+    contract["tables"] = [table for table in (stage_table, final_table) if table["rows"]]
+    for table in contract["tables"]:
+        lines += [table["title"], table_text(table["headers"], table["rows"])]
+    lines.append(table_text(["欄位", "意思"], [[key, value[0]] for key, value in
+        [*EXP2_METRICS.items(), *FINAL_EVAL_METRICS.items()]]))
+    lines += ["VERIFIED_SAVED_FIELDS 只表示比例有效且符合該欄分母規格；未定義分母的欄位不補造分母，不表示採集獨立或模型可靠。",
+              "stage與final_eval的時點分開；known_rate不要求判對自身配置，matched_rate才要求對應，但屬事後對照，不是線上病因辨識。",
+              "matched_rate 才要求判進事後多數等於該配置的新類；這仍是事後對照。",
+              "缺值、缺必要分母或無效欄位不顯示數值；未從另一欄、另一時點或rounded比例反推成功筆數。",
               "confidence=0.95 是校準距離分位數，不是 95% 正確機率；187／62／64 只屬手冊的指定示例。",
               "同池 20% 外部列未參與重播，仍不等於新採集或 fresh final；相對量尺不是損壞百分比或 RUL。"]
     text = "\n\n".join(lines)
     if len(text) > budget:
         contract["status"] = "incomplete"
+        contract["budget_exceeded"] = True
         warning = "【摘要不完整】實驗二來源、指標及分母超出摘要預算；請讀指定原檔，不截出數字推估未知召回或 AUROC。"
         text = warning if len(warning) <= budget else "不完整" if budget >= 3 else "略"
     contract["text"] = text
@@ -166,7 +199,7 @@ def source_sections(source):
     scope_text = {"batch_execution": "包含載入、運算與結果轉換；不含存檔及HTTP傳輸。",
                   "stream_elapsed_including_playback": "包含播放等待的串流經過時間，不是純模型計算耗時。"}.get(scope, "原檔未提供耗時邊界。")
     rows = [["實驗", "實驗十二｜混淆矩陣與 t-SNE" if source.get("exp_id") == "exp12" else string(source.get("exp_id"))],
-            ["狀態", {"done": "已完成", "running": "執行中", "error": "失敗", "stopped": "已停止"}.get(source.get("status"), "未提供")],
+            ["狀態", {"done": "已完成", "running": "執行中", "error": "失敗", "stopped": "已停止", "incomplete": "未完整完成"}.get(source.get("status"), "未提供")],
             ["執行方式", method], ["紀錄來源", "讀取既有存檔" if mode == "saved" else "本次執行紀錄" if mode in ("run", "stream") else "未提供"],
             ["開始時間", display_time(timing["started_at"])], ["完成時間", display_time(timing["finished_at"])],
             ["顯示時區", "明確時區者使用Asia/Taipei（UTC+08:00）；無時區者保留原值"],
@@ -199,6 +232,76 @@ def new_presentation(source, mode, title, subtitle, sections, status="complete")
     return {"schema_version": VERSION, "mode": mode, "origin": "matrix" if mode == "matrix_summary" else "record",
             "source_id": source_id(source), "source": source, "title": title, "subtitle": subtitle,
             "status": status, "sections": sections}
+
+
+def data_usage_contract(result):
+    """只讀保存的模型角色筆數，不由比例、示例或其他實驗推算。"""
+    model = result.get("model") if isinstance(result, dict) else None
+    classes = model.get("classes") if isinstance(model, dict) else None
+    rows = []
+    if isinstance(classes, list):
+        for item in classes:
+            if not isinstance(item, dict) or not isinstance(item.get("config"), str):
+                continue
+            counts = [item.get(key) for key in ("n_train", "n_cal", "n_holdout")]
+            if all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in counts):
+                rows.append([item["config"], *counts])
+    return {"version": "saved_model_usage_v1", "rows": rows,
+            "status": "complete" if rows and len(rows) == len(classes) else "incomplete"}
+
+
+def data_usage_presentation(contract, source, sections):
+    """方法規則、文件示例與當次保存筆數分欄，不交給模型再改寫。"""
+    references = [s for s in sections if s["source"] == "methods.md"]
+    roles = [s for s in references if "60/20/20" in s["body"]]
+    confidence = [s for s in references if "不是每筆 95% 正確機率" in s["body"]]
+    rules = []
+    if roles:
+        rules += ["已知資料的共通切分約定是60/20/20（train／calibration／holdout）；整數筆數以make_split為準，不要求整數分配後比例恰好相等。",
+                  "187／62／64只屬T1／8000rpm健康池313列的指定示例，不是本次或所有工況的固定筆數。",
+                  "初始健康冷啟動的未知配置不參與擬合或校準；候選新類使用通過規則的群，不能套用完整配置池的示例筆數。",
+                  "實驗二每配置預留的20%外部評估，與健康資料20%校準的母群不同，不可互換。"]
+    if confidence:
+        rules.append("confidence=0.95是已知校準距離分位數，不是分類準確率，也不是每筆95%正確機率或跨馬達固定5%誤報保證；legacy的訓練距離門檻另按該方法定義。")
+    if not roles or not confidence:
+        rules.append("方法文件未提供完整可核對的切分／校準說明，未用一般常識或其他實驗補值。")
+    body = [section("rules", "規則與示例", "list", items=rules)]
+    rows = contract.get("rows", []) if source.get("status") == "done" else []
+    if rows:
+        body.append(section("usage", "本次已保存資料（模型摘要時點）", "table",
+                            headers=["模型類別", "train", "calibration", "holdout"], rows=rows))
+        if contract["status"] != "complete":
+            body.append(section("usage_partial", "保存筆數不足", "warning",
+                                items=["部分模型類別的角色筆數缺失或無效；只列欄位齊全的類別，不補值。"]))
+    else:
+        body.append(section("usage_missing", "本次已保存資料", "warning",
+                            items=["本次未保存可核對的模型切分筆數，或該次紀錄尚未完成；無法回答當次實際用量，未以手冊示例代入。"]))
+    body.append(section("limits", "限制", "list", items=[
+        "筆數只讀此來源的model.classes保存欄位；不從比例反推，也不從exp12示例、歷史回答或另一份run補入。",
+        "列級切分互斥不證明錄製、raw視窗或跨馬達獨立，也不證明可靠部署。"] ))
+    source_body, _ = source_sections(source)
+    body.extend(source_body)
+    return new_presentation(source, "data_usage", "資料切分與校準說明", "由程式讀取方法文件及同一筆保存欄位；不是模型自由生成。",
+                            body, "complete" if rows and contract["status"] == "complete" and roles and confidence else "incomplete")
+
+
+def exp2_metric_presentation(contract, source):
+    """共用已驗證的欄位字典與表格；不重算接受率或推估未知指標。"""
+    body = [section("definitions", "指標意思與母群", "table", headers=["欄位", "意思"], rows=[
+        [key, value[0]] for key, value in [*EXP2_METRICS.items(), *FINAL_EVAL_METRICS.items()]])]
+    if contract.get("budget_exceeded"):
+        body.append(section("budget", "摘要不足", "warning", items=[contract["text"]]))
+    else:
+        body += [section(table["id"], table["title"], "table", headers=table["headers"], rows=table["rows"])
+                 for table in contract["tables"]]
+    body.append(section("limits", "限制", "warning", items=[
+        "保存比例介於0與1；n只讀同欄保存分母。未定義分母的合法比例保留，缺必要分母或無效欄位不提供數值。",
+        "被任一新類接受不等於判進對應配置。matched／純度只屬事後對照，不是線上病因辨識。",
+        "final_eval.unknown_rate是學習後仍拒絕，不能改名為學會前未知召回；本份彙總未提供可核算的未知召回或AUROC。",
+        "資料或分母缺失不由其他比例、時點或示例補入；同池外部保留不證明新採集或可靠部署。"] ))
+    source_body, _ = source_sections(source)
+    return new_presentation(source, "exp2_metrics", "實驗二保存指標解讀", "由程式讀取同一份保存欄位；不是模型自由生成。",
+                            [*body, *source_body], contract["status"])
 
 
 def timing_presentation(source):

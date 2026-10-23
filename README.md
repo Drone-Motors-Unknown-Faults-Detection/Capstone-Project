@@ -387,6 +387,10 @@ T1/8000rpm 的逐窗監測：健康 holdout 64 窗 `alarm_state` 全為 normal�
 **AI 問答**：頁面右下角的聊天泡泡（`static/ai_chat.js`、`markdown.js`）呼叫
 `POST /api/assistant/ask`，由 `src/web/assistant.py` 的 LangGraph agent 連本地 OpenAI 相容模型，
 先用工具查實驗頁紀錄、實驗目錄、手冊與 `src/web/knowledge/*.md` 再回答，答案下方列出依據來源。
+一般方法／規格問題另限來源：只檢索知識庫有 `<!-- assistant: method -->` 標記的段落，以及問句指定實驗的
+CATALOG 條目；不載入手冊全文、執行紀錄或舊對話。未列的 CLI、規格與實測成績明說不足。
+問句明確要求結果或存檔時保留結果路徑；切分與指標仍走既有程式保護答案。
+這個問句分流與工具來源限制不驗證模型生成的每項主張，真實模型語意仍需另行驗收。
 模型用 `./scripts/opt/run_llm.sh`（vLLM 或 llama.cpp）或 `docker/vllm.compose.yaml`（NGC vLLM + Qwen3）啟動；
 `run_web.sh --llm-url` 指定端點，預設 `http://127.0.0.1:8000/v1`。
 
