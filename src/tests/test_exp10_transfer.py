@@ -61,6 +61,17 @@ class Exp10TransferTests(unittest.TestCase):
         for row in result["rows"]:
             self.assertNotEqual(row["src"], row["dst"])
 
+    def test_figure_label_counts_actual_pairs(self):
+        """三個工況是 6 組 src→dst，圖表不能寫死 72 組（#305 G-03）。"""
+        figures = []
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            argv = ["exp10_transfer", "--data-root", str(root), "--n-values", "5,10"]
+            with patch("sys.argv", argv), \
+                    patch.object(exp10_transfer, "save_plot", side_effect=lambda fig, *_: figures.append(fig)):
+                exp10_transfer.main()
+        self.assertEqual(figures[0].axes[0].get_ylabel(), "AUROC（跨 6 組 src→dst 配對平均）")
+
     def test_target_support_never_appears_in_eval_metrics(self):
         draws: list[tuple[np.ndarray, np.ndarray]] = []
         healthy_lengths: list[int] = []

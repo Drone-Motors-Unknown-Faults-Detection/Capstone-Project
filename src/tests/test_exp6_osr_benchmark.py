@@ -101,6 +101,11 @@ class Exp6OsrBenchmarkTests(unittest.TestCase):
         self.assertEqual(list(table.columns), list(ROW_KEYS))
         self.assertEqual(len(table), len(self.result["rows"]))
 
+    def test_figure_title_counts_actual_datasets(self):
+        """兩個工況的 fixture，圖表標題不能寫死 9 個資料集（#305 G-03）。"""
+        figure = exp6_osr_benchmark._figure(self.result["summary"], self.result["n_datasets"])
+        self.assertEqual(figure.axes[0].get_title(), "AUROC (mean ± std over 2 datasets)")
+
 
 class OsrBenchmarkInputTests(unittest.TestCase):
     def test_empty_data_root_is_rejected_before_scoring(self):
