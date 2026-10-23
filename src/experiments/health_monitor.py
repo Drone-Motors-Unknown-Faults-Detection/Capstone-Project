@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Sequence
@@ -81,7 +82,8 @@ def iter_run(
     """逐窗產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 相同。
 
     事件依序為 fitted（健康指數模型擬合完成）與每個窗口一個 window（內容同
-    run() 列表的一筆）。
+    run() 列表的一筆）。完整溯源只在 fitted 出現一次；每窗只帶
+    provenance_record_id 指回它，免得每窗重複約 22 KB 的同一份紀錄（#305 G-02）。
     """
     dataset = _dataset(data_root, motor, rpm)
     pools, source_context = load_pool_source(data_root, dataset["path"])
@@ -89,6 +91,12 @@ def iter_run(
         openset_method=openset_method, mahalanobis_method=mahalanobis_method, confidence=confidence,
         knn_neighbors=knn_neighbors, motor_id=motor_id, session_id=session_id,
         max_windows=max_windows, require_identity=require_identity, source_context=source_context)
+
+
+def provenance_record_id(context: dict) -> str:
+    """溯源紀錄的內容雜湊；同一次執行的每窗都指向同一個 ID。"""
+    canonical = json.dumps(context, sort_keys=True, ensure_ascii=False, default=str)
+    return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()[:16]
 
 
 def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanobis",
@@ -117,7 +125,8 @@ def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanob
     monitor = SessionTrajectoryMonitor(model, require_identity=require_identity)
     metadata = model.metadata()
     context["health_calibration"] = metadata["calibration"]
-    yield {"event": "fitted", "model": metadata, "provenance": context}
+    record_id = provenance_record_id(context)
+    yield {"event": "fitted", "model": metadata, "provenance": context, "provenance_record_id": record_id}
     # 8screws 取與擬合不重疊的 holdout；其他配置沒參與擬合，依原順序取整池
     indices = split.holdout if config == HEALTHY else np.arange(len(pools[config]))
     samples = pools[config][indices]
@@ -138,7 +147,7 @@ def _iter_pools(pools, motor, rpm, config, *, seed=42, openset_method="mahalanob
         payload = result.to_dict("full")
         payload["window_index"] = int(index)
         payload["source_pool_index"] = int(indices[index])
-        payload["provenance"] = context
+        payload["provenance_record_id"] = record_id
         yield {"event": "window", "window": payload}
     finish_execution(context, pools, source_context)
 
@@ -166,10 +175,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     log, paths = setup_run("exp8_health_monitor", unique=True, data_root=args.data_root)
     log.info("執行健康指數逐窗回放；來源絕對路徑僅留本機 sidecar")
+    fitted: dict = {}
+
     def collect(pools, *, source_context, **options):
-        return [event["window"] for event in _iter_pools(pools, args.motor,
-            args.rpm if args.rpm.endswith("rpm") else args.rpm + "rpm", args.config,
-            source_context=source_context, **options) if event["event"] == "window"]
+        windows = []
+        for event in _iter_pools(pools, args.motor, args.rpm if args.rpm.endswith("rpm") else args.rpm + "rpm",
+                                 args.config, source_context=source_context, **options):
+            if event["event"] == "fitted":
+                fitted.update(event)
+            elif event["event"] == "window":
+                windows.append(event["window"])
+        return windows
     _, results = run_dataset(args, paths, collect,
         seed=args.seed,
         openset_method=args.openset_method,
@@ -182,7 +198,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         require_identity=not args.allow_no_identity,
     )
     save_json(paths.output_dir / "metadata.json", {
-        "provenance": results[0]["provenance"] if results else None,
+        "provenance": fitted.get("provenance"),
+        "provenance_record_id": fitted.get("provenance_record_id"),
         "configuration": args.config, "output_mode": args.output_mode,
         "source_pool_indices": [row["source_pool_index"] for row in results]})
     lines = []

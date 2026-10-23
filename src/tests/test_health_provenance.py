@@ -71,7 +71,9 @@ def test_monitor_row_positions_and_changed_source_are_not_raw_windows(tmp_path):
     source = fitted["provenance"]["source"]
     assert source["row_semantics"] == "zero_based_clean_csv_data_rows_not_raw_time_windows"
     assert one["window"]["source_pool_index"] != two["window"]["source_pool_index"]
-    assert one["window"]["provenance"]["source"]["data_version"] == source["data_version"]
+    assert one["window"]["provenance_record_id"] == two["window"]["provenance_record_id"] \
+        == fitted["provenance_record_id"]
+    assert "provenance" not in one["window"]
     path = next(root.rglob("*_clean.csv"))
     path.write_bytes(path.read_bytes() + b"\n")
     with pytest.raises(ProvenanceError):
@@ -114,9 +116,13 @@ def test_monitor_health_calibration_is_persisted_in_every_cli_mode(tmp_path, cap
     printed = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
     for actual, expected in zip(printed, windows, strict=True):
         for key, value in actual.items():
-            if key != "provenance":
+            if key != "provenance_record_id":   # 各次載入的私人 sidecar 不同，ID 跟著不同
                 assert value == expected[key]
-    assert all(row["provenance"]["health_calibration"] == calibration for row in windows)
+        assert "provenance" not in actual
+        if mode == "full":
+            assert actual["provenance_record_id"] == saved["provenance_record_id"]
+    assert events[0]["provenance"]["health_calibration"] == calibration
+    assert {row["provenance_record_id"] for row in windows} == {events[0]["provenance_record_id"]}
     assert str(root) not in json.dumps(saved)
 
 
@@ -138,5 +144,5 @@ def test_monitor_calibration_metadata_keeps_all_scientific_windows(tmp_path):
         if left["event"] == "window":
             assert 0 <= left["window"]["source_pool_index"] < 30
             assert {key: value for key, value in left["window"].items()
-                    if key not in {"provenance", "source_pool_index"}} == {
+                    if key not in {"provenance_record_id", "source_pool_index"}} == {
                 key: value for key, value in right["window"].items() if key != "provenance"}

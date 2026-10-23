@@ -171,7 +171,7 @@ uv run --locked python -m experiments.health_monitor --data-root data --motor T1
 uv run --locked python -m experiments.health_monitor --data-root data --motor T1 --rpm 8000rpm --config 5screws --openset-method knn --knn-neighbors 5 --max-windows 5 --output-mode binary --allow-no-identity
 ```
 
-`motor`／`rpm` 必填，rpm 可寫 `8000` 或 `8000rpm`。`config` 須存在，`max_windows` 須為正整數。API `run(...)` 回傳逐窗列表，`iter_run` 先 yield fitted 再 yield window。CLI 先收集完再逐行印 JSON。`full` 含全部欄位，`health` 含指數與狀態，`binary` 只有 `is_fault`。CLI 經 `core.logger.setup_run("exp8_health_monitor")` 初始化：日誌寫 `logs/exp8_health_monitor/{ts}.log`，逐窗結果依 output-mode 寫 `output/exp8_health_monitor/{ts}/windows.jsonl`，一行一窗，與 stdout 相同，另有 `environment.json`。Web 8-3 可批次或 SSE；停止後沒有 done 就不算完整。展示用的 session ID 不能當採集身分。
+`motor`／`rpm` 必填，rpm 可寫 `8000` 或 `8000rpm`。`config` 須存在，`max_windows` 須為正整數。API `run(...)` 回傳逐窗列表，`iter_run` 先 yield fitted 再 yield window。CLI 先收集完再逐行印 JSON。`full` 含全部欄位，`health` 含指數與狀態，`binary` 只有 `is_fault`。CLI 經 `core.logger.setup_run("exp8_health_monitor")` 初始化：日誌寫 `logs/exp8_health_monitor/{ts}.log`，逐窗結果依 output-mode 寫 `output/exp8_health_monitor/{ts}/windows.jsonl`，一行一窗，與 stdout 相同，另有 `environment.json` 與 `metadata.json`。完整溯源（來源、環境、resolved_config、參數與健康校準）只存一份：`iter_run` 的 fitted 事件帶 `provenance` 與 `provenance_record_id`（溯源內容 SHA256 的前 16 碼），每窗只帶同一個 `provenance_record_id`；CLI 把完整溯源寫進 `metadata.json`，Web 8-3 的存檔放在結果標頭的 `provenance`（#305）。Web 8-3 可批次或 SSE；停止後沒有 done 就不算完整。展示用的 session ID 不能當採集身分。
 
 `window_index` 從 0 起。`health_index` 是平滑後指數，`raw_health_index` 是單窗映射。`is_fault` 不由平滑告警決定。`timestamp` 固定 None。故障指數飽和在 0 時，斜率 0 不表示馬達健康。
 

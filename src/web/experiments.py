@@ -229,6 +229,12 @@ def jsonable(value: Any) -> Any:
     return value
 
 
+def _provenance_header(fitted: dict) -> dict:
+    """實驗八 8-3 的 fitted 事件 → 存檔標頭的完整溯源與其 ID。"""
+    return jsonable({"provenance": fitted.get("provenance"),
+                     "provenance_record_id": fitted.get("provenance_record_id")})
+
+
 def _as_int(value: Any) -> int:
     """整數參數：bool 與非整數浮點（2.5）拒絕，2.0 與 "2" 接受；不截斷（#296 R3-04）。"""
     if isinstance(value, bool):
@@ -343,14 +349,26 @@ class ExperimentRunner:
             raise ValueError(f"未知實驗：{exp_id}")
         params = self.clean_params(exp_id, raw_params)
         timer = RunTimer("batch_execution")
+        header: dict = {}
         with self._record_source_failure(exp_id, params):
-            result = jsonable(self._dispatch(exp_id, params))
+            if exp_id == "exp8_monitor":
+                # 逐窗只帶 provenance_record_id；完整溯源取 fitted 事件，放結果標頭一次（#305 G-02）
+                result = []
+                for event in self._dispatch(exp_id, params, entry="iter_run"):
+                    if event["event"] == "fitted":
+                        header = _provenance_header(event)
+                    elif event["event"] == "window":
+                        result.append(event["window"])
+                result = jsonable(result)
+            else:
+                result = jsonable(self._dispatch(exp_id, params))
         payload = {
             "experiment": exp_id,
             "no": spec["no"],
             "code": spec["code"],
             "params": params,
             **timer.finish(),
+            **header,
             "result": result,
         }
         payload["saved"] = self._save(exp_id, payload)
@@ -458,6 +476,7 @@ class ExperimentRunner:
         yield {"event": "start", "params": params, **timer.start_fields()}, 0
         result: Any = None
         windows: list[dict] = []
+        header: dict = {}
         with self._record_source_failure(exp_id, params):
             for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
                 event = jsonable(event)
@@ -478,6 +497,8 @@ class ExperimentRunner:
                     windows.append(event["window"])
                     yield event, 1
                 else:
+                    if kind == "fitted" and exp_id == "exp8_monitor":
+                        header = _provenance_header(event)
                     yield event, 0
         if exp_id == "exp8_monitor":
             result = windows  # 與 health_monitor.run() 的回傳同格式
@@ -487,6 +508,7 @@ class ExperimentRunner:
             "code": spec["code"],
             "params": params,
             **timer.finish(),
+            **header,
             "result": result,
             "streamed": True,
         }
