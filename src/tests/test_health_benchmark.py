@@ -53,6 +53,9 @@ class HealthBenchmarkTests(unittest.TestCase):
             self.assertEqual(result["formal_condition_count"], 1)
             self.assertEqual(result["schema_version"], 2)
             self.assertFalse(result["unknown_calibration_leakage"])
+            # 記實際資料根名稱，跟 exp6_formal 一致（#248、#305 G-01）
+            self.assertEqual(result["dataset_root"], Path(root).resolve().name)
+            self.assertFalse(Path(result["dataset_root"]).is_absolute())
             row = result["rows"][0]
             self.assertIn("health_gap_known_minus_unknown", row)
             self.assertFalse(row["rul_available"])
