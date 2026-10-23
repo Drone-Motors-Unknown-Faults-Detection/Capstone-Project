@@ -276,6 +276,17 @@ class MaterializationSafetyTests(unittest.TestCase):
                     self.assertNotIn(str(root), text)
                     self.assertEqual(json.loads(text)["status"], "COMPLETED")
 
+    def test_run_records_environment_for_source_root(self):
+        """環境紀錄指向實際讀取的 source_root，不是預設 data（#301 F-05）。"""
+        import core.logger
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            stage_source(root / "source")
+            with cwd(root), patch("core.logger.setup_run", wraps=core.logger.setup_run) as setup:
+                formal.run(root / "source", root / "out", stages=["2"])
+            self.assertEqual(setup.call_args.kwargs["data_root"], root / "source")
+
 
 if __name__ == "__main__":
     unittest.main()

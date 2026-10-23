@@ -586,7 +586,10 @@ def run(source_root: Path | str, output_root: Path | str, **options) -> dict:
     """具日誌的物化入口；公開執行摘要不包含私人來源路徑。"""
     from core.logger import setup_run
     from core.provenance import write_private_context
-    log, paths = setup_run("formal_materialization", unique=True)
+    # 物化讀的是 source_root 的階段 ZIP，環境紀錄就指向它（#301 F-05）。ZIP 根沒有 Step-*/myfeature CSV，
+    # data 欄記 UNKNOWN，來源內容改由 summary／manifest 的 archive_sha256 保存；不用 output_root，
+    # 因為 setup_run 在寫入前執行，那時算到的是覆寫前的舊內容。
+    log, paths = setup_run("formal_materialization", unique=True, data_root=source_root)
     try:
         manifest = materialize(source_root, output_root, **options)
         private_id = write_private_context({"schema_version": "private_materialization_context_v1",

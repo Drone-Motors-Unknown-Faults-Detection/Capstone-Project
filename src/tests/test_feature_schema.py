@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -15,7 +16,7 @@ import numpy as np
 import pandas as pd
 from loguru import logger
 
-from core.data import load_pools, make_split, run
+from core.data import dataset_data_root, load_pools, make_split, run
 from core.feature_schema import (SCHEMAS, CONFIGURATIONS, FeatureSchemaError,
                                  validate_pool_coverage)
 from core.formal_data import FEATURE_NAMES
@@ -204,6 +205,26 @@ class FeatureSchemaTests(unittest.TestCase):
             self.assertEqual(child.returncode, 1, child.stderr)
             self.assertIn("ordered_header_mismatch", child.stderr)
             self.assertNotIn(directory, child.stderr)
+
+    def test_run_environment_fingerprints_the_dataset_data_root(self):
+        """稽核的 environment.json 指紋記 RPM 目錄所屬資料根，不是預設 data（#301 F-05）。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            dataset = root / "source/Step-1/myfeature/T1/8000rpm"
+            write(dataset)
+            self.assertEqual(dataset_data_root(dataset), (root / "source").resolve())
+            self.assertEqual(dataset_data_root(root), root.resolve())
+            old_cwd = Path.cwd()
+            try:
+                os.chdir(root)
+                self.assertEqual(run(dataset)["status"], "VERIFIED")
+                environment = next((root / "output/formal_schema_audit").glob("*/environment.json"))
+                data = json.loads(environment.read_text(encoding="utf-8"))["data"]
+            finally:
+                logger.remove()
+                os.chdir(old_cwd)
+        self.assertEqual(data["status"], "VERIFIED")
+        self.assertEqual(data["n_files"], 1)
 
     def test_cli_healthy_only_and_complete_policy_are_distinct(self):
         with tempfile.TemporaryDirectory() as directory:
