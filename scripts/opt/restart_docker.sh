@@ -37,6 +37,9 @@ if [ "$TARGET" != "vllm" ] && [ ! -d data ]; then
     exit 2
 fi
 
+# 先由目前使用者建好掛載目錄；不存在時 docker 會以 root 建立，容器內的 APP_UID 就寫不進去（#311）
+[ "$TARGET" != "vllm" ] && mkdir -p logs output .lineage_private
+
 # vLLM 要 Docker 能把 GPU 交給容器：主機需有 NVIDIA Container Toolkit。
 # 沒有時 compose 會報 could not select device driver "nvidia"；在拆舊容器前先擋下。
 NVIDIA_HOOK="${NVIDIA_HOOK:-nvidia-container-runtime-hook}"

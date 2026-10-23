@@ -48,6 +48,8 @@ services:
           create_host_path: false
       - ../logs:/app/logs
       - ../output:/app/output
+      # 來源綁定的私人 sidecar（core.provenance.write_private_context），容器重建後要留著才能回查（#311）
+      - ../.lineage_private:/app/.lineage_private
     ports:
       - "${WEB_PORT:-8600}:8600"
     extra_hosts:
