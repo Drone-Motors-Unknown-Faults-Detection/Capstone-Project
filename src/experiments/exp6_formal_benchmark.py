@@ -126,10 +126,11 @@ def _condition_metrics(known_scores: np.ndarray, unknown_scores: np.ndarray) -> 
 def _detector_metadata(detector, confidence: float, openset_method: str, knn_neighbors: int) -> dict:
     summaries = detector.class_summaries()
     raw_thresholds = [float(item["threshold"]) for item in summaries]
+    covariance = getattr(detector, "method", None)
     return {
         "openset_method": openset_method,
         "canonical_method": openset_method,
-        "mahalanobis_method": getattr(detector, "method", None),
+        "mahalanobis_method": covariance,
         "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
         "threshold": 1.0,
         "raw_thresholds": raw_thresholds,
@@ -142,7 +143,8 @@ def _detector_metadata(detector, confidence: float, openset_method: str, knn_nei
         "effective_neighbors": [int(item["effective_neighbors"]) for item in summaries]
         if openset_method == "knn"
         else None,
-        "distance_metric": "euclidean" if openset_method == "knn" else "ledoit_wolf_mahalanobis",
+        # 依實際共變異數估計器標（oas／mcd 不再一律寫成 ledoit_wolf，#301 F-09）
+        "distance_metric": "euclidean" if openset_method == "knn" else f"{covariance}_mahalanobis",
         "neighbor_aggregation": "mean_distance" if openset_method == "knn" else None,
     }
 
