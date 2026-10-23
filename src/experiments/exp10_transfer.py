@@ -21,7 +21,7 @@ import numpy as np
 
 from core.data import HEALTHY, dataset_key, discover_datasets, load_pools
 from core.logger import save_plot, setup_run
-from core.monitor import OpenSetMonitor
+from core.monitor import MIN_FIT_ROWS, OpenSetMonitor
 from core.openset import openset_metrics
 from core.runner import save_json
 
@@ -42,16 +42,19 @@ def _draw_support(healthy_pool: np.ndarray, n: int, rng: np.random.Generator) ->
 
 
 def _validate_n_values(n_values: tuple[int, ...], healthy_sizes: dict[str, int]) -> None:
-    """每個 N 都要是正整數，且小於最小目標健康池，否則 support 抽完 eval 集是空的（#271 S5）。"""
+    """每個 N 都要是 MIN_FIT_ROWS 以上的整數，且小於最小目標健康池（#271 S5、#301 F-07）。
+
+    scratch 把 support 再切 60/20/20，N < 5 時 train／cal 會是 0～1 列；N ≥ 最小池則 eval 集是空的。"""
     if not n_values:
         raise ValueError("--n-values 至少要一個 N")
     smallest_key = min(healthy_sizes, key=lambda k: (healthy_sizes[k], k))
     smallest = healthy_sizes[smallest_key]
-    bad = [n for n in n_values if not isinstance(n, (int, np.integer)) or isinstance(n, bool) or n < 1 or n >= smallest]
+    bad = [n for n in n_values if not isinstance(n, (int, np.integer)) or isinstance(n, bool) or n < MIN_FIT_ROWS or n >= smallest]
     if bad:
         raise ValueError(
-            f"--n-values {list(bad)} 不合法：N 必須是 1 到 {smallest - 1} 的整數"
-            f"（最小目標健康池 {smallest_key} 只有 {smallest} 筆，support 之後至少要留一筆評估）"
+            f"--n-values {list(bad)} 不合法：N 必須是 {MIN_FIT_ROWS} 到 {smallest - 1} 的整數"
+            f"（scratch 要把 support 切出 train／cal／holdout；最小目標健康池 {smallest_key} 只有 {smallest} 筆，"
+            f"support 之後至少要留一筆評估）"
         )
 
 
