@@ -22,19 +22,15 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, load_pools, make_split
+from core.data import HEALTHY, make_split
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import save_json
-from core.data import dataset_key, discover_datasets
+from core.runner import run_root_sources, save_json
+from core.data import dataset_key
 
 
 def _dataset_key(ds: dict) -> str:
     return dataset_key(ds["motor"], ds["rpm"])
-
-
-def _load_all(data_root: str) -> dict[str, dict[str, np.ndarray]]:
-    return {_dataset_key(ds): load_pools(ds["path"]) for ds in discover_datasets(data_root)}
 
 
 def _mean_or_none(values: list[float]) -> float | None:
@@ -224,8 +220,14 @@ def _figure(matrix, drift):
 
 
 def run(data_root: str = "data", seed: int = 42, parts: str = "abc",
-        confidence: float = 0.95, method: str = "ledoit_wolf") -> dict:
-    all_pools = _load_all(data_root)
+        confidence: float = 0.95, method: str = "ledoit_wolf", *, output_dir=None) -> dict:
+    return run_root_sources(_run, data_root, output_dir=output_dir, seed=seed,
+                            parts=parts, confidence=confidence, method=method)
+
+
+def _run(data_root, seed, parts, confidence, method, *, source_run) -> dict:
+    all_pools = source_run.load_all()
+
     if not all_pools:
         raise FileNotFoundError(f"{data_root} 下找不到任何 Step-*/myfeature 資料集")
     result = {"seed": seed, "datasets": sorted(all_pools)}
@@ -247,9 +249,10 @@ def main() -> None:
     parser.add_argument("--method", default="ledoit_wolf")
     args = parser.parse_args()
 
-    log, paths = setup_run("exp5_cross_condition", data_root=args.data_root)
+    log, paths = setup_run("exp5_cross_condition", unique=True, data_root=args.data_root)
     log.info(f"實驗五：跨工況冷啟動泛化（part={args.part}, seed={args.seed}）")
-    result = run(args.data_root, args.seed, args.part, args.confidence, args.method)
+    result = run(args.data_root, args.seed, args.part, args.confidence, args.method,
+                 output_dir=paths.output_dir)
     save_json(paths.output_dir / "summary.json", result)
 
     if "matrix" in result:

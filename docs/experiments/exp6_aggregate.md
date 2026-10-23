@@ -40,6 +40,12 @@ load_matrix先檢查矩陣層級，再對每格呼叫[矩陣手冊](exp6_matrix.
 
 ## 怎麼算
 
+新 schema 2 矩陣沿用 formal_matrix_provenance_v2：核對contract canonical hash、資料／指紋／程式版本、逐法有效設定、每格三檔 bytes SHA及summary綁定。allow_partial只排除缺格／損壞格，不能混用data_version、schema、計算設定或程式版本；不相容在partial模式仍失敗。LW與k-NN各按自己的family設定核對。
+
+若兩方法完全沒有相同工況／seed配對，差值平均沒有分母，明確拒絕而非輸出NaN或補零。completed_runs以實際狀態列數核對，宣告數與列數不一致時不當完整結果。來源環境與logger共用collector的include_data=False，不掃描工作目錄的無關raw data。
+
+schema 1 保留唯讀相容，來源標LEGACY_UNVERIFIED，不補造當年環境。新彙總schema 2的provenance保存實際讀取manifest的bytes SHA、接受run的portable ID與summary／CSV／log SHA，以及彙總環境；讀取期間及寫入新結果前後若父檔變動，拒絕完成。hash不含自身欄位；來源狀態與completed／PARTIAL分開，legacy的工程completed不等於新契約通過。
+
 八欄是known_accuracy、open_set_accuracy、auroc、aupr_unknown_positive、fpr_at_tpr95、unknown_precision、unknown_recall、unknown_f1，意義見[正式版](exp6_formal_benchmark.md#輸出怎麼讀)。known只指healthy，不是known fault type。
 
 | 產物分組 | 權重與計算 |
@@ -59,13 +65,13 @@ uv run --locked python -m experiments.aggregate_exp6 --help
 uv run --locked python -m experiments.aggregate_exp6 --manifest output/exp6_formal_matrix/aero_2026-10-23/matrix_manifest.json --output-root output/exp6_formal_matrix/aero_2026-10-23/recompute_001
 ```
 
-選未使用的recompute_001；預設會寫manifest旁的aggregate/（PARTIAL寫aggregate_partial/），**會覆寫同名檔**，不要對封存直接使用預設。API aggregate(manifest_path)只算dict；write_aggregate(manifest_path,output_root)寫檔；main提供CLI，沒有run(pools)、Web重算按鈕或續跑機制。Web唯讀讀原正式aggregate，新根不會自動部署到頁面。
+選未使用的 recompute_001；預設仍是 manifest 旁的 aggregate/（PARTIAL 為 aggregate_partial/），但非空目的地一律拒絕，不覆寫封存。API aggregate(manifest_path) 只算 dict；write_aggregate(manifest_path,output_root) 寫檔；main 提供 CLI，沒有 run(pools)、Web 重算或續跑。Web 唯讀讀原正式 aggregate，新根不會自動部署。
 
 ## 輸出、判斷與限制
 
 writer是[write_aggregate](../../src/experiments/aggregate_exp6.py)，寫五檔：aggregate.json、condition_summary.csv、macro_summary.csv、paired_differences.csv與aggregate.md。aggregate.md雖是Markdown，確由程式生成，不是手寫報告。main經`setup_run("exp6_aggregate", make_output=False)`寫`logs/exp6_aggregate/{ts}.log`，執行環境記在該log裡。
 
-預期同來源重算數字一致，paired鍵對齊，缺件明確失敗；工況、方法、seed都依名稱排序，同一輸入的輸出逐位元組相同。它只能核對摘要算術，不證明逐樣本預測、錄製獨立、fresh test或最佳部署方法。未知正類比例不同時不直接比accuracy／AUPR；不同指紋／split／cal策略不可混為方法提升。現行彙總是 [output/exp6_formal_matrix/aero_2026-10-23/aggregate/](../../output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md)（讀 `data`，指紋 `1b55b847…`）；`output/exp6_formal_matrix/aggregate/` 是 `data/formal_local`（指紋 `81c9…`）的歷史彙總。兩者指紋不同，不混算。
+預期同來源重算科學數字一致，paired鍵對齊，缺件明確失敗；工況、方法、seed依名稱排序。同檔案bytes、同執行環境的產物可重現；只重排manifest時，科學欄位不變，實際manifest bytes SHA必須改變。新metadata不要求逐位元組等於舊aggregate.json。它只能核對摘要算術，不證明逐樣本預測、錄製獨立、fresh test或最佳部署方法。未知正類比例不同時不直接比accuracy／AUPR；不同指紋／split／cal策略不可混為方法提升。現行彙總是 [output/exp6_formal_matrix/aero_2026-10-23/aggregate/](../../output/exp6_formal_matrix/aero_2026-10-23/aggregate/aggregate.md)（讀 `data`，指紋 `1b55b847…`）；`output/exp6_formal_matrix/aggregate/` 是 `data/formal_local`（指紋 `81c9…`）的歷史彙總。兩者指紋不同，不混算。
 
 ## 依據與程式碼
 

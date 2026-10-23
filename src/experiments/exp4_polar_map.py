@@ -27,7 +27,8 @@ from core.data import HEALTHY, config_sort_key
 from core.geometry import PolarMap
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import add_dataset_args, resolve_dataset, save_json
+from core.runner import (add_dataset_args, run_dataset, save_json,
+                         execution_context, finish_execution)
 
 UNIFORM = ["7screws", "6screws", "5screws", "4screws", "3screws", "2screws", "1screws"]
 COMPOUND = ["3_14screws", "4_146screws"]
@@ -197,19 +198,20 @@ def _figure(geometry, severity):
     return fig
 
 
-def run(pools, seed: int = 42, parts: str = "abc") -> dict:
+def run(pools, seed: int = 42, parts: str = "abc", source_context=None) -> dict:
     """批次介面：把 iter_run 跑完，回傳最後的結果。"""
-    for event in iter_run(pools, seed, parts):
+    for event in iter_run(pools, seed, parts, source_context=source_context):
         pass
     return event["result"]
 
 
-def iter_run(pools, seed: int = 42, parts: str = "abc"):
+def iter_run(pools, seed: int = 42, parts: str = "abc", source_context=None):
     """逐段產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
     每個子實驗開始時產生 part_start、完成時產生 part（name = geometry / direction /
     severity，data 為該段結果），最後一個是 result（與 run() 回傳值相同）。
     """
+    provenance = execution_context(pools, source_context, seed=seed, parts=parts)
     result = {"seed": seed}
     for key, name, fn in (("a", "geometry", run_geometry), ("b", "direction", run_direction),
                           ("c", "severity", run_severity)):
@@ -217,6 +219,7 @@ def iter_run(pools, seed: int = 42, parts: str = "abc"):
             yield {"event": "part_start", "name": name}
             result[name] = fn(pools, seed)
             yield {"event": "part", "name": name, "data": result[name]}
+    result["provenance"] = finish_execution(provenance, pools, source_context)
     yield {"event": "result", "result": result}
 
 
@@ -226,11 +229,10 @@ def main() -> None:
     parser.add_argument("--part", default="abc", help="要跑的子實驗（a/b/c 任意組合）")
     args = parser.parse_args()
 
-    ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp4_polar_map", data_root=args.data_root)
+    log, paths = setup_run("exp4_polar_map", unique=True, data_root=args.data_root)
+    ds, result = run_dataset(args, paths, run, seed=args.seed, parts=args.part)
     log.info(f"實驗四：極座標健康地圖 — {ds['motor']}/{ds['rpm']}（part={args.part}, seed={args.seed}）")
 
-    result = run(pools, seed=args.seed, parts=args.part)
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
     save_json(paths.output_dir / "summary.json", result)
 

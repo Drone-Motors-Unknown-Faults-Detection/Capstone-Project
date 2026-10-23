@@ -69,9 +69,10 @@ class StagesCsvIntegerTests(unittest.TestCase):
             cwd = os.getcwd()
             os.chdir(directory)
             try:
-                with patch.object(exp2_scale_growth, "resolve_dataset", return_value=({"motor": "T1", "rpm": "8000rpm"}, {})), \
-                        patch.object(exp2_scale_growth, "run", return_value=result), \
-                        patch("sys.argv", ["exp2"]):
+                root = Path(directory) / "features"
+                _dataset(root)
+                with patch.object(exp2_scale_growth, "run", return_value=result), \
+                        patch("sys.argv", ["exp2", "--data-root", str(root)]):
                     exp2_scale_growth.main()
                 (run_dir,) = Path("output/exp2_scale_growth").iterdir()
                 text = (run_dir / "stages.csv").read_text(encoding="utf-8")

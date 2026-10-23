@@ -53,6 +53,28 @@ def manifest(root, version=MATERIALIZATION_VERSION):
 
 
 class ProvenanceTests(unittest.TestCase):
+    def test_pool_source_keeps_physical_alias_path_and_canonical_configuration(self):
+        from core.data import discover_datasets
+        from core.provenance import load_pool_source, source_for_pools
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            dataset = discover_datasets(root)[0]
+            folder = Path(dataset["path"]) / "1screws"
+            if not folder.exists():
+                folder.mkdir()
+                healthy = next((Path(dataset["path"]) / "8screws").glob("*_clean.csv"))
+                shutil.copyfile(healthy, folder / healthy.name)
+            folder.rename(folder.with_name("1screw"))
+            pools, context = load_pool_source(root, dataset["path"])
+            self.assertIn("1screws", pools)
+            self.assertNotIn("1screw", pools)
+            source = source_for_pools(pools, context)
+            rows = [row for row in source["row_mapping"] if row["configuration"] == "1screws"]
+            self.assertTrue(rows)
+            self.assertTrue(all("/1screw/" in row["source_id"] for row in rows))
+            self.assertEqual(sum(row["pool_stop"] - row["pool_start"] for row in rows), len(pools["1screws"]))
+
     def test_same_stat_different_bytes_and_explicit_legacy(self):
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory))
@@ -264,7 +286,9 @@ class ProvenanceTests(unittest.TestCase):
 
     def test_source_run_and_main_save_public_records_without_git(self):
         from core import provenance
-        with tempfile.TemporaryDirectory() as directory:
+        # 無 Git 指程式版本查詢失敗；暫存工作目錄本身沒有 Git 不代表程式無版本。
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("core.runtime_environment._git", return_value=None):
             workspace = Path(directory)
             source = _fixture(workspace / "data")
             previous = Path.cwd()
@@ -281,6 +305,8 @@ class ProvenanceTests(unittest.TestCase):
                     self.assertNotIn(directory, json.dumps(public).replace("\\\\", "\\"))
                     environment = json.loads(path.with_name("environment.json").read_text(encoding="utf-8"))
                     self.assertEqual(environment["git"]["status"], "UNKNOWN")
+                    self.assertIsNone(environment["git"]["head"])
+                    self.assertIsNone(environment["git"]["tracked_dirty"])
                 self.assertEqual(len(list(workspace.glob(".lineage_private/*.json"))), 2)
             finally:
                 logger.remove()

@@ -45,6 +45,21 @@ def write_dataset(root: Path) -> None:
                    delimiter=",", header=columns, comments="")
 
 
+def scientific_windows(rows):
+    """科學結果逐欄不變；來源欄在專用案例另驗，不比較 opaque sidecar ID。"""
+    return [{key: value for key, value in row.items()
+             if key not in {"provenance", "source_pool_index"}} for row in rows]
+
+
+def stable_windows(rows):
+    """每次載入各建私人 sidecar；只排除 opaque ID，其餘來源與結果仍精確比較。"""
+    result = json.loads(json.dumps(rows))
+    for row in result:
+        identity = row["provenance"]["source"].pop("private_context_id")
+        assert isinstance(identity, str) and identity
+    return result
+
+
 class HealthMonitorWindows(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -70,7 +85,7 @@ class HealthMonitorWindows(unittest.TestCase):
         """池 key 是正規名；CLI/網頁打 1screw 不能 KeyError（#285 R2-03）。"""
         alias = self.call(run, "1screw", max_windows=3)
         canonical = self.call(run, "1screws", max_windows=3)
-        self.assertEqual(json.dumps(alias, sort_keys=True), json.dumps(canonical, sort_keys=True))
+        self.assertEqual(stable_windows(alias), stable_windows(canonical))
         with self.assertRaises(KeyError):
             self.call(run, "9screws", max_windows=3)
 
@@ -84,6 +99,7 @@ class HealthMonitorWindows(unittest.TestCase):
         for kwargs in ({}, {"max_windows": 9}):
             old = self.call(baseline_run(), "8screws", **kwargs)
             new = self.call(run, "8screws", **kwargs)
+            self.assertEqual(json.dumps(old, sort_keys=True), json.dumps(scientific_windows(new), sort_keys=True))
             self.assertEqual([{k: r[k] for k in keys} for r in old], [{k: r[k] for k in keys} for r in new])
             self.assertEqual(len(new), kwargs.get("max_windows", 60))
 
@@ -103,8 +119,8 @@ class HealthMonitorWindows(unittest.TestCase):
             self.assertEqual(items[0]["model"]["resolved_config"]["effective"]["confidence"], c)
         self.assertNotEqual([e["window"]["openset_score"] for e in events[0.8][1:]],
                             [e["window"]["openset_score"] for e in events[0.95][1:]])
-        self.assertEqual(self.call(run, "8screws", max_windows=5, confidence=0.8),
-                         [e["window"] for e in events[0.8][1:]])
+        self.assertEqual(stable_windows(self.call(run, "8screws", max_windows=5, confidence=0.8)),
+                         stable_windows([e["window"] for e in events[0.8][1:]]))
 
     def test_iter_run_matches_run(self):
         for config in ("8screws", "5screws"):
@@ -115,7 +131,10 @@ class HealthMonitorWindows(unittest.TestCase):
             self.assertEqual(len(windows), len(events) - 1)
             batch = run(self.root, "T1", "8000rpm", config, seed=5,
                         motor_id="m", session_id="s", max_windows=30)
-            self.assertEqual(json.dumps(windows, sort_keys=True), json.dumps(batch, sort_keys=True))
+            self.assertEqual(json.dumps(scientific_windows(windows), sort_keys=True),
+                             json.dumps(scientific_windows(batch), sort_keys=True))
+            self.assertEqual(windows[0]["provenance"]["source"]["data_version"],
+                             batch[0]["provenance"]["source"]["data_version"])
 
     def test_web_stream_done_matches_batch_and_is_saved(self):
         from core.data import discover_datasets
@@ -126,8 +145,8 @@ class HealthMonitorWindows(unittest.TestCase):
             batch = runner.run("exp8_monitor", params)
             done = frames[-1][0]
             self.assertEqual(done["event"], "done")
-            self.assertEqual(json.dumps(done["payload"]["result"], sort_keys=True),
-                             json.dumps(jsonable(batch["result"]), sort_keys=True))
+            self.assertEqual(json.dumps(scientific_windows(done["payload"]["result"]), sort_keys=True),
+                             json.dumps(scientific_windows(jsonable(batch["result"])), sort_keys=True))
             self.assertEqual(sum(u for _, u in frames), 25)
             saved = json.loads(Path(done["payload"]["saved"]).read_text(encoding="utf-8"))
             self.assertTrue(saved["streamed"])
@@ -156,8 +175,8 @@ class HealthMonitorWindows(unittest.TestCase):
                 os.chdir(previous)
         self.assertEqual(saved, stdout.getvalue())
         batch = self.call(run, "5screws", max_windows=12)
-        self.assertEqual([json.loads(line) for line in saved.splitlines()],
-                         json.loads(json.dumps(batch, ensure_ascii=False)))
+        self.assertEqual(scientific_windows([json.loads(line) for line in saved.splitlines()]),
+                         json.loads(json.dumps(scientific_windows(batch), ensure_ascii=False)))
 
 
 if __name__ == "__main__":
