@@ -71,7 +71,7 @@ class BuildAncestorMonitorTests(unittest.TestCase):
 
         reference = OpenSetMonitor(pools, seed=42, confidence=0.95)
         reference.fit_initial()
-        for config in ["1screw", "2screws", "3screws", "4screws"]:
+        for config in ["1screws", "2screws", "3screws", "4screws"]:
             reference.add_class(config)
         monitor = build_ancestor_monitor(pools, seed=42, confidence=0.95)
         query = pools["5screws"]
