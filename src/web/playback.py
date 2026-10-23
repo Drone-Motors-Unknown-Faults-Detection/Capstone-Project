@@ -167,10 +167,13 @@ def _base(exp_id: str, mode: str) -> dict:
 def _split_params(st: dict, params: dict) -> None:
     params = dict(params or {})
     source = params.pop("config", None)   # 實驗八選的注入配置 = 真值
+    scenario = params.pop("scenario", None)   # 實驗三選的注入劇本 = 真值（#305 G-08）
     st["params"] = params
     if source is not None:
         st["source_config"] = source
         st["source_is_fault"] = source != HEALTHY   # 真值只來自注入配置，不讀模型輸出
+    if scenario is not None:
+        st["source_scenario"] = scenario
 
 
 def _fill_result(st: dict, payload: dict) -> None:
@@ -369,12 +372,12 @@ class PlaybackTracker:
             st["current"] = {"t": f.get("t"), "score": _round(f.get("score")), "verdict": f.get("verdict"),
                              "predicted": f.get("label"), "quarantine": f.get("quarantine"),
                              "n_known": f.get("known")}
-        else:                      # 實驗三
-            st["current"] = {"scenario": f.get("scenario"), "trial": f.get("trial"), "t": f.get("t"),
+        else:                      # 實驗三：劇本是注入真值，只進事後對照（source_scenario／reference）
+            st["current"] = {"trial": f.get("trial"), "t": f.get("t"),
                              "score": _round(f.get("score")), "ewma": _round(f.get("ewma")),
                              "cusum": _round(f.get("cusum")), "alarm_kind": f.get("kind")}
             if f.get("alarm_now"):
-                self._event(st, f"劇本 {f.get('scenario')} 第 {int(f.get('trial', 0)) + 1} 次 t={f.get('t')}："
+                self._event(st, f"第 {int(f.get('trial', 0)) + 1} 次 t={f.get('t')}："
                                 f"變化點警報，判別為「{KIND_DISPLAY.get(f.get('kind'), f.get('kind'))}」")
 
     def _on_trial(self, st, f):   # 實驗三：一次重複的判別結果（expected 是真值）

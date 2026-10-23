@@ -204,6 +204,8 @@ def describe_record_events(rec: dict) -> str:
         truth.append(f"- 資料來源（操作者選的注入配置）：{rec['source_config']}")
     if "source_is_fault" in rec:
         truth.append(f"- 這段資料是否來自故障配置：{'是' if rec['source_is_fault'] else '否'}")
+    if rec.get("source_scenario"):
+        truth.append(f"- 注入劇本（操作者選的實驗三劇本）：{rec['source_scenario']}")
     truth += ["- " + "；".join(f"{k}={v}" for k, v in item.items()) for item in reference]
     if truth:
         out.append("【事後對照（由注入配置真值計算，只用於評估；不是系統當下的判定）】")

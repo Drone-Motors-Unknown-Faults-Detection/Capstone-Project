@@ -76,6 +76,20 @@ class StreamedPlaybackTests(unittest.TestCase):
         self.assertEqual({r["scenario_summary"] for r in snap["reference"] if "scenario_summary" in r}, {"A", "B"})
         self.assertNoTruth(snap)
 
+    def test_exp3_selected_scenario_is_reference_not_current(self):
+        """#305 G-08：實驗三選的劇本是注入真值，不進 current／params／events，只進事後對照。"""
+        from web.assistant import describe_record, describe_record_events
+
+        snap = self.play("exp3", {"dataset": "T1/8000rpm", "n_trials": 1, "scenario": "B"})
+        self.assertEqual(snap["source_scenario"], "B")
+        self.assertNotIn("scenario", snap["params"])
+        self.assertNotIn("scenario", snap["current"])
+        self.assertFalse(any("劇本" in e for e in snap["events"]))
+        self.assertNotIn("劇本", describe_record(snap).split("【實驗結果")[0])   # 系統判定區塊
+        events = describe_record_events(snap)
+        after = events.split("【事後對照")[1]
+        self.assertIn("注入劇本（操作者選的實驗三劇本）：B", after)
+
     def test_exp1_rows_are_reference(self):
         snap = self.play("exp1", {"dataset": "T1/8000rpm"})
         self.assertEqual(len(snap["reference"]), 5)   # 健康 holdout + 4 個未知配置

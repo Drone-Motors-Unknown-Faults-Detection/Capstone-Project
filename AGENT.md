@@ -304,7 +304,7 @@ AI 問答走 HTTP：`GET /api/assistant/status`、`POST /api/assistant/ask`（`{
 `get_experiment`（CATALOG + docs/experiments 手冊，實驗一／1／exp1 視為同一編號）、`lookup_knowledge`。
 每輪第一步 `tool_choice="required"` 強制先查工具；temperature 0；查無資料時工具回【查無資料】要求模型不得推測。
 前端是右下角浮動泡泡聊天視窗，答案下方「📎 依據」由工具回傳的 sources 產生，不經模型轉述。「目前狀況」與實驗結果讀實驗頁紀錄（`web/playback.py` 的 `PlaybackTracker`：每個實驗留最近一次，`StreamHandler` 逐 frame 更新、`RunHandler` 完成時 `record_run`；記憶體沒有時讀 `output/web_server/*/experiments/{exp_id}_*.json` 最新存檔），結果經 `summarize_result` 去掉畫圖座標與模型細節、矩陣轉表格；不讀首頁即時展示；快照由 `server.PLAYBACK.snapshot()` 在 IOLoop 執行緒取，
-current／events 不含真值；注入配置、expected、is_fault、候選群 majority／purity 只放「事後對照」並標明不是系統判定（鐵則 6）。首頁即時展示仍保留（issue #94）。
+current／events／params 不含真值；注入配置（實驗八的 config）、實驗三選的劇本（scenario）、expected、is_fault、候選群 majority／purity 只放「事後對照」並標明不是系統判定（鐵則 6）。首頁即時展示仍保留（issue #94）。
 
 ---
 
