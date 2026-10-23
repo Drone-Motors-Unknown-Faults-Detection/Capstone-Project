@@ -8,11 +8,13 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 from loguru import logger
 
+from experiments.health.index import CalibratedHealthIndex
 from experiments.health_monitor import iter_run, main, run
 from core.feature_schema import SCHEMAS
 from web.experiments import ExperimentRunner, jsonable
@@ -84,6 +86,13 @@ class HealthMonitorWindows(unittest.TestCase):
             new = self.call(run, "8screws", **kwargs)
             self.assertEqual([{k: r[k] for k in keys} for r in old], [{k: r[k] for k in keys} for r in new])
             self.assertEqual(len(new), kwargs.get("max_windows", 60))
+
+    def test_seed_reaches_detector_random_state(self):
+        """detector 的 random_state 跟 --seed（#285 R2-06）；LW 不用亂數，結果與基準相同（見上一個測試）。"""
+        with patch("experiments.health_monitor.CalibratedHealthIndex.fit",
+                   wraps=CalibratedHealthIndex.fit) as fit:
+            list(iter_run(self.root, "T1", "8000", "8screws", seed=9, motor_id="m", session_id="s", max_windows=3))
+        self.assertEqual(fit.call_args.kwargs["random_state"], 9)
 
     def test_confidence_is_forwarded_to_calibration(self):
         events = {c: list(iter_run(self.root, "T1", "8000", "8screws", seed=42, motor_id="m",

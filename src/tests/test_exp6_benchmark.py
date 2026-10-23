@@ -69,6 +69,15 @@ class Exp6BenchmarkTests(unittest.TestCase):
             self.assertEqual(result["requested_method"], "k-nn")
             self.assertEqual(result["rows"][0]["requested_method"], "k-nn")
 
+    def test_seed_reaches_detector_random_state(self) -> None:
+        """MCD 的亂數跟著 --seed，不固定 42（#285 R2-12）。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            with patch("experiments.exp6_formal_benchmark.create_openset_detector",
+                       wraps=create_openset_detector) as factory:
+                run(root, seed=7, require_nine=False)
+            self.assertEqual(factory.call_args.kwargs["random_state"], 7)
+
     def test_formal_benchmark_rejects_legacy_training_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory))

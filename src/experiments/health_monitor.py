@@ -98,6 +98,7 @@ def iter_run(
         mahalanobis_method=mahalanobis_method,
         confidence=confidence,
         knn_neighbors=knn_neighbors,
+        random_state=seed,
     )
     monitor = SessionTrajectoryMonitor(model, require_identity=require_identity)
     yield {"event": "fitted", "model": model.metadata()}

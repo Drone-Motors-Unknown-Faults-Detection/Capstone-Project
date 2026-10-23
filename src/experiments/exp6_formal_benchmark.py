@@ -245,6 +245,7 @@ def _run_benchmark(
             confidence=confidence,
             mahalanobis_method=mahalanobis_method,
             knn_neighbors=knn_neighbors,
+            random_state=seed,  # MCD 的亂數跟著 --seed（#285 R2-12）
         ).fit(
             X_train_scaled,
             np.zeros(len(X_train), dtype=int),
