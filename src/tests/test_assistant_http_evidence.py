@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from tests.assistant_http_evidence import parse_sse, validate_url, verify_result
+from tests.assistant_http_evidence import json_headers, parse_sse, validate_url, verify_result
 from tests.test_assistant_results import OfflineAssistant, collect, result_snapshot
 
 
@@ -21,3 +21,9 @@ def test_real_result_frames_are_accepted_but_source_or_mode_tampering_is_not():
     assert verify_result(decoded, "指定不存在的來源SHA")
     decoded[0]["mode"] = "model"
     assert "結果未走新版程式核算模式" in verify_result(decoded, "指定不存在的來源SHA")
+
+
+def test_json_headers_send_same_origin():
+    """#304 F5-02：伺服器拒絕沒有來源標頭的狀態端點請求，證據腳本的 POST 帶測試站本身的 Origin。"""
+    assert json_headers("http://127.0.0.1:8611/sub/") == {"Content-Type": "application/json",
+                                                         "Origin": "http://127.0.0.1:8611"}

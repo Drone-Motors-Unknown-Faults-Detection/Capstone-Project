@@ -337,6 +337,14 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return server.make_app()
 
+    def fetch(self, path, **kwargs):
+        """像瀏覽器一樣帶來源標頭：EventSource 帶 Referer、fetch POST 帶 Origin；
+        三種來源標頭都沒有的請求會被拒絕（#304 F5-02）。"""
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not {"Origin", "Referer", "Sec-Fetch-Site"} & set(headers):
+            headers["Referer" if kwargs.get("method", "GET") == "GET" else "Origin"] = self.get_url("/")[:-1]
+        return super().fetch(path, headers=headers, **kwargs)
+
     def stream(self, exp_id, params):
         query = urllib.parse.quote(json.dumps(params))
         return self.fetch(f"/api/experiments/{exp_id}/stream?params={query}&rate=1000", request_timeout=60)
