@@ -332,7 +332,7 @@ class ExperimentRunner:
             if exp_id in {"exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "exp8", "exp8_monitor", "exp10", "exp11", "exp12"}:
                 self._save(exp_id, {"experiment": exp_id, "params": params,
                     "status": "FAILED", "error_type": type(exc).__name__,
-                    "environment": collect_environment(),
+                    "environment": collect_environment(data_root=self.data_root),
                     "source": {"status": "UNVERIFIED_FAILED_RUN",
                                "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}})
             raise
