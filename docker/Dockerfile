@@ -32,8 +32,8 @@ COPY docs/experiments ./docs/experiments
 # 逐步導覽的 /guide/docs/*（web/guide.py routes）與實驗頁 8-2 封存卡（web/experiments.py _load_exp8_results）
 COPY docs/navigation ./docs/navigation
 COPY reports/exp8_health_index_results ./reports/exp8_health_index_results
-# setup_run() 寫相對路徑 logs/、output/；compose 會把 repo 的同名目錄掛進來
-RUN mkdir -p logs output data && chmod 0777 logs output
+# setup_run() 寫相對路徑 logs/、output/，來源綁定寫 .lineage_private/（#311）；compose 會把 repo 的同名目錄掛進來
+RUN mkdir -p logs output data .lineage_private && chmod 0777 logs output .lineage_private
 ENV PATH=/opt/venv/bin:$PATH \
     PYTHONPATH=/app/src \
     PYTHONUNBUFFERED=1 \

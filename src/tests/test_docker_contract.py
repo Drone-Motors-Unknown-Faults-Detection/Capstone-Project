@@ -89,6 +89,7 @@ class DockerContractTests(unittest.TestCase):
         self.assertFalse(data["bind"]["create_host_path"])
         self.assertIn("../logs:/app/logs", volumes)
         self.assertIn("../output:/app/output", volumes)
+        self.assertIn("../.lineage_private:/app/.lineage_private", volumes)   # #311
 
     def test_web_passes_allow_host(self):
         """#304 F5-01：容器內看不到主機區網 IP，Host 允許清單要由 ALLOW_HOST 傳進 --allow-host。"""
