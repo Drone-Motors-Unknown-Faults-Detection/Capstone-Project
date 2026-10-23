@@ -213,7 +213,8 @@ class MaterializationSafetyTests(unittest.TestCase):
             self.assertTrue(all(shape == [128, 3] for shape in record["channel_shapes"].values()))
             self.assertTrue(all(value == 0 for value in record["discarded_windows"].values()))
             self.assertEqual(record["alignment_status"], "UNKNOWN")
-            self.assertEqual(new["schema_version"], "formal_materialization_v3")
+            self.assertEqual(new["schema_version"], "formal_materialization_v4")
+            self.assertEqual(new["feature_formulas"], {"clearance_indicator": "clearance_peak_over_squared_mean_sqrt_abs_v2"})
             # 原始通道 member 的 SHA 另記；source_sha256／output_sha256 是轉換後 CSV（#301 F-06）
             raw = {name.split("_", 1)[1].rsplit("_data", 1)[0].lower(): hashlib.sha256(payload).hexdigest()
                    for name, payload in channel_entries()}

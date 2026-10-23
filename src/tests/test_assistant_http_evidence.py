@@ -1,10 +1,14 @@
 """測試站驗證器拒絕正式目標、舊模式與來源不一致；不依賴外網。"""
 
+import io
 import json
+import urllib.error
+import urllib.request
 
 import pytest
 
-from tests.assistant_http_evidence import parse_sse, validate_url, verify_result
+from tests.assistant_http_evidence import (HostNotAllowedError, json_headers, open_url, parse_sse, validate_url,
+                                          verify_result)
 from tests.test_assistant_results import OfflineAssistant, collect, result_snapshot
 
 
@@ -21,3 +25,37 @@ def test_real_result_frames_are_accepted_but_source_or_mode_tampering_is_not():
     assert verify_result(decoded, "指定不存在的來源SHA")
     decoded[0]["mode"] = "model"
     assert "結果未走新版程式核算模式" in verify_result(decoded, "指定不存在的來源SHA")
+
+
+def test_json_headers_carry_same_origin():
+    """#304 F5-02：伺服器拒絕三種來源標頭都沒有的狀態端點請求，證據腳本要帶同站 Origin（不含路徑）。"""
+    assert json_headers("http://127.0.0.1:8611/") == {"Content-Type": "application/json", "Origin": "http://127.0.0.1:8611"}
+
+
+def _http_error(code, body):
+    return urllib.error.HTTPError("http://140.134.138.33:8787/api/assistant/ask", code, "x", {}, io.BytesIO(body.encode()))
+
+
+def test_host_403_names_the_allow_host_setting(monkeypatch):
+    """#304：8787 容器沒設 ALLOW_HOST 時，伺服器以 Host 允許清單回 403；腳本要直接說出要設哪個值。"""
+    body = json.dumps({"error": "Host 不是本機名稱，也不在 --allow-host 名單"}, ensure_ascii=False)
+
+    def refuse(request, timeout):
+        raise _http_error(403, body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", refuse)
+    request = urllib.request.Request("http://140.134.138.33:8787/api/assistant/ask", data=b"{}")
+    with pytest.raises(HostNotAllowedError, match="ALLOW_HOST=140.134.138.33"):
+        open_url(request, 1)
+
+
+def test_other_http_errors_pass_through(monkeypatch):
+    for code, body in ((403, '{"error": "跨站請求被拒絕"}'), (500, "boom")):
+        def refuse(request, timeout, code=code, body=body):
+            raise _http_error(code, body)
+
+        monkeypatch.setattr(urllib.request, "urlopen", refuse)
+        with pytest.raises(urllib.error.HTTPError) as error:
+            open_url("http://140.134.138.33:8787/", 1)
+        assert not isinstance(error.value, HostNotAllowedError)
+        assert error.value.code == code

@@ -203,6 +203,75 @@ class GuideTests(unittest.TestCase):
             self.assertEqual(self.hub.demo.t, 1)
             self.hub.demo.close()
 
+    def test_inspect_keeps_stream_error_until_reset(self):
+        """#304 F5-03：檢查資料不重建 session，串流錯誤（非寫入類，紀錄檔仍可寫）要保留，start 仍拒絕；reset 才清除。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+        sock.heavy = lambda cmd, fn: GuideSocket.heavy(sock, cmd, fn)
+
+        def send(msg):
+            asyncio.run(GuideSocket.on_message(sock, json.dumps(msg)))
+
+        self.hub.build("T1", "8000rpm")
+        self.hub.event("error", "串流錯誤，已暫停：測試")
+        self.assertTrue(self.hub.demo.accepting)
+        send({"cmd": "inspect", "motor": "T1", "rpm": "8000rpm"})
+        self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+        send({"cmd": "start"})
+        self.assertFalse(self.hub.running)
+        send({"cmd": "reset"})
+        self.assertIsNone(self.hub.error)
+        send({"cmd": "start"})
+        self.assertTrue(self.hub.running)
+
+    def test_reinspect_clears_only_inspect_failures(self):
+        """#304 複審：檢查資料不改 session，上一次檢查失敗的錯誤由下一次成功的檢查清掉；
+        串流錯誤、紀錄檔停用與建基準失敗仍保留到重設或重建，檢查再失敗也不能蓋掉它們。"""
+        import asyncio
+        from unittest.mock import Mock
+        from web.guide import GuideSocket
+
+        sock = Mock(hub=self.hub)
+
+        def good():
+            return self.hub.inspect("T1", "8000rpm")
+
+        def failing():
+            raise OSError("測試讀取失敗")
+
+        def heavy(cmd, fn):
+            asyncio.run(GuideSocket.heavy(sock, cmd, fn))
+
+        heavy("inspect", failing)          # 還沒建基準時的檢查失敗
+        self.assertEqual(self.hub.error_source, "inspect")
+        heavy("inspect", good)
+        self.assertIsNone(self.hub.error)
+        self.hub.build("T1", "8000rpm")
+        heavy("inspect", failing)
+        heavy("inspect", good)
+        self.assertIsNone(self.hub.error)
+        self.hub.event("error", "串流錯誤，已暫停：測試")
+        self.assertIsNone(self.hub.error_source)
+        heavy("inspect", failing)
+        self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+        heavy("inspect", good)
+        self.assertEqual(self.hub.error, "串流錯誤，已暫停：測試")
+        heavy("reset", lambda: self.hub.demo._build())
+        self.assertIsNone(self.hub.error)
+        with patch.object(type(self.hub.demo), "accepting", new_callable=lambda: property(lambda d: False)):
+            heavy("inspect", failing)      # 紀錄檔停用時檢查失敗，再成功也要補回停用錯誤
+            heavy("inspect", good)
+            self.assertIn("樣本紀錄已停用", self.hub.error)
+            heavy("inspect", good)
+            self.assertIn("樣本紀錄已停用", self.hub.error)
+        heavy("build", failing)
+        self.assertEqual(self.hub.error_source, "build")
+        heavy("inspect", good)
+        self.assertIn("資料讀取失敗", self.hub.error)
+
     def test_busy_does_not_read_half_updated_model(self):
         self.hub.build("T1", "8000rpm")
         self.hub.busy_state = self.hub.full_state()
@@ -479,6 +548,25 @@ class MountedGuideTests(AsyncHTTPTestCase):
             await tornado.websocket.websocket_connect(request)
         self.assertEqual(error.exception.code, 403)
 
+    @gen_test
+    async def test_foreign_host_rejected_on_both_sockets(self):
+        """#304 F5-01：DNS rebinding 的 Host 與 Origin 都是攻擊者網域；首頁 /ws 與 /guide/ws 握手都回 403，
+        沒帶 Origin 也一樣；本機名稱照常連線。"""
+        from tornado.httpclient import HTTPRequest, HTTPClientError
+        port = self.get_http_port()
+        for path in ("/ws", "/guide/ws"):
+            url = self.get_url(path).replace("http", "ws", 1)
+            for headers in ({"Host": f"rebind.invalid:{port}", "Origin": f"http://rebind.invalid:{port}"},
+                            {"Host": f"rebind.invalid:{port}"}):
+                with self.subTest(path=path, headers=headers):
+                    with self.assertRaises(HTTPClientError) as error:
+                        await tornado.websocket.websocket_connect(HTTPRequest(url, headers=headers))
+                    self.assertEqual(error.exception.code, 403)
+            ws = await tornado.websocket.websocket_connect(HTTPRequest(
+                url, headers={"Host": f"localhost:{port}", "Origin": f"http://localhost:{port}"}))
+            await ws.read_message()
+            ws.close()
+
     def test_shutdown_closes_both_hubs_even_after_one_flush_failure(self):
         from web.server import serve
         from unittest.mock import Mock
@@ -487,3 +575,46 @@ class MountedGuideTests(AsyncHTTPTestCase):
         with self.assertRaises(OSError):
             serve(loop, first, extra_hubs=(second,))
         second.close.assert_called_once_with()
+
+
+class HostAllowlistTests(unittest.TestCase):
+    """#304 F5-01：host_allowed 的名單規則；區網 IP 開頁時 Host 等於這條連線的本機 IP。"""
+
+    def setUp(self):
+        from web import server
+        self.server = server
+        self.saved = set(server.ALLOWED_HOSTS)
+
+    def tearDown(self):
+        self.server.ALLOWED_HOSTS.clear()
+        self.server.ALLOWED_HOSTS.update(self.saved)
+
+    @staticmethod
+    def request(host, local="10.9.8.7"):
+        from types import SimpleNamespace
+        sock = SimpleNamespace(getsockname=lambda: (local, 8600))
+        return SimpleNamespace(host=host, connection=SimpleNamespace(stream=SimpleNamespace(socket=sock)))
+
+    def test_loopback_names_with_any_port(self):
+        for host in ("localhost", "LOCALHOST:8600", "127.0.0.1:1", "[::1]:8600", "[::1]", "localhost.:8600"):
+            with self.subTest(host=host):
+                self.assertTrue(self.server.host_allowed(self.request(host)))
+
+    def test_lan_ip_of_the_connection_is_allowed(self):
+        self.assertTrue(self.server.host_allowed(self.request("10.9.8.7:8600")))
+        self.assertTrue(self.server.host_allowed(self.request("10.9.8.7:8600", local="::ffff:10.9.8.7")))
+        self.assertFalse(self.server.host_allowed(self.request("10.9.8.6:8600")))
+
+    def test_foreign_names_rejected_until_allowed(self):
+        for host in ("rebind.invalid:8600", "", "evil.invalid"):
+            with self.subTest(host=host):
+                self.assertFalse(self.server.host_allowed(self.request(host)))
+        self.server.allow_hosts("192.0.2.5", ["Demo.Example.com"])
+        self.assertTrue(self.server.host_allowed(self.request("demo.example.com:443")))
+        self.assertTrue(self.server.host_allowed(self.request("192.0.2.5:8600")))
+        self.assertFalse(self.server.host_allowed(self.request("rebind.invalid:8600")))
+
+    def test_missing_connection_only_uses_names(self):
+        from types import SimpleNamespace
+        self.assertFalse(self.server.host_allowed(SimpleNamespace(host="10.9.8.7", connection=None)))
+        self.assertTrue(self.server.host_allowed(SimpleNamespace(host="localhost", connection=None)))

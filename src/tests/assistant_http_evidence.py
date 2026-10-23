@@ -10,6 +10,8 @@ import re
 import shutil
 import subprocess
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 
 from core.logger import setup_run
@@ -58,6 +60,30 @@ def verify_result(frames: list[dict], source_sha: str) -> list[str]:
     return errors
 
 
+def json_headers(base_url: str) -> dict:
+    """POST 的標頭：伺服器拒絕沒有 Origin／Referer／Sec-Fetch-Site 的狀態端點請求（#304 F5-02），腳本帶同站 Origin。"""
+    parts = urllib.parse.urlparse(base_url)
+    return {"Content-Type": "application/json", "Origin": f"{parts.scheme}://{parts.netloc}"}
+
+
+class HostNotAllowedError(RuntimeError):
+    """測試站以 Host 允許清單拒絕請求（#304）；訊息直接寫出 8787 該怎麼設定。"""
+
+
+def open_url(request, timeout: float) -> str:
+    """urlopen 並解碼；403 且伺服器說 Host 不在名單時改丟帶設定提示的 HostNotAllowedError。"""
+    try:
+        return urllib.request.urlopen(request, timeout=timeout).read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        if exc.code == 403 and "Host" in exc.read().decode("utf-8", "replace"):
+            url = request.full_url if isinstance(request, urllib.request.Request) else request
+            host = urllib.parse.urlparse(url).hostname
+            raise HostNotAllowedError(
+                f"測試站回 403：Host {host} 不在伺服器的允許清單；容器要在 docker/.env 設 "
+                f"ALLOW_HOST={host}（傳給 --allow-host）並重建後再驗收") from exc
+        raise
+
+
 def run(base_url: str, saved: str, source_sha: str, deployment_sha: str) -> dict:
     validate_url(base_url)
     if not re.fullmatch(r"[a-f0-9]{64}", source_sha) or not re.fullmatch(r"[a-f0-9]{40}", deployment_sha):
@@ -89,9 +115,9 @@ def run(base_url: str, saved: str, source_sha: str, deployment_sha: str) -> dict
         body = {"question": question, "history": []}
         if index < len(QUESTIONS):
             body.update(context=context, history=[{"role": "assistant", "content": "legacy過於保守，93.12%只有故障，三角只表示真實未知配置。"}])
-        request = urllib.request.Request(base_url + "/api/assistant/ask", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+        request = urllib.request.Request(base_url + "/api/assistant/ask", data=json.dumps(body).encode(), headers=json_headers(base_url))
         try:
-            raw = urllib.request.urlopen(request, timeout=100).read().decode("utf-8")
+            raw = open_url(request, 100)
             frames = parse_sse(raw)
             errors = verify_result(frames, source_sha) if index < len(QUESTIONS) else []
             if index >= len(QUESTIONS) and (not any(f.get("event") == "tool" for f in frames)
@@ -101,8 +127,9 @@ def run(base_url: str, saved: str, source_sha: str, deployment_sha: str) -> dict
                           "status": "FAILED" if errors else "VERIFIED", "errors": errors, "sse": raw, "frames": frames})
             failures.extend(errors)
         except Exception as exc:
-            cases.append({"question": question, "status": "FAILED", "reason": type(exc).__name__})
-            failures.append(f"第{index+1}題無法完成：{type(exc).__name__}")
+            reason = str(exc) if isinstance(exc, HostNotAllowedError) else type(exc).__name__
+            cases.append({"question": question, "status": "FAILED", "reason": reason})
+            failures.append(f"第{index+1}題無法完成：{reason}")
     node = shutil.which("node")
     frontend = "UNAVAILABLE"
     if node and cases and cases[0].get("frames"):

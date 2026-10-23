@@ -90,6 +90,11 @@ class DockerContractTests(unittest.TestCase):
         self.assertIn("../logs:/app/logs", volumes)
         self.assertIn("../output:/app/output", volumes)
 
+    def test_web_passes_allow_host(self):
+        """#304 F5-01：容器內看不到主機區網 IP，Host 允許清單要由 ALLOW_HOST 傳進 --allow-host。"""
+        command = self.web["command"]
+        self.assertEqual(command[command.index("--allow-host") + 1], "${ALLOW_HOST:-localhost}")
+
     def test_env_example_covers_compose_variables(self):
         env = (DOCKER / ".env.example").read_text(encoding="utf-8")
         keys = set(re.findall(r"^([A-Z0-9_]+)=", env, re.M))

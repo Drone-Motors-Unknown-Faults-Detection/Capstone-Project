@@ -17,7 +17,7 @@ from datetime import datetime
 import numpy as np
 from loguru import logger
 
-from core.provenance import (CONTENT_VERSION, MATERIALIZATION_VERSION, ProvenanceError,
+from core.provenance import (CONTENT_VERSION, FEATURE_FORMULAS, MATERIALIZATION_VERSION, ProvenanceError,
                              capture_source, file_sha, run, sha256_bytes, sha256_file, write_private_context)
 from core import formal_data
 from core.logger import setup_run
@@ -41,10 +41,12 @@ def old_module():
 
 def manifest(root, version=MATERIALIZATION_VERSION):
     public, _ = capture_source(root)
-    legacy = version != MATERIALIZATION_VERSION
+    legacy = version not in ("formal_materialization_v3", MATERIALIZATION_VERSION)
     records = [{"output": str(root / item["source_id"]) if legacy else item["source_id"],
                 "source_sha256" if legacy else "output_sha256": item["sha256"]} for item in public["files"]]
     result = {"schema_version": version, "files": records, "archive_sha256": {}, "formal_contract": {}}
+    if version == MATERIALIZATION_VERSION:
+        result["feature_formulas"] = dict(FEATURE_FORMULAS)
     if version is None:
         result.pop("schema_version")
     path = root / "formal_materialization_manifest.json"
@@ -109,13 +111,18 @@ class ProvenanceTests(unittest.TestCase):
             self.assertTrue(Path(private["resolved_data_root"]).is_relative_to(root.resolve(strict=True)))
 
     def test_legacy_manifests_are_readonly_and_portable(self):
-        for version in (None, 1, "formal_materialization_v1", "formal_materialization_v2", MATERIALIZATION_VERSION):
+        for version in (None, 1, "formal_materialization_v1", "formal_materialization_v2", "formal_materialization_v3",
+                        MATERIALIZATION_VERSION):
             with self.subTest(version=version), tempfile.TemporaryDirectory() as directory:
                 root = _fixture(Path(directory))
                 path = manifest(root, version)
                 before = path.read_bytes()
                 public, _ = capture_source(root)
                 self.assertEqual(public["manifest_validation"], "VERIFIED_OUTPUT_BYTES_ONLY")
+                # #304 F5-04：v4 以前的 manifest 可讀，但標成舊 clearance 公式，不冒充 v4
+                current = version == MATERIALIZATION_VERSION
+                self.assertEqual(public["feature_formula_status"], "CURRENT" if current else "LEGACY_PRE_V4_CLEARANCE")
+                self.assertEqual(public["feature_formulas"], FEATURE_FORMULAS if current else None)
                 self.assertEqual(path.read_bytes(), before)
                 self.assertNotIn(directory, json.dumps(public))
 
@@ -196,16 +203,31 @@ class ProvenanceTests(unittest.TestCase):
                                     capture_output=True)
             self.assertEqual(result.returncode, 0)
 
-    def test_materialized_manifest_v3_has_no_absolute_roots_and_same_feature_bytes(self):
+    def test_v4_manifest_requires_current_feature_formulas(self):
+        """#304 F5-04：v4 manifest 缺公式版本或記成舊 clearance 就拒絕；沒有 manifest 時公式狀態為 UNKNOWN。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            self.assertEqual(capture_source(root)[0]["feature_formula_status"], "UNKNOWN")
+            path = manifest(root)
+            value = json.loads(path.read_text())
+            for formulas in (None, {"clearance_indicator": "clearance_v1_missing_square"}):
+                value["feature_formulas"] = formulas
+                path.write_text(json.dumps(value))
+                with self.assertRaisesRegex(ProvenanceError, "特徵公式版本"):
+                    capture_source(root)
+
+    def test_materialized_manifest_v4_has_no_absolute_roots_and_same_feature_bytes(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             stage_source(root / "source")
             result = formal_data.materialize(root / "source", root / "out", stages=("2",))
-            self.assertEqual(result["schema_version"], MATERIALIZATION_VERSION)
+            self.assertEqual(result["schema_version"], "formal_materialization_v4")
+            self.assertEqual(result["feature_formulas"], FEATURE_FORMULAS)
             self.assertNotIn(directory, json.dumps(result))
             self.assertNotIn("source_root", result)
             public, _ = capture_source(root / "out")
             self.assertEqual(public["manifest_validation"], "VERIFIED_OUTPUT_BYTES_ONLY")
+            self.assertEqual(public["feature_formula_status"], "CURRENT")
             for row in result["files"]:
                 self.assertEqual(row["output_sha256"], hashlib.sha256((root / "out" / row["output"]).read_bytes()).hexdigest())
 

@@ -202,6 +202,13 @@ class StreamHTTPTests(AsyncHTTPTestCase):
     def frames(self, response):
         return [json.loads(line[6:]) for line in response.body.decode().splitlines() if line.startswith("data: ")]
 
+    def fetch(self, path, **kwargs):
+        """像瀏覽器一樣帶同站 Origin；測試自己給了 Origin／Referer／Sec-Fetch-Site 時不補。"""
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not {"Origin", "Referer", "Sec-Fetch-Site"} & set(headers):
+            headers["Origin"] = self.get_url("")
+        return super().fetch(path, headers=headers, **kwargs)
+
     def test_exp2_confirm_endpoint_is_removed(self):
         # 實驗二成群即 adopt() 自學，實驗頁不提供確認閘門
         patterns = [rule.matcher.regex.pattern for rule in server.make_app().wildcard_router.rules]
@@ -235,7 +242,7 @@ class StreamHTTPTests(AsyncHTTPTestCase):
     async def test_disconnect_closes_generator_and_releases_lock(self):
         self.runner.mode = "slow"
         conn = await tornado.tcpclient.TCPClient().connect("127.0.0.1", self.get_http_port())
-        await conn.write(b"GET /stream/exp1?rate=10 HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        await conn.write(b"GET /stream/exp1?rate=10 HTTP/1.1\r\nHost: localhost\r\nOrigin: http://localhost\r\n\r\n")
         await conn.read_until(b'"event": "start"')
         self.assertEqual(server.JOBS.current, "exp1")
         conn.close()
@@ -250,7 +257,7 @@ class StreamHTTPTests(AsyncHTTPTestCase):
     async def test_close_exception_still_releases_lock(self):
         self.runner.mode = "close_error"
         conn = await tornado.tcpclient.TCPClient().connect("127.0.0.1", self.get_http_port())
-        await conn.write(b"GET /stream/exp1?rate=10 HTTP/1.1\r\nHost: localhost\r\n\r\n")
+        await conn.write(b"GET /stream/exp1?rate=10 HTTP/1.1\r\nHost: localhost\r\nOrigin: http://localhost\r\n\r\n")
         await conn.read_until(b'"event": "start"')
         conn.close()
         await tornado.gen.sleep(.2)
@@ -294,7 +301,7 @@ class StreamHTTPTests(AsyncHTTPTestCase):
 
     def test_cross_site_run_and_stream_rejected(self):
         """#301 F-15：Origin／Referer 不同站 → 403；沒帶 Origin 但 Referer 同站（瀏覽器 EventSource）、
-        兩者都沒帶的非瀏覽器用戶端照常；run 只收 application/json。被拒的請求不佔執行鎖。"""
+        同站 Origin（fetch）照常；run 只收 application/json。被拒的請求不佔執行鎖。"""
         here = self.get_url("/")[:-1]
         json_type = {"Content-Type": "application/json"}
         for headers in ({"Origin": "https://evil.invalid"}, {"Referer": "https://evil.invalid/page"},
@@ -320,6 +327,38 @@ class StreamHTTPTests(AsyncHTTPTestCase):
                                         headers={"Origin": "https://demo.invalid", **json_type}).code, 200)
         finally:
             server.ALLOWED_ORIGINS.discard("https://demo.invalid")
+
+    def test_request_without_any_source_header_rejected(self):
+        """#304 F5-02：沒有 Origin、Referer、Sec-Fetch-Site 的狀態端點請求一律 403，不佔執行鎖；
+        瀏覽器 EventSource 帶 Referer、fetch POST 帶 Origin，只帶 Sec-Fetch-Site: same-origin 也照常。"""
+        bare = AsyncHTTPTestCase.fetch
+        json_type = {"Content-Type": "application/json"}
+        self.assertEqual(bare(self, "/stream/exp1").code, 403)
+        self.assertEqual(bare(self, "/run/exp1", method="POST", body="{}", headers=json_type).code, 403)
+        self.assertIsNone(server.JOBS.current)
+        here = self.get_url("")
+        self.assertEqual([f["event"] for f in self.frames(bare(self, "/stream/exp1", headers={"Referer": here + "/"}))],
+                         ["start", "done"])
+        self.assertEqual(bare(self, "/run/exp1", method="POST", body="{}", headers={"Origin": here, **json_type}).code, 200)
+        self.assertEqual(bare(self, "/stream/exp1", headers={"Sec-Fetch-Site": "same-origin"}).code, 200)
+
+    def test_foreign_host_rejected(self):
+        """#304 F5-01：DNS rebinding 時 Origin 與 Host 同為攻擊者網域；Host 不在允許清單就 403，不佔執行鎖。"""
+        port = self.get_http_port()
+        rebind = {"Host": f"rebind.invalid:{port}", "Origin": f"http://rebind.invalid:{port}"}
+        self.assertEqual(self.fetch("/stream/exp1", headers=rebind).code, 403)
+        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}",
+                                    headers={**rebind, "Content-Type": "application/json"}).code, 403)
+        self.assertIsNone(server.JOBS.current)
+        local = {"Host": f"localhost:{port}", "Origin": f"http://localhost:{port}"}
+        self.assertEqual([f["event"] for f in self.frames(self.fetch("/stream/exp1", headers=local))], ["start", "done"])
+
+    def test_host_name_keeps_unbracketed_ipv6(self):
+        """--allow-host／--bind-address 給沒有方括號的 IPv6 時不能被當成 host:port 拆開。"""
+        for raw, expected in (("2001:db8::1", "2001:db8::1"), ("::1", "::1"), ("[2001:db8::1]:8600", "2001:db8::1"),
+                              ("[::1]", "::1"), ("Example.COM.:80", "example.com"), ("127.0.0.1:8600", "127.0.0.1")):
+            with self.subTest(raw=raw):
+                self.assertEqual(server._host_name(raw), expected)
 
     def test_non_object_parameters_and_non_finite_rate_rejected(self):
         for query in ("params=%5B1%5D", "rate=nan", "rate=inf"):
