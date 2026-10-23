@@ -205,12 +205,12 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         self.assertEqual([f["event"] for f in self.frames(response)], ["start", "done"])
         self.assertTrue(self.runner.closed)
         self.assertIsNone(server.JOBS.current)
-        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}").code, 200)
+        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}", headers={"Content-Type": "application/json"}).code, 200)
 
     def test_busy_stream_and_batch_are_rejected(self):
         server.JOBS.current = "exp3"
         self.assertIn("執行中", self.frames(self.fetch("/stream/exp1"))[0]["error"])
-        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}").code, 409)
+        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}", headers={"Content-Type": "application/json"}).code, 409)
         self.assertEqual(server.JOBS.current, "exp3")
 
     def test_bad_json_does_not_acquire_lock(self):
@@ -270,11 +270,12 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         server.PLAYBACK = PlaybackTracker()
         try:
             self.runner.mode = "bad_params"
-            response = self.fetch("/run/exp1", method="POST", body='{"seed": "<img src=x>"}')
+            response = self.fetch("/run/exp1", method="POST", body='{"seed": "<img src=x>"}', headers={"Content-Type": "application/json"})
             self.assertEqual(response.code, 400)
             self.assertIsNone(server.PLAYBACK.snapshot())
             self.runner.mode = "run_crash"
-            response = self.fetch("/run/exp1", method="POST", body='{"seed": 42, "evil": "<img src=x>"}')
+            response = self.fetch("/run/exp1", method="POST", body='{"seed": 42, "evil": "<img src=x>"}',
+                                  headers={"Content-Type": "application/json"})
             self.assertEqual(response.code, 500)
             record = server.PLAYBACK.snapshot()["records"]["exp1"]
             self.assertEqual(record["status"], "error")
@@ -282,6 +283,35 @@ class StreamHTTPTests(AsyncHTTPTestCase):
             self.assertIsNone(server.JOBS.current)
         finally:
             server.PLAYBACK = previous
+
+    def test_cross_site_run_and_stream_rejected(self):
+        """#301 F-15：Origin／Referer 不同站 → 403；沒帶 Origin 但 Referer 同站（瀏覽器 EventSource）、
+        兩者都沒帶的非瀏覽器用戶端照常；run 只收 application/json。被拒的請求不佔執行鎖。"""
+        here = self.get_url("/")[:-1]
+        json_type = {"Content-Type": "application/json"}
+        for headers in ({"Origin": "https://evil.invalid"}, {"Referer": "https://evil.invalid/page"},
+                        {"Origin": "null"}, {"Sec-Fetch-Site": "cross-site"}):
+            with self.subTest(headers=headers):
+                self.assertEqual(self.fetch("/stream/exp1", headers=headers).code, 403)
+                self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}",
+                                            headers={**headers, **json_type}).code, 403)
+                self.assertIsNone(server.JOBS.current)
+        for content_type in ("application/x-www-form-urlencoded", "text/plain"):
+            with self.subTest(content_type=content_type):
+                response = self.fetch("/run/exp1", method="POST", body="{}", headers={"Content-Type": content_type})
+                self.assertEqual(response.code, 415)
+        self.assertEqual([f["event"] for f in self.frames(self.fetch("/stream/exp1", headers={"Referer": here + "/"}))],
+                         ["start", "done"])
+        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}",
+                                    headers={"Origin": here, **json_type}).code, 200)
+        self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}",
+                                    headers={"Content-Type": "application/json; charset=utf-8"}).code, 200)
+        server.ALLOWED_ORIGINS.add("https://demo.invalid")
+        try:
+            self.assertEqual(self.fetch("/run/exp1", method="POST", body="{}",
+                                        headers={"Origin": "https://demo.invalid", **json_type}).code, 200)
+        finally:
+            server.ALLOWED_ORIGINS.discard("https://demo.invalid")
 
     def test_non_object_parameters_and_non_finite_rate_rejected(self):
         for query in ("params=%5B1%5D", "rate=nan", "rate=inf"):

@@ -13,6 +13,7 @@ experiments/ 模組的 run()；用另一個單執行緒池，跑實驗時即時�
     GET  /api/experiments               實驗目錄、資料集、配置清單
     POST /api/experiments/{id}/run      以 JSON 參數執行一次，回傳結果並存檔
     GET  /api/experiments/{id}/stream   邊跑邊畫（Server-Sent Events）：?params=<JSON>&rate=<筆/秒>
+    run／stream／assistant/ask 先做跨站檢查（request_origin_allowed），run 與 ask 只收 application/json。
     GET  /api/committed/{name}          已提交的矩陣結果（唯讀）
 
 AI 問答（web/assistant.py，LangGraph agent 連本地 OpenAI 相容模型）：
@@ -64,6 +65,24 @@ def origin_allowed(origin: str, host: str) -> bool:
     Origin 自然與 Host 相同。"""
     return (urlparse(origin).netloc.lower() == host.lower()
             or origin.rstrip("/").lower() in ALLOWED_ORIGINS)
+
+
+def request_origin_allowed(request) -> bool:
+    """會改變狀態的 HTTP 端點（執行實驗、邊跑邊畫、AI 問答）的跨站檢查（#301 F-15），規則同 origin_allowed：
+
+    - 有 Origin：Origin 必須同站或在 --allow-origin 名單。
+    - 沒有 Origin（瀏覽器的同站 GET，例如 EventSource，不帶 Origin）：看 Referer 的 scheme://host[:port]。
+    - 兩者都沒有：放行 curl、測試與證據腳本這類非瀏覽器用戶端；但瀏覽器標成跨站的請求
+      （Sec-Fetch-Site 為 cross-site／same-site，例如 no-referrer 的 <img> 觸發 GET）仍拒絕。
+    """
+    origin = request.headers.get("Origin")
+    if origin is not None:
+        return origin_allowed(origin, request.host)
+    referer = request.headers.get("Referer")
+    if referer is not None:
+        parts = urlparse(referer)
+        return origin_allowed(f"{parts.scheme}://{parts.netloc}", request.host)
+    return request.headers.get("Sec-Fetch-Site", "same-origin") in ("same-origin", "none")
 
 
 def reject_legacy_method(method: str) -> None:
@@ -247,6 +266,25 @@ class _JSONHandler(tornado.web.RequestHandler):
         self.finish(json.dumps(payload, ensure_ascii=False, allow_nan=False))
 
 
+class _SameSiteMixin:
+    """prepare() 先擋跨站請求（403）；require_json 的端點另外只收 application/json（415），
+    跨站的 HTML 表單送不出這種 Content-Type，不經 CORS 預檢就打不進來（#301 F-15）。"""
+
+    require_json = False
+
+    def prepare(self) -> None:
+        if not request_origin_allowed(self.request):
+            self._refuse(403, "跨站請求被拒絕：Origin／Referer 不是本站，也不在 --allow-origin 名單")
+        elif self.require_json and self.request.headers.get(
+                "Content-Type", "").split(";")[0].strip().lower() != "application/json":
+            self._refuse(415, "需要 Content-Type: application/json")
+
+    def _refuse(self, status: int, text: str) -> None:
+        self.set_status(status)
+        self.set_header("Content-Type", "application/json; charset=utf-8")
+        self.finish(json.dumps({"error": text}, ensure_ascii=False))
+
+
 class CatalogHandler(_JSONHandler):
     def get(self) -> None:
         payload = JOBS.runner.catalog()
@@ -254,7 +292,9 @@ class CatalogHandler(_JSONHandler):
         self.reply(payload)
 
 
-class RunHandler(_JSONHandler):
+class RunHandler(_SameSiteMixin, _JSONHandler):
+    require_json = True
+
     async def post(self, exp_id: str) -> None:
         if JOBS.current is not None:
             self.reply({"error": f"{JOBS.current} 執行中，請稍候"}, 409)
@@ -289,7 +329,7 @@ class RunHandler(_JSONHandler):
         self.reply(payload)
 
 
-class StreamHandler(tornado.web.RequestHandler):
+class StreamHandler(_SameSiteMixin, tornado.web.RequestHandler):
     """以 Server-Sent Events 逐 frame 推送實驗進度；依 rate 控制每秒播放的樣本數。"""
 
     def initialize(self) -> None:
@@ -410,8 +450,10 @@ class AssistantStatusHandler(_JSONHandler):
             "git_head": git["head"], "tracked_dirty": git["tracked_dirty"], "answer_schema": ANSWER_SCHEMA}})
 
 
-class AssistantAskHandler(tornado.web.RequestHandler):
+class AssistantAskHandler(_SameSiteMixin, tornado.web.RequestHandler):
     """以 SSE 串流回答；快照在 IOLoop 執行緒取，模型只讀提問當下的狀態。"""
+
+    require_json = True
 
     def initialize(self) -> None:
         self.closed = False
