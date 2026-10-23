@@ -61,7 +61,7 @@ busy時拒絕重複重任務；錯誤後查看操作紀錄，明確重設或重�
 
 ## 工程檢查API與命令
 
-navigation_data_contract.run(dataset,seed=42)只讀來源、不fit；navigation_regression.run(dataset,seed=42)對照原LiveDemo與GuideHub。後者固定LW/q95/k5，分別比較Mahalanobis及k-NN，先40健康、最多600筆5screws等候第一次自學（`LiveDemo.adoption`）、自學後60筆，再重設各播A/B；`summary.json` 的 `adoption` 欄記兩入口相同的 `adopt()` 結果（schema `navigation_regression_v3`）。逐筆核對來源特徵SHA／所有同值候選列索引、score／verdict／PCA／EWMA／CUSUM／隔離等，前後核來源未變。
+navigation_data_contract.run(dataset,seed=42)只讀來源、不fit；navigation_regression.run(dataset,seed=42)對照原LiveDemo與GuideHub。後者固定LW/q95/k5，分別比較Mahalanobis及k-NN，先40健康、最多600筆5screws等候第一次自學（`LiveDemo.adoption`）、自學後60筆，再重設各播A/B；`summary.json` 的 `adoption` 欄記兩入口相同的 `adopt()` 結果（schema `navigation_regression_v3`）。等候結束後先比兩入口是否都已自學（`adoption_present`）：只有一邊學到新類（任一方向）就記一筆不一致、`adoption` 為null，不再讀另一邊的欄位，回歸不會中途崩潰；兩邊都學到才比 `adoption` 內容與 fit audit，再播60筆。逐筆核對來源特徵SHA／所有同值候選列索引、score／verdict／PCA／EWMA／CUSUM／隔離等，前後核來源未變。
 
 ```bash
 uv run --locked python -m experiments.navigation_data_contract --data-root data --motor T1 --rpm 8000rpm --seed 42

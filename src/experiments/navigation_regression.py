@@ -71,6 +71,19 @@ def tick_with_row(demo, tick):
             sampler.draw = draw
 
 
+def compare_adoption(mismatch: MismatchLedger, method: str, original, guide) -> dict | None:
+    """先比兩入口是否都完成 adopt()；只有一邊有結果（任一方向）就記不一致並回 None，
+    不去讀另一邊 None 的欄位（#304 F5-05）。兩邊都有才比內容與 fit audit，回傳 CLI 的結果。"""
+    pair_id = f"{method}/adopted"
+    cli_done, guide_done = original.adoption is not None, guide.adoption is not None
+    if not mismatch.check(pair_id, "adoption_present", cli_done, guide_done) or not cli_done:
+        return None
+    adopted = {k: v for k, v in original.adoption.items() if k != "label"}
+    mismatch.check(pair_id, "adoption", adopted, {k: v for k, v in guide.adoption.items() if k != "label"})
+    mismatch.check(pair_id, "fit_audit", split_audit(original), split_audit(guide))
+    return adopted
+
+
 def run(dataset, seed=42):
     source = contract(dataset, seed)
     results = []
@@ -114,12 +127,8 @@ def run(dataset, seed=42):
                 tick()
                 arrival += 1
             found = hub.demo.adoption is not None
-            adopted = None
-            if found:
-                adopted = {k: v for k, v in original.adoption.items() if k != "label"}
-                mismatch.check(f"{method}/adopted", "adoption", adopted,
-                               {k: v for k, v in hub.demo.adoption.items() if k != "label"})
-                mismatch.check(f"{method}/adopted", "fit_audit", split_audit(original), split_audit(hub.demo))
+            adopted = compare_adoption(mismatch, method, original, hub.demo)
+            if adopted is not None:
                 audits.append({"stage": "adopted", "fit": split_audit(original)})
                 for _ in range(60):
                     tick()

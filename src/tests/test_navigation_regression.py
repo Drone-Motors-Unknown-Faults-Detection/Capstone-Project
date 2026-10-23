@@ -9,7 +9,7 @@ import pytest
 from loguru import logger
 
 from experiments import navigation_regression
-from experiments.navigation_regression import MismatchLedger, main, tick_with_row
+from experiments.navigation_regression import MismatchLedger, compare_adoption, main, tick_with_row
 
 DATASET = {"motor": "T1", "rpm": "8000rpm", "path": Path("data")}
 
@@ -76,3 +76,31 @@ def test_crash_still_writes_failure_record(monkeypatch):
     summary = _summary()
     assert summary["status"] == "FAILED"
     assert "RuntimeError" in summary["error"]
+
+
+def test_one_sided_adoption_is_counted_without_crash(monkeypatch):
+    """#304 F5-05：只有導覽學到（CLI 為 None）或只有 CLI 學到，都記一筆 adoption_present 不一致，不讀 None 的欄位。"""
+    monkeypatch.setattr(navigation_regression, "split_audit", lambda demo: demo.audit)
+    learned = SimpleNamespace(adoption={"t": 115, "action": "learned", "label": "discovered-1"}, audit={"n": 51})
+    missing = SimpleNamespace(adoption=None, audit={"n": 0})
+    for cli, guide in ((missing, learned), (learned, missing)):
+        ledger = MismatchLedger()
+        assert compare_adoption(ledger, "knn", cli, guide) is None
+        assert ledger.count == 1
+        assert ledger.details == [{"pair_id": "knn/adopted", "field": "adoption_present",
+                                   "cli": cli.adoption is not None, "guide": guide.adoption is not None}]
+
+
+def test_adoption_compared_only_when_both_sides_learned(monkeypatch):
+    monkeypatch.setattr(navigation_regression, "split_audit", lambda demo: demo.audit)
+    ledger = MismatchLedger()
+    none = SimpleNamespace(adoption=None, audit={})
+    assert compare_adoption(ledger, "knn", none, none) is None
+    assert ledger.count == 0
+    cli = SimpleNamespace(adoption={"t": 115, "action": "learned", "label": "discovered-1"}, audit={"n": 51})
+    same = SimpleNamespace(adoption={"t": 115, "action": "learned", "label": "其他名稱"}, audit={"n": 51})
+    assert compare_adoption(ledger, "knn", cli, same) == {"t": 115, "action": "learned"}
+    assert ledger.count == 0
+    other = SimpleNamespace(adoption={"t": 116, "action": "learned"}, audit={"n": 50})
+    compare_adoption(ledger, "mahalanobis", cli, other)
+    assert [d["field"] for d in ledger.details] == ["adoption", "fit_audit"]
