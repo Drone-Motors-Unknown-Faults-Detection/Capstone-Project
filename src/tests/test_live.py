@@ -62,6 +62,26 @@ class AutoAdoptTests(unittest.TestCase):
         self.assertEqual((row["pre_streamed"], row["post_streamed"]), (2, 1))
         self.assertTrue(next(c for c in self.demo.state()["configs"] if c["config"] == "5screws")["known"])
 
+    def test_fitted_rows_are_not_streamed_again_after_learning(self):
+        # #296 R3-02：discovered-N 的 train／cal 列不再重抽，學後認出率只來自未擬合的列
+        self.demo.set_source("5screws")
+        with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):
+            self.demo.tick()
+        fitted = self.demo.fitted_rows["5screws"]
+        split = self.demo.session.monitor.splits["discovered-1"]
+        self.assertEqual(len(fitted), len(split.train) + len(split.cal))
+        self.assertEqual(set(self.demo.samplers["5screws"].indices.tolist()) & fitted, set())
+        self.assertEqual(len(self.demo.samplers["5screws"].indices), 60 - len(fitted))
+        drawn = set()
+        for _ in range(100):
+            self.demo.tick()
+            drawn.add(self.demo.samplers["5screws"].last_index)
+        self.assertEqual(drawn & fitted, set())
+        self.assertEqual(len(drawn), 60 - len(fitted))   # 100 筆循環把未擬合列都抽過一輪
+        self.demo._build()
+        self.assertEqual(self.demo.fitted_rows, {})
+        self.assertEqual(len(self.demo.samplers["5screws"].indices), 60)
+
     def test_reset_clears_adoption(self):
         self.demo.set_source("5screws")
         with patch.object(ScaleGrowthSession, "process", _force_candidate(ScaleGrowthSession.process)):

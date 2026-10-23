@@ -238,11 +238,13 @@ class CycleSampler:
         self.indices = np.asarray(indices)
         self.rng = rng
         self._order: list[int] = []
+        self.last_index: int | None = None  # 最近一次抽到的池列號，供串流端記錄列來源
 
     def draw(self) -> np.ndarray:
         if not self._order:
             self._order = list(self.rng.permutation(self.indices))
-        return self.pool[self._order.pop()]
+        self.last_index = int(self._order.pop())
+        return self.pool[self.last_index]
 
 
 if __name__ == "__main__":

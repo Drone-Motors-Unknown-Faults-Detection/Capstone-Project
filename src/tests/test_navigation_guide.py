@@ -34,11 +34,12 @@ def fixture(root, healthy=50):
 
 def _force_candidate(original):
     """包住 process()：這一筆之後隔離區直接放 25 筆該配置列並成群，不跑 HDBSCAN。"""
-    def process(session, sample, truth):
-        out = original(session, sample, truth)
+    def process(session, sample, truth, row_id=None):
+        out = original(session, sample, truth, row_id)
         rows = session.monitor.pools[truth][:25]
         session.quarantine_X = [row.copy() for row in rows]
         session.quarantine_truth = [truth] * 25
+        session.quarantine_row = list(range(25))   # 池列號 0～24
         session.quarantine_t = list(range(1, 26))
         session.candidate = {"indices": list(range(25)), "size": 25, "majority": truth,
                              "majority_display": truth, "purity": 1.0, "t_range": [1, 25], "cluster_params": [25, 3]}

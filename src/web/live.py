@@ -90,6 +90,8 @@ class LiveDemo:
         self.alarms: list[dict] = []
         self.adoption: dict | None = None      # 最近一次 adopt() 的結果（含事後對照欄位）
         self.learned_by_truth: dict[str, str] = {}  # 事後對照：真值配置 → 對上的模型新類；只供展示統計，不進模型
+        # 已拿去擬合某個 discovered-N 的池列（config → 列號）：之後不再重抽，學後統計不灌水（#296 R3-02）
+        self.fitted_rows: dict[str, set[int]] = {}
         self.samplers: dict[str, CycleSampler] = {}
         self._refresh_samplers()
         self._open_sample_log()
@@ -170,13 +172,14 @@ class LiveDemo:
         self._closed = True
 
     def _refresh_samplers(self) -> None:
-        """已知配置只從 holdout 抽（未參與擬合），未知配置從整池抽。"""
+        """已知配置只從 holdout 抽（未參與擬合）；其餘配置從整池抽，但排除已拿去擬合 discovered-N 的列。"""
         mon = self.session.monitor
         for config, pool in self.pools.items():
             if config in mon.known:
                 idx = mon.splits[config].holdout
             else:
-                idx = np.arange(len(pool))
+                used = self.fitted_rows.get(config, set())
+                idx = np.array([i for i in range(len(pool)) if i not in used], dtype=int)
             self.samplers[config] = CycleSampler(pool, idx, self.stream_rng)
 
     # -- 控制 ------------------------------------------------------------------
@@ -209,6 +212,10 @@ class LiveDemo:
         self.adoption = {"t": self.t, **result}
         if result["action"] == "learned":
             self.learned_by_truth.setdefault(result["matched"], result["config"])
+            for config, row in result["fitted_rows"]:
+                if row is not None:
+                    self.fitted_rows.setdefault(config, set()).add(row)
+            self._refresh_samplers()
             self._snapshot_model(f"learned_{result['config']}")
             self.switch_t = self.t
             msgs = [_event(
@@ -269,7 +276,7 @@ class LiveDemo:
         was_known = config in self.session.monitor.known or config in self.learned_by_truth
         prev_attempts = self.session.cluster_attempts
         x = self.samplers[config].draw()
-        r = self.session.process(x, config)
+        r = self.session.process(x, config, self.samplers[config].last_index)
         tr = self.trend.update(r["score"])
         self.t += 1
 

@@ -80,7 +80,9 @@ class ScaleGrowthSession:
         self.quarantine_margin = quarantine_margin
         self.quarantine_X: list[np.ndarray] = []
         self.quarantine_truth: list[str] = []
+        self.quarantine_row: list[int | None] = []  # 來源池列號（呼叫端給；只供事後對照與串流排除擬合列）
         self.quarantine_t: list[int] = []
+        self.learned_rows: dict[str, dict] = {}  # discovered-N → 候選群列來源與其中拿去擬合（train／cal）的列
         self.quarantine_duplicates = 0  # 與隔離區既有列完全相同、未再存入的筆數
         self.candidate: dict | None = None
         self._since_cluster = 0
@@ -90,12 +92,16 @@ class ScaleGrowthSession:
 
     # -- 串流 ------------------------------------------------------------------
 
+    def _row_id(self, i: int) -> int | None:
+        """隔離區第 i 列的來源池列號；呼叫端沒給（或測試直接塞列）時是 None。"""
+        return self.quarantine_row[i] if i < len(self.quarantine_row) else None
+
     def _is_duplicate(self, row: np.ndarray) -> bool:
         """隔離區已有完全相同的原始特徵向量（循環重播會重抽同一列）；只比特徵，不讀 truth。"""
         return any(np.array_equal(row, kept) for kept in self.quarantine_X)
 
-    def process(self, x_raw: np.ndarray, truth: str) -> dict:
-        """處理一筆樣本。truth 只存入隔離區，供 adopt() 事後對照，不參與判定。
+    def process(self, x_raw: np.ndarray, truth: str, row_id: int | None = None) -> dict:
+        """處理一筆樣本。truth 與 row_id（來源池列號）只存入隔離區，供 adopt() 事後對照與列來源紀錄，不參與判定。
 
         回傳 candidate_new=True 時呼叫端在同一拍就 adopt()，沒有待確認狀態。
         """
@@ -113,6 +119,7 @@ class ScaleGrowthSession:
             else:
                 self.quarantine_X.append(row)
                 self.quarantine_truth.append(truth)
+                self.quarantine_row.append(None if row_id is None else int(row_id))
                 self.quarantine_t.append(self.n_seen)
                 self._since_cluster += 1
                 if (
@@ -177,6 +184,8 @@ class ScaleGrowthSession:
             # 叢集樣本的蒐集時間區間——區分「舊帳」（如健康期累積的誤報）與現行串流
             "t_range": [int(min(ts)), int(max(ts))],
             "cluster_params": list(used),
+            # 列來源 [truth, 池列號]，與候選群矩陣同序；只供事後對照／串流排除，不進模型
+            "rows": [[self.quarantine_truth[i], self._row_id(i)] for i in idx],
         }
         return True
 
@@ -186,6 +195,7 @@ class ScaleGrowthSession:
         keep = [i for i in range(len(self.quarantine_X)) if i not in drop]
         self.quarantine_X = [self.quarantine_X[i] for i in keep]
         self.quarantine_truth = [self.quarantine_truth[i] for i in keep]
+        self.quarantine_row = [self._row_id(i) for i in keep]
         self.quarantine_t = [self.quarantine_t[i] for i in keep]
 
     def known_cal_max(self) -> float:
@@ -245,6 +255,12 @@ class ScaleGrowthSession:
             return result
         result["action"] = "learned"
         result["label"] = self.monitor.add_observed(name, samples)
+        # 候選群矩陣的列來源，以及其中切成 train／cal 的列：串流端據此不再重抽擬合列（#296 R3-02）
+        rows = [[self.quarantine_truth[i], self._row_id(i)] for i in indices]
+        split = self.monitor.splits[name]
+        fitted = [rows[i] for i in np.concatenate([split.train, split.cal])]
+        self.learned_rows[name] = {"rows": rows, "fitted": fitted}
+        result.update({"rows": rows, "fitted_rows": fitted})
         self.polar = PolarMap(self.monitor)
         self._drop_quarantine(set(indices))
         result["pruned"] = self._prune_explained()
@@ -364,10 +380,12 @@ def iter_playback(
             global_tick += 1
             if healthy_mix > 0 and mix_rng.random() < healthy_mix:
                 x, truth = healthy_sampler.draw(), HEALTHY
+                row_id = healthy_sampler.last_index
             else:
                 x, truth = sampler.draw(), config
+                row_id = sampler.last_index
             before = len(session.quarantine_X)
-            out = session.process(x, truth)
+            out = session.process(x, truth, row_id)
             if truth == HEALTHY:
                 healthy_seen += 1
                 healthy_quarantined += len(session.quarantine_X) > before

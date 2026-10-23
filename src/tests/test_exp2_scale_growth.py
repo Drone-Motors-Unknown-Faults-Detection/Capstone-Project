@@ -370,6 +370,44 @@ class SemanticsTests(unittest.TestCase):
         self.assertEqual((result["n_stages"], result["n_learned"], result["n_matched_config"]), (2, 2, 2))
 
 
+class RowSourceTests(unittest.TestCase):
+    """#296 R3-02／R3-03：隔離區記來源池列號，adopt() 回報候選群列與其中拿去擬合的列；不改判定。"""
+
+    def test_process_tracks_row_ids_and_adopt_reports_fitted_rows(self):
+        pools = _pools()
+        session = exp2.ScaleGrowthSession(pools, seed=42, recluster_every=10 ** 6)
+        for row_id in range(40):
+            session.process(pools["7screws"][row_id], "7screws", row_id)
+        self.assertEqual(session.quarantine_row, list(range(40)))
+        session.candidate = {"indices": list(range(30)), "size": 30, "majority": "7screws",
+                             "majority_display": "7screws", "purity": 1.0}
+        out = session.adopt()
+        self.assertEqual(out["action"], "learned")
+        self.assertEqual(out["rows"], [["7screws", i] for i in range(30)])
+        split = session.monitor.splits["discovered-1"]
+        self.assertEqual(len(out["fitted_rows"]), len(split.train) + len(split.cal))
+        self.assertTrue(set(map(tuple, out["fitted_rows"])) < set(map(tuple, out["rows"])))
+        self.assertEqual(session.learned_rows["discovered-1"], {"rows": out["rows"], "fitted": out["fitted_rows"]})
+        # 清理殘餘後列號仍與隔離區對齊
+        self.assertEqual(len(session.quarantine_row), len(session.quarantine_X))
+        self.assertTrue(all(r >= 30 for r in session.quarantine_row))
+
+    def test_candidate_rows_follow_cluster_order_and_batch_passes_pool_row_ids(self):
+        events = list(exp2.iter_playback(_pools(), seed=42, max_ticks_per_stage=300))
+        candidate = next(e for e in events if e["event"] == "candidate")["candidate"]
+        self.assertEqual(len(candidate["rows"]), candidate["size"])
+        parts = exp2.split_stream_eval(_pools(), ["7screws"], seed=42)["7screws"]
+        self.assertTrue(all(truth == "7screws" and row in set(parts["stream"].tolist()) for truth, row in candidate["rows"]))
+        outcome = next(e for e in events if e["event"] == "adopted")["outcome"]
+        self.assertEqual(outcome["rows"], candidate["rows"])
+
+    def test_rows_filled_without_ids_still_adopt(self):
+        rows = np.random.default_rng(11).normal(6.0, 0.3, (40, 6))
+        session = _session_with_quarantine(rows, "7screws", cluster=30)
+        out = session.adopt()
+        self.assertEqual(out["rows"], [["7screws", None]] * 30)
+
+
 class NoConfirmTests(unittest.TestCase):
     """#287：session 只剩 adopt() 一條納入路徑；批次 run() 的數字與移除 confirm() 前相同。"""
 
@@ -378,7 +416,7 @@ class NoConfirmTests(unittest.TestCase):
         events = list(exp2.iter_playback(_pools(), seed=42, max_ticks_per_stage=300))
         candidate = next(e for e in events if e["event"] == "candidate")["candidate"]
         self.assertNotIn("is_known", candidate)   # 真值只在 majority／purity 的事後對照欄
-        self.assertEqual(sorted(candidate), ["cluster_params", "majority", "majority_display", "purity", "size", "t_range"])
+        self.assertEqual(sorted(candidate), ["cluster_params", "majority", "majority_display", "purity", "rows", "size", "t_range"])
         # 候選剛成形、還沒 adopt() 時也照常收列：沒有「待確認」守門
         session = exp2.ScaleGrowthSession(_pools(), seed=42)
         session.candidate = {"indices": [], "size": 0, "majority": "7screws", "majority_display": "7screws", "purity": 1.0}
