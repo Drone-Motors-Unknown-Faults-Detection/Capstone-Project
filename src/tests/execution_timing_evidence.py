@@ -11,7 +11,7 @@ import subprocess
 import urllib.request
 
 from core.logger import setup_run
-from tests.assistant_http_evidence import json_headers, parse_sse, validate_url, verify_result
+from tests.assistant_http_evidence import json_headers, open_url, parse_sse, validate_url, verify_result
 
 
 def validate_reference(saved):
@@ -81,7 +81,7 @@ def run(base_url, old_saved, old_sha, deployment_sha, *, new_saved=None):
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(base_url.rstrip("/") + path, data=data,
                                      headers=json_headers(base_url))
-        return urllib.request.urlopen(req, timeout=60).read().decode("utf-8")
+        return open_url(req, 60)
 
     def ask(saved, experiment, question):
         context = {"experiment": experiment, "mode": "result"}

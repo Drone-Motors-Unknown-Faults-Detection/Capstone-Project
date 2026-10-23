@@ -13,7 +13,7 @@ import urllib.request
 
 from core.logger import setup_run
 from experiments.exp12_confusion_tsne import summarize_matrices
-from tests.assistant_http_evidence import json_headers, parse_sse, validate_url
+from tests.assistant_http_evidence import json_headers, open_url, parse_sse, validate_url
 from tests.execution_timing_evidence import validate_reference, verify_time
 from web.presentation import markdown, rate
 
@@ -119,7 +119,7 @@ def run(base_url, new_saved, new_sha, old_saved, old_sha, deployment_sha, *, met
     def request(path, body=None):
         req = urllib.request.Request(base_url.rstrip("/") + path, data=json.dumps(body).encode() if body else None,
                                      headers=json_headers(base_url))
-        return urllib.request.urlopen(req, timeout=100 if body else 10).read().decode("utf-8")
+        return open_url(req, 100 if body else 10)
 
     try:
         before = result["server_before"] = server_receipt()

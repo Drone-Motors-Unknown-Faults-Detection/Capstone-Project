@@ -161,7 +161,7 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 可信結果的mode／origin與來源識別必須一致，才可使用可選presentation。舊客戶端仍讀可讀Markdown；無presentation或資料非法不換來源。前端以DOM建立details／summary與表格，模型HTML不經這條路徑。完整回覆後一次呈現詳情，工具進度不串長箭頭，依據逐項列出。HTTP環境複製失敗時顯示可選取的完整文字，不假稱已複製。這些是排版與操作契約，不新增實驗編號、改模型或改資料。
 
-`python -m tests.assistant_presentation_evidence --help`為8787專用呈現驗收入口，唯讀指定新／舊JSON，核對OCI版本、實際程式／前端雜湊、六次決定論問答與實際SSE→JS；不重跑t-SNE或其他研究。另加`--method-probe`才執行一次有界一般方法問答。經`setup_run()`寫入`logs/assistant_presentation_evidence/`及`output/assistant_presentation_evidence/`，保留失敗，不把HTTP／Node結果當作瀏覽器畫面驗收。
+`python -m tests.assistant_presentation_evidence --help`為8787專用呈現驗收入口，唯讀指定新／舊JSON，核對OCI版本、實際程式／前端雜湊、六次決定論問答與實際SSE→JS；不重跑t-SNE或其他研究。另加`--method-probe`才執行一次有界一般方法問答。經`setup_run()`寫入`logs/assistant_presentation_evidence/`及`output/assistant_presentation_evidence/`，保留失敗，不把HTTP／Node結果當作瀏覽器畫面驗收。8787容器要設 `ALLOW_HOST=140.134.138.33`，否則問答請求被 Host 允許清單擋成 403（#304），腳本會在失敗原因寫出這個提示。
 
 原始驗收產物含問答與來源資訊，對外發布須先確認授權。`python -m tests.presentation_public_evidence --help`只讀取已完成產物，以白名單匯出測試數量、狀態與公開程式版本到`output/assistant_presentation_public_evidence/{時間戳}/public_summary.json`；不複製問答、伺服器路徑、來源metadata或容器識別。只獲授權公開去敏摘要時，不提交原始產物或整個執行目錄。
 
@@ -177,7 +177,7 @@ k-NN改成與該類train參考點比鄰近程度：`d_k(z)=mean(||z−z_j||₂)`
 
 時間僅為執行紀錄，不是資料採集或raw window時間；不改資料切分、指標或模型。契約由`src/tests/test_web_run_clock.py`、`test_run_timing.py`及既有runner／playback／HTTP／前端測試驗證。
 
-`python -m tests.execution_timing_evidence --help`提供8787專用驗收入口：唯讀SSH核對指定舊檔、透過HTTP建立一次實驗一、比對原始JSON與記憶體／存檔時間問答，並執行實際SSE到前端JS測試。再次驗收使用`--new-saved`沿用新紀錄，不重複fit。程式經`setup_run`寫`logs/execution_timing_evidence/{ts}.log`與`output/execution_timing_evidence/{ts}/`；HTTP與Node結果不能當實際瀏覽器操作。它拒絕正式站URL及非標準保存路徑，SSH沿用已授權的使用者專用金鑰，不修改登入設定。
+`python -m tests.execution_timing_evidence --help`提供8787專用驗收入口：唯讀SSH核對指定舊檔、透過HTTP建立一次實驗一、比對原始JSON與記憶體／存檔時間問答，並執行實際SSE到前端JS測試。再次驗收使用`--new-saved`沿用新紀錄，不重複fit。程式經`setup_run`寫`logs/execution_timing_evidence/{ts}.log`與`output/execution_timing_evidence/{ts}/`；HTTP與Node結果不能當實際瀏覽器操作。它拒絕正式站URL及非標準保存路徑，SSH沿用已授權的使用者專用金鑰，不修改登入設定。建立實驗一的 POST 同樣要求 8787 容器設 `ALLOW_HOST=140.134.138.33`（`docker/.env`，傳給 `--allow-host`），沒設會回 403。
 
 `web.experiments.CATALOG` 的 stream 旗標決定可播放的實驗：exp1、exp3、exp4、exp8_monitor。既有 `run()` 批次與 `iter_run()` 逐步計算共用實驗邏輯；展示編排不自行計算另一套指標。使用 `uv run --locked python -m web.server --bind-address 127.0.0.1 --data-root data --port 8600` 啟動本機展示，再在實驗卡片選批次執行或「邊跑邊畫」。
 
