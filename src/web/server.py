@@ -132,12 +132,18 @@ class Hub:
 
     # -- 節拍 ------------------------------------------------------------------
 
-    def pause(self, *, publish=True) -> None:
-        """IOLoop 的同步 tick 先完成；停止後才確認尾批資料已保存。"""
+    def pause(self, *, publish=True, recover=False) -> None:
+        """IOLoop 的同步 tick 先完成；停止後才確認尾批資料已保存。
+
+        recover=True 只給重設／換資料集／建基準這類重建前的暫停用：樣本寫入已失敗時，
+        丟棄失敗的紀錄檔並發事件，讓重建開新檔；一般暫停與串流仍因寫入錯誤拒絕（#301 F-13）。
+        """
         self.running = False
         if self.busy:
             raise RuntimeError("工作進行中，尚不能確認保存完成")
         if self.demo is not None:
+            if recover and self.demo.discard_failed_log():
+                self.event("warn", "樣本紀錄寫入失敗：停用這份紀錄檔（已寫入的列保留），重建後換新檔")
             try:
                 self.demo.flush()
             except Exception as exc:
@@ -539,7 +545,7 @@ class WSHandler(tornado.websocket.WebSocketHandler):
         if HUB.busy:
             HUB.event("warn", f"{label}略過：另一項工作進行中")
             return
-        HUB.pause(publish=False)
+        HUB.pause(publish=False, recover=True)
         HUB._busy_state = HUB.full_state()
         HUB.busy = True
         HUB.broadcast(HUB.full_state())

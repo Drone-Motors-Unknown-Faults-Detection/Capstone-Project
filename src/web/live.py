@@ -142,17 +142,41 @@ class LiveDemo:
         if self._write_error is not None:
             raise RuntimeError("樣本寫入失敗，不能確認完整保存") from self._write_error
         if self._sample_file is not None:
-            self._sample_file.flush()
-            self.flushed_t = self.written_t
-            payload = {"epoch": self.epoch, "t": self.t, "dataset": self.meta,
-                       "source": self.source, "scenario": None if self.scenario is None else self.scenario["key"],
-                       "seed": self.seed, "written_t": self.written_t, "flushed_t": self.flushed_t,
-                       "openset_method": self.openset_method, "mahalanobis_method": self.mahalanobis_method,
-                       "confidence": self.confidence, "knn_neighbors": self.knn_neighbors}
-            path = self.out_dir / f"session_epoch{self.epoch:02d}.json"
-            temporary = path.with_suffix(".json.tmp")
-            temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            temporary.replace(path)
+            try:
+                self._sample_file.flush()
+                self.flushed_t = self.written_t
+                payload = {"epoch": self.epoch, "t": self.t, "dataset": self.meta,
+                           "source": self.source, "scenario": None if self.scenario is None else self.scenario["key"],
+                           "seed": self.seed, "written_t": self.written_t, "flushed_t": self.flushed_t,
+                           "openset_method": self.openset_method, "mahalanobis_method": self.mahalanobis_method,
+                           "confidence": self.confidence, "knn_neighbors": self.knn_neighbors}
+                path = self.out_dir / f"session_epoch{self.epoch:02d}.json"
+                temporary = path.with_suffix(".json.tmp")
+                temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+                temporary.replace(path)
+            except Exception as exc:   # 與寫列失敗同一條路：之後只能經重設／重建丟棄這份紀錄（#301 F-13）
+                self._write_error = exc
+                raise
+
+    def discard_failed_log(self) -> bool:
+        """樣本寫入失敗後的復原入口（#301 F-13）：關掉失敗的紀錄檔、不再 flush，session 改為已關閉；
+        之後要重設（_build 開新檔）或換資料集才再接受樣本。沒有寫入錯誤時不動作、回傳 False。"""
+        if self._write_error is None:
+            return False
+        if self._sample_file is not None:
+            try:
+                self._sample_file.close()
+            except OSError:
+                pass   # 檔案本來就寫壞了；關不掉也不影響重建新檔
+        self._sample_file = self._sample_writer = None
+        self._write_error = None
+        self._closed = True
+        return True
+
+    @property
+    def accepting(self) -> bool:
+        """還能接受新樣本：沒有關閉、也沒有未處理的寫入錯誤。"""
+        return not self._closed and self._write_error is None
 
     def _snapshot_model(self, tag: str) -> None:
         if self.out_dir is None:
