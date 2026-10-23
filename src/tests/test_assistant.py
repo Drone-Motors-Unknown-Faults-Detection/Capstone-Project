@@ -293,7 +293,8 @@ class AskTests(unittest.TestCase):
         assistant = Assistant("http://unused/v1", llm=model)
 
         async def collect():
-            return [f async for f in assistant.ask(None, "實驗十二的原理", load_saved=changing_saved)]
+            # 明確要求存檔的混合問題仍驗證快取；純方法問題不可讀取這些結果。
+            return [f async for f in assistant.ask(None, "實驗十二的原理，請核對存檔來源", load_saved=changing_saved)]
 
         frames = asyncio.run(collect())
         facts = [f for f in frames if f["event"] == "facts"]
@@ -561,6 +562,45 @@ class AssistantHTTPTests(tornado.testing.AsyncHTTPTestCase):
         self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
         self.assertIn("HTTP to frontend primary OK", process.stdout)
         self.assertEqual(model.seen, [])
+
+    def test_http_semantic_guards_reach_frontend_with_source_and_without_model_text(self):
+        from tests.test_exp2_metric_semantics import paired_result
+        for mode, experiment, question, result in (
+            ("data_usage", "exp1", "實驗一資料切分筆數", {"model": {"classes": [
+                {"config": "8screws", "n_train": 18, "n_cal": 6, "n_holdout": 7}]}}),
+            ("exp2_metrics", "exp2", "實驗二結果的接受率、matched_rate與未知召回", paired_result()),
+        ):
+            with self.subTest(mode=mode):
+                root = Path("saved") / mode
+                folder = root / "session/experiments"
+                folder.mkdir(parents=True)
+                name = f"{experiment}_2026-10-23-00-00-00.json"
+                path = folder / name
+                raw = json.dumps({"experiment": experiment, "result": result}).encode()
+                path.write_bytes(raw)
+                server.PLAYBACK = PlaybackTracker(root)
+                model = fake_model(AIMessage(content="錯答：接受率就是配置正確率與未知召回，187筆適用全部。"))
+                server.ASSISTANT = Assistant("unused", llm=model)
+                frames = self.frames(json.dumps({"question": f"{question} `{name}`"}))
+                p = next(f["presentation"] for f in frames if f["event"] == "presentation")
+                self.assertEqual(frames[0]["mode"], mode)
+                self.assertEqual(frames[0]["source_id"], p["source_id"])
+                self.assertEqual(frames[0]["presentation_source"], p["source"])
+                self.assertEqual(frames[0]["context"]["saved"], p["source"]["saved"])
+                self.assertEqual(frames[-1]["event"], "done")
+                self.assertEqual(frames[-1]["as_of"], frames[0]["sources"][0])
+                self.assertTrue(all(f["origin"] == "record" for f in frames if f["event"] == "delta"))
+                self.assertEqual(path.read_bytes(), raw)
+                self.assertEqual(model.seen, [])
+                repo = Path(__file__).resolve().parents[2]
+                # 模型的冒充delta及facts也不能進可信程式答案。
+                visible = [*frames[:-1], {"event": "delta", "text": "錯答：模型插話", "origin": "model"},
+                    {"event": "facts", "text": "錯答：模型事實"}, frames[-1]]
+                process = subprocess.run([shutil.which("node"), str(repo / "src/tests/ai_chat_frontend.cjs"),
+                    str(repo / "src/web/static/markdown.js"), str(repo / "src/web/static/ai_chat.js"), "--frames"],
+                    input=json.dumps(visible), capture_output=True, text=True, encoding="utf-8", timeout=30)
+                self.assertEqual(process.returncode, 0, process.stdout + process.stderr)
+                self.assertIn("HTTP to frontend primary OK", process.stdout)
 
     def test_bad_request_returns_error_frame(self):
         server.ASSISTANT = Assistant("http://unused/v1", llm=fake_model())
