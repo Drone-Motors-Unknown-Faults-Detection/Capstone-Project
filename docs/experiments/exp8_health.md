@@ -145,7 +145,7 @@ API：`run_matrix(data_root, output_root, seeds=(42, 123, 2026), methods=("mahal
 
 選一個 motor／RPM 與 config。不論 config 是什麼，永遠只用健康 train 擬合、健康 cal 定 0.95 距離線與 q10／q95／2×q95 三個錨點；`confidence` 由 `run`／`iter_run` 的關鍵字參數或 CLI `--confidence` 傳入，預設 0.95。健康重播用該配置 holdout 的洗牌順序；故障重播用該配置全池原列順序的前段，`max_windows` 只截斷。T1／8000rpm 健康重播最多 64 列，5screws 故障池 212 列。這些順序不是已確認的採集時間。
 
-legacy 可由此 CLI 傳入：門檻量在 train 距離上（不讀 cal），合併分布標籤是 -2（`LEGACY_POOLED_LABEL`），分數 ≤ 1 的列取最近的已知類 train 中心、> 1 才是 -1 未知（#266）；不作公平比較。每次 `run` 重新 fit，沒有持久模型。
+legacy 不能傳入：它的門檻量在 train 距離上（不讀 cal），cal 分數不以 1 為拒絕線，健康指數 0.5 就不再對應拒絕線。`CalibratedHealthIndex.fit` 遇到 `mahalanobis_method="legacy"`（openset_method 為 mahalanobis）時丟 `ValueError`，所以此 CLI 的 `--method legacy` 與實驗頁 8-3 都會報錯，跟基準入口同規則（#301）。每次 `run` 重新 fit，沒有持久模型。
 
 有 `motor_id` 與 `session_id` 才累積該鍵的歷史。缺身份時即使 `--allow-no-identity` 也不累積時間狀態；`require_identity=True` 另標 `data_quality=insufficient`。自填 ID 只隔離軟體狀態。
 

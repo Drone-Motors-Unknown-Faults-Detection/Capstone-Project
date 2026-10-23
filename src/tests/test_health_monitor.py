@@ -74,6 +74,11 @@ class HealthMonitorWindows(unittest.TestCase):
         with self.assertRaises(KeyError):
             self.call(run, "9screws", max_windows=3)
 
+    def test_legacy_covariance_is_rejected(self):
+        """健康監測與實驗頁 8-3 一樣拒絕 legacy，跟正式基準同規則（#301 F-02）。"""
+        with self.assertRaisesRegex(ValueError, "legacy"):
+            self.call(run, "8screws", mahalanobis_method="legacy")
+
     def test_max_windows_truncates_fault_pool(self):
         self.assertEqual(len(self.call(run, "5screws", max_windows=7)), 7)
         self.assertEqual(len(self.call(run, "7screws", max_windows=500)), 120)
