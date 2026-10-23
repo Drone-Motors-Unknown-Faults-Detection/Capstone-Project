@@ -625,6 +625,26 @@ class HostAllowlistTests(unittest.TestCase):
         self.assertTrue(self.server.host_allowed(self.request("192.0.2.5:8600")))
         self.assertFalse(self.server.host_allowed(self.request("rebind.invalid:8600")))
 
+    def test_bare_and_bracketed_ipv6_entries_normalise_alike(self):
+        """#304 複審：裸 IPv6 不能被當成 host:port 切短；方括號、大小寫、省略寫法與 IPv4-mapped 都對到同一個名稱。"""
+        from unittest.mock import patch
+        name = self.server._host_name
+        self.assertEqual(name("2001:db8::10"), "2001:db8::10")
+        self.assertEqual(name("[2001:DB8:0::10]:8600"), "2001:db8::10")
+        self.assertEqual(name("[2001:db8::10]"), "2001:db8::10")
+        self.assertEqual(name("::1"), "::1")
+        self.assertEqual(name("fe80::1%eth0"), "fe80::1")
+        self.assertEqual(name("[::ffff:192.0.2.5]:80"), "192.0.2.5")
+        self.assertEqual(name("Demo.Example.com.:443"), "demo.example.com")
+        with patch.object(self.server, "local_addresses", return_value={"2001:db8::20", "fe80::2%eth0"}):
+            self.server.allow_hosts("::", ["2001:db8::10", "::1"])
+        for host in ("[2001:db8::10]:8600", "[2001:DB8::0:10]", "[2001:db8::20]:8600", "[fe80::2]:8600", "[::]:8600"):
+            with self.subTest(host=host):
+                self.assertTrue(self.server.host_allowed(self.request(host)))
+        self.assertNotIn("2001", self.server.ALLOWED_HOSTS)
+        self.assertNotIn("", self.server.ALLOWED_HOSTS)
+        self.assertFalse(self.server.host_allowed(self.request("[2001:db8::11]:8600")))
+
     def test_missing_connection_only_uses_names(self):
         from types import SimpleNamespace
         self.assertFalse(self.server.host_allowed(SimpleNamespace(host="10.9.8.7", connection=None)))

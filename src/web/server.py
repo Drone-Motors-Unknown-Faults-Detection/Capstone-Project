@@ -43,7 +43,6 @@ import tornado.iostream
 import tornado.web
 import tornado.websocket
 from loguru import logger
-from tornado.httputil import split_host_and_port
 
 from core.data import discover_datasets
 from core.logger import setup_run
@@ -65,18 +64,28 @@ class CommandError(ValueError):
     """WebSocket 指令的參數錯誤；訊息只含固定文字，可直接廣播給所有瀏覽器。"""
 
 
-def _host_name(host: str) -> str:
-    """Host 標頭去掉 port、IPv6 方括號與結尾的點，轉小寫。"""
-    name, _ = split_host_and_port(host.strip().lower())
-    return name.strip("[]").rstrip(".")
-
-
 def _ip(value: str):
     try:
         ip = ipaddress.ip_address(value.split("%")[0])
     except ValueError:
         return None
     return getattr(ip, "ipv4_mapped", None) or ip
+
+
+def _host_name(host: str) -> str:
+    """Host 標頭與允許清單共用的正規化：只有 `[v6]:port` 或恰好一個冒號（name:port、IPv4:port）才去 port；
+    裸 IPv6（`2001:db8::10`、`::1`）原樣保留。IP 一律轉成 ipaddress 的標準寫法，名稱轉小寫、去結尾的點。"""
+    value = host.strip().lower()
+    if value.startswith("["):
+        end = value.find("]")
+        name = value[1:end] if end != -1 else value[1:]
+    elif value.count(":") == 1:
+        name = value.split(":", 1)[0]
+    else:
+        name = value
+    name = name.rstrip(".")
+    ip = _ip(name)
+    return str(ip) if ip is not None else name
 
 
 def local_addresses() -> set[str]:
@@ -102,7 +111,7 @@ def host_allowed(request) -> bool:
         local = request.connection.stream.socket.getsockname()[0]
     except (AttributeError, OSError, IndexError):
         return False
-    return _ip(name) is not None and _ip(name) == _ip(local)
+    return _ip(name) is not None and _ip(name) == _ip(local)   # name 已正規化，_ip(name) 不會因 zone／大小寫失敗
 
 
 def origin_allowed(origin: str, host: str) -> bool:
