@@ -392,6 +392,12 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
                 self.assertEqual(resp.code, 400)
                 self.assertTrue(resp.headers["Content-Type"].startswith("application/json"))
                 self.assertIn("JSON 物件", json.loads(resp.body)["error"])
+        for body in (b"\xc3{", b"[" * 100000):   # 非 UTF-8、過深巢狀：一樣是 400 JSON，不是 HTML 500
+            with self.subTest(size=len(body)):
+                resp = self.fetch("/api/experiments/exp12/run", method="POST", body=body,
+                                  headers={"Content-Type": "application/json"})
+                self.assertEqual(resp.code, 400)
+                self.assertEqual(json.loads(resp.body)["error"], "參數不是合法 JSON")
         self.assertIsNone(server.PLAYBACK.snapshot())   # 參數錯誤不進播放紀錄
         for call in (server.JOBS.runner.clean_params, server.JOBS.runner.stream_params):
             with self.assertRaisesRegex(ValueError, "JSON 物件"):

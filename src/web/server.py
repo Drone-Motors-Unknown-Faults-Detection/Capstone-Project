@@ -301,7 +301,7 @@ class RunHandler(_SameSiteMixin, _JSONHandler):
             return
         try:
             params = json.loads(self.request.body or b"{}")
-        except json.JSONDecodeError:
+        except (ValueError, RecursionError):   # JSONDecodeError、非 UTF-8（UnicodeDecodeError）、過深巢狀都算參數錯誤
             self.reply({"error": "參數不是合法 JSON"}, 400)
             return
         if not isinstance(params, dict):   # list／字串／null 不能當參數，跟 StreamHandler 同規則（#305 G-07）
@@ -486,7 +486,7 @@ class AssistantAskHandler(_SameSiteMixin, tornado.web.RequestHandler):
             if (not isinstance(question, str) or not question.strip() or not isinstance(history, list)
                     or (context is not None and not isinstance(context, dict))):
                 raise ValueError
-        except (json.JSONDecodeError, ValueError):
+        except (ValueError, RecursionError):   # 含 JSONDecodeError、UnicodeDecodeError 與過深巢狀
             await self.send({"event": "error", "error": "需要 JSON：{question: 字串, history: 陣列}"})
             return
         if len(question) > MAX_QUESTION_CHARS or _history_too_long(history):
