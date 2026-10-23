@@ -337,9 +337,18 @@ class StreamHandlerTrackingTests(tornado.testing.AsyncHTTPTestCase):
     def get_app(self):
         return server.make_app()
 
+    def fetch(self, path, **kwargs):
+        """像瀏覽器 fetch 一樣帶同站 Origin；沒有任何來源標頭的狀態端點請求會被拒絕（#304 F5-02）。"""
+        headers = dict(kwargs.pop("headers", None) or {})
+        if not {"Origin", "Referer", "Sec-Fetch-Site"} & set(headers):
+            headers["Origin"] = self.get_url("")
+        return super().fetch(path, headers=headers, **kwargs)
+
     def stream(self, exp_id, params):
         query = urllib.parse.quote(json.dumps(params))
-        return self.fetch(f"/api/experiments/{exp_id}/stream?params={query}&rate=1000", request_timeout=60)
+        # 瀏覽器的 EventSource 帶 Referer；沒有任何來源標頭的請求會被拒絕（#304 F5-02）
+        return self.fetch(f"/api/experiments/{exp_id}/stream?params={query}&rate=1000", request_timeout=60,
+                          headers={"Referer": self.get_url("/")})
 
     def test_stream_updates_playback_and_bad_request_keeps_it(self):
         self.assertEqual(self.stream("exp3", {"dataset": "T1/8000rpm", "n_trials": 1}).code, 200)

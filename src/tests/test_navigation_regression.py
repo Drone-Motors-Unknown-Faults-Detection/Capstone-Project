@@ -9,7 +9,7 @@ import pytest
 from loguru import logger
 
 from experiments import navigation_regression
-from experiments.navigation_regression import MismatchLedger, main, tick_with_row
+from experiments.navigation_regression import MismatchLedger, compare_adoption, main, tick_with_row
 
 DATASET = {"motor": "T1", "rpm": "8000rpm", "path": Path("data")}
 
@@ -22,6 +22,31 @@ def test_ledger_counts_every_mismatch_and_caps_details():
     assert ledger.count == 3
     assert ledger.details == [{"pair_id": "m/0", "field": "verdict", "cli": "known", "guide": "unknown"},
                               {"pair_id": "m/1", "field": "verdict", "cli": "known", "guide": "unknown"}]
+
+
+def test_adoption_on_one_side_is_recorded_not_crash():
+    """#304 F5-05：只有導覽或只有 CLI 完成 adoption 都記一筆不一致、不丟 AttributeError；兩邊都沒有不算不一致。"""
+    learned = {"action": "learned", "config": "discovered-1", "size": 25, "label": 3}
+    for cli, guide in ((None, learned), (learned, None)):
+        ledger = MismatchLedger()
+        assert compare_adoption(ledger, "knn", cli, guide) is None
+        assert ledger.count == 1
+        assert ledger.details == [{"pair_id": "knn/adopted", "field": "adoption_done",
+                                   "cli": cli is not None, "guide": guide is not None}]
+    ledger = MismatchLedger()
+    assert compare_adoption(ledger, "knn", None, None) is None
+    assert ledger.count == 0
+
+
+def test_adoption_compared_field_by_field_without_label():
+    learned = {"action": "learned", "config": "discovered-1", "size": 25, "label": 3}
+    ledger = MismatchLedger()
+    assert compare_adoption(ledger, "mahalanobis", learned, {**learned, "label": 9}) == \
+        {"action": "learned", "config": "discovered-1", "size": 25}
+    assert ledger.count == 0
+    assert compare_adoption(ledger, "mahalanobis", learned, {**learned, "size": 24}) is not None
+    assert ledger.count == 1
+    assert ledger.details[0]["field"] == "adoption"
 
 
 def test_tick_without_draw_raises_instead_of_assert():

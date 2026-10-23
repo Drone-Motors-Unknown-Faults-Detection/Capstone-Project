@@ -57,11 +57,11 @@ uv run --locked python -m web.guide --data-root data --port 8601 --seed 42 --ope
 4. 「觀看漸進／突發損壞比較」每次先「重設健康基準」，再分別播A260筆／B160筆。演算完自動暫停。EWMA與中間帶規則見[實驗三](exp3_trend.md)，時間單位是筆。
 5. 「切換研究模式」展開fit／cal／holdout索引、參數與既有七問表。模式不送計算命令，沒有更換模型。
 
-busy時拒絕重複重任務；錯誤後查看操作紀錄，明確重設或重建才能再監測。重設會fit健康、清隔離區並開新epoch；舊紀錄保留。服務重啟不會自動載入權重或續接上次session。缺資料、缺劇本配置、來源載入間SHA變動應停下查來源，不填假資料。
+busy時拒絕重複重任務；錯誤後查看操作紀錄，明確重設或重建才能再監測；檢查資料不重建session，串流與寫入錯誤都保留（#304）。重設會fit健康、清隔離區並開新epoch；舊紀錄保留。服務重啟不會自動載入權重或續接上次session。缺資料、缺劇本配置、來源載入間SHA變動應停下查來源，不填假資料。
 
 ## 工程檢查API與命令
 
-navigation_data_contract.run(dataset,seed=42)只讀來源、不fit；navigation_regression.run(dataset,seed=42)對照原LiveDemo與GuideHub。後者固定LW/q95/k5，分別比較Mahalanobis及k-NN，先40健康、最多600筆5screws等候第一次自學（`LiveDemo.adoption`）、自學後60筆，再重設各播A/B；`summary.json` 的 `adoption` 欄記兩入口相同的 `adopt()` 結果（schema `navigation_regression_v3`）。逐筆核對來源特徵SHA／所有同值候選列索引、score／verdict／PCA／EWMA／CUSUM／隔離等，前後核來源未變。
+navigation_data_contract.run(dataset,seed=42)只讀來源、不fit；navigation_regression.run(dataset,seed=42)對照原LiveDemo與GuideHub。後者固定LW/q95/k5，分別比較Mahalanobis及k-NN，先40健康、最多600筆5screws等候第一次自學（`LiveDemo.adoption`）、自學後60筆，再重設各播A/B；`summary.json` 的 `adoption` 欄記兩入口相同的 `adopt()` 結果（schema `navigation_regression_v3`）。任一邊先自學就停止等候；只有一邊完成 adoption（導覽有、CLI 沒有，或反過來）時記一筆 `adoption_done` 不一致、`adoption` 為null，不中斷回歸（#304）。逐筆核對來源特徵SHA／所有同值候選列索引、score／verdict／PCA／EWMA／CUSUM／隔離等，前後核來源未變。
 
 ```bash
 uv run --locked python -m experiments.navigation_data_contract --data-root data --motor T1 --rpm 8000rpm --seed 42

@@ -9,6 +9,7 @@
 # 以主機使用者 uid/gid 執行，寫進 logs/、output/ 的檔案權限與本機執行相同。
 # AI 問答預設連同一 compose 專案的 vllm 服務；模型離線時頁面顯示「模型離線」，展示照常運作。
 # 只跑這個檔、模型在主機上時：LLM_URL=http://host.docker.internal:8000/v1
+# 容器看不到主機的區網 IP：從別台電腦用主機 IP 或網域開頁時，把該名稱填進 ALLOW_HOST（不填只收 localhost）。
 name: lineage
 
 services:
@@ -35,6 +36,8 @@ services:
       - ${LLM_URL:-http://vllm:8000/v1}
       - --llm-model
       - ${LLM_MODEL:-qwen3}
+      - --allow-host
+      - ${ALLOW_HOST:-localhost}
     volumes:
       # 原始資料在 repo 根目錄 data/（太大不進版控）；不存在就讓 compose 直接報錯，不自動建空目錄
       - type: bind

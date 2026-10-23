@@ -35,6 +35,17 @@ class MismatchLedger:
         return False
 
 
+def compare_adoption(mismatch: MismatchLedger, method: str, cli: dict | None, guide: dict | None) -> dict | None:
+    """比對兩邊的自學結果（#304 F5-05）。先記兩邊是否都完成 adoption，任一邊為 None 就記一筆不一致並回傳 None，
+    不對 None 取 .items()；兩邊都完成才逐欄比對（label 是內部編號，不比）並回傳 CLI 的結果。"""
+    pair_id = f"{method}/adopted"
+    if not mismatch.check(pair_id, "adoption_done", cli is not None, guide is not None) or cli is None:
+        return None
+    adopted = {k: v for k, v in cli.items() if k != "label"}
+    mismatch.check(pair_id, "adoption", adopted, {k: v for k, v in guide.items() if k != "label"})
+    return adopted
+
+
 class Collector:
     def __init__(self):
         self.sample = None
@@ -109,16 +120,13 @@ def run(dataset, seed=42):
             original.set_source("5screws")
             hub.demo.set_source("5screws")
             arrival = 0
-            # 成群當拍 LiveDemo.tick() 就 adopt()：等到第一次自學結果出現
-            while arrival < 600 and hub.demo.adoption is None:
+            # 成群當拍 LiveDemo.tick() 就 adopt()：任一邊出現第一次自學結果就停，另一邊沒有就是不一致
+            while arrival < 600 and hub.demo.adoption is None and original.adoption is None:
                 tick()
                 arrival += 1
-            found = hub.demo.adoption is not None
-            adopted = None
+            adopted = compare_adoption(mismatch, method, original.adoption, hub.demo.adoption)
+            found = adopted is not None
             if found:
-                adopted = {k: v for k, v in original.adoption.items() if k != "label"}
-                mismatch.check(f"{method}/adopted", "adoption", adopted,
-                               {k: v for k, v in hub.demo.adoption.items() if k != "label"})
                 mismatch.check(f"{method}/adopted", "fit_audit", split_audit(original), split_audit(hub.demo))
                 audits.append({"stage": "adopted", "fit": split_audit(original)})
                 for _ in range(60):
