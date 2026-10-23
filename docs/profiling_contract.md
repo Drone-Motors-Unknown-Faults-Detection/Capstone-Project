@@ -45,7 +45,7 @@
 
 - 鍵 = `REGISTRY_VERSION`、`require_complete`，加上工況目錄下每個子目錄名與其中每個 `*_Group_feature_data_clean.csv` 的檔名及 bytes SHA256。size、mtime 不進鍵，所以同 size、同 mtime 但 bytes 不同的檔案一定 miss。
 - 不同路徑但內容相同的副本會命中同一筆，回傳的 pools 相同。快取只認內容，不把副本當成新的獨立採集；來源身分仍由 `core.provenance` 記錄。
-- miss 時先算鍵、再載入、載入後重算一次鍵，兩次不同就不存，避免存到讀檔途中被改掉的內容。載入失敗不快取，下次照樣重試、照樣丟同一個錯誤。
+- miss 時先算鍵、再載入、載入後重算一次鍵，兩次不同就不存，避免存到讀檔途中被改掉的內容。載入後那次重算沿用 `read_feature_csv` 對同一批 bytes 算出的 `sha256`（audit 的 `files`），不再讀第二次檔；目錄結構仍重新掃描。載入失敗不快取，下次照樣重試、照樣丟同一個錯誤。
 - 命中時回傳 pools 與 audit 的深拷貝，呼叫端修改陣列不會污染快取。
 - 只在記憶體、只活在呼叫端建立的那個 `PoolCache` 物件裡，不寫磁碟，因此沒有公開／私人路徑的問題。`exp6_matrix.run_matrix` 與實驗八 `health_index_matrix.run_matrix` 每次執行各建一個，傳給 benchmark 的 `run(..., pool_cache=...)`；單次 CLI 不帶 cache，行為與原本相同。
 

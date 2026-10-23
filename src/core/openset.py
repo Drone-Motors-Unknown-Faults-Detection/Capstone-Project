@@ -301,3 +301,40 @@ def fpr_at_tpr(known_scores: np.ndarray, unknown_scores: np.ndarray, tpr: float 
     fpr, tprs, _ = roc_curve(y, np.r_[known, unknown])
     eligible = fpr[tprs >= tpr]
     return float(eligible.min()) if len(eligible) else 1.0
+
+
+OPENSET_METRIC_KEYS = (
+    "known_accuracy", "open_set_accuracy", "auroc", "aupr_unknown_positive",
+    "fpr_at_tpr95", "unknown_precision", "unknown_recall", "unknown_f1",
+)
+
+
+def openset_metrics(known_scores: np.ndarray, unknown_scores: np.ndarray, *, threshold: float = 1.0) -> dict:
+    """八個開集評估指標：unknown 為正類，分數 > threshold 判 unknown；不四捨五入。
+
+    鍵名以 OPENSET_METRIC_KEYS 為準。實驗六正式版直接用這組鍵（round 6 位），
+    實驗七的輸出鍵（fpr_at_95_tpr／f1_unknown／known_class_accuracy）是 web 與文件
+    已經依賴的既有契約，在 compare_openset 以別名對應，計算共用這裡（#276 K01）。
+    兩組分數都不得為空：AUROC／AUPR 需要兩類都存在，空輸入直接拒絕，不回傳 NaN。
+    """
+    from sklearn.metrics import (
+        accuracy_score, average_precision_score, f1_score, precision_score, recall_score, roc_auc_score,
+    )
+
+    known = np.asarray(known_scores, dtype=float).ravel()
+    unknown = np.asarray(unknown_scores, dtype=float).ravel()
+    if known.size == 0 or unknown.size == 0:
+        raise ValueError("known and unknown score batches must both be non-empty")
+    scores = np.concatenate((known, unknown))
+    labels = np.concatenate((np.zeros(len(known), dtype=int), np.ones(len(unknown), dtype=int)))
+    predictions = (scores > threshold).astype(int)
+    return {
+        "known_accuracy": float((predictions[: len(known)] == 0).mean()),
+        "open_set_accuracy": float(accuracy_score(labels, predictions)),
+        "auroc": float(roc_auc_score(labels, scores)),
+        "aupr_unknown_positive": float(average_precision_score(labels, scores)),
+        "fpr_at_tpr95": fpr_at_tpr(known, unknown, 0.95),
+        "unknown_precision": float(precision_score(labels, predictions, zero_division=0)),
+        "unknown_recall": float(recall_score(labels, predictions, zero_division=0)),
+        "unknown_f1": float(f1_score(labels, predictions, zero_division=0)),
+    }

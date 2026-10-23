@@ -20,6 +20,7 @@ import numpy as np
 from core.data import HEALTHY, display_name
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
+from core.openset import openset_metrics
 from core.runner import add_dataset_args, add_openset_args, resolve_dataset, save_json
 
 
@@ -122,10 +123,7 @@ def iter_run(
 
 
 def _auroc(neg_scores: np.ndarray, pos_scores: np.ndarray) -> float:
-    from sklearn.metrics import roc_auc_score
-
-    y = np.r_[np.zeros(len(neg_scores)), np.ones(len(pos_scores))]
-    return float(roc_auc_score(y, np.r_[neg_scores, pos_scores]))
+    return openset_metrics(neg_scores, pos_scores)["auroc"]
 
 
 def _make_figure(result: dict):

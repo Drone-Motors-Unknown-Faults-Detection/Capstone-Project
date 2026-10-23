@@ -251,7 +251,7 @@ class MaterializationSafetyTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             stage_source(root / "source")
-            with patch.object(formal, "_sha256_file", side_effect=["a" * 64, "b" * 64]):
+            with patch.object(formal, "sha256_file", side_effect=["a" * 64, "b" * 64]):
                 with self.assertRaisesRegex(formal.FormalDataError, "SHA 改變"):
                     formal.materialize(root / "source", root / "out", stages=["2"])
             self.assertFalse((root / "out").exists())

@@ -18,7 +18,7 @@ import numpy as np
 from loguru import logger
 
 from core.provenance import (CONTENT_VERSION, MATERIALIZATION_VERSION, ProvenanceError,
-                             capture_source, file_sha, run, write_private_context)
+                             capture_source, file_sha, run, sha256_bytes, sha256_file, write_private_context)
 from core import formal_data
 from core.logger import setup_run
 from core.openset import create_openset_detector
@@ -145,6 +145,21 @@ class ProvenanceTests(unittest.TestCase):
                 with self.assertRaises(ProvenanceError) as caught:
                     file_sha(Path(directory) / "hidden")
             self.assertNotIn("private-token", str(caught.exception))
+
+    def test_shared_sha256_helpers_match_hashlib(self):
+        """#276 K03：所有檔案雜湊走 sha256_file／sha256_bytes，file_sha 只是加上錯誤包裝。"""
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "blob.bin"
+            payload = bytes(range(256)) * 5000  # 超過一個 1 MiB 分塊
+            path.write_bytes(payload)
+            expected = hashlib.sha256(payload).hexdigest()
+            self.assertEqual(sha256_bytes(payload), expected)
+            self.assertEqual(sha256_file(path), expected)
+            self.assertEqual(file_sha(path), expected)
+            with self.assertRaises(OSError):
+                sha256_file(Path(directory) / "missing")
 
     def test_private_sidecar_is_atomic_and_git_ignored(self):
         with tempfile.TemporaryDirectory() as directory:

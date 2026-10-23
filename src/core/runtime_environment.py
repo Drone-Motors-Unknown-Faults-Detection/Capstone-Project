@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from importlib import metadata
 from pathlib import Path
 import platform
 import subprocess
+
+from core.provenance import sha256_file
 
 
 DEFAULT_DATA_ROOT = "data"
@@ -85,10 +86,10 @@ def collect_environment(root: Path | None = None, data_root: str | Path | None =
     """
     root = Path.cwd() if root is None else Path(root)
     top = _git(root, "rev-parse", "--show-toplevel")
-    head = _git(root, "rev-parse", "HEAD") if top else None
+    head = git_head(root) if top else None
     dirty = _git(root, "status", "--porcelain", "--untracked-files=no") if top else None
     constraint = Path(top) / "uv.lock" if top else root / "uv.lock"
-    constraint_sha = hashlib.sha256(constraint.read_bytes()).hexdigest() if constraint.is_file() else None
+    constraint_sha = sha256_file(constraint) if constraint.is_file() else None
     packages = {}
     for distribution in metadata.distributions():
         name = distribution.metadata.get("Name")

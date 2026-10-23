@@ -109,7 +109,8 @@ def _refresh(root, path, contract=None):
     if contract is None:
         contract = json.loads(path.read_text(encoding="utf-8"))
     contract["source_sha256"] = {file.relative_to(root).as_posix(): hashlib.sha256(file.read_bytes()).hexdigest()
-                                 for file in root.rglob("*") if file.is_file()}
+                                 for file in root.rglob("*")
+                                 if file.is_file() and file.relative_to(root).as_posix() not in aggregate.UNPINNED_SOURCES}
     contract["source_git_lf_sha256"] = dict(contract["source_sha256"])
     _write_json(path, contract)
 
@@ -143,6 +144,38 @@ class HealthAggregateTests(unittest.TestCase):
         self.assertAlmostEqual(table[0]["known_health_mean_std"], 0.2)
         self.assertTrue(all(item["matches"] for item in aggregate.compare(evidence["snapshot"], summary, table, contract)))
         self.assertEqual(len(evidence["inventory"]["files"]), 16)
+
+    def test_readme_is_listed_but_not_pinned(self):
+        """#278：README 是人寫說明，改字不需要重新釘 SHA；缺檔或多檔仍然拒絕。"""
+        (self.root / "README.md").write_text("封存說明改了一行。", encoding="utf-8")
+        _, rows, evidence = self.load()
+        self.assertEqual(len(rows), 54)
+        pinned = {item["path"]: item["pinned"] for item in evidence["inventory"]["files"]}
+        self.assertFalse(pinned["README.md"])
+        self.assertEqual(sum(pinned.values()), 15)
+        contract = json.loads(self.contract.read_text(encoding="utf-8"))
+        self.assertNotIn("README.md", contract["source_sha256"])
+        (self.root / "README.md").unlink()
+        with self.assertRaisesRegex(ValueError, "來源檔案集合"):
+            self.load()
+
+    def test_contract_pinning_readme_is_rejected(self):
+        contract = json.loads(self.contract.read_text(encoding="utf-8"))
+        contract["source_sha256"]["README.md"] = "0" * 64
+        contract["source_git_lf_sha256"]["README.md"] = "0" * 64
+        _write_json(self.contract, contract)
+        with self.assertRaisesRegex(ValueError, "15 檔"):
+            self.load()
+
+    def test_committed_archive_passes_committed_contract(self):
+        """#278／#288：用 repo 內真正的 reports/exp8_health_index_results 跑合約，SHA 或資料漂移都在這裡被抓到。"""
+        contract, rows, evidence = aggregate.load_matrix(aggregate.DEFAULT_SOURCE, aggregate.DEFAULT_CONTRACT)
+        summary, table = aggregate.aggregate_rows(rows, contract)
+        differences = aggregate.compare(evidence["snapshot"], summary, table, contract)
+        self.assertEqual(len(rows), 54)
+        self.assertEqual(sum(item["pinned"] for item in evidence["inventory"]["files"]), 15)
+        self.assertEqual([item["key"] for item in differences if not item["matches"]], [])
+        self.assertEqual(summary["difference_knn_minus_mahalanobis"]["known_health_mean"], 0.018513)
 
     def test_missing_run_file_fails(self):
         (self.root / "seed_42/knn.json").unlink()

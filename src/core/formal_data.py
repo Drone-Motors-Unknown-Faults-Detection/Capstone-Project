@@ -20,7 +20,6 @@ developer-specific path is embedded in the implementation.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import io
 import json
 import os
@@ -39,6 +38,7 @@ from scipy.fftpack import fft
 from scipy.stats import kurtosis, skew
 
 from core.feature_schema import CONFIG_ALIASES
+from core.provenance import sha256_bytes, sha256_file
 
 
 FEATURE_DIM = 105
@@ -109,18 +109,6 @@ class MaterializedFile:
     discarded_windows: dict[str, int] | None = None
     window_policy: str = "equal_window_counts_v1"
     alignment_status: str = "UNKNOWN"
-
-
-def _sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as handle:
-        while chunk := handle.read(chunk_size):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-def _sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
 
 
 def _find_outer_archive(source_root: Path, stage: str) -> Path:
@@ -294,7 +282,7 @@ def _copy_clean_features(
                         config=config,
                         output=str(output),
                         source_member=f"{archive_path.name}:{member}:{info.filename}",
-                        source_sha256=_sha256_bytes(payload),
+                        source_sha256=sha256_bytes(payload),
                         rows_before_clean=len(frame),
                         rows_after_clean=len(frame),
                         columns=numeric.shape[1],
@@ -472,7 +460,7 @@ def _convert_condition(
                 config=config,
                 output=str(output),
                 source_member=f"{source_label}|{','.join(info.filename for info in channels.values())}",
-                source_sha256=_sha256_bytes(payload),
+                source_sha256=sha256_bytes(payload),
                 rows_before_clean=rows_before_clean,
                 rows_after_clean=len(clean_frame),
                 columns=clean_frame.shape[1],
@@ -546,7 +534,7 @@ def materialize(
     output = Path(output_root).expanduser().resolve()
     _ensure_output_not_source(source, output)
     archives = discover_stage_archives(source, stages)
-    archive_sha = {stage: _sha256_file(path) for stage, path in archives.items()}
+    archive_sha = {stage: sha256_file(path) for stage, path in archives.items()}
     selected = None
     if conditions:
         for condition in conditions:
@@ -567,7 +555,7 @@ def materialize(
             )
     if not records:
         raise FormalDataError("選定來源沒有可物化的正式檔案")
-    if archive_sha != {stage: _sha256_file(path) for stage, path in archives.items()}:
+    if archive_sha != {stage: sha256_file(path) for stage, path in archives.items()}:
         raise FormalDataError("讀取期間來源 SHA 改變，拒絕物化")
     manifest = {
         "schema_version": "formal_materialization_v3",
