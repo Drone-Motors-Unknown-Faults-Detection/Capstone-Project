@@ -353,6 +353,13 @@ class StreamHTTPTests(AsyncHTTPTestCase):
         local = {"Host": f"localhost:{port}", "Origin": f"http://localhost:{port}"}
         self.assertEqual([f["event"] for f in self.frames(self.fetch("/stream/exp1", headers=local))], ["start", "done"])
 
+    def test_host_name_keeps_unbracketed_ipv6(self):
+        """--allow-host／--bind-address 給沒有方括號的 IPv6 時不能被當成 host:port 拆開。"""
+        for raw, expected in (("2001:db8::1", "2001:db8::1"), ("::1", "::1"), ("[2001:db8::1]:8600", "2001:db8::1"),
+                              ("[::1]", "::1"), ("Example.COM.:80", "example.com"), ("127.0.0.1:8600", "127.0.0.1")):
+            with self.subTest(raw=raw):
+                self.assertEqual(server._host_name(raw), expected)
+
     def test_non_object_parameters_and_non_finite_rate_rejected(self):
         for query in ("params=%5B1%5D", "rate=nan", "rate=inf"):
             with self.subTest(query=query):

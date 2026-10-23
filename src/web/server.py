@@ -66,8 +66,11 @@ class CommandError(ValueError):
 
 
 def _host_name(host: str) -> str:
-    """Host 標頭去掉 port、IPv6 方括號與結尾的點，轉小寫。"""
-    name, _ = split_host_and_port(host.strip().lower())
+    """Host 標頭或 CLI 名稱去掉 port、IPv6 方括號與結尾的點，轉小寫。"""
+    value = host.strip().lower()
+    if value.count(":") > 1 and not value.startswith("["):
+        return value   # 沒有方括號的 IPv6（CLI 寫法）沒有 port，不能拆最後一段
+    name, _ = split_host_and_port(value)
     return name.strip("[]").rstrip(".")
 
 
