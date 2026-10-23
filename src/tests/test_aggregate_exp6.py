@@ -152,6 +152,17 @@ class AggregateTests(unittest.TestCase):
         self.assertIn("missing run.log", (partial_dir / "aggregate.md").read_text(encoding="utf-8"))
         self.assertFalse((self.manifest_path.parent / "aggregate").exists())
 
+    def test_allow_partial_with_no_common_pair_writes_none_not_nan(self) -> None:
+        """mahalanobis 只剩 seed 42、knn 只剩 seed 123：join 為空，mean_difference 寫 None（#285 R2-02）。"""
+        (self._run_dir("T1_6000rpm_seed123_mahalanobis") / "run.log").unlink()
+        (self._run_dir("T1_6000rpm_seed42_knn") / "run.log").unlink()
+        result = write_aggregate(self.manifest_path, allow_partial=True)
+        self.assertEqual(result["status"], "PARTIAL")
+        for row in result["paired_differences"]:
+            self.assertEqual((row["n_pairs"], row["mean_difference"], row["std_difference"]), (0, None, None))
+        text = (self.manifest_path.parent / "aggregate_partial" / "aggregate.json").read_text(encoding="utf-8")
+        self.assertNotIn("NaN", text)
+
     def test_main_uses_setup_run(self) -> None:
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as workspace:

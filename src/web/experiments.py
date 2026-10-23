@@ -23,6 +23,7 @@ import numpy as np
 
 from core.data import HEALTHY, config_sort_key, display_name, load_pools
 from core.detectors import ALL_DETECTORS
+from core.feature_schema import CONFIG_ALIASES
 from core.openset import SUPPORTED_OPENSET_METHODS
 from web.run_timing import RunTimer
 
@@ -277,13 +278,28 @@ class ExperimentRunner:
                 if value not in p["options"]:
                     raise ValueError(f"{p['label']} 不接受 {value!r}")
             elif p["type"] == "config":
+                # 池 key 是正規名；在 PLAYBACK.start 之前就確認配置存在，錯的參數不進播放紀錄（#285 R2-07）
                 value = value or p["default"]
+                value = CONFIG_ALIASES.get(value, value) if isinstance(value, str) else value
+                dataset = out.get("dataset") or self._dataset_key(self.datasets[0])
+                if not isinstance(value, str) or value not in self._pools(dataset):
+                    raise ValueError(f"資料集 {dataset} 沒有配置 {value!r}")
             elif p["type"] == "int":
-                value = int(p["default"] if value in (None, "") else value)
+                try:
+                    value = int(p["default"] if value in (None, "") else value)
+                except (TypeError, ValueError, OverflowError) as exc:  # list／Infinity／NaN 一律是參數錯誤（#285 R2-10）
+                    raise ValueError(f"{p['label']} 必須是整數") from exc
                 if not p["min"] <= value <= p["max"]:
                     raise ValueError(f"{p['label']} 必須在 {p['min']}～{p['max']}")
             out[name] = value
         return out
+
+    def clean_params(self, exp_id: str, raw_params: dict | None) -> dict:
+        """「▶ 執行」的參數驗證；錯誤丟 ValueError。伺服器先呼叫這裡，失敗的參數不進播放紀錄。"""
+        spec = _BY_ID.get(exp_id)
+        if spec is None:
+            raise ValueError(f"未知實驗：{exp_id}")
+        return self._clean(spec, raw_params or {})
 
     # -- 執行 ------------------------------------------------------------------
 
@@ -291,7 +307,7 @@ class ExperimentRunner:
         spec = _BY_ID.get(exp_id)
         if spec is None:
             raise ValueError(f"未知實驗：{exp_id}")
-        params = self._clean(spec, raw_params or {})
+        params = self.clean_params(exp_id, raw_params)
         timer = RunTimer("batch_execution")
         result = jsonable(self._dispatch(exp_id, params))
         payload = {
@@ -360,8 +376,6 @@ class ExperimentRunner:
         if exp_id == "exp8_monitor":
             run = getattr(importlib.import_module("experiments.health_monitor"), entry)
             ds = self._find_dataset(p["dataset"])
-            if p["config"] not in self._pools(p["dataset"]):
-                raise ValueError(f"資料集 {p['dataset']} 沒有配置 {p['config']}")
             return run(self.data_root, ds["motor"], ds["rpm"], p["config"], seed=seed,
                        openset_method=method, mahalanobis_method=mahal, confidence=conf, knn_neighbors=k,
                        motor_id="web-demo", session_id=f"{p['dataset']}-{p['config']}",

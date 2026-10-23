@@ -187,14 +187,15 @@ def aggregate(manifest_path: Path | str, *, allow_partial: bool = False) -> dict
             raise ValueError("Mahalanobis and kNN rows are not paired one-to-one")
         for metric in METRICS:
             difference = joined[f"{metric}_knn"] - joined[f"{metric}_mahalanobis"]
-            mean, std = _mean_std(difference)
+            # allow_partial 下兩方法可能沒有共同的 (dataset, seed)：空 join 寫 None，不寫 NaN（#285 R2-02）
+            mean, std = _mean_std(difference) if len(difference) else (None, None)
             paired_rows.append(
                 {
                     "comparison": "knn_minus_mahalanobis",
                     "metric": metric,
                     "n_pairs": int(len(difference)),
-                    "mean_difference": _round(mean),
-                    "std_difference": _round(std),
+                    "mean_difference": None if mean is None else _round(mean),
+                    "std_difference": None if std is None else _round(std),
                     "knn_better_pairs": int((difference > 0).sum()),
                     "mahalanobis_better_pairs": int((difference < 0).sum()),
                     "ties": int((difference == 0).sum()),
@@ -228,7 +229,8 @@ def write_aggregate(manifest_path: Path | str, output_root: Path | str | None = 
     default_name = "aggregate_partial" if result["status"] == "PARTIAL" else "aggregate"
     destination = Path(output_root).expanduser().resolve() if output_root else manifest_file.parent / default_name
     destination.mkdir(parents=True, exist_ok=True)
-    (destination / "aggregate.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (destination / "aggregate.json").write_text(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+                                                encoding="utf-8")
     pd.DataFrame(result["condition_summary"]).to_csv(destination / "condition_summary.csv", index=False)
     pd.DataFrame(result["macro_summary"]).to_csv(destination / "macro_summary.csv", index=False)
     pd.DataFrame(result["paired_differences"]).to_csv(destination / "paired_differences.csv", index=False)
@@ -238,7 +240,8 @@ def write_aggregate(manifest_path: Path | str, output_root: Path | str | None = 
     if result["paired_differences"]:
         lines.extend(["", "## Paired differences", "", "Positive values mean kNN is higher than Mahalanobis for that metric.", "", "| metric | mean difference | std difference | pairs |", "|---|---:|---:|---:|"])
         for row in result["paired_differences"]:
-            lines.append(f"| {row['metric']} | {row['mean_difference']:.6f} | {row['std_difference']:.6f} | {row['n_pairs']} |")
+            cells = ["n/a" if row[key] is None else f"{row[key]:.6f}" for key in ("mean_difference", "std_difference")]
+            lines.append(f"| {row['metric']} | {cells[0]} | {cells[1]} | {row['n_pairs']} |")
     if result.get("rejected_runs"):
         lines.extend(["", "## Rejected runs (PARTIAL)", "", "| run | reasons |", "|---|---|"])
         for item in result["rejected_runs"]:

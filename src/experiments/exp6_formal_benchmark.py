@@ -17,11 +17,9 @@ used only after scoring to calculate evaluation metrics.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import platform
 import random
-import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,46 +27,25 @@ from typing import Sequence
 
 import numpy as np
 import pandas as pd
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
 from sklearn.preprocessing import RobustScaler
 
-from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
 from core.logger import save_plot, setup_run
 from core.openset import (
     OpenSetMethod,
     canonical_openset_method,
     create_openset_detector,
     fpr_at_tpr,
+    openset_metrics,
     resolve_openset_config,
 )
 from core.runner import save_json
-from core.provenance import CONTENT_VERSION, capture_source, write_private_context
-from core.runtime_environment import collect_environment, source_data_info
+from core.provenance import CONTENT_VERSION, capture_source, sha256_bytes, write_private_context
+from core.runtime_environment import collect_environment, git_head, source_data_info
 
 
 FORMAL_CONDITION_COUNT = 9
 FORMAL_METHODS: tuple[OpenSetMethod, ...] = ("mahalanobis", "knn")
-
-
-def _git_sha(project_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return result.stdout.strip()
 
 
 def legacy_dataset_fingerprint(data_root: Path | str) -> str:
@@ -95,7 +72,7 @@ def legacy_dataset_fingerprint(data_root: Path | str) -> str:
             stat = path.stat()
             entries.append((str(path.relative_to(root)), stat.st_size, stat.st_mtime_ns))
         payload = json.dumps(entries, ensure_ascii=False).encode("utf-8")
-    return hashlib.sha256(payload).hexdigest()
+    return sha256_bytes(payload)
 
 
 def dataset_fingerprint(data_root: Path | str, *, version: str = CONTENT_VERSION) -> str:
@@ -135,26 +112,12 @@ def _validate_datasets(datasets: list[dict], data_root: Path, require_nine: bool
 
 
 def _condition_metrics(known_scores: np.ndarray, unknown_scores: np.ndarray) -> dict:
-    """單一工況的八個指標與兩個分數中位數；unknown 為正類，分數 > 1 判 unknown。
-
-    兩組都不得為空：AUROC／AUPR 需要兩類都存在，空輸入直接拒絕，不回傳 NaN。
-    """
+    """單一工況的八個指標（core.openset.openset_metrics，round 6 位）與兩個分數中位數。"""
     known_scores = np.asarray(known_scores, dtype=float)
     unknown_scores = np.asarray(unknown_scores, dtype=float)
-    if known_scores.size == 0 or unknown_scores.size == 0:
-        raise ValueError("known and unknown score batches must both be non-empty")
-    scores = np.concatenate((known_scores, unknown_scores))
-    labels = np.concatenate((np.zeros(len(known_scores), dtype=int), np.ones(len(unknown_scores), dtype=int)))
-    predictions = (scores > 1.0).astype(int)
+    metrics = {key: round(value, 6) for key, value in openset_metrics(known_scores, unknown_scores).items()}
     return {
-        "known_accuracy": round(float((predictions[: len(known_scores)] == 0).mean()), 6),
-        "open_set_accuracy": round(float(accuracy_score(labels, predictions)), 6),
-        "auroc": round(float(roc_auc_score(labels, scores)), 6),
-        "aupr_unknown_positive": round(float(average_precision_score(labels, scores)), 6),
-        "fpr_at_tpr95": round(float(_fpr_at_tpr95(known_scores, unknown_scores)), 6),
-        "unknown_precision": round(float(precision_score(labels, predictions, zero_division=0)), 6),
-        "unknown_recall": round(float(recall_score(labels, predictions, zero_division=0)), 6),
-        "unknown_f1": round(float(f1_score(labels, predictions, zero_division=0)), 6),
+        **metrics,
         "known_score_median": round(float(np.median(known_scores)), 6),
         "unknown_score_median": round(float(np.median(unknown_scores)), 6),
     }
@@ -245,6 +208,7 @@ def _run_benchmark(
             confidence=confidence,
             mahalanobis_method=mahalanobis_method,
             knn_neighbors=knn_neighbors,
+            random_state=seed,  # MCD 的亂數跟著 --seed（#285 R2-12）
         ).fit(
             X_train_scaled,
             np.zeros(len(X_train), dtype=int),
@@ -260,7 +224,7 @@ def _run_benchmark(
         metadata = _detector_metadata(detector, confidence, openset_method, knn_neighbors)
         rows.append(
             {
-                "dataset": f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}",
+                "dataset": dataset_key(dataset["motor"], dataset["rpm"]),
                 "motor": dataset["motor"],
                 "rpm": dataset["rpm"],
                 "seed": int(seed),
@@ -310,7 +274,7 @@ def _run_benchmark(
             "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
             "checkpoint_identifier": None,
         },
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
+        "commit_sha": git_head(Path(__file__).resolve().parents[2]) or "unknown",
         "python": platform.python_version(),
         "rows": rows,
     }
@@ -319,12 +283,14 @@ def _run_benchmark(
 def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95,
         openset_method: str = "mahalanobis", mahalanobis_method: str = "ledoit_wolf",
         knn_neighbors: int = 5, *, require_nine: bool = True, evidence_paths=None,
-        evidence_dir: Path | str | None = None, pool_cache=None) -> dict:
+        evidence_dir: Path | str | None = None, pool_cache=None, reuse_environment: bool = False) -> dict:
     """同一科學計算外記錄API／CLI的環境、內容來源與失敗狀態。
 
     本函式不碰 loguru、不呼叫 setup_run：日誌與輸出目錄由呼叫端決定（#269）。
     ``evidence_dir`` 給定時（CLI 的 output 目錄、exp6_matrix 的 runs/{run_id}/）寫入
-    provenance.json 與 environment.json（目錄裡已有 environment.json 就沿用）；
+    provenance.json 與 environment.json；只有呼叫端說明剛寫過（CLI 的 setup_run 先寫，
+    ``reuse_environment=True``）才沿用既有的 environment.json，否則重新收集並覆寫——
+    exp6_matrix 重跑同一個 run 目錄時不能把舊的 git／資料指紋蓋進新 summary（#285 R2-11）。
     沒給（Web）就只把 source 與 environment 放進回傳值，不在磁碟留任何目錄。
     ``evidence_paths``（setup_run 回傳的 RunPaths）是舊介面，只取其 output_dir。
     資料來源只在執行前後各 capture_source 一次，指紋沿用執行前那次。
@@ -357,7 +323,7 @@ def run(data_root: Path | str = "data", seed: int = 42, confidence: float = 0.95
         if source != after:
             raise ValueError("評估期間來源內容或manifest變動，拒絕完成")
         environment_path = evidence_dir / "environment.json" if evidence_dir is not None else None
-        if environment_path is not None and environment_path.is_file():
+        if reuse_environment and environment_path is not None and environment_path.is_file():
             result["environment"] = json.loads(environment_path.read_text(encoding="utf-8"))
         else:
             result["environment"] = collect_environment(data_root=data_root, data=source_data_info(source))
@@ -426,6 +392,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.mahalanobis_method,
         args.knn_neighbors,
         evidence_dir=paths.output_dir,
+        reuse_environment=True,   # setup_run 剛把 environment.json 寫進這個目錄
     )
     result["started_at_utc"] = started
     result["finished_at_utc"] = datetime.now(timezone.utc).isoformat()

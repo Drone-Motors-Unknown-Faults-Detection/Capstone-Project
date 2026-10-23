@@ -273,6 +273,13 @@ docker compose -f app.compose.yaml up -d --build  # 只開展示
 7. **環境以 `uv.lock` 為準**：`./scripts/opt/build_uv.sh` 建出的 `venv/` 不含 TensorFlow；
    Tornado 是 `pyproject.toml` 的直接依賴。舊的含 TF 環境不在鎖版範圍，跑出問題先用
    `build_uv.sh` 重建新目錄再比對（見鐵則 11）。
+8. **`core.formal_data` 會寫出階段 2 的特徵 CSV，這不違反鐵則 5**：鐵則 5 管的是實驗程式讀
+   `data/Step-*/myfeature/**/*_clean.csv` 時唯讀、不重產。`core.formal_data.materialize()` 是把正式來源
+   （三個 `階段N.zip`）具現化成那批 CSV 的轉接器：階段 1／3 原樣複製 bytes，階段 2 依
+   `docs/formal_feature_schema_contract.md` 的 `adapter_generated_v1` 從 10 kHz 視窗重算 105 維特徵；
+   只寫進呼叫端指定的輸出目錄（拒絕寫進來源樹、預設不覆寫既有檔），並留下
+   `formal_materialization_manifest.json` 供 `core.provenance` 對帳。實驗模組與 web 仍然只讀 data/，
+   不呼叫 formal_data。
 
 ---
 
