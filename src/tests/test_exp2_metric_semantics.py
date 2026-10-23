@@ -49,7 +49,8 @@ def test_complete_result_gives_complete_status():
 def test_final_eval_matched_rate_rows_are_listed_per_config():
     contract = exp2_metric_contract(fixture())
     final = {row["metric"]: row for row in contract["rows"] if row.get("stage_index") == "final_eval"}
-    assert set(final) == {"known_rate", "matched_rate"}
+    assert set(final) == {"known_rate", "matched_rate", "unknown_rate"}
+    assert (final["unknown_rate"]["value"], final["unknown_rate"]["denominator"]) == (0.3, 65)
     assert (final["matched_rate"]["config"], final["matched_rate"]["value"], final["matched_rate"]["denominator"]) == ("7screws", 0.5, 65)
     assert "final_eval：7screws" in contract["text"]
     assert "matched_rate 才要求判進事後多數等於該配置的新類" in contract["text"]
@@ -128,6 +129,209 @@ def test_method_and_unknown_spec_remain_searchable():
     assert "不是" in search_knowledge(sections, "confidence 分位數")
 
 
+def paired_result():
+    result = fixture()
+    result["stages"][0].update(eval_known_rate=.9, eval_matched_rate=.2)
+    result["final_eval"] = {"7screws": {"known_rate": .6, "matched_rate": .1, "unknown_rate": .25, "n": 65}}
+    return result
+
+
+def test_stage_and_final_matched_are_separate_saved_fields():
+    contract = exp2_metric_contract(paired_result())
+    rows = {(r["timepoint"], r["metric"]): r for r in contract["rows"]}
+    for key, value in (("eval_known_rate", .9), ("eval_matched_rate", .2)):
+        assert rows[("stage", key)]["value"] == value
+        assert rows[("stage", key)]["denominator"] == 65
+    for key, value in (("known_rate", .6), ("matched_rate", .1), ("unknown_rate", .25)):
+        assert rows[("final", key)]["value"] == value
+        assert rows[("final", key)]["denominator"] == 65
+    assert contract["version"] == "exp2_metric_semantics_v2"
+    assert contract["unknown_auroc"] == contract["unknown_recall"] == "NOT_PROVIDED"
+    assert "全部階段結束" in contract["text"]
+
+
+@pytest.mark.parametrize("key", ["eval_matched_rate", "eval_known_rate"])
+def test_absent_stage_field_is_not_filled_from_other_timepoint_or_metric(key):
+    result = paired_result()
+    del result["stages"][0][key]
+    contract = exp2_metric_contract(result)
+    assert not any(r["metric"] == key for r in contract["rows"])
+    assert any(r["timepoint"] == "final" and r["metric"] == "matched_rate" and r["value"] == .1
+               for r in contract["rows"])
+
+
+@pytest.mark.parametrize("value", [None, True, float("nan"), float("inf"), -1, 2, "0.5"])
+def test_invalid_final_fraction_cannot_reach_visible_numeric_claim(value):
+    result = paired_result()
+    result["final_eval"]["7screws"]["matched_rate"] = value
+    row = next(r for r in exp2_metric_contract(result)["rows"] if r["metric"] == "matched_rate")
+    assert row["value"] is None and row["status"] == "INCOMPLETE"
+
+
+@pytest.mark.parametrize("count", [None, 0, -1, True, "65"])
+def test_final_missing_or_bad_denominator_never_borrows_stage_count(count):
+    result = paired_result()
+    result["final_eval"]["7screws"]["n"] = count
+    rows = [r for r in exp2_metric_contract(result)["rows"] if r["timepoint"] == "final"]
+    assert len(rows) == 3
+    assert all(r["value"] is None and r["denominator"] is None for r in rows)
+
+
+def test_exp2_hostile_model_cannot_contradict_facts_in_any_frame():
+    import asyncio
+    from langchain_core.messages import AIMessage
+    from tests.test_assistant import fake_model
+    from web.assistant import Assistant
+
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": paired_result()})
+    model = fake_model(AIMessage(content="", tool_calls=[
+        {"name": "get_run_status", "args": {"number": "2"}, "id": "metrics"}]),
+        AIMessage(content="錯答：外部接受率等於自身配置正確率，未知召回也包含正確新類，AUROC為0.99。"))
+    async def collect():
+        return [frame async for frame in Assistant("unused", llm=model).ask(
+            tracker.snapshot(), "實驗二這次結果的eval_known_rate、matched_rate與未知召回是什麼？")]
+    frames = asyncio.run(collect())
+    assert model.seen == []
+    assert frames[0]["mode"] == "exp2_metrics"
+    assert all("錯答" not in f.get("text", "") and f.get("origin") != "model" for f in frames)
+    assert "不是模型自由生成" in frames[-1]["text"]
+
+
+@pytest.mark.parametrize("remove", ["stages", "final_eval"])
+def test_missing_timepoint_does_not_erase_other_saved_fields(remove):
+    result = paired_result()
+    del result[remove]
+    contract = exp2_metric_contract(result)
+    assert contract["status"] == "incomplete"
+    expected = "final" if remove == "stages" else "stage"
+    assert contract["rows"] and all(r["timepoint"] == expected for r in contract["rows"])
+
+
+@pytest.mark.parametrize("status", ["FAILED", "running", "stopped", "unexpected"])
+@pytest.mark.parametrize("location", ["payload", "result"])
+def test_saved_status_cannot_become_a_completed_result(tmp_path, status, location):
+    from tests.test_assistant_results import OfflineAssistant, collect
+    payload = {"experiment": "exp2", "result": paired_result()}
+    (payload if location == "payload" else payload["result"])["status"] = status
+    folder = tmp_path / "session/experiments"
+    folder.mkdir(parents=True)
+    path = folder / "exp2_2026-10-23-00-00-00.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    tracker = PlaybackTracker(tmp_path)
+    rec = tracker.load_saved_record(path.name, "exp2")
+    assert rec["status"] != "done"
+    frames = collect(OfflineAssistant("unused"), f"實驗二 `{path.name}` 結果摘要",
+                     snap={"latest": None, "records": {}}, load_selected=tracker.load_saved_record)
+    assert frames[0]["mode"] == "exp2_metrics" and frames[0]["status"] == "incomplete"
+    assert "尚未完成" in frames[-1]["text"]
+    assert not any(f["event"] == "presentation" for f in frames)
+
+
+def test_exp2_exact_source_survives_followup_then_explicitly_switches_latest(tmp_path):
+    import hashlib
+    from tests.test_assistant_results import OfflineAssistant, collect
+    folder = tmp_path / "session/experiments"
+    folder.mkdir(parents=True)
+    paths = []
+    for index, value in enumerate((.2, .3)):
+        result = paired_result()
+        result["stages"][0]["eval_matched_rate"] = value
+        path = folder / f"exp2_2026-10-23-00-00-0{index}.json"
+        path.write_text(json.dumps({"experiment": "exp2", "result": result}), encoding="utf-8")
+        paths.append(path)
+    before = [p.read_bytes() for p in paths]
+    tracker = PlaybackTracker(tmp_path)
+    options = dict(snap={"latest": None, "records": {}}, load_selected=tracker.load_saved_record, load_saved=tracker.load_saved)
+    assistant = OfflineAssistant("unused")
+    first = collect(assistant, f"摘要 `{paths[0].name}` 的matched_rate", **options)
+    follow = collect(assistant, "那接受率與未知召回呢？", context=first[0]["context"], **options)
+    history = collect(assistant, "那接受率呢？", history=[{"role": "user", "content": f"摘要 `{paths[0].name}`"},
+        {"role": "assistant", "content": f"改讀 `{paths[1].name}`"}], **options)
+    latest = collect(assistant, "實驗二最新結果摘要", context=first[0]["context"], **options)
+    for frames, index in ((first, 0), (follow, 0), (history, 0), (latest, 1)):
+        p = next(f["presentation"] for f in frames if f["event"] == "presentation")
+        assert p["source"]["saved_sha256"] == hashlib.sha256(before[index]).hexdigest()
+        assert frames[0]["source_id"] == p["source_id"]
+        table = next(s for s in p["sections"] if s["id"] == "stages")
+        assert table["rows"][0][table["headers"].index("eval_matched_rate")] == f"{(.2, .3)[index]}（n=65）"
+    assert [p.read_bytes() for p in paths] == before
+
+
+@pytest.mark.parametrize("reference", ["exp2_2026-10-23-00-00-00.json", "../exp2_2026-10-23-00-00-00.json"])
+def test_missing_or_unsafe_exp2_source_never_falls_back_to_latest(tmp_path, reference):
+    from tests.test_assistant_results import OfflineAssistant, collect
+    tracker = PlaybackTracker(tmp_path)
+    tracker.record_run("exp2", {"result": paired_result()})
+    frames = collect(OfflineAssistant("unused"), f"摘要 `{reference}` 的matched_rate", snap=tracker.snapshot(),
+                     load_selected=tracker.load_saved_record, load_saved=tracker.load_saved)
+    assert "資料不足" in frames[-1]["text"] and "0.2" not in frames[-1]["text"]
+    assert frames[0]["status"] == "missing"
+
+
+def test_exp2_context_conflict_and_over_budget_source_never_reach_model():
+    from tests.test_assistant_results import OfflineAssistant, collect
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": paired_result()})
+    frames = collect(OfflineAssistant("unused"), "實驗二結果", snap=tracker.snapshot(), context={"experiment": "exp1"})
+    assert frames[0]["event"] == "error"
+    tracker.record_run("exp2", {"params": {"padding": "x" * 9000}, "result": paired_result()})
+    frames = collect(OfflineAssistant("unused"), "實驗二結果", snap=tracker.snapshot())
+    assert frames[0]["status"] == "incomplete" and "摘要不完整" in frames[-1]["text"]
+    assert not any(f["event"] == "presentation" for f in frames)
+
+
+def test_general_method_question_keeps_model_path_after_exp2_record():
+    from langchain_core.messages import AIMessage
+    from tests.test_assistant import fake_model
+    from tests.test_assistant_results import collect
+    from web.assistant import Assistant
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": paired_result()})
+    model = fake_model(AIMessage(content="", tool_calls=[
+        {"name": "lookup_knowledge", "args": {"query": "HDBSCAN"}, "id": "method"}]), AIMessage(content="一般方法測試回答"))
+    frames = collect(Assistant("unused", llm=model), "實驗二HDBSCAN分群的原理是什麼？", snap=tracker.snapshot())
+    assert model.seen
+    assert any(f.get("origin") == "model" for f in frames)
+    assert not any(f.get("mode") == "exp2_metrics" for f in frames)
+
+
+def test_shared_metric_helper_preserves_valid_fraction_without_defined_denominator():
+    from unittest.mock import patch
+    from web import presentation
+    from tests.test_assistant_results import OfflineAssistant, collect
+    result = fixture()
+    with patch.object(presentation, "_metric_row", wraps=presentation._metric_row) as shared:
+        contract = exp2_metric_contract(result)
+    assert shared.call_count == len(presentation.EXP2_METRICS) + len(presentation.FINAL_EVAL_METRICS)
+    healthy = next(r for r in contract["rows"] if r["metric"] == "healthy_holdout_acc")
+    assert healthy["value"] == .95 and healthy["status"] == "VERIFIED_SAVED_FIELDS"
+    assert healthy["denominator"] is None and not healthy["denominator_required"]
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": result})
+    frames = collect(OfflineAssistant("unused"), "實驗二保存指標結果", snap=tracker.snapshot())
+    assert frames[0]["status"] == "complete"
+    assert "0.95（此欄未定義分母）" in frames[-1]["text"]
+    assert "n=None" not in frames[-1]["text"]
+
+
+def test_saved_configuration_mismatch_cannot_be_replaced_with_unsupported_success():
+    from langchain_core.messages import AIMessage
+    from tests.test_assistant import fake_model
+    from tests.test_assistant_results import collect
+    from web.assistant import Assistant
+    result = fixture()
+    result["stages"][0].update(config="6screws", matched="7screws", cluster_purity=.4)
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": result})
+    model = fake_model(AIMessage(content="錯誤合成主張：所有階段純度必為100%，完全匹配。"))
+    frames = collect(Assistant("unused", llm=model), "實驗二這次保存結果的匹配與純度", snap=tracker.snapshot())
+    assert model.seen == []
+    assert "6screws | 7screws" in frames[-1]["text"]
+    assert "0.4（n=50）" in frames[-1]["text"]
+    assert all("錯誤合成主張" not in f.get("text", "") for f in frames)
+
+
 def test_contract_reports_formed_and_matched_totals_separately():
     # #286：discovered 只表示形成新類；對上本段配置的段數另算，兩者都由實驗層給
     result = {**fixture(), "n_stages": 9, "n_learned": 9, "n_matched_config": 7}
@@ -137,3 +341,14 @@ def test_contract_reports_formed_and_matched_totals_separately():
     assert "形成新類 9／9 段" in contract["text"]
     assert "不表示辨識出該段配置" in contract["text"]
     assert "totals" not in exp2_metric_contract(fixture())   # 舊存檔沒有總數就不補推
+
+
+@pytest.mark.parametrize("saved, shown", [(True, "是"), (False, "否"), (None, "未保存"), ("yes", "未保存")])
+def test_stage_table_shows_saved_matched_is_config_without_inferring(saved, shown):
+    # matched_is_config 由實驗層算好；舊存檔沒有或型別不對時不由 matched／config 推回
+    result = fixture()
+    if saved is not None:
+        result["stages"][0]["matched_is_config"] = saved
+    result["stages"][0]["matched"] = "7screws"
+    table = next(t for t in exp2_metric_contract(result)["tables"] if t["id"] == "stages")
+    assert table["rows"][0][table["headers"].index("對上本段配置（事後）")] == shown

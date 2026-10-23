@@ -28,7 +28,7 @@ from pathlib import Path
 
 from core.data import HEALTHY
 from experiments.exp3_trend import KIND_DISPLAY
-from web.presentation import build_exp12, exp2_metric_contract, table_text
+from web.presentation import build_exp12, data_usage_contract, exp2_metric_contract, table_text
 from web.experiments import CATALOG
 from web.run_timing import timing_fields, utc_now
 
@@ -175,6 +175,15 @@ def _split_params(st: dict, params: dict) -> None:
 
 def _fill_result(st: dict, payload: dict) -> None:
     st["status"] = "done"
+    result = payload.get("result")
+    states = [value for value in (payload.get("status"), result.get("status") if isinstance(result, dict) else None)
+              if value is not None]
+    for value in states:
+        normalized = value.lower() if isinstance(value, str) else "invalid"
+        if normalized not in {"done", "complete", "completed"}:
+            st["status"] = {"failed": "error", "error": "error", "running": "running", "stopped": "stopped"}.get(
+                normalized, "incomplete")
+            break
     timing = timing_fields(payload)
     st.update(timing)
     st["result"] = {**timing, **{k: payload[k] for k in ("saved", "saved_sha256") if payload.get(k) is not None}}
@@ -182,6 +191,7 @@ def _fill_result(st: dict, payload: dict) -> None:
               "started_at": st["started_at"], "params": st["params"], **st["result"]}
     if isinstance(payload.get("streamed"), bool):
         source["streamed"] = payload["streamed"]
+    st["usage_contract"] = data_usage_contract(payload.get("result"))
     contract = result_contract(payload.get("result"), RESULT_BUDGET, st["exp_id"], source)
     if contract is not None:
         st[contract[0]] = contract[1]

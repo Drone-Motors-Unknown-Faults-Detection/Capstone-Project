@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
@@ -103,21 +105,21 @@ class EvaluateProtocolTests(unittest.TestCase):
 
 
 class RunIntegrationTests(unittest.TestCase):
-    def test_run_structure_with_monkeypatched_discovery(self):
-        import experiments.exp11_ancestor_comparison as mod
+    def test_run_structure_with_actual_fixture_source(self):
+        import pandas as pd
+        from core.feature_schema import SCHEMAS
 
-        pools = synthetic_ancestor_pools()
-        fake_dataset = [{"motor": "T1", "rpm": "8000rpm", "path": "unused"}]
-
-        original_discover = mod.discover_datasets
-        original_load = mod.load_pools
-        mod.discover_datasets = lambda data_root: fake_dataset
-        mod.load_pools = lambda path: pools
-        try:
-            result = run(data_root="unused", seeds=(1, 2), methods=("legacy", "ledoit_wolf"))
-        finally:
-            mod.discover_datasets = original_discover
-            mod.load_pools = original_load
+        rng = np.random.default_rng(7)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for config, values in synthetic_ancestor_pools().items():
+                target = root / "Step-1/myfeature/T1/8000rpm" / config
+                target.mkdir(parents=True)
+                values = np.hstack([values, rng.normal(0, .2, (len(values), 100))])
+                pd.DataFrame(values, columns=SCHEMAS["historical_clean_v1"]).to_csv(
+                    target / "T1_Group_feature_data_clean.csv", index=False)
+            result = run(data_root=root, seeds=(1, 2), methods=("legacy", "ledoit_wolf"))
+        self.assertEqual(result["provenance"]["source"]["status"], "VERIFIED")
 
         self.assertEqual(set(result["summary"]), {"A", "B"})
         self.assertEqual(set(result["summary"]["A"]), {"legacy", "ledoit_wolf"})

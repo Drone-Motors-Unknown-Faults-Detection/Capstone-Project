@@ -44,7 +44,7 @@ from loguru import logger
 from core.data import discover_datasets
 from core.logger import setup_run
 from core.runner import add_openset_args
-from core.runtime_environment import collect_environment
+from core.runtime_environment import collect_environment, source_data_info
 from experiments.exp3_trend import SCENARIOS
 from web.assistant import Assistant, latest_record, record_label
 from web.experiments import ExperimentRunner
@@ -436,10 +436,10 @@ _APP_GIT: dict | None = None
 
 
 def app_git_info() -> dict:
-    """啟動後只算一次：collect_environment 跑 git 子行程並雜湊整個資料集，不能每次狀態輪詢都做（#274）。"""
+    """只快取載入程式版本；狀態輪詢不掃資料，也不借外層repo版本。"""
     global _APP_GIT
     if _APP_GIT is None:
-        _APP_GIT = collect_environment(Path(__file__).resolve().parents[2])["git"]
+        _APP_GIT = collect_environment(data=source_data_info(None))["git"]
     return _APP_GIT
 
 

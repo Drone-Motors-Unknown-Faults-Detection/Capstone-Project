@@ -16,16 +16,19 @@ import importlib
 import json
 import math
 import re
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable
 
 import numpy as np
 
-from core.data import HEALTHY, config_sort_key, display_name, load_pools
+from core.data import HEALTHY, PoolCache, config_sort_key, display_name, load_pools
 from core.detectors import ALL_DETECTORS
 from core.feature_schema import CONFIG_ALIASES
 from core.openset import SUPPORTED_OPENSET_METHODS
+from core.provenance import load_pool_source
+from core.runtime_environment import collect_environment
 from web.run_timing import RunTimer
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -249,6 +252,7 @@ class ExperimentRunner:
         self.out_dir = Path(out_dir) / "experiments" if out_dir else None
         self.detector_options = detector_options or {}
         self._pools_cache: dict[str, dict] = {}
+        self._source_cache = PoolCache()
 
     # -- 目錄 ------------------------------------------------------------------
 
@@ -319,13 +323,28 @@ class ExperimentRunner:
 
     # -- 執行 ------------------------------------------------------------------
 
+    @contextmanager
+    def _record_source_failure(self, exp_id, params):
+        """來源／計算失敗只保存去敏狀態，不冒充完成結果。"""
+        try:
+            yield
+        except Exception as exc:
+            if exp_id in {"exp1", "exp2", "exp3", "exp4", "exp5", "exp6", "exp7", "exp8", "exp8_monitor", "exp10", "exp11", "exp12"}:
+                self._save(exp_id, {"experiment": exp_id, "params": params,
+                    "status": "FAILED", "error_type": type(exc).__name__,
+                    "environment": collect_environment(data_root=self.data_root),
+                    "source": {"status": "UNVERIFIED_FAILED_RUN",
+                               "raw_session_independence": "UNKNOWN", "fresh_test": "UNKNOWN"}})
+            raise
+
     def run(self, exp_id: str, raw_params: dict) -> dict:
         spec = _BY_ID.get(exp_id)
         if spec is None:
             raise ValueError(f"未知實驗：{exp_id}")
         params = self.clean_params(exp_id, raw_params)
         timer = RunTimer("batch_execution")
-        result = jsonable(self._dispatch(exp_id, params))
+        with self._record_source_failure(exp_id, params):
+            result = jsonable(self._dispatch(exp_id, params))
         payload = {
             "experiment": exp_id,
             "no": spec["no"],
@@ -346,30 +365,34 @@ class ExperimentRunner:
         k = opts.get("knn_neighbors", 5)
         seed = p["seed"]
         method = p.get("openset_method", "mahalanobis")
+        if exp_id in {"exp1", "exp2", "exp3", "exp4", "exp7"}:
+            pools, source_context = load_pool_source(
+                self.data_root, self._find_dataset(p["dataset"])["path"], cache=self._source_cache)
         if exp_id == "exp1":
             run = getattr(importlib.import_module("experiments.exp1_cold_start"), entry)
-            return run(self._pools(p["dataset"]), seed=seed, confidence=conf, method=mahal,
-                       openset_method=method, knn_neighbors=k)
+            return run(pools, seed=seed, confidence=conf, method=mahal,
+                       openset_method=method, knn_neighbors=k, source_context=source_context)
         if exp_id == "exp2":
             module = importlib.import_module("experiments.exp2_scale_growth")
             if entry == "iter_run":
                 return module.iter_playback(
-                    self._pools(p["dataset"]), seed=seed, confidence=conf, method=mahal,
-                    openset_method=method, knn_neighbors=k,
+                    pools, seed=seed, confidence=conf, method=mahal,
+                    openset_method=method, knn_neighbors=k, source_context=source_context,
                 )
-            return module.run(self._pools(p["dataset"]), seed=seed, confidence=conf, method=mahal,
-                              openset_method=method, knn_neighbors=k)
+            return module.run(pools, seed=seed, confidence=conf, method=mahal,
+                              openset_method=method, knn_neighbors=k, source_context=source_context)
         if exp_id == "exp3":
             run = getattr(importlib.import_module("experiments.exp3_trend"), entry)
             kwargs = {}
             if entry == "iter_run" and scenario:
                 kwargs["scenarios"] = (scenario,)
-            return run(self._pools(p["dataset"]), n_trials=p["n_trials"], seed=seed,
+            return run(pools, n_trials=p["n_trials"], seed=seed,
                        confidence=conf, method=mahal, openset_method=method, knn_neighbors=k,
+                       source_context=source_context,
                        **kwargs)
         if exp_id == "exp4":
             run = getattr(importlib.import_module("experiments.exp4_polar_map"), entry)
-            return run(self._pools(p["dataset"]), seed=seed)
+            return run(pools, seed=seed, source_context=source_context)
         if exp_id == "exp5":
             run = getattr(importlib.import_module("experiments.exp5_cross_condition"), entry)
             return run(self.data_root, seed=seed, confidence=conf, method=mahal)
@@ -382,8 +405,8 @@ class ExperimentRunner:
                        mahalanobis_method=mahal, knn_neighbors=k, require_nine=False)
         if exp_id == "exp7":
             run = getattr(importlib.import_module("experiments.compare_openset"), entry)
-            return run(self._pools(p["dataset"]), seed=seed, confidence=conf,
-                       mahalanobis_method=mahal, knn_neighbors=k)
+            return run(pools, seed=seed, confidence=conf,
+                       mahalanobis_method=mahal, knn_neighbors=k, source_context=source_context)
         if exp_id == "exp8":
             run = getattr(importlib.import_module("experiments.health_index_benchmark"), entry)
             return run(self.data_root, seed=seed, openset_method=method,
@@ -435,27 +458,27 @@ class ExperimentRunner:
         yield {"event": "start", "params": params, **timer.start_fields()}, 0
         result: Any = None
         windows: list[dict] = []
-        for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
-            event = jsonable(event)
-            kind = event["event"]
-            if kind == "result":
-                result = event["result"]
-            elif kind == "scores":
-                scores = event.pop("scores")
-                flags = event.pop("unknown")
-                for i in range(0, len(scores), SCORE_CHUNK):
-                    chunk = scores[i:i + SCORE_CHUNK]
-                    yield {**event, "offset": i, "scores": chunk, "unknown": flags[i:i + SCORE_CHUNK]}, len(chunk)
-            elif kind == "tick":
-                # 每個劇本只播第一次重複；其餘重複照算，只送 trial 結果。
-                # 實驗二的 tick 沒有 trial，全部播放。
-                if event.get("trial", 0) == 0:
+        with self._record_source_failure(exp_id, params):
+            for event in self._dispatch(exp_id, params, entry="iter_run", scenario=scenario):
+                event = jsonable(event)
+                kind = event["event"]
+                if kind == "result":
+                    result = event["result"]
+                elif kind == "scores":
+                    scores = event.pop("scores")
+                    flags = event.pop("unknown")
+                    for i in range(0, len(scores), SCORE_CHUNK):
+                        chunk = scores[i:i + SCORE_CHUNK]
+                        yield {**event, "offset": i, "scores": chunk, "unknown": flags[i:i + SCORE_CHUNK]}, len(chunk)
+                elif kind == "tick":
+                    # 劇本只播放第一次 trial；實驗二沒有 trial，全部播放。
+                    if event.get("trial", 0) == 0:
+                        yield event, 1
+                elif kind == "window":
+                    windows.append(event["window"])
                     yield event, 1
-            elif kind == "window":
-                windows.append(event["window"])
-                yield event, 1
-            else:
-                yield event, 0
+                else:
+                    yield event, 0
         if exp_id == "exp8_monitor":
             result = windows  # 與 health_monitor.run() 的回傳同格式
         payload = {

@@ -41,7 +41,20 @@ uv run --locked python -m experiments.exp6_matrix --data-root data --output-root
 
 manual_run_001只是範例，已存在就換新名稱，不能覆寫封存。API實際為run_matrix(data_root,output_root,seeds=(42,123,2026),methods=("mahalanobis","knn"),resume=True)，沒有獨立run(pools)介面或Web重跑按鈕。網頁只能讀既有結果。
 
-同命令、同根再跑預設resume：`_is_complete`依下方規範核對該格，全部通過才跳過，並把summary裡的fingerprint、commit與相對路徑補回manifest；任何一項不符就重算該格。它不重新fit，也不比對模型參數。--no-resume會重算並覆寫同run目錄，不用在封存上。
+同命令、同根再跑預設 resume：先唯讀核對新契約及所有完成格，通過後才寫 manifest。完成格缺件、hash／設定／版本不符一律拒絕，不偷偷重算覆寫。同契約的 pending／running／failed 格可重試，先將既有三檔保存到該格 attempts/ 保留失敗。--no-resume 只用新根；已有 manifest 或非空目錄不得覆寫。schema 1 歷史矩陣只讀，不能補欄位後原根續跑。
+
+### 新證據契約
+
+新 manifest 為 schema 2，contract.version 為 formal_matrix_provenance_v2：
+
+| 固定欄位 | 核對內容 |
+|---|---|
+| source | 起始內容清冊、fingerprint_version／data_version、manifest SHA；不含絕對根 |
+| environment／execution | 既有 collector 的實際來源、Python、套件、host、BLAS、Git HEAD／dirty、uv.lock SHA，另記流程程式檔 SHA；續跑核對數值環境與版本，主機名僅追溯 |
+| method_configs | 共用 resolver 的逐法實值，及105維、train-only RobustScaler、健康60／20／20與unknown只測試；LW與k-NN各核對自己的合法設定 |
+| run_keys | 工況、seed、方法的預期唯一鍵；新呼叫不能暗改coverage |
+
+contract_sha256 是固定內容的 canonical JSON SHA，不含進度、時間或自身 hash。summary 的 matrix_provenance 綁此 contract、資料版本及逐法設定；summary／CSV／log 全部寫妥才保存三檔原始 bytes SHA。沿用格重讀 bytes；每次 benchmark 回傳及結束前重查起始來源，任何格不得改寫固定 fingerprint。中途變動保留 failed／incomplete。Git或鎖版證據不足時不得宣稱新契約通過；舊欄位不補造。這些驗證不消耗模型RNG，不重跑正式54格。
 
 ### 完成判定規範
 
@@ -59,7 +72,7 @@ manual_run_001只是範例，已存在就換新名稱，不能覆寫封存。API
 
 main經`setup_run("exp6_formal_matrix", make_output=False, data_root=args.data_root)`寫`logs/exp6_formal_matrix/{ts}.log`（含執行環境與每格狀態）；結果仍由_atomic_json／_write_run_csv寫output-root，讓同一根可以續跑。
 
-- matrix_manifest.json：預期清單、每格狀態、耗時、摘要相對路徑；開始時會重寫manifest。
+- matrix_manifest.json：固定契約、預期清單、每格狀態、耗時、摘要相對路徑與三檔SHA；已有根先唯讀核對，不先重寫。
 - runs/{run_id}/summary.json：正式benchmark設定、fingerprint、單目標工況列；同目錄的 provenance.json／environment.json 是該格 `run(..., evidence_dir=runs/{run_id})` 寫的來源與環境紀錄（#269）。
 - runs/{run_id}/results.csv：相同單列的表格。
 - runs/{run_id}/run.log：開始、狀態與錯誤；duration_seconds含整次九工況運算，不等於該列單獨推論耗時。

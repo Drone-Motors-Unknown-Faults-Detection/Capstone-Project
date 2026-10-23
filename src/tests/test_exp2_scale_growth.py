@@ -64,7 +64,8 @@ class DensityLadderTests(unittest.TestCase):
             captured.update(kwargs)
             return {"stages": [], "n_stages": 0, "n_learned": 0, "n_matched_config": 0, "final_known": [], "model": {}}
 
-        with patch.object(exp2, "resolve_dataset", return_value=({"motor": "T1", "rpm": "8000rpm"}, _pools())), \
+        with patch("core.runner._dataset_info", return_value={"motor": "T1", "rpm": "8000rpm", "path": "unused"}), \
+                patch("core.runner.load_pool_source", return_value=(_pools(), None)), \
                 patch.object(exp2, "run", side_effect=fake_run), \
                 patch("sys.argv", ["exp2", "--fixed-density"]):
             exp2.main()
@@ -435,4 +436,6 @@ class NoConfirmTests(unittest.TestCase):
         result = _rounded(exp2.run(_three_pools(), seed=42, max_ticks_per_stage=300))
         for key in SemanticsTests.NEW_KEYS:
             result.pop(key)
+        # 來源綁定是 metadata；記憶體池沒有檔案來源，只能標 UNVERIFIED_MEMORY
+        self.assertEqual(result.pop("provenance")["source"]["status"], "UNVERIFIED_MEMORY")
         _assert_close(self, golden, result)

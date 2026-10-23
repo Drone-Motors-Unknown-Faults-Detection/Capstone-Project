@@ -63,4 +63,28 @@ def test_failed_run_does_not_write_done(monkeypatch, runner):
     monkeypatch.setattr(runner, "_dispatch", fail)
     with pytest.raises(RuntimeError):
         runner.run("exp12", {})
-    assert not runner.out_dir.exists()
+    artifacts = list(runner.out_dir.glob("*.json"))
+    assert len(artifacts) == 1
+    saved = json.loads(artifacts[0].read_text(encoding="utf-8"))
+    assert saved["status"] == "FAILED" and saved["error_type"] == "RuntimeError"
+    assert "result" not in saved and "finished_at" not in saved
+    assert "刻意失敗" not in artifacts[0].read_text(encoding="utf-8")
+
+
+def test_failed_run_environment_uses_runner_data_root(monkeypatch, runner):
+    from web import experiments as web_experiments
+
+    seen = {}
+
+    def fake_environment(*args, **kwargs):
+        seen.update(kwargs)
+        return {"data": {"status": "UNKNOWN"}}
+
+    def fail(*_args, **_kwargs):
+        raise RuntimeError("刻意失敗")
+
+    monkeypatch.setattr(web_experiments, "collect_environment", fake_environment)
+    monkeypatch.setattr(runner, "_dispatch", fail)
+    with pytest.raises(RuntimeError):
+        runner.run("exp12", {})
+    assert seen == {"data_root": "unused"}

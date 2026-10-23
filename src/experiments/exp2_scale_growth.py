@@ -32,7 +32,8 @@ from core.feature_schema import CONFIG_ALIASES
 from core.geometry import PolarMap
 from core.logger import setup_run
 from core.monitor import OpenSetMonitor
-from core.runner import add_dataset_args, add_openset_args, resolve_dataset, save_json
+from core.runner import (add_dataset_args, add_openset_args, run_dataset, save_json,
+                         execution_context, finish_execution)
 
 
 def _majority(items: list[str]) -> str:
@@ -341,6 +342,7 @@ def iter_playback(
     max_ticks_per_stage: int = 600,
     adaptive_density: bool = True,
     healthy_mix: float = 0.0,
+    source_context=None,
 ):
     """依序注入未知配置。候選出現時立刻用該群樣本自學，不等操作員確認。"""
     if not 0.0 <= healthy_mix <= 1.0:
@@ -353,6 +355,10 @@ def iter_playback(
         missing = [c for c in sequence if c not in pools or c == HEALTHY]
         if missing:
             raise ValueError(f"sequence 含不可注入的配置：{missing}")
+    provenance = execution_context(pools, source_context, seed=seed, confidence=confidence,
+        method=method, openset_method=openset_method, knn_neighbors=knn_neighbors,
+        sequence=list(sequence), max_ticks_per_stage=max_ticks_per_stage,
+        adaptive_density=adaptive_density, healthy_mix=healthy_mix)
     session = ScaleGrowthSession(
         pools,
         seed=seed,
@@ -500,6 +506,7 @@ def iter_playback(
         "split": model["split"],
         "knn_neighbors": model["knn_neighbors"],
         "adaptive_density": adaptive_density,
+        "provenance": finish_execution(provenance, pools, source_context),
         "healthy_mix": healthy_mix,
     }}
 
@@ -515,12 +522,14 @@ def run(
     max_ticks_per_stage: int = 600,
     adaptive_density: bool = True,
     healthy_mix: float = 0.0,
+    source_context=None,
 ) -> dict:
     """依序注入各未知配置：量測發現延遲 → 用候選群自學 → 檢查新類與健康是否還認得。"""
     for event in iter_playback(
         pools, sequence=sequence, seed=seed, confidence=confidence, method=method,
         openset_method=openset_method, knn_neighbors=knn_neighbors,
         max_ticks_per_stage=max_ticks_per_stage, adaptive_density=adaptive_density,
+        source_context=source_context,
         healthy_mix=healthy_mix,
     ):
         if event["event"] == "result":
@@ -546,19 +555,15 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp2_scale_growth", data_root=args.data_root)
-    log.info(f"實驗二：量尺擴張重播 — {ds['motor']}/{ds['rpm']}"
-             f"（openset={args.openset_method}, method={args.method}, "
-             f"confidence={args.confidence}, seed={args.seed}, "
-             f"adaptive_density={not args.fixed_density}, healthy_mix={args.healthy_mix}）")
-
-    result = run(
-        pools, sequence=args.sequence, seed=args.seed,
+    log, paths = setup_run("exp2_scale_growth", unique=True, data_root=args.data_root)
+    ds, result = run_dataset(
+        args, paths, run, sequence=args.sequence, seed=args.seed,
         confidence=args.confidence, method=args.method,
         openset_method=args.openset_method, knn_neighbors=args.knn_neighbors,
         adaptive_density=not args.fixed_density, healthy_mix=args.healthy_mix,
     )
+    log.info("實驗二：量尺擴張重播 — {}/{}（healthy_mix={}）",
+             ds["motor"], ds["rpm"], args.healthy_mix)
     result["dataset"] = {"motor": ds["motor"], "rpm": ds["rpm"]}
 
     import pandas as pd

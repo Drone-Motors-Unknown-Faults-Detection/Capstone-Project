@@ -30,9 +30,9 @@ from langchain_core.tools import tool
 from langgraph.errors import GraphRecursionError
 
 from experiments.exp3_trend import KIND_DISPLAY
-from web.presentation import markdown, select_view, timing_presentation
+from web.presentation import data_usage_presentation, exp2_metric_presentation, markdown, select_view, timing_presentation
 from web.experiments import CATALOG
-from web.playback import ANSWER_SCHEMA
+from web.playback import ANSWER_SCHEMA, RESULT_BUDGET
 from web.assistant_budget import build_bounded_graph, fallback_answer
 from web.run_timing import timing_fields
 
@@ -84,13 +84,18 @@ SYSTEM_PROMPT = """你是無人機馬達冷啟動 PHM 監測系統的值班助�
 11. 回答先講結論，再列支撐的內容。"""
 
 NO_MATCH = "【查無資料】{what}。請直接告訴使用者：文件與系統狀態裡沒有這項資訊；不要自行推測或用一般知識補充。"
+METHOD_MARKER = "<!-- assistant: method -->"
+METHOD_PROMPT = """本輪只解釋方法與規格，不讀取實驗結果。只依本輪工具的定義與限制回答。
+歷史對話及目前頁面的結果來源不屬本輪證據；不能把方法預設值當實測表現。
+工具未提供的操作細節、數值與規格要明說未知。群純度不能保證未知召回或物理病因；
+標準化不能保證消除跨馬達分布差異。這些限制也適用於追問。"""
 
 
 # -- 實驗頁播放狀態 -------------------------------------------------------------
 
 NO_PLAYBACK = NO_MATCH.format(what="伺服器上沒有任何實驗的執行或播放紀錄，也找不到存檔") + \
     "可以請使用者到實驗頁按「▶ 執行」或「⏵ 邊跑邊畫」。"
-STATUS_DISPLAY = {"running": "播放中", "done": "已完成", "stopped": "被停止（未完成）", "error": "失敗"}
+STATUS_DISPLAY = {"running": "播放中", "done": "已完成", "stopped": "被停止（未完成）", "error": "失敗", "incomplete": "未完整完成"}
 MODE_DISPLAY = {"stream": "⏵ 邊跑邊畫", "run": "▶ 執行", "saved": "存檔"}
 VERDICT_DISPLAY = {"healthy": "健康", "known": "已知類別", "unknown": "未知"}
 FIELD_DISPLAY = {
@@ -223,7 +228,9 @@ def load_knowledge(directory: Path = KNOWLEDGE_DIR) -> list[dict]:
     for path in sorted(directory.glob("*.md")):
         for block in re.split(r"(?m)^## ", path.read_text(encoding="utf-8"))[1:]:
             title, _, body = block.partition("\n")
-            sections.append({"source": path.name, "title": title.strip(), "body": body.strip()})
+            sections.append({"source": path.name, "title": title.strip(),
+                             "body": body.replace(METHOD_MARKER, "").strip(),
+                             "method": METHOD_MARKER in body})
     return sections
 
 
@@ -256,6 +263,23 @@ _SAVED_FILE = re.compile(r"exp\d{1,2}_\d{4}(?:-\d{2}){5}(?:_\d{1,4})?\.json")
 _REFERENCE_STOP = frozenset(" \t\r\n`\"'<>「」（）()，；")
 _METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.{0,60}意思")
 _RESULT_QUESTION = re.compile(r"結果|矩陣|逐類|t.?sne|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d{1,6}(?:\.\d{1,6})?%", re.I)
+_USAGE_QUESTION = re.compile(
+    r"資料.{0,160}(?:切分|切割|怎麼切|如何切|用量)|切分(?:筆數|用量|比例)|(?:訓練|校準|holdout|train|calibration).{0,160}?(?:筆|多少|比例|用量)|"
+    r"187\s{0,20}(?:[／/:、]\s{0,20}62|筆)|confidence|(?:95\s{0,20}%|0\.95|百分之九十五).{0,160}(?:正確|準確|機率|信心)|"
+    r"(?:那|所以|為何|為什麼).{0,80}校準|未知.{0,160}20\s{0,20}%|健康.{0,160}(?:cal\b|校準)", re.I)
+
+
+def method_only_question(question: str, context: dict | None = None) -> bool:
+    """只決定自由問答的可讀來源，不作語意正確判定；明確結果查詢維持既有路徑。"""
+    if saved_reference(question) or re.search(
+            r"這次|這批|本次|最新|剛才|存檔|保存|紀錄|記錄|結果|總結|摘要|開始時間|完成時間|起訖", question):
+        return False
+    # 切分／校準保護答案仍分開列規則、示例與已保存用量，不交給自由生成。
+    if _USAGE_QUESTION.search(question):
+        return False
+    return bool(_METHOD_QUESTION.search(question) or re.search(
+        r"是什麼|是甚麼|解釋|意義|規格|純度|標準化|HDBSCAN|RobustScaler", question, re.I)
+        or (isinstance(context, dict) and context.get("mode") == "method"))
 
 
 def _saved_spans(text: str) -> list[tuple[int, int]]:
@@ -287,6 +311,150 @@ def strip_saved_references(text: str) -> str:
 
 def _reference_number(reference: str) -> int | None:
     return experiment_number(reference.replace("\\", "/").rsplit("/", 1)[-1])
+
+
+def _source_request(snap, question, history, context, mode):
+    """兩種語意保護共用既有識別；真正路徑核驗仍交給PlaybackTracker。"""
+    context = context or {}
+    reference = saved_reference(question)
+    number = experiment_number(strip_saved_references(question))
+    ref_number = _reference_number(reference) if reference else None
+    newest = bool(re.search(r"最新|新結果|重新.{0,80}結果", question))
+    context_number = experiment_number(context.get("experiment", ""))
+    saved = None if newest else context.get("saved")
+    saved_number = _reference_number(saved) if saved else None
+    choices = [value for value in (number, ref_number, saved_number,
+               None if newest else context_number) if value is not None]
+    if len(set(choices)) > 1:
+        raise ValueError("查詢的實驗、context與指定存檔不一致，未改取另一筆")
+    target = number or ref_number or (context_number if not newest else None)
+    target = target or saved_number
+    historical = None
+    if not newest and not reference and not saved:
+        for item in reversed(history[-MAX_HISTORY:]):
+            if isinstance(item, dict) and item.get("role") == "user" and isinstance(item.get("content"), str):
+                previous = saved_reference(item["content"])
+                previous_number = experiment_number(strip_saved_references(item["content"]))
+                if previous:
+                    previous_number = previous_number or _reference_number(previous)
+                if previous_number is not None:
+                    if target in (None, previous_number):
+                        target = previous_number
+                        historical = previous
+                    break
+    latest = latest_record(snap)
+    target = target or (experiment_number(latest["exp_id"]) if latest else None)
+    return {"experiment": f"exp{target}" if target else "", "mode": mode,
+            "saved": reference or saved or historical}
+
+
+def usage_request(snap, question, history, context):
+    """只攔截已知易錯的切分／校準問題，實驗十二沿原核算介面。"""
+    if not _USAGE_QUESTION.search(question):
+        return None
+    request = _source_request(snap, question, history, context, "data_usage")
+    return request if request["experiment"] != "exp12" else None
+
+
+def exp2_request(snap, question, history, context):
+    if not re.search(r"結果|總結|摘要|指標|own_holdout|eval_|final_eval|matched_rate|cluster_purity|"
+                     r"外部.{0,120}接受|接受率|配置.{0,120}正確率|未知召回|AUROC|準確率", question, re.I):
+        return None
+    if (re.search(r"原理|公式|定義|方法|在做什麼|是什麼", question)
+            and not re.search(r"own_holdout|eval_|final_eval|matched_rate|cluster_purity|這次|本次|保存|結果|總結|摘要|能算|能否", question, re.I)):
+        return None
+    request = _source_request(snap, question, history, context, "exp2_metrics")
+    return request if request["experiment"] == "exp2" else None
+
+
+def _protected_record(snap, request, load_saved, load_selected):
+    if request.get("saved"):
+        if load_selected is None:
+            raise ValueError("目前介面無法定位指定保存檔，不能改讀最新一筆")
+        return load_selected(request["saved"], request["experiment"]), ""
+    return pick_record(snap, request.get("experiment", ""), load_saved)
+
+
+def _record_source(rec, request):
+    record = rec or {}
+    return {"exp_id": record.get("exp_id", request.get("experiment", "")),
+            "mode": record.get("mode"), "status": record.get("status", "missing"),
+            "params": record.get("params", {}), "updated_at": record.get("updated_at"),
+            **(record.get("result") or {})}
+
+
+def usage_frames(snap, request, sections, load_saved=None, load_selected=None):
+    rec, problem = None, ""
+    try:
+        rec, problem = _protected_record(snap, request, load_saved, load_selected)
+        if rec and request["experiment"] and rec.get("exp_id") != request["experiment"]:
+            raise ValueError("保存紀錄的實驗身分不符")
+    except ValueError as exc:
+        rec, problem = None, str(exc)
+    sources = [record_label(rec), *dict.fromkeys(
+        f"{s['source']} › {s['title']}" for s in sections if s["source"] == "methods.md")]
+    source = _record_source(rec, request)
+    contract = (rec or {}).get("usage_contract") or {"rows": [], "status": "incomplete"}
+    presentation = None
+    try:
+        presentation = data_usage_presentation(contract, source, sections)
+        text = markdown(presentation)
+        status = presentation["status"]
+        if len(text) > RESULT_BUDGET:
+            raise ValueError("切分來源與筆數超出摘要預算")
+    except (ValueError, TypeError) as exc:
+        presentation = None
+        text, status = f"【切分資料不完整】{type(exc).__name__}；未列數字，請核對指定來源。", "incomplete"
+    if problem:
+        text += "\n\n來源不足：" + problem
+    response_context = {"experiment": source["exp_id"], "mode": "result"}
+    if request.get("saved") or source.get("saved"):
+        response_context["saved"] = source.get("saved") or request["saved"]
+    frames = [{"event": "mode", "mode": "data_usage", "status": status,
+               "context": response_context, "sources": sources,
+               **({"source_id": presentation["source_id"], "presentation_source": presentation["source"]} if presentation else {})},
+              {"event": "tool", "name": "get_run_status", "label": "核對切分規則與保存用量", "sources": sources}]
+    if presentation:
+        frames.append({"event": "presentation", "presentation": presentation})
+    return [*frames, {"event": "delta", "text": text, "origin": "record"}]
+
+
+def exp2_frames(snap, request, load_saved=None, load_selected=None):
+    rec, problem = None, ""
+    try:
+        rec, problem = _protected_record(snap, request, load_saved, load_selected)
+        if rec and rec.get("exp_id") != "exp2":
+            raise ValueError("保存來源不是實驗二，未改取另一筆")
+    except ValueError as exc:
+        rec, problem = None, str(exc)
+    source = _record_source(rec, request)
+    contract = (rec or {}).get("metric_contract") or {}
+    presentation = None
+    if rec is None:
+        text, status = "【結果資料不足】" + problem, "missing"
+    elif rec.get("status") != "done":
+        text, status = "【結果尚未完成】不把執行中、停止或失敗紀錄當成完成結果。", "incomplete"
+    elif contract.get("version") != "exp2_metric_semantics_v2":
+        text, status = "【結果資料不足】缺少可核對的保存欄位契約，不能沿用助手舊答。", "missing"
+    else:
+        try:
+            presentation = exp2_metric_presentation(contract, source)
+            text, status = markdown(presentation), presentation["status"]
+            if len(text) > RESULT_BUDGET:
+                raise ValueError("來源與指標超出摘要預算")
+        except (ValueError, TypeError):
+            presentation = None
+            text, status = "【摘要不完整】來源與指標超出預算或格式無效；未截出數字，請核對指定原檔。", "incomplete"
+    response_context = {"experiment": "exp2", "mode": "result"}
+    if source.get("saved") or request.get("saved"):
+        response_context["saved"] = source.get("saved") or request["saved"]
+    sources = [record_label(rec)]
+    frames = [{"event": "mode", "mode": "exp2_metrics", "status": status, "context": response_context, "sources": sources,
+               **({"source_id": presentation["source_id"], "presentation_source": presentation["source"]} if presentation else {})},
+              {"event": "tool", "name": "get_run_status", "label": "讀取實驗二保存指標", "sources": sources}]
+    if presentation:
+        frames.append({"event": "presentation", "presentation": presentation})
+    return [*frames, {"event": "delta", "text": text, "origin": "record"}]
 
 
 def result_request(snap: dict | None, question: str, history: list, context: dict | None) -> dict | None:
@@ -524,8 +692,12 @@ def experiment_with_sources(number: str, experiments_dir: Path = EXPERIMENTS_DIR
 # -- LangGraph agent -------------------------------------------------------------
 
 def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = EXPERIMENTS_DIR,
-               load_saved=None) -> list:
+               load_saved=None, *, method_only: bool = False, method_number: int | None = None) -> list:
     saved_cache = {}
+    if method_only:
+        # 方法段落採明確標記；新增／未核對的手冊不會自動成為方法問答來源。
+        sections = [s for s in sections if s.get("method") and s["source"] in ("methods.md", "motor_spec.md")]
+    blocked = NO_MATCH.format(what="本輪只查方法與規格，未授權讀取執行紀錄；需要結果時請明確指定實驗或存檔")
 
     def frozen_saved(exp_id):
         if exp_id not in saved_cache:
@@ -540,6 +712,8 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     @tool(response_format="content_and_artifact")
     def get_run_status(number: str = "") -> tuple[str, list[str] | dict]:
         """讀取實驗頁的執行紀錄與結果（「▶ 執行」或「⏵ 邊跑邊畫」）：哪個實驗、參數、狀態、播放進度、最新一筆的系統判定、完整結果摘要（混淆矩陣、偵測率等）。number 填實驗編號，例如「12」「十二」「實驗二」；使用者沒指定實驗時留空，取最近一次。"""
+        if method_only:
+            return blocked, []
         rec, missing = pick_record(snap, number, saved_reader)
         if rec is None:
             return missing, [record_label(None)]
@@ -548,6 +722,8 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     @tool(response_format="content_and_artifact")
     def get_run_events(number: str = "") -> tuple[str, list[str] | dict]:
         """讀取某次執行或播放的重點事件（候選群、模型自學、變化點警報、嚴重度改變）與事後對照（依注入配置真值算的評估結果）。number 規則同 get_run_status。"""
+        if method_only:
+            return blocked, []
         rec, missing = pick_record(snap, number, saved_reader)
         if rec is None:
             return missing, [record_label(None)]
@@ -556,6 +732,18 @@ def make_tools(snap: dict | None, sections: list[dict], experiments_dir: Path = 
     @tool(response_format="content_and_artifact")
     def get_experiment(number: str = "") -> tuple[str, list[str]]:
         """讀取某個實驗的目的、研究問題、方法、怎麼跑與輸出怎麼看。number 填編號，例如「1」「一」「實驗三」「exp8」；留空回傳所有實驗總覽。"""
+        if method_only:
+            n = experiment_number(number) if number.strip() else method_number
+            if n is None or n != method_number:
+                return NO_MATCH.format(what="方法問題未指定這個實驗，不附其他實驗或歷史結果"), []
+            entries = [e for e in CATALOG if experiment_number(e["id"]) == n]
+            text = "\n\n".join(
+                f"【{e['no']}：{e['title']}】\n研究問題：{e['question']}\n"
+                f"擬合內容：{e.get('fits', '—')}\n程式：{e['code']}；手冊位置：{e['doc']}" for e in entries)
+            if entries:
+                text += "\n方法模式未載入手冊全文或歷史成績；目錄未列的 CLI 與操作細節須核對手冊，不能補造。"
+            return (text or NO_MATCH.format(what=f"沒有實驗 {n} 的目錄條目")), (
+                [f"web/experiments.py › 實驗 {n} 目錄（未讀手冊結果）"] if entries else [])
         return experiment_with_sources(number, experiments_dir)
 
     @tool(response_format="content_and_artifact")
@@ -572,8 +760,11 @@ def build_graph(llm, tools, *, audit=None, limits=None):
                                normalize_number=experiment_number, limits=limits)
 
 
-def to_messages(history: list, question: str) -> list:
+def to_messages(history: list, question: str, *, method_only: bool = False) -> list:
     msgs = [SystemMessage(SYSTEM_PROMPT)]
+    if method_only:
+        msgs.append(SystemMessage(METHOD_PROMPT))
+        history = []
     for item in (history or [])[-MAX_HISTORY:]:
         if not isinstance(item, dict) or not isinstance(item.get("content"), str):
             continue
@@ -690,13 +881,15 @@ class Assistant:
                   load_saved=None, context: dict | None = None, load_selected=None) -> AsyncIterator[dict]:
         """回傳工具來源、非生成 facts 與模型 delta；facts 不由模型改寫。"""
         saved_cache = {}
+        method_only = method_only_question(question, context)
 
         def frozen_saved(exp_id):
             if exp_id not in saved_cache:
                 saved_cache[exp_id] = load_saved(exp_id) if load_saved else None
             return saved_cache[exp_id]
 
-        if (not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
+        if (not method_only and not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
+                and experiment_number(strip_saved_references(question)) is None
                 and not saved_reference(question) and not (isinstance(context, dict) and context.get("saved"))
                 and (not _METHOD_QUESTION.search(question) or re.search(r"結果|總結|摘要|誤報|誤拒|是否|是不是", question))):
             latest = frozen_saved(None)
@@ -705,6 +898,10 @@ class Assistant:
                 saved_cache[latest["exp_id"]] = latest
         try:
             request = result_request(snap, question, history or [], context)
+            if method_only:
+                request = None
+            metric = exp2_request(snap, question, history or [], context) if request is None and not method_only else None
+            usage = usage_request(snap, question, history or [], context) if request is None and metric is None else None
         except ValueError as exc:
             yield {"event": "error", "error": str(exc)}
             return
@@ -717,15 +914,30 @@ class Assistant:
             for frame in result_frames(snap, request, frozen_saved, load_selected):
                 yield frame
             return
-        sections = load_knowledge(self.knowledge_dir) + load_knowledge(self.experiments_dir)
+        if metric is not None:
+            for frame in exp2_frames(snap, metric, frozen_saved, load_selected):
+                yield frame
+            return
+        if usage is not None:
+            try:
+                sections = load_knowledge(self.knowledge_dir)
+            except OSError:
+                sections = []
+            for frame in usage_frames(snap, usage, sections, frozen_saved, load_selected):
+                yield frame
+            return
+        sections = load_knowledge(self.knowledge_dir)
+        if not method_only:
+            sections += load_knowledge(self.experiments_dir)
         audit = {}
         sources = []
         iterator = None
         deadline = asyncio.get_running_loop().time() + 90
         try:
             model = await asyncio.wait_for(self.llm(), 5)
-            graph = build_graph(model, make_tools(snap, sections, self.experiments_dir, frozen_saved), audit=audit)
-            iterator = graph.astream({"messages": to_messages(history or [], question)},
+            graph = build_graph(model, make_tools(snap, sections, self.experiments_dir, frozen_saved,
+                                method_only=method_only, method_number=experiment_number(question)), audit=audit)
+            iterator = graph.astream({"messages": to_messages(history or [], question, method_only=method_only)},
                                      {"recursion_limit": RECURSION_LIMIT}, stream_mode="updates").__aiter__()
             while True:
                 try:
