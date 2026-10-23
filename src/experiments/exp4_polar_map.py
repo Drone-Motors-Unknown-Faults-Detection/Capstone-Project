@@ -36,8 +36,7 @@ COMPOUND = ["3_14screws", "4_146screws"]
 def _fit_monitor(pools, known_faults, seed, confidence=0.95, method="ledoit_wolf"):
     monitor = OpenSetMonitor(pools, seed=seed, confidence=confidence, method=method)
     monitor.fit_initial()
-    for config in known_faults:
-        monitor.add_class(config)
+    monitor.add_classes(list(known_faults))  # 一次註冊、只重擬合一次（結果與逐一 add_class 相同）
     return monitor
 
 
@@ -228,7 +227,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp4_polar_map")
+    log, paths = setup_run("exp4_polar_map", data_root=args.data_root)
     log.info(f"實驗四：極座標健康地圖 — {ds['motor']}/{ds['rpm']}（part={args.part}, seed={args.seed}）")
 
     result = run(pools, seed=args.seed, parts=args.part)

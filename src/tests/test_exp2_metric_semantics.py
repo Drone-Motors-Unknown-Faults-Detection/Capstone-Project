@@ -14,8 +14,11 @@ from web.presentation import exp2_metric_contract
 def fixture():
     return {"stages": [{"config": "7screws", "learned": "discovered-1",
         "own_holdout_acc": 0.9, "own_holdout_n": 10,
-        "eval_known_rate": 0.6, "eval_n": 65, "cluster_purity": 0.8, "cluster_size": 50,
-        "healthy_holdout_acc": 0.95}], "seed": 42, "confidence": 0.95}
+        "eval_known_rate": 0.6, "eval_matched_rate": 0.55, "eval_n": 65, "cluster_purity": 0.8, "cluster_size": 50,
+        "healthy_holdout_acc": 0.95}],
+        "final_eval": {"7screws": {"n": 65, "unknown_rate": 0.3, "healthy_rate": 0.1, "known_rate": 0.6,
+                                   "matched_rate": 0.5, "top_class": "discovered-1"}},
+        "seed": 42, "confidence": 0.95}
 
 
 def test_contract_keeps_values_but_separates_four_populations():
@@ -26,10 +29,36 @@ def test_contract_keeps_values_but_separates_four_populations():
     assert (rows["own_holdout_acc"]["value"], rows["own_holdout_acc"]["denominator"]) == (0.9, 10)
     assert (rows["eval_known_rate"]["value"], rows["eval_known_rate"]["denominator"]) == (0.6, 65)
     assert rows["healthy_holdout_acc"]["denominator"] is None
+    assert (rows["eval_matched_rate"]["value"], rows["eval_matched_rate"]["denominator"]) == (0.55, 65)
+    assert rows["eval_matched_rate"]["status"] == "VERIFIED_SAVED_FIELDS"
     assert contract["unknown_auroc"] == contract["unknown_recall"] == "NOT_PROVIDED"
     assert "不是未知召回" in contract["text"] or "不等於未知召回" in contract["text"]
     assert "不要求判對自身配置" in contract["text"]
     assert result == before
+
+
+def test_complete_result_gives_complete_status():
+    # 沒有分母欄位的 healthy_holdout_acc 只看值本身，不再把每份完整結果都標成 incomplete（#279）
+    contract = exp2_metric_contract(fixture())
+    assert contract["status"] == "complete"
+    rows = {row["metric"]: row for row in contract["rows"]}
+    assert rows["healthy_holdout_acc"]["status"] == "VERIFIED_SAVED_FIELDS"
+    assert all(row["status"] == "VERIFIED_SAVED_FIELDS" for row in contract["rows"])
+
+
+def test_final_eval_matched_rate_rows_are_listed_per_config():
+    contract = exp2_metric_contract(fixture())
+    final = {row["metric"]: row for row in contract["rows"] if row.get("stage_index") == "final_eval"}
+    assert set(final) == {"known_rate", "matched_rate", "unknown_rate"}
+    assert (final["unknown_rate"]["value"], final["unknown_rate"]["denominator"]) == (0.3, 65)
+    assert (final["matched_rate"]["config"], final["matched_rate"]["value"], final["matched_rate"]["denominator"]) == ("7screws", 0.5, 65)
+    assert "final_eval：7screws" in contract["text"]
+    assert "matched_rate 才要求判進事後多數等於該配置的新類" in contract["text"]
+    broken = fixture()
+    broken["final_eval"]["7screws"]["n"] = 0
+    bad = exp2_metric_contract(broken)
+    assert bad["status"] == "incomplete"
+    assert all(row["value"] is None for row in bad["rows"] if row.get("stage_index") == "final_eval")
 
 
 @pytest.mark.parametrize("value", [None, True, float("nan"), float("inf"), -0.1, 1.1, "0.9"])
@@ -265,3 +294,39 @@ def test_general_method_question_keeps_model_path_after_exp2_record():
     assert model.seen
     assert any(f.get("origin") == "model" for f in frames)
     assert not any(f.get("mode") == "exp2_metrics" for f in frames)
+
+
+def test_shared_metric_helper_preserves_valid_fraction_without_defined_denominator():
+    from unittest.mock import patch
+    from web import presentation
+    from tests.test_assistant_results import OfflineAssistant, collect
+    result = fixture()
+    with patch.object(presentation, "_metric_row", wraps=presentation._metric_row) as shared:
+        contract = exp2_metric_contract(result)
+    assert shared.call_count == len(presentation.EXP2_METRICS) + len(presentation.FINAL_EVAL_METRICS)
+    healthy = next(r for r in contract["rows"] if r["metric"] == "healthy_holdout_acc")
+    assert healthy["value"] == .95 and healthy["status"] == "VERIFIED_SAVED_FIELDS"
+    assert healthy["denominator"] is None and not healthy["denominator_required"]
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": result})
+    frames = collect(OfflineAssistant("unused"), "實驗二保存指標結果", snap=tracker.snapshot())
+    assert frames[0]["status"] == "complete"
+    assert "0.95（此欄未定義分母）" in frames[-1]["text"]
+    assert "n=None" not in frames[-1]["text"]
+
+
+def test_saved_configuration_mismatch_cannot_be_replaced_with_unsupported_success():
+    from langchain_core.messages import AIMessage
+    from tests.test_assistant import fake_model
+    from tests.test_assistant_results import collect
+    from web.assistant import Assistant
+    result = fixture()
+    result["stages"][0].update(config="6screws", matched="7screws", cluster_purity=.4)
+    tracker = PlaybackTracker()
+    tracker.record_run("exp2", {"result": result})
+    model = fake_model(AIMessage(content="錯誤合成主張：所有階段純度必為100%，完全匹配。"))
+    frames = collect(Assistant("unused", llm=model), "實驗二這次保存結果的匹配與純度", snap=tracker.snapshot())
+    assert model.seen == []
+    assert "6screws | 7screws" in frames[-1]["text"]
+    assert "0.4（n=50）" in frames[-1]["text"]
+    assert all("錯誤合成主張" not in f.get("text", "") for f in frames)

@@ -26,6 +26,7 @@ import json
 import re
 from pathlib import Path
 
+from core.data import HEALTHY
 from experiments.exp3_trend import KIND_DISPLAY
 from web.presentation import build_exp12, data_usage_contract, exp2_metric_contract, table_text
 from web.experiments import CATALOG
@@ -40,7 +41,7 @@ _SPEC = {e["id"]: e for e in CATALOG}
 _SEQ = itertools.count(1)     # 紀錄先後順序：同一編號有多張卡（6-1／6-2）時取最近的
 _SAVED_NAME = re.compile(r"(.+)_(\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2})(?:_(\d+))?\.json")
 
-# 實驗八逐窗輸出中屬於系統判定的欄位（is_fault 是真值，不在此列）
+# 實驗八逐窗輸出中屬於系統判定的欄位（is_fault 是模型的二元判定，不當真值也不進 current）
 WINDOW_FIELDS = ("window_index", "health_index", "severity_stage", "trend", "degradation_rate",
                  "openset_score", "is_unknown_fault", "fault_type", "prediction_confidence",
                  "uncertainty", "alarm_state", "alarm_reason", "change_point_state", "data_quality")
@@ -130,14 +131,21 @@ def _exp12_answer(result, budget: int, source: dict | None) -> dict:
     return build_exp12(result, budget, source, ANSWER_SCHEMA)
 
 
+def result_contract(result, budget: int, exp_id: str | None, source: dict | None) -> tuple[str, dict] | None:
+    """實驗十二／實驗二有程式核算的契約（鍵名與契約內容）；其他實驗回 None 走一般摘要。"""
+    if exp_id == "exp12":
+        return "matrix_answer", _exp12_answer(result, budget, source)
+    if exp_id == "exp2":
+        return "metric_contract", exp2_metric_contract(result, budget)
+    return None
+
 
 def summarize_result(result, budget: int = RESULT_BUDGET, *, exp_id: str | None = None,
                      source: dict | None = None) -> str:
     """實驗結果轉成模型讀得完的文字：去掉畫圖座標與模型細節，矩陣轉表格，長清單截斷。"""
-    if exp_id == "exp12":
-        return _exp12_answer(result, budget, source)["text"]
-    if exp_id == "exp2":
-        return exp2_metric_contract(result, budget)["text"]
+    contract = result_contract(result, budget, exp_id, source)
+    if contract is not None:
+        return contract[1]["text"]
     out: list[str] = []
     _render("", result, 0, out)
     text = "\n".join(line for line in out if line.strip())
@@ -162,6 +170,7 @@ def _split_params(st: dict, params: dict) -> None:
     st["params"] = params
     if source is not None:
         st["source_config"] = source
+        st["source_is_fault"] = source != HEALTHY   # 真值只來自注入配置，不讀模型輸出
 
 
 def _fill_result(st: dict, payload: dict) -> None:
@@ -183,14 +192,10 @@ def _fill_result(st: dict, payload: dict) -> None:
     if isinstance(payload.get("streamed"), bool):
         source["streamed"] = payload["streamed"]
     st["usage_contract"] = data_usage_contract(payload.get("result"))
-    if st["exp_id"] == "exp12":
-        st["matrix_answer"] = _exp12_answer(payload.get("result"), RESULT_BUDGET, source)
-        st["result_text"] = st["matrix_answer"]["text"]
-        st["fact_text"] = st["result_text"]
-    elif st["exp_id"] == "exp2":
-        st["metric_contract"] = exp2_metric_contract(payload.get("result"), RESULT_BUDGET)
-        st["result_text"] = st["metric_contract"]["text"]
-        st["fact_text"] = st["result_text"]
+    contract = result_contract(payload.get("result"), RESULT_BUDGET, st["exp_id"], source)
+    if contract is not None:
+        st[contract[0]] = contract[1]
+        st["result_text"] = st["fact_text"] = contract[1]["text"]
     else:
         st["result_text"] = summarize_result(payload.get("result"))
 
@@ -346,11 +351,10 @@ class PlaybackTracker:
         st["samples"] += len(scores)
         if f.get("offset", 0) == 0:
             st["segment"] = st.get("segment", 0) + 1
-        st["current"] = {
+        st["current"] = {   # 段落是健康 holdout 還是故障配置屬真值，不進 current
             "segment": st.get("segment", 1),
-            "segment_kind": "健康 holdout" if f.get("kind") == "healthy-holdout" else "未知配置",
             "last_scores": [_round(s) for s in scores[-5:]],
-            "flagged_in_chunk": sum(1 for s in scores if s > 1),
+            "flagged_in_chunk": sum(1 for flag in f.get("unknown") or [] if flag),   # 實驗端算好的旗標
             "chunk_size": len(scores),
         }
 
@@ -409,8 +413,6 @@ class PlaybackTracker:
         if prev is not None and w.get("severity_stage") != prev:
             self._event(st, f"第 {w.get('window_index')} 窗嚴重度 {prev} → {w.get('severity_stage')}"
                             f"（{w.get('alarm_reason') or '—'}）")
-        if "is_fault" in w:          # 真值：這段資料是否來自故障配置
-            st["source_is_fault"] = bool(w["is_fault"])
 
     def _on_part_start(self, st, f):  # 實驗四：子實驗開始
         st["current"] = {"part": f.get("name"), "state": "計算中"}
@@ -441,10 +443,6 @@ class PlaybackTracker:
                                                         "matched_is_config", "own_holdout_acc", "own_holdout_n",
                                                         "eval_known_rate", "eval_matched_rate", "eval_n", "healthy_holdout_acc")}})
         self._event(st, f"播放完成（{payload.get('seconds')} 秒）")
-
-    def _on_stopped(self, st, f):
-        st["status"] = "stopped"
-        self._event(st, "播放被停止")
 
     def _on_error(self, st, f):
         st["status"] = "error"

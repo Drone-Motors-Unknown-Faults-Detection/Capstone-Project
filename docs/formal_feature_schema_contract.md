@@ -15,7 +15,7 @@
 ## 拒絕政策與用途分層
 
 缺／多／重複／錯序欄、任意 f0…f104、混合兩版本欄名皆拒絕；非數值、NaN／Inf、空檔／空列／空配置皆拒絕，不靜默刪列。允許 UTF-8 BOM 作編碼標記。錯誤提供 reason、portable file ID、實際 rows、拒絕 rows 與總計；不把私人絕對路徑寫入摘要。
-配置只接受現有10類與 `1screw`→`1screws` alias。保留原 dictionary key／檔案順序；同工況兩個 alias 同時存在時拒絕，避免把重複來源當兩類。忽略沒有正式CSV的非配置輔助目錄；合法配置目錄存在卻沒正式CSV則拒絕。
+配置只接受現有10類與 `1screw`→`1screws` alias。池的 key 是正規名（`1screw` 目錄讀成 `1screws`），原目錄名留在 audit 的 `configuration_dirs` 與各檔案的 file_id，檔案順序不變（#271）；同工況兩個 alias 同時存在時拒絕，避免把重複來源當兩類。忽略沒有正式CSV的非配置輔助目錄；合法配置目錄存在卻沒正式CSV則拒絕。
 `load_pools(..., require_complete=False)` 保持 cold-start healthy-only 可用；`validate_pool_coverage(..., require_complete=True)` 另驗10個canonical類別。正式 exp6 在 `require_nine=True` 時同時要求每工況完整配置；明確 partial入口仍回報缺類。不能用 healthy-only 通過完整正式矩陣。工況數另由既有9工況檢查負責，不把類別數當工況數。
 檔案逐一先驗header／row width，再沿用 pandas 原解析與 float矩陣，不更改有限合法值、列順序或 make_split 隨機數消耗。標記在來源相對檔名與原始 row index，既有來源檔SHA／樣本身分規則不改。
 

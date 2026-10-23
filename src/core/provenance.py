@@ -23,15 +23,25 @@ def canonical_sha(value) -> str:
                                      separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
 
 
-def file_sha(path: Path) -> str:
+def sha256_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def sha256_file(path: Path, chunk_size: int = 1024 * 1024) -> str:
+    """分塊讀檔算 SHA256；讀不到就丟原本的 OSError。專案內所有檔案雜湊都走這裡（#276 K03）。"""
     digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        while block := handle.read(chunk_size):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def file_sha(path: Path) -> str:
+    """sha256_file 的來源驗證版：OSError 包成可公開的 ProvenanceError，不帶路徑。"""
     try:
-        with path.open("rb") as handle:
-            while block := handle.read(1024 * 1024):
-                digest.update(block)
+        return sha256_file(path)
     except OSError as exc:
         raise ProvenanceError(f"來源無法讀取：{type(exc).__name__}") from exc
-    return digest.hexdigest()
 
 
 def _manifest_id(value: str, *, legacy: bool) -> str:
@@ -138,7 +148,7 @@ def write_private_context(context: dict, *, directory: Path | str = ".lineage_pr
 def run(data_root: Path | str) -> dict:
     from core.logger import setup_run
 
-    log, paths = setup_run("source_provenance", unique=True)
+    log, paths = setup_run("source_provenance", unique=True, data_root=data_root)
     try:
         public, private = capture_source(data_root)
         public["private_context_id"] = write_private_context(private)

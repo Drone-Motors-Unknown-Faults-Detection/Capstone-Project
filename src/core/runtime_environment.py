@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 from importlib import metadata
 from pathlib import Path
 import platform
 import subprocess
-import sys
+
+from core.provenance import sha256_file
+
+
+DEFAULT_DATA_ROOT = "data"
 
 
 def lock_versions(root: Path) -> dict[str, str]:
@@ -32,6 +35,11 @@ def _git(root: Path, *args: str) -> str | None:
     return result.stdout.strip() if result.returncode == 0 else None
 
 
+def git_head(root: Path) -> str | None:
+    """HEAD 的 commit SHA；沒有 git、沒有 .git 或逾時都回 None，不中斷呼叫端。"""
+    return _git(Path(root), "rev-parse", "HEAD")
+
+
 def blas_info() -> dict:
     """numpy 連結的 BLAS／LAPACK。同 seed 的數字會因 BLAS 不同而分岔（macOS Accelerate vs OpenBLAS，#224）。"""
     try:
@@ -44,51 +52,58 @@ def blas_info() -> dict:
         return {"blas": None, "blas_version": None, "lapack": None, "status": "UNKNOWN"}
 
 
-def _argv_data_root(argv: list[str]) -> str:
-    """實驗 CLI 一律用 --data-root（預設 data）；從命令列取，免得逐支傳入。"""
-    for i, arg in enumerate(argv):
-        if arg == "--data-root" and i + 1 < len(argv):
-            return argv[i + 1]
-        if arg.startswith("--data-root="):
-            return arg.split("=", 1)[1]
-    return "data"
+def source_data_info(public: dict) -> dict:
+    """把 core.provenance.capture_source 的公開紀錄縮成 environment.json 的 data 欄；不再重算雜湊。"""
+    return {"content_version": public["schema_version"], "dataset_fingerprint": public["dataset_fingerprint"],
+            "n_files": len(public["files"]), "status": "VERIFIED"}
 
 
 def data_info(data_root: str | Path) -> dict:
     """資料內容指紋（core.provenance 的 source_content 版本）；只記相對 source_id 數量，不記絕對路徑（#242）。
 
-    呼叫端沒有傳入 data_root 時，才從命令列的 --data-root 推得（#249）。
+    沒有資料目錄或沒有正式 CSV（例如單元測試）記 UNKNOWN；manifest 與內容不符等
+    ProvenanceError、其他讀取錯誤記 FAILED 並留 error_type，兩種都不中斷執行（#269）。
     """
+    from core.provenance import ProvenanceError, capture_source
+
     try:
-        from core.provenance import capture_source
-
         public, _ = capture_source(data_root)
-        return {"content_version": public["schema_version"], "dataset_fingerprint": public["dataset_fingerprint"],
-                "n_files": len(public["files"]), "status": "VERIFIED"}
-    except Exception:  # 沒有資料目錄（例如單元測試）時保留 UNKNOWN，不中斷執行
+        return source_data_info(public)
+    except FileNotFoundError:
         return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "UNKNOWN"}
+    except (ProvenanceError, OSError, ValueError) as exc:
+        return {"content_version": None, "dataset_fingerprint": None, "n_files": 0, "status": "FAILED",
+                "error_type": type(exc).__name__}
 
 
-def collect_environment(root: Path | None = None, data_root: str | Path | None = None) -> dict:
-    """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。"""
+def collect_environment(root: Path | None = None, data_root: str | Path | None = None, *,
+                        data: dict | None = None) -> dict:
+    """回傳可公開的版本紀錄；Git 缺失以 UNKNOWN 保留。
+
+    ``data_root`` 由呼叫端（CLI 的 ``--data-root``、Web 的 ``args.data_root``）明確傳入，
+    沒傳就記預設的 ``data``（不再從 sys.argv 推斷，#269）。``data`` 給定時直接採用
+    已算好的 data_info（例如 exp6 正式版 run() 已 capture_source 過），不再雜湊一次。
+    """
     root = Path.cwd() if root is None else Path(root)
     top = _git(root, "rev-parse", "--show-toplevel")
-    head = _git(root, "rev-parse", "HEAD") if top else None
+    head = git_head(root) if top else None
     dirty = _git(root, "status", "--porcelain", "--untracked-files=no") if top else None
     constraint = Path(top) / "uv.lock" if top else root / "uv.lock"
-    constraint_sha = hashlib.sha256(constraint.read_bytes()).hexdigest() if constraint.is_file() else None
+    constraint_sha = sha256_file(constraint) if constraint.is_file() else None
     packages = {}
     for distribution in metadata.distributions():
         name = distribution.metadata.get("Name")
         if name:
             packages[name.lower().replace("_", "-")] = distribution.version
+    if data is None:
+        data = data_info(DEFAULT_DATA_ROOT if data_root is None else data_root)
     return {
         "schema_version": "runtime_environment_v1",
         "python": {"version": platform.python_version(), "implementation": platform.python_implementation()},
         "os": {"system": platform.system(), "release": platform.release(), "machine": platform.machine(),
                "host": platform.node()},
         "numeric": blas_info(),
-        "data": data_info(data_root if data_root is not None else _argv_data_root(sys.argv)),
+        "data": data,
         "packages": dict(sorted(packages.items())),
         "git": {"head": head, "tracked_dirty": bool(dirty) if dirty is not None else None,
                 "status": "VERIFIED" if head and dirty is not None else "UNKNOWN"},

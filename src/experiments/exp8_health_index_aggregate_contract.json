@@ -18,7 +18,6 @@
   "csv_rtol": 1e-10,
   "historical_formula_status": "UNKNOWN",
   "source_git_lf_sha256": {
-    "README.md": "b338e4f74358af49884f27e52bb2e3bb843ba75be49eb9bddc1605d350ad094c",
     "aggregate_by_condition.csv": "b9cf29866bf58e5480e5594886b7db1f84c976b9465fcf976a0791aa8efe6659",
     "aggregate_summary.json": "abc3a7d3bb492cf87ce5871c0bf0a72a7bcacc2f8a5601b856577607c771a9ac",
     "matrix_manifest.json": "226090997a75691ca51bf505213779b61b0c42eeabf456b5b44a09135dadd6b4",
@@ -39,7 +38,6 @@
     "aggregate_by_condition.csv": "a0cb17f50d425ae579dc902789756c5a370a658017696b668da63a1c83d02b15",
     "aggregate_summary.json": "5c2b41ee23877d8cf150677360f9f771a745583862b4b648f58383c06627c377",
     "matrix_manifest.json": "b45ae32b1a4d8fe30eba3777607ecfcc8146e0bce6cdf993af3c53fbc85a7120",
-    "README.md": "faf7e72718dea84873796a8bee732334e0f324957b068e1a505c182865b91707",
     "seed_123/knn.csv": "10d1248e782be60dd45dce647431f71cfb896d76cdaa981f3a3fc3b5c6111be7",
     "seed_123/knn.json": "c9c9ed15c1e35101cdb4100d5e79ac2e5c8261efed5debeaadd8e6132f252a3a",
     "seed_123/mahalanobis.csv": "cca74917e6c8d39364130c8d825ec25a01bc29ecfef4f29f299cbb95774c287e",

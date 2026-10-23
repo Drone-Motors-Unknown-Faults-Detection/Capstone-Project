@@ -12,7 +12,7 @@ from web.experiments import jsonable
 
 
 def run(data_root, seed=42):
-    log, paths = setup_run("stream_integration_regression")
+    log, paths = setup_run("stream_integration_regression", data_root=data_root)
     before = data_index(data_root)
     dataset = next(d for d in discover_datasets(data_root) if d["motor"] == "T1" and d["rpm"] == "8000rpm")
     pools = load_pools(dataset["path"])

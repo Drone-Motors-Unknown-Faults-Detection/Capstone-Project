@@ -4,5 +4,7 @@
 !uv.lock
 !src/
 !docs/experiments/
+!docs/navigation/
+!reports/exp8_health_index_results/
 src/tests/
 **/__pycache__/

@@ -1,0 +1,89 @@
+{
+  "summary": {
+    "A": {
+      "name": "劇本 A：漸進磨損",
+      "expected": "gradual",
+      "trials": 40,
+      "alarm_rate": 1.0,
+      "correct_rate": 0.975,
+      "mean_latency": 49.8,
+      "mean_transition": 37.925
+    },
+    "B": {
+      "name": "劇本 B：突發外力",
+      "expected": "sudden",
+      "trials": 40,
+      "alarm_rate": 1.0,
+      "correct_rate": 0.975,
+      "mean_latency": 7.675,
+      "mean_transition": 6.65
+    }
+  },
+  "model": {
+    "resolved_config": {
+      "version": "openset_config_v1",
+      "method_id": "mahalanobis/ledoit_wolf",
+      "openset_method": "mahalanobis",
+      "requested_method": "mahalanobis",
+      "effective": {
+        "confidence": 0.95,
+        "threshold": 1.0,
+        "mahalanobis_method": "ledoit_wolf"
+      },
+      "ignored": [
+        {
+          "parameter": "knn_neighbors",
+          "value": 5,
+          "reason": "only used by openset_method=knn"
+        }
+      ]
+    },
+    "openset_method": "mahalanobis",
+    "method": "ledoit_wolf",
+    "score_type": "normalized_class_mahalanobis",
+    "threshold": 1.0,
+    "threshold_strategy": "known_calibration_class_quantile_0.95",
+    "calibration_source": "known-only 20% calibration split",
+    "confidence": 0.95,
+    "knn_neighbors": null,
+    "random_seed": 42,
+    "split": {
+      "train": 0.6,
+      "calibration": 0.2,
+      "holdout": 0.2
+    },
+    "n_known": 1,
+    "classes": [
+      {
+        "config": "8screws",
+        "label": 0,
+        "n_train": 187,
+        "n_cal": 62,
+        "n_holdout": 64,
+        "threshold": 9.71809584700257,
+        "centroid_pca": [
+          0.0,
+          0.0
+        ]
+      }
+    ]
+  },
+  "seed": 42,
+  "n_trials": 40,
+  "openset_method": "mahalanobis",
+  "method": "ledoit_wolf",
+  "score_type": "normalized_class_mahalanobis",
+  "threshold": 1.0,
+  "threshold_strategy": "known_calibration_class_quantile_0.95",
+  "calibration_source": "known-only 20% calibration split",
+  "split": {
+    "train": 0.6,
+    "calibration": 0.2,
+    "holdout": 0.2
+  },
+  "knn_neighbors": null,
+  "dataset": {
+    "motor": "T1",
+    "rpm": "8000rpm"
+  }
+}

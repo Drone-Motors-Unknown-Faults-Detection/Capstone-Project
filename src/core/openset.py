@@ -117,6 +117,8 @@ class OpenSetDetector(Protocol):
 
     def predict_known_class(self, X: np.ndarray) -> np.ndarray: ...
 
+    def score_and_predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]: ...
+
     def class_summaries(self) -> list[dict]: ...
 
 
@@ -226,14 +228,23 @@ class KNNOpenSetDetector:
             return np.empty(0, dtype=float)
         return np.min(normalized, axis=1)
 
-    def predict_known_class(self, X: np.ndarray) -> np.ndarray:
-        normalized = self._normalized_scores(X)
+    def _labels_from(self, normalized: np.ndarray) -> np.ndarray:
         if len(normalized) == 0:
             return np.empty(0, dtype=int)
         indices = np.argmin(normalized, axis=1)
         labels = np.array([self.models_[index].label for index in indices], dtype=int)
         labels[np.min(normalized, axis=1) > 1.0] = -1
         return labels
+
+    def predict_known_class(self, X: np.ndarray) -> np.ndarray:
+        return self._labels_from(self._normalized_scores(X))
+
+    def score_and_predict(self, X: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+        """一次算鄰居距離，同時回傳分數與標籤（與分開呼叫結果相同）。"""
+        normalized = self._normalized_scores(X)
+        if len(normalized) == 0:
+            return np.empty(0, dtype=float), np.empty(0, dtype=int)
+        return np.min(normalized, axis=1), self._labels_from(normalized)
 
     def class_summaries(self) -> list[dict]:
         return [
@@ -253,21 +264,23 @@ def create_openset_detector(
     confidence: float = 0.95,
     mahalanobis_method: MahalanobisMethod = "ledoit_wolf",
     knn_neighbors: int = 5,
+    random_state: int = 42,
 ) -> OpenSetDetector:
     """建立 detector；所有實作的正規化 unknown threshold 都固定為 1。"""
     resolved = resolve_openset_config(openset_method, confidence=confidence,
                                       mahalanobis_method=mahalanobis_method, knn_neighbors=knn_neighbors)
-    return create_detector_from_config(resolved)
+    return create_detector_from_config(resolved, random_state=random_state)
 
 
-def create_detector_from_config(resolved: dict) -> OpenSetDetector:
-    """依 resolve_openset_config() 的結果建立 detector。"""
+def create_detector_from_config(resolved: dict, random_state: int = 42) -> OpenSetDetector:
+    """依 resolve_openset_config() 的結果建立 detector；random_state 只有 MCD（含其 PCA）會用到。"""
     openset_method = resolved["openset_method"]
     effective = resolved["effective"]
     if openset_method == "mahalanobis":
         return MahalanobisOpenSetDetector(
             method=effective["mahalanobis_method"],
             confidence=effective["confidence"],
+            random_state=random_state,
         )
     if openset_method == "knn":
         return KNNOpenSetDetector(confidence=effective["confidence"], n_neighbors=effective["knn_neighbors"])
@@ -288,3 +301,40 @@ def fpr_at_tpr(known_scores: np.ndarray, unknown_scores: np.ndarray, tpr: float 
     fpr, tprs, _ = roc_curve(y, np.r_[known, unknown])
     eligible = fpr[tprs >= tpr]
     return float(eligible.min()) if len(eligible) else 1.0
+
+
+OPENSET_METRIC_KEYS = (
+    "known_accuracy", "open_set_accuracy", "auroc", "aupr_unknown_positive",
+    "fpr_at_tpr95", "unknown_precision", "unknown_recall", "unknown_f1",
+)
+
+
+def openset_metrics(known_scores: np.ndarray, unknown_scores: np.ndarray, *, threshold: float = 1.0) -> dict:
+    """八個開集評估指標：unknown 為正類，分數 > threshold 判 unknown；不四捨五入。
+
+    鍵名以 OPENSET_METRIC_KEYS 為準。實驗六正式版直接用這組鍵（round 6 位），
+    實驗七的輸出鍵（fpr_at_95_tpr／f1_unknown／known_class_accuracy）是 web 與文件
+    已經依賴的既有契約，在 compare_openset 以別名對應，計算共用這裡（#276 K01）。
+    兩組分數都不得為空：AUROC／AUPR 需要兩類都存在，空輸入直接拒絕，不回傳 NaN。
+    """
+    from sklearn.metrics import (
+        accuracy_score, average_precision_score, f1_score, precision_score, recall_score, roc_auc_score,
+    )
+
+    known = np.asarray(known_scores, dtype=float).ravel()
+    unknown = np.asarray(unknown_scores, dtype=float).ravel()
+    if known.size == 0 or unknown.size == 0:
+        raise ValueError("known and unknown score batches must both be non-empty")
+    scores = np.concatenate((known, unknown))
+    labels = np.concatenate((np.zeros(len(known), dtype=int), np.ones(len(unknown), dtype=int)))
+    predictions = (scores > threshold).astype(int)
+    return {
+        "known_accuracy": float((predictions[: len(known)] == 0).mean()),
+        "open_set_accuracy": float(accuracy_score(labels, predictions)),
+        "auroc": float(roc_auc_score(labels, scores)),
+        "aupr_unknown_positive": float(average_precision_score(labels, scores)),
+        "fpr_at_tpr95": fpr_at_tpr(known, unknown, 0.95),
+        "unknown_precision": float(precision_score(labels, predictions, zero_division=0)),
+        "unknown_recall": float(recall_score(labels, predictions, zero_division=0)),
+        "unknown_f1": float(f1_score(labels, predictions, zero_division=0)),
+    }

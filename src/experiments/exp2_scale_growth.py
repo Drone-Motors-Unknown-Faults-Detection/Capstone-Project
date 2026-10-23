@@ -22,19 +22,30 @@ ScaleGrowthSession 是核心狀態機（首頁即時展示由操作員呼叫 con
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 
 import hdbscan
 import numpy as np
 
 from core.data import HEALTHY, CycleSampler, config_sort_key, display_name
+from core.feature_schema import CONFIG_ALIASES
 from core.geometry import PolarMap
 from core.logger import setup_run
 from core.monitor import OpenSetMonitor
 from core.runner import add_dataset_args, add_openset_args, resolve_dataset, save_json
 
 
+def _majority(items: list[str]) -> str:
+    """多數決；平手取字串排序最小者，不依賴雜湊順序（鐵則 7）。"""
+    counts = Counter(items)
+    return min(counts, key=lambda name: (-counts[name], name))
+
+
 class ScaleGrowthSession:
-    """從健康基準起步、每納入一個候選叢集（adopt 或 confirm）就擴張的開放集監測 session。"""
+    """從健康基準起步、每納入一個候選叢集（adopt 或 confirm）就擴張的開放集監測 session。
+
+    min_cluster_size 至少 5：候選群至少這麼多筆，adopt() 才切得出 train／cal（add_observed 的下限）。
+    """
 
     def __init__(
         self,
@@ -50,6 +61,8 @@ class ScaleGrowthSession:
         quarantine_margin: float = 2.0,
         adaptive_density: bool = True,
     ) -> None:
+        if min_cluster_size < 5:
+            raise ValueError(f"min_cluster_size 至少 5（候選群要切得出 train／cal）：{min_cluster_size}")
         self.pools = pools
         self.monitor = OpenSetMonitor(
             pools,
@@ -68,6 +81,7 @@ class ScaleGrowthSession:
         self.quarantine_X: list[np.ndarray] = []
         self.quarantine_truth: list[str] = []
         self.quarantine_t: list[int] = []
+        self.quarantine_duplicates = 0  # 與隔離區既有列完全相同、未再存入的筆數
         self.candidate: dict | None = None
         self._since_cluster = 0
         self.n_seen = 0
@@ -76,26 +90,36 @@ class ScaleGrowthSession:
 
     # -- 串流 ------------------------------------------------------------------
 
+    def _is_duplicate(self, row: np.ndarray) -> bool:
+        """隔離區已有完全相同的原始特徵向量（循環重播會重抽同一列）；只比特徵，不讀 truth。"""
+        return any(np.array_equal(row, kept) for kept in self.quarantine_X)
+
     def process(self, x_raw: np.ndarray, truth: str) -> dict:
-        """處理一筆樣本。truth 只存入隔離區，供 confirm() 揭示或 adopt() 事後對照，不參與判定。"""
+        """處理一筆樣本。truth 只存入隔離區，供 confirm() 揭示或 adopt() 事後對照，不參與判定。
+
+        候選待確認期間（confirm() 路徑）不再往隔離區加列；批次與實驗頁成群後立刻 adopt()，不受影響。
+        """
         self.n_seen += 1
-        score = float(self.monitor.score(x_raw)[0])
-        label = self.monitor.classify(x_raw)[0]
+        scores, labels = self.monitor.score_and_classify(x_raw)
+        score, label = float(scores[0]), labels[0]
         # 極座標判讀（方向熟悉度為連續參考指標；不影響既有的已知/未知判定）
         direction = self.polar.analyze(x_raw)[0]
         candidate_new = False
         # 隔離線：分數明顯超線才參與新類發現，邊界誤報（如健康的 1.0x）僅警報不進隔離區
-        if label is None and score > self.quarantine_margin:
-            self.quarantine_X.append(np.asarray(x_raw, dtype=float).ravel())
-            self.quarantine_truth.append(truth)
-            self.quarantine_t.append(self.n_seen)
-            self._since_cluster += 1
-            if (
-                self.candidate is None
-                and len(self.quarantine_X) >= self.min_cluster_size
-                and self._since_cluster >= self.recluster_every
-            ):
-                candidate_new = self._try_cluster()
+        if label is None and score > self.quarantine_margin and self.candidate is None:
+            row = np.asarray(x_raw, dtype=float).ravel()
+            if self._is_duplicate(row):
+                self.quarantine_duplicates += 1
+            else:
+                self.quarantine_X.append(row)
+                self.quarantine_truth.append(truth)
+                self.quarantine_t.append(self.n_seen)
+                self._since_cluster += 1
+                if (
+                    len(self.quarantine_X) >= self.min_cluster_size
+                    and self._since_cluster >= self.recluster_every
+                ):
+                    candidate_new = self._try_cluster()
         return {
             "score": score,
             "label": label,
@@ -143,7 +167,7 @@ class ScaleGrowthSession:
         idx = np.flatnonzero(labels == best)
         truths = [self.quarantine_truth[i] for i in idx]
         ts = [self.quarantine_t[i] for i in idx]
-        majority = max(set(truths), key=truths.count)
+        majority = _majority(truths)
         self.candidate = {
             "indices": idx.tolist(),
             "size": best_size,
@@ -205,11 +229,14 @@ class ScaleGrowthSession:
         return float(self.monitor.score(cal).max())
 
     def _prune_explained(self) -> int:
-        """重擬合後，隔離區中已被任一已知類接受的列移出，不再參與分群。不讀 truth。"""
+        """重擬合後對隔離區再套一次進入規則：被任一已知類接受、或分數不再超過隔離線的列移出。不讀 truth。"""
         if not self.quarantine_X:
             return 0
-        labels = self.monitor.classify(np.vstack(self.quarantine_X))
-        explained = {i for i, label in enumerate(labels) if label is not None}
+        scores, labels = self.monitor.score_and_classify(np.vstack(self.quarantine_X))
+        explained = {
+            i for i, (score, label) in enumerate(zip(scores, labels))
+            if label is not None or score <= self.quarantine_margin
+        }
         self._drop_quarantine(explained)
         return len(explained)
 
@@ -218,7 +245,8 @@ class ScaleGrowthSession:
 
         三種結果，都不讀 truth（matched／purity 只放事後對照）：
         - ``rejected_boundary``：群的中位分數沒有超過已知類校準最大值，與已知邊界無從區分 → 清掉該群。
-        - ``insufficient``：群不足 5 筆，切不出 train／cal。
+        - ``insufficient``：群不足 5 筆，切不出 train／cal（min_cluster_size >= 5 時 _try_cluster 不會產生這種群，
+          只擋直接塞進 candidate 的小群）。
         - ``learned``：註冊成 discovered-N 並重擬合，再把隔離區中已被新模型接受的殘餘移出。
         """
         if self.candidate is None:
@@ -307,7 +335,7 @@ def _eval_breakdown(labels: list[str | None], config: str, class_matched: dict[s
         "healthy_rate": sum(label == HEALTHY for label in labels) / n,
         "known_rate": len(named) / n,
         "matched_rate": sum(class_matched.get(label) == config for label in named) / n,
-        "top_class": max(set(named), key=named.count) if named else None,
+        "top_class": _majority(named) if named else None,
     }
 
 
@@ -328,6 +356,12 @@ def iter_playback(
         raise ValueError(f"healthy_mix 必須在 0～1：{healthy_mix}")
     if sequence is None:
         sequence = sorted((c for c in pools if c != HEALTHY), key=config_sort_key)
+    else:
+        # 池 key 是正規名；使用者的 --sequence 先正規化，不在池裡的直接拒絕（#285 R2-03）
+        sequence = [CONFIG_ALIASES.get(c, c) for c in sequence]
+        missing = [c for c in sequence if c not in pools or c == HEALTHY]
+        if missing:
+            raise ValueError(f"sequence 含不可注入的配置：{missing}")
     session = ScaleGrowthSession(
         pools,
         seed=seed,
@@ -455,18 +489,19 @@ def iter_playback(
         "final_eval": final_eval,
         "eval_fraction": EVAL_FRACTION,
         "known_cal_max": session.known_cal_max(),
+        "quarantine_duplicates": session.quarantine_duplicates,
         "final_known": list(session.monitor.known),
         "model": model,
         "seed": seed,
         "confidence": confidence,
-        "openset_method": openset_method,
-        "method": method,
+        "openset_method": model["openset_method"],
+        "method": model["method"],
         "score_type": model["score_type"],
         "threshold": 1.0,
         "threshold_strategy": model["threshold_strategy"],
-        "calibration_source": "known-only 20% calibration split",
-        "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
-        "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "calibration_source": model["calibration_source"],
+        "split": model["split"],
+        "knn_neighbors": model["knn_neighbors"],
         "adaptive_density": adaptive_density,
         "healthy_mix": healthy_mix,
     }}
@@ -515,7 +550,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp2_scale_growth")
+    log, paths = setup_run("exp2_scale_growth", data_root=args.data_root)
     log.info(f"實驗二：量尺擴張重播 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
              f"confidence={args.confidence}, seed={args.seed}, "

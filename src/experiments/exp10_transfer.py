@@ -19,14 +19,15 @@ import argparse
 
 import numpy as np
 
-from core.data import HEALTHY, discover_datasets, load_pools
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
+from core.openset import openset_metrics
 from core.runner import save_json
 
 
 def _dataset_key(ds: dict) -> str:
-    return f"{ds['motor']}/{ds['rpm'].replace('rpm', '')}"
+    return dataset_key(ds["motor"], ds["rpm"])
 
 
 def _load_all(data_root: str) -> dict[str, dict[str, np.ndarray]]:
@@ -40,15 +41,27 @@ def _draw_support(healthy_pool: np.ndarray, n: int, rng: np.random.Generator) ->
     return healthy_pool[support_idx], healthy_pool[eval_idx]
 
 
-def _metrics(healthy_scores: np.ndarray, fault_scores: np.ndarray) -> dict:
-    from sklearn.metrics import roc_auc_score
+def _validate_n_values(n_values: tuple[int, ...], healthy_sizes: dict[str, int]) -> None:
+    """每個 N 都要是正整數，且小於最小目標健康池，否則 support 抽完 eval 集是空的（#271 S5）。"""
+    if not n_values:
+        raise ValueError("--n-values 至少要一個 N")
+    smallest_key = min(healthy_sizes, key=lambda k: (healthy_sizes[k], k))
+    smallest = healthy_sizes[smallest_key]
+    bad = [n for n in n_values if not isinstance(n, (int, np.integer)) or isinstance(n, bool) or n < 1 or n >= smallest]
+    if bad:
+        raise ValueError(
+            f"--n-values {list(bad)} 不合法：N 必須是 1 到 {smallest - 1} 的整數"
+            f"（最小目標健康池 {smallest_key} 只有 {smallest} 筆，support 之後至少要留一筆評估）"
+        )
 
-    y = np.r_[np.zeros(len(healthy_scores)), np.ones(len(fault_scores))]
-    s = np.r_[healthy_scores, fault_scores]
+
+def _metrics(healthy_scores: np.ndarray, fault_scores: np.ndarray) -> dict:
+    """healthy_accept＝known_accuracy、fault_detect＝unknown_recall，同 core.openset.openset_metrics。"""
+    metrics = openset_metrics(healthy_scores, fault_scores)
     return {
-        "healthy_accept": round(float((healthy_scores <= 1).mean()), 4),
-        "fault_detect": round(float((fault_scores > 1).mean()), 4),
-        "auroc": round(float(roc_auc_score(y, s)), 4),
+        "healthy_accept": round(metrics["known_accuracy"], 4),
+        "fault_detect": round(metrics["unknown_recall"], 4),
+        "auroc": round(metrics["auroc"], 4),
     }
 
 
@@ -56,6 +69,9 @@ def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95,
         method: str = "ledoit_wolf", n_values: tuple[int, ...] = (10, 25, 50)) -> dict:
     all_pools = _load_all(data_root)
     keys = sorted(all_pools)
+    if len(keys) < 2:
+        raise ValueError(f"遷移實驗至少要兩個工況才有 src→dst 配對；{data_root} 下只有 {len(keys)} 個")
+    _validate_n_values(n_values, {k: len(all_pools[k][HEALTHY]) for k in keys})
     rng = np.random.default_rng(seed)
     rows: list[dict] = []
 
@@ -129,7 +145,7 @@ def _figure(summary: dict):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--confidence", type=float, default=0.95)
@@ -139,7 +155,7 @@ def main() -> None:
 
     n_values = tuple(int(v) for v in args.n_values.split(","))
 
-    log, paths = setup_run("exp10_transfer")
+    log, paths = setup_run("exp10_transfer", data_root=args.data_root)
     log.info(f"實驗十：遷移學習（N={n_values}, method={args.method}, seed={args.seed}）")
     result = run(args.data_root, args.seed, args.confidence, args.method, n_values)
     save_json(paths.output_dir / "summary.json", result)

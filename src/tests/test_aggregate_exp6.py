@@ -114,6 +114,17 @@ class AggregateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "dataset fingerprint mismatch across runs"):
             aggregate(self.manifest_path, allow_partial=True)
 
+    def test_partial_fingerprint_comes_from_accepted_runs_not_first_entry(self) -> None:
+        """runs[0] 被拒且指紋不同時，彙總指紋仍是接受格共同的那個（#269 C07）。"""
+        manifest = self._manifest()
+        first = manifest["runs"][0]
+        first["dataset_fingerprint"] = "other"
+        self._save(manifest)
+        result = aggregate(self.manifest_path, allow_partial=True)
+        self.assertEqual(result["status"], "PARTIAL")
+        self.assertEqual([item["run_id"] for item in result["rejected_runs"]], [first["run_id"]])
+        self.assertEqual(result["dataset_fingerprint"], "abc")
+
     def test_csv_value_difference_is_traceable(self) -> None:
         csv_path = self._run_dir("T1_6000rpm_seed42_knn") / "results.csv"
         frame = pd.read_csv(csv_path)
@@ -140,6 +151,17 @@ class AggregateTests(unittest.TestCase):
         partial_dir = self.manifest_path.parent / "aggregate_partial"
         self.assertIn("missing run.log", (partial_dir / "aggregate.md").read_text(encoding="utf-8"))
         self.assertFalse((self.manifest_path.parent / "aggregate").exists())
+
+    def test_allow_partial_with_no_common_pair_writes_none_not_nan(self) -> None:
+        """mahalanobis 只剩 seed 42、knn 只剩 seed 123：join 為空，mean_difference 寫 None（#285 R2-02）。"""
+        (self._run_dir("T1_6000rpm_seed123_mahalanobis") / "run.log").unlink()
+        (self._run_dir("T1_6000rpm_seed42_knn") / "run.log").unlink()
+        result = write_aggregate(self.manifest_path, allow_partial=True)
+        self.assertEqual(result["status"], "PARTIAL")
+        for row in result["paired_differences"]:
+            self.assertEqual((row["n_pairs"], row["mean_difference"], row["std_difference"]), (0, None, None))
+        text = (self.manifest_path.parent / "aggregate_partial" / "aggregate.json").read_text(encoding="utf-8")
+        self.assertNotIn("NaN", text)
 
     def test_main_uses_setup_run(self) -> None:
         previous = Path.cwd()

@@ -68,7 +68,7 @@ def local_links(path, root):
 
 
 def run(data_root):
-    log, paths = setup_run("issue_delivery_evidence")
+    log, paths = setup_run("issue_delivery_evidence", data_root=data_root)
     root = Path.cwd().resolve()
     documents = [root / "docs/README.md", root / "docs/experiments/exp8_health.md",
                  root / "README.md", *sorted((root / "reports/Andy_20261008_議題交付").glob("*.md")),

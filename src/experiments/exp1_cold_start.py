@@ -20,6 +20,7 @@ import numpy as np
 from core.data import HEALTHY, display_name
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
+from core.openset import openset_metrics
 from core.runner import add_dataset_args, add_openset_args, resolve_dataset, save_json
 
 
@@ -47,8 +48,9 @@ def iter_run(
 ):
     """逐步產生事件，供 Web 實驗頁邊跑邊畫；計算與 run() 完全相同。
 
-    事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數）與 row
-    （該配置的統計列），最後一個是 result（與 run() 回傳值相同）。
+    事件依序為 fitted（擬合完成）、每個配置一組 scores（逐筆開集分數 scores 與同長度的
+    判未知旗標 unknown，Web 只呈現不重算）與 row（該配置的統計列），最後一個是 result
+    （與 run() 回傳值相同）。
     """
     monitor = OpenSetMonitor(
         pools,
@@ -63,7 +65,8 @@ def iter_run(
 
     healthy_scores = monitor.score(monitor.holdout(HEALTHY))
     yield {"event": "scores", "config": HEALTHY, "display": display_name(HEALTHY),
-           "kind": "healthy-holdout", "scores": healthy_scores.tolist()}
+           "kind": "healthy-holdout", "scores": healthy_scores.tolist(),
+           "unknown": (healthy_scores > 1).tolist()}
     rows = [
         {
             "config": HEALTHY,
@@ -82,7 +85,7 @@ def iter_run(
             continue
         scores = monitor.score(pool)
         yield {"event": "scores", "config": config, "display": display_name(config),
-               "kind": "unknown-fault", "scores": scores.tolist()}
+               "kind": "unknown-fault", "scores": scores.tolist(), "unknown": (scores > 1).tolist()}
         rows.append(
             {
                 "config": config,
@@ -98,30 +101,29 @@ def iter_run(
         yield {"event": "row", "row": rows[-1]}
 
     fault_rows = rows[1:]
+    model = monitor.summary()  # 方法、k、門檻來源一律取自 monitor（別名呼叫時與 model 區塊一致）
+    # 只有健康池時沒有故障列：兩個平均記 None，不寫 NaN（#271）
     yield {"event": "result", "result": {
         "rows": rows,
         "healthy_fp_rate": rows[0]["detect_rate"],
-        "macro_detect_rate": float(np.mean([r["detect_rate"] for r in fault_rows])),
-        "macro_auroc": float(np.mean([r["auroc"] for r in fault_rows])),
-        "model": monitor.summary(),
+        "macro_detect_rate": float(np.mean([r["detect_rate"] for r in fault_rows])) if fault_rows else None,
+        "macro_auroc": float(np.mean([r["auroc"] for r in fault_rows])) if fault_rows else None,
+        "model": model,
         "confidence": confidence,
-        "openset_method": openset_method,
-        "method": method,
-        "score_type": monitor.summary()["score_type"],
+        "openset_method": model["openset_method"],
+        "method": model["method"],
+        "score_type": model["score_type"],
         "threshold": 1.0,
-        "threshold_strategy": monitor.summary()["threshold_strategy"],
-        "calibration_source": "known-only 20% calibration split",
-        "split": {"train": 0.6, "calibration": 0.2, "holdout": 0.2},
-        "knn_neighbors": knn_neighbors if openset_method == "knn" else None,
+        "threshold_strategy": model["threshold_strategy"],
+        "calibration_source": model["calibration_source"],
+        "split": model["split"],
+        "knn_neighbors": model["knn_neighbors"],
         "seed": seed,
     }}
 
 
 def _auroc(neg_scores: np.ndarray, pos_scores: np.ndarray) -> float:
-    from sklearn.metrics import roc_auc_score
-
-    y = np.r_[np.zeros(len(neg_scores)), np.ones(len(pos_scores))]
-    return float(roc_auc_score(y, np.r_[neg_scores, pos_scores]))
+    return openset_metrics(neg_scores, pos_scores)["auroc"]
 
 
 def _make_figure(result: dict):
@@ -151,7 +153,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("exp1_cold_start")
+    log, paths = setup_run("exp1_cold_start", data_root=args.data_root)
     log.info(f"實驗一：冷啟動偵測 — {ds['motor']}/{ds['rpm']}"
              f"（openset={args.openset_method}, method={args.method}, "
              f"confidence={args.confidence}, seed={args.seed}）")
@@ -176,8 +178,11 @@ def main() -> None:
     for r in result["rows"]:
         auroc = f"{r['auroc']:.4f}" if r["auroc"] is not None else "—"
         log.info(f"{r['config']:<14}{r['n']:>6}{r['detect_rate']*100:>9.1f}%{auroc:>10}{r['median_score']:>10.2f}")
-    log.info(f"健康誤報率 {result['healthy_fp_rate']*100:.1f}%｜"
-             f"平均偵測率 {result['macro_detect_rate']*100:.1f}%｜平均 AUROC {result['macro_auroc']:.4f}")
+    if result["macro_auroc"] is None:
+        log.info(f"健康誤報率 {result['healthy_fp_rate']*100:.1f}%｜資料集沒有故障配置，沒有偵測率與 AUROC")
+    else:
+        log.info(f"健康誤報率 {result['healthy_fp_rate']*100:.1f}%｜"
+                 f"平均偵測率 {result['macro_detect_rate']*100:.1f}%｜平均 AUROC {result['macro_auroc']:.4f}")
     log.info(f"輸出：{paths.output_dir}")
 
 

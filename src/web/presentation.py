@@ -15,15 +15,32 @@ VERSION = "assistant_presentation_v1"
 EXP2_METRICS = {
     "own_holdout_acc": ("群內保留列正確辨識模型新類的比例", "own_holdout_n"),
     "eval_known_rate": ("本段配置外部評估列被任一新類接受的比例", "eval_n"),
-    "eval_matched_rate": ("本段外部列判進對應配置的新類（事後對照）", "eval_n"),
-    "healthy_holdout_acc": ("健康保留列仍被判健康的比例", "healthy_holdout_n"),
+    "eval_matched_rate": ("本段配置外部評估列被判進事後多數等於該配置的新類的比例（事後對照）", "eval_n"),
+    "healthy_holdout_acc": ("健康保留列仍被判健康的比例", None),
     "cluster_purity": ("候選群中真值多數配置的占比（事後對照）", "cluster_size"),
 }
-EXP2_FINAL_METRICS = {
-    "known_rate": ("全部階段結束後，被任一非健康新類接受", "n"),
-    "matched_rate": ("全部階段結束後，判進事後多數對應該配置的新類", "n"),
-    "unknown_rate": ("全部階段結束後，仍被拒絕為未知；不是學會前未知召回", "n"),
+# 重播結束後各配置外部評估列（result["final_eval"][config]）的比例欄位
+FINAL_EVAL_METRICS = {
+    "known_rate": ("重播結束後該配置外部評估列被任一新類接受的比例", "n"),
+    "matched_rate": ("重播結束後該配置外部評估列被判進事後多數等於該配置的新類的比例（事後對照）", "n"),
+    "unknown_rate": ("重播結束後仍被拒絕為未知；不是學會前未知召回", "n"),
 }
+
+
+def _metric_row(container: dict, key: str, meaning: str, denominator_key, **where) -> dict:
+    value = container[key]
+    valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
+             and math.isfinite(value) and 0 <= value <= 1)
+    denominator = container.get(denominator_key) if denominator_key else None
+    # 沒有分母欄位的比例（healthy_holdout_acc）只看值本身；有分母欄位才要求正整數
+    count_valid = denominator_key is None or (isinstance(denominator, int) and not isinstance(denominator, bool)
+                                              and denominator > 0)
+    status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
+    if denominator is not None and not count_valid:
+        status, valid = "INVALID_DENOMINATOR", False
+    return {**where, "metric": key, "meaning": meaning, "value": value if valid and count_valid else None,
+            "denominator": denominator if count_valid else None, "denominator_required": denominator_key is not None,
+            "status": status}
 
 
 def exp2_metric_contract(result, budget=6000):
@@ -41,21 +58,15 @@ def exp2_metric_contract(result, budget=6000):
         for key, (meaning, denominator_key) in definitions.items():
             if key not in item:
                 continue
-            value, denominator = item[key], item.get(denominator_key)
-            valid = (isinstance(value, (int, float)) and not isinstance(value, bool)
-                     and math.isfinite(value) and 0 <= value <= 1)
-            count_valid = isinstance(denominator, int) and not isinstance(denominator, bool) and denominator > 0
-            status = "VERIFIED_SAVED_FIELDS" if valid and count_valid else "INCOMPLETE"
-            if denominator is not None and not count_valid:
-                status = "INVALID_DENOMINATOR"
-            if status != "VERIFIED_SAVED_FIELDS":
+            row = _metric_row(item, key, meaning, denominator_key,
+                              stage_index=index if timepoint == "stage" else "final_eval",
+                              config=config, configuration=config, timepoint=timepoint)
+            if row["status"] != "VERIFIED_SAVED_FIELDS":
                 contract["status"] = "incomplete"
-            row = {"stage_index": index, "configuration": config, "timepoint": timepoint,
-                   "metric": key, "meaning": meaning, "value": value if valid and count_valid else None,
-                   "denominator": denominator if count_valid else None, "status": status}
             contract["rows"].append(row)
             selected[key] = row
-        return [f"{selected[key]['value']}（n={selected[key]['denominator']}）"
+        return [(f"{selected[key]['value']}（n={selected[key]['denominator']}）" if selected[key]["denominator_required"] else
+                 f"{selected[key]['value']}（此欄未定義分母）")
                 if key in selected and selected[key]["status"] == "VERIFIED_SAVED_FIELDS" else
                 selected[key]["status"] if key in selected else "未保存" for key in definitions]
 
@@ -77,16 +88,16 @@ def exp2_metric_contract(result, budget=6000):
                 stage_table["rows"].append([index, config or "未保存配置",
                     matched if isinstance(matched, str) else "未保存", *values])
     final_table = {"id": "final", "title": "全部階段結束後的外部評估",
-                   "headers": ["事後配置", *EXP2_FINAL_METRICS], "rows": []}
+                   "headers": ["事後配置", *FINAL_EVAL_METRICS], "rows": []}
     final = result.get("final_eval") if isinstance(result, dict) else None
     if isinstance(final, dict):
         for config, item in final.items():
             if not isinstance(item, dict):
                 contract["status"] = "incomplete"
                 continue
-            values = saved_rows(item, EXP2_FINAL_METRICS, "final", None, config)
-            if any(key in item for key in EXP2_FINAL_METRICS):
-                final_table["rows"].append([config, *values])
+            values = saved_rows(item, FINAL_EVAL_METRICS, "final", None, config)
+            if any(key in item for key in FINAL_EVAL_METRICS):
+                final_table["rows"].append([f"final_eval：{config}", *values])
     else:
         contract["status"] = "incomplete"
         lines.append("未保存有效final_eval，不由stage資料補出全部階段結束後的結果。")
@@ -96,10 +107,11 @@ def exp2_metric_contract(result, budget=6000):
     for table in contract["tables"]:
         lines += [table["title"], table_text(table["headers"], table["rows"])]
     lines.append(table_text(["欄位", "意思"], [[key, value[0]] for key, value in
-        [*EXP2_METRICS.items(), *EXP2_FINAL_METRICS.items()]]))
-    lines += ["VERIFIED_SAVED_FIELDS 只表示保存欄位的型別與分母齊全，不表示採集獨立或模型可靠。",
+        [*EXP2_METRICS.items(), *FINAL_EVAL_METRICS.items()]]))
+    lines += ["VERIFIED_SAVED_FIELDS 只表示比例有效且符合該欄分母規格；未定義分母的欄位不補造分母，不表示採集獨立或模型可靠。",
               "stage與final_eval的時點分開；known_rate不要求判對自身配置，matched_rate才要求對應，但屬事後對照，不是線上病因辨識。",
-              "缺值、缺保存分母或無效欄位不顯示數值；未從另一欄、另一時點或rounded比例反推成功筆數。",
+              "matched_rate 才要求判進事後多數等於該配置的新類；這仍是事後對照。",
+              "缺值、缺必要分母或無效欄位不顯示數值；未從另一欄、另一時點或rounded比例反推成功筆數。",
               "confidence=0.95 是校準距離分位數，不是 95% 正確機率；187／62／64 只屬手冊的指定示例。",
               "同池 20% 外部列未參與重播，仍不等於新採集或 fresh final；相對量尺不是損壞百分比或 RUL。"]
     text = "\n\n".join(lines)
@@ -266,14 +278,14 @@ def data_usage_presentation(contract, source, sections):
 def exp2_metric_presentation(contract, source):
     """共用已驗證的欄位字典與表格；不重算接受率或推估未知指標。"""
     body = [section("definitions", "指標意思與母群", "table", headers=["欄位", "意思"], rows=[
-        [key, value[0]] for key, value in [*EXP2_METRICS.items(), *EXP2_FINAL_METRICS.items()]])]
+        [key, value[0]] for key, value in [*EXP2_METRICS.items(), *FINAL_EVAL_METRICS.items()]])]
     if contract.get("budget_exceeded"):
         body.append(section("budget", "摘要不足", "warning", items=[contract["text"]]))
     else:
         body += [section(table["id"], table["title"], "table", headers=table["headers"], rows=table["rows"])
                  for table in contract["tables"]]
     body.append(section("limits", "限制", "warning", items=[
-        "保存比例介於0與1；n只讀同欄保存分母。INCOMPLETE／INVALID_DENOMINATOR或未保存的欄位不提供數值。",
+        "保存比例介於0與1；n只讀同欄保存分母。未定義分母的合法比例保留，缺必要分母或無效欄位不提供數值。",
         "被任一新類接受不等於判進對應配置。matched／純度只屬事後對照，不是線上病因辨識。",
         "final_eval.unknown_rate是學習後仍拒絕，不能改名為學會前未知召回；本份彙總未提供可核算的未知召回或AUROC。",
         "資料或分母缺失不由其他比例、時點或示例補入；同池外部保留不證明新採集或可靠部署。"] ))

@@ -13,9 +13,12 @@ from experiments import health_index_matrix
 from experiments.health_index_matrix import FORMAL_CONDITION_COUNT, expected_run_ids, main
 
 
+FINGERPRINT = "fp"
+
+
 def _fake_run(data_root, *, seed, openset_method, require_nine, pool_cache=None):
     rows = [{"condition": f"c{index}", "seed": seed, "method": openset_method} for index in range(FORMAL_CONDITION_COUNT)]
-    return {"status": "completed", "seed": seed, "method": openset_method,
+    return {"status": "completed", "seed": seed, "method": openset_method, "dataset_fingerprint": FINGERPRINT,
             "formal_condition_count": FORMAL_CONDITION_COUNT, "rows": rows}
 
 
@@ -35,7 +38,9 @@ class HealthMatrixTests(unittest.TestCase):
 
     def _main(self, argv):
         stdout = io.StringIO()
-        with patch.object(health_index_matrix, "run", _fake_run), contextlib.redirect_stdout(stdout):
+        with patch.object(health_index_matrix, "run", _fake_run), \
+                patch.object(health_index_matrix, "dataset_fingerprint", return_value=FINGERPRINT), \
+                contextlib.redirect_stdout(stdout):
             code = main(argv)
         return code, json.loads(stdout.getvalue())
 
@@ -72,9 +77,34 @@ class HealthMatrixTests(unittest.TestCase):
                 self.assertEqual(summary["output_root"], "resume_root")
                 manifest = json.loads(Path("resume_root/matrix_manifest.json").read_text(encoding="utf-8"))
                 self.assertTrue(manifest["runs"][0]["resumed"])
+                self.assertEqual(manifest["dataset_fingerprint"], FINGERPRINT)
+                self.assertEqual(manifest["runs"][0]["dataset_fingerprint"], FINGERPRINT)
             finally:
                 logger.remove()
                 os.chdir(previous)
+
+    def test_resume_reruns_when_dataset_fingerprint_differs(self):
+        """既有 JSON 的指紋跟現在的資料不同就重跑，不沿用（#269 C06）。"""
+        calls: list = []
+
+        def counting_run(*args, **kwargs):
+            calls.append(kwargs["seed"])
+            return _fake_run(*args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as workspace:
+            output = Path(workspace) / "matrix"
+            with patch.object(health_index_matrix, "run", counting_run), \
+                    patch.object(health_index_matrix, "dataset_fingerprint", return_value=FINGERPRINT):
+                health_index_matrix.run_matrix("data", output, seeds=(42,), methods=("knn",))
+                health_index_matrix.run_matrix("data", output, seeds=(42,), methods=("knn",))
+            self.assertEqual(calls, [42])
+            with patch.object(health_index_matrix, "run", counting_run), \
+                    patch.object(health_index_matrix, "dataset_fingerprint", return_value="other"):
+                manifest = health_index_matrix.run_matrix("data", output, seeds=(42,), methods=("knn",))
+            self.assertEqual(calls, [42, 42])
+            self.assertNotIn("resumed", manifest["runs"][0])
+            self.assertEqual(manifest["runs"][0]["status"], "failed")
+            self.assertIn("dataset_fingerprint changed", manifest["runs"][0]["error"])
 
     def test_run_matrix_has_no_default_output_root(self):
         with self.assertRaises(TypeError):

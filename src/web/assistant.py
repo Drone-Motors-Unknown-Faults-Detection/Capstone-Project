@@ -97,7 +97,7 @@ FIELD_DISPLAY = {
     "t": "樣本序號 t", "score": "開集分數（> 1 為未知）", "verdict": "判定", "predicted": "模型判成的類別",
     "quarantine": "隔離區筆數", "n_known": "已知類別數", "scenario": "劇本", "trial": "第幾次重複（0 起算）",
     "ewma": "EWMA 異常比例（≥ 0.5 警報）", "cusum": "CUSUM", "alarm_kind": "警報判別",
-    "segment": "第幾段", "segment_kind": "段落類型", "last_scores": "最近分數", "flagged_in_chunk": "本批判未知筆數",
+    "segment": "第幾段", "last_scores": "最近分數", "flagged_in_chunk": "本批判未知筆數",
     "chunk_size": "本批筆數", "window_index": "窗序號", "health_index": "相對健康指數（1 健康、0 最差）",
     "severity_stage": "嚴重度", "trend": "趨勢", "degradation_rate": "退化速率", "openset_score": "開集分數",
     "is_unknown_fault": "判為未知故障", "fault_type": "故障類型", "prediction_confidence": "信心",
@@ -234,7 +234,7 @@ CN_DIGITS = {"零": 0, "一": 1, "二": 2, "兩": 2, "三": 3, "四": 4, "五": 
 def _cn_number(text: str) -> int | None:
     """中文數字（一～九十九）或阿拉伯數字轉 int。"""
     if text.isdigit():
-        return int(text)
+        return int(text) if len(text) <= 4 else None   # 實驗編號最多兩位；超長數字串不轉 int
     if not text or any(c not in CN_DIGITS and c != "十" for c in text):
         return None
     if "十" not in text:
@@ -250,13 +250,43 @@ def experiment_number(text: str) -> int | None:
     return _cn_number(m.group(1) if m else text)
 
 
-_SAVED_REFERENCE = re.compile(r"[^\s`\"'<>「」（）()，；]*exp\d+_\d{4}(?:-\d{2}){5}(?:_\d+)?\.json")
-_METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.*意思")
-_RESULT_QUESTION = re.compile(r"結果|矩陣|逐類|t.?sne|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d+(?:\.\d+)?%", re.I)
+# 存檔名 exp<N>_<時間戳>[_n].json；路徑前綴由程式往左延伸到分隔字元，不用 [^…]* 前綴
+# （那種寫法在長字串上二次方回溯，#265）。各 pattern 的量詞一律有上限。
+_SAVED_FILE = re.compile(r"exp\d{1,2}_\d{4}(?:-\d{2}){5}(?:_\d{1,4})?\.json")
+_REFERENCE_STOP = frozenset(" \t\r\n`\"'<>「」（）()，；")
+_METHOD_QUESTION = re.compile(r"原理|公式|定義|方法|怎麼跑|如何執行|怎麼操作|怎麼建立|怎麼切|如何切|在做什麼|在做甚麼|參數.{0,60}意思")
+_RESULT_QUESTION = re.compile(r"結果|矩陣|逐類|t.?sne|總結|摘要|誤報|誤拒|召回|判對|正確率|準確率|是不是|是否|失效|保守|可靠|未知|unknown|legacy|狀況|換馬達|健康池|資料池|三角|抽樣|多少筆|模型判斷|只有故障|純故障|\d{1,6}(?:\.\d{1,6})?%", re.I)
 _USAGE_QUESTION = re.compile(
-    r"資料.*(?:切分|切割|怎麼切|如何切|用量)|切分(?:筆數|用量|比例)|(?:訓練|校準|holdout|train|calibration).*?(?:筆|多少|比例|用量)|"
-    r"187\s*(?:[／/:、]\s*62|筆)|confidence|(?:95\s*%|0\.95|百分之九十五).*(?:正確|準確|機率|信心)|"
-    r"(?:那|所以|為何|為什麼).*校準|未知.*20\s*%|健康.*(?:cal\b|校準)", re.I)
+    r"資料.{0,160}(?:切分|切割|怎麼切|如何切|用量)|切分(?:筆數|用量|比例)|(?:訓練|校準|holdout|train|calibration).{0,160}?(?:筆|多少|比例|用量)|"
+    r"187\s{0,20}(?:[／/:、]\s{0,20}62|筆)|confidence|(?:95\s{0,20}%|0\.95|百分之九十五).{0,160}(?:正確|準確|機率|信心)|"
+    r"(?:那|所以|為何|為什麼).{0,80}校準|未知.{0,160}20\s{0,20}%|健康.{0,160}(?:cal\b|校準)", re.I)
+
+
+def _saved_spans(text: str) -> list[tuple[int, int]]:
+    spans = []
+    end = 0
+    for match in _SAVED_FILE.finditer(text):
+        start = match.start()
+        while start > end and text[start - 1] not in _REFERENCE_STOP:
+            start -= 1
+        spans.append((start, match.end()))
+        end = match.end()
+    return spans
+
+
+def saved_reference(text: str) -> str | None:
+    """問句或歷史裡第一個存檔路徑（含前綴目錄）；沒有回 None。"""
+    spans = _saved_spans(text)
+    return text[spans[0][0]:spans[0][1]] if spans else None
+
+
+def strip_saved_references(text: str) -> str:
+    out, last = [], 0
+    for start, end in _saved_spans(text):
+        out.append(text[last:start])
+        last = end
+    out.append(text[last:])
+    return "".join(out)
 
 
 def _reference_number(reference: str) -> int | None:
@@ -266,11 +296,10 @@ def _reference_number(reference: str) -> int | None:
 def _source_request(snap, question, history, context, mode):
     """兩種語意保護共用既有識別；真正路徑核驗仍交給PlaybackTracker。"""
     context = context or {}
-    match = _SAVED_REFERENCE.search(question)
-    reference = match.group() if match else None
-    number = experiment_number(_SAVED_REFERENCE.sub("", question))
+    reference = saved_reference(question)
+    number = experiment_number(strip_saved_references(question))
     ref_number = _reference_number(reference) if reference else None
-    newest = bool(re.search(r"最新|新結果|重新.*結果", question))
+    newest = bool(re.search(r"最新|新結果|重新.{0,80}結果", question))
     context_number = experiment_number(context.get("experiment", ""))
     saved = None if newest else context.get("saved")
     saved_number = _reference_number(saved) if saved else None
@@ -284,14 +313,14 @@ def _source_request(snap, question, history, context, mode):
     if not newest and not reference and not saved:
         for item in reversed(history[-MAX_HISTORY:]):
             if isinstance(item, dict) and item.get("role") == "user" and isinstance(item.get("content"), str):
-                previous = _SAVED_REFERENCE.search(item["content"])
-                previous_number = experiment_number(_SAVED_REFERENCE.sub("", item["content"]))
+                previous = saved_reference(item["content"])
+                previous_number = experiment_number(strip_saved_references(item["content"]))
                 if previous:
-                    previous_number = previous_number or _reference_number(previous.group())
+                    previous_number = previous_number or _reference_number(previous)
                 if previous_number is not None:
                     if target in (None, previous_number):
                         target = previous_number
-                        historical = previous.group() if previous else None
+                        historical = previous
                     break
     latest = latest_record(snap)
     target = target or (experiment_number(latest["exp_id"]) if latest else None)
@@ -309,7 +338,7 @@ def usage_request(snap, question, history, context):
 
 def exp2_request(snap, question, history, context):
     if not re.search(r"結果|總結|摘要|指標|own_holdout|eval_|final_eval|matched_rate|cluster_purity|"
-                     r"外部.*接受|接受率|配置.*正確率|未知召回|AUROC|準確率", question, re.I):
+                     r"外部.{0,120}接受|接受率|配置.{0,120}正確率|未知召回|AUROC|準確率", question, re.I):
         return None
     if (re.search(r"原理|公式|定義|方法|在做什麼|是什麼", question)
             and not re.search(r"own_holdout|eval_|final_eval|matched_rate|cluster_purity|這次|本次|保存|結果|總結|摘要|能算|能否", question, re.I)):
@@ -416,9 +445,8 @@ def result_request(snap: dict | None, question: str, history: list, context: dic
         raise ValueError("context 的experiment、mode與saved必須為字串")
     if context.get("mode", "auto") not in ("auto", "result", "method"):
         raise ValueError("context.mode僅支援auto、result或method")
-    match = _SAVED_REFERENCE.search(question)
-    explicit_ref = match.group() if match else None
-    number = experiment_number(_SAVED_REFERENCE.sub("", question))
+    explicit_ref = saved_reference(question)
+    number = experiment_number(strip_saved_references(question))
     if explicit_ref and _reference_number(explicit_ref) == 12 and number not in (None, 12):
         raise ValueError("問句實驗編號與指定exp12存檔不一致")
     if (context.get("saved") and _reference_number(context["saved"]) == 12
@@ -429,7 +457,7 @@ def result_request(snap: dict | None, question: str, history: list, context: dic
     if not explicit_ref and _METHOD_QUESTION.search(question) and not re.search(
             r"這次|這批|本次|結果|總結|摘要|是不是|是否|失效|可靠|正確率|誤拒|誤報", question):
         return None
-    newest = bool(re.search(r"最新|新結果|重新.*結果", question))
+    newest = bool(re.search(r"最新|新結果|重新.{0,80}結果", question))
     latest = latest_record(snap)
     target = number or (_reference_number(explicit_ref) if explicit_ref else None) or (
         experiment_number(latest["exp_id"]) if newest and latest else (
@@ -437,11 +465,11 @@ def result_request(snap: dict | None, question: str, history: list, context: dic
     historical_ref = None
     for item in reversed(history[-MAX_HISTORY:]):
         if isinstance(item, dict) and item.get("role") == "user" and isinstance(item.get("content"), str):
-            ref = _SAVED_REFERENCE.search(item["content"])
-            previous = experiment_number(_SAVED_REFERENCE.sub("", item["content"])) or (
-                _reference_number(ref.group()) if ref else None)
+            ref = saved_reference(item["content"])
+            previous = experiment_number(strip_saved_references(item["content"])) or (
+                _reference_number(ref) if ref else None)
             if previous is not None:
-                historical_ref = ref.group() if previous == 12 and ref else None
+                historical_ref = ref if previous == 12 and ref else None
                 if target is None:
                     target = previous
                 break
@@ -454,7 +482,7 @@ def result_request(snap: dict | None, question: str, history: list, context: dic
     view = "default"
     if re.search(r"完整結果|全部矩陣|展開全部", question):
         view = "full"
-    elif re.search(r"(?:LW|Ledoit).*逐類|逐類.*(?:LW|Ledoit)", question, re.I):
+    elif re.search(r"(?:LW|Ledoit).{0,80}逐類|逐類.{0,80}(?:LW|Ledoit)", question, re.I):
         view = "lw_classes"
     elif re.search(r"t.?sne|三角|抽樣|圖例", question, re.I):
         view = "tsne"
@@ -509,12 +537,11 @@ def result_frames(snap: dict | None, request: dict, load_saved=None, load_select
 
 def timing_frames(snap, question, context, load_saved, load_selected):
     """時間問題只讀紀錄欄位，無需模型由秒數或檔名猜起點。"""
-    if not re.search(r"何時.*(?:開始|完成)|開始時間|完成時間|起訖|(?:這次|本次).*花多久", question):
+    if not re.search(r"何時.{0,80}(?:開始|完成)|開始時間|完成時間|起訖|(?:這次|本次).{0,80}花多久", question):
         return None
     context = context or {}
-    match = _SAVED_REFERENCE.search(question)
-    reference = match.group() if match else context.get("saved")
-    number = experiment_number(_SAVED_REFERENCE.sub("", question))
+    reference = saved_reference(question) or context.get("saved")
+    number = experiment_number(strip_saved_references(question))
     rec, problem = None, ""
     try:
         if reference:
@@ -818,8 +845,8 @@ class Assistant:
             return saved_cache[exp_id]
 
         if (not latest_record(snap) and load_saved and _RESULT_QUESTION.search(question)
-                and experiment_number(_SAVED_REFERENCE.sub("", question)) is None
-                and not _SAVED_REFERENCE.search(question) and not (isinstance(context, dict) and context.get("saved"))
+                and experiment_number(strip_saved_references(question)) is None
+                and not saved_reference(question) and not (isinstance(context, dict) and context.get("saved"))
                 and (not _METHOD_QUESTION.search(question) or re.search(r"結果|總結|摘要|誤報|誤拒|是否|是不是", question))):
             latest = frozen_saved(None)
             if latest:

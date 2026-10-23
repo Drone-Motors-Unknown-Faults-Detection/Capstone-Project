@@ -1,0 +1,7 @@
+2026-10-23 11:57:25 | INFO    | Logger initialized: exp3_trend
+2026-10-23 11:57:25 | INFO    | log_file=logs/exp3_trend/2026-10-23-11-57-25.log
+2026-10-23 11:57:25 | INFO    | output_dir=output/exp3_trend/2026-10-23-11-57-25
+2026-10-23 11:57:25 | INFO    | 實驗三：漸進 vs 突發判別 — T1/8000rpm（trials=40, openset=mahalanobis, method=ledoit_wolf, seed=42）
+2026-10-23 11:57:25 | INFO    | 劇本 A：漸進磨損：警報率 100%｜判別正確率 98%｜平均警報延遲 49.8 筆｜平均中間帶停留 37.9 筆
+2026-10-23 11:57:25 | INFO    | 劇本 B：突發外力：警報率 100%｜判別正確率 98%｜平均警報延遲 7.7 筆｜平均中間帶停留 6.7 筆
+2026-10-23 11:57:25 | INFO    | 輸出：output/exp3_trend/2026-10-23-11-57-25

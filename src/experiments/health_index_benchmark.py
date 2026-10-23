@@ -6,36 +6,22 @@ import argparse
 import json
 import platform
 import random
-import subprocess
 from pathlib import Path
 from typing import Sequence
 
 import numpy as np
 import pandas as pd
 
-from core.data import HEALTHY, discover_datasets, load_pools, make_split
+from core.data import HEALTHY, dataset_key, discover_datasets, load_pools, make_split
 from core.logger import setup_run
 from core.openset import resolve_openset_config
+from core.runtime_environment import git_head
 from experiments.health.evaluation import evaluate_open_set
 from experiments.health.index import CalibratedHealthIndex
 from experiments.health.severity import DEFAULT_SEVERITY_POLICY
 
 
 FORMAL_CONDITION_COUNT = 9
-
-
-def _git_sha(project_root: Path) -> str:
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=project_root,
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return result.stdout.strip()
 
 
 def _validate_datasets(datasets: list[dict], data_path: Path, require_nine: bool) -> None:
@@ -114,6 +100,7 @@ def run(
             mahalanobis_method=mahalanobis_method,
             confidence=confidence,
             knn_neighbors=knn_neighbors,
+            random_state=seed,
         )
         known_results = model.predict(X_known, condition=f"{dataset['motor']}/{dataset['rpm']}")
         unknown_results = model.predict(X_unknown, condition=f"{dataset['motor']}/{dataset['rpm']}")
@@ -126,7 +113,7 @@ def run(
         metadata = model.metadata()
         rows.append(
             {
-                "dataset": f"{dataset['motor']}/{dataset['rpm'].replace('rpm', '')}",
+                "dataset": dataset_key(dataset["motor"], dataset["rpm"]),
                 "motor": dataset["motor"],
                 "rpm": dataset["rpm"],
                 "seed": int(seed),
@@ -158,6 +145,7 @@ def run(
                 "unknown_recall": round(open_set["unknown_recall"], 6),
                 "unknown_f1": round(open_set["unknown_f1"], 6),
                 "calibration_healthy_anchor": metadata["calibration"]["healthy_anchor"],
+                "calibration_warning_anchor": metadata["calibration"]["warning_anchor"],
                 "calibration_critical_anchor": metadata["calibration"]["critical_anchor"],
                 "rul_available": False,
                 "status": "completed",
@@ -179,7 +167,7 @@ def run(
         "health_interpretation": "relative calibration only; no physical damage or RUL claim",
         "unknown_calibration_leakage": False,
         "rul_available": False,
-        "commit_sha": _git_sha(Path(__file__).resolve().parents[2]),
+        "commit_sha": git_head(Path(__file__).resolve().parents[2]) or "unknown",
         "python": platform.python_version(),
         "rows": rows,
     }
@@ -192,7 +180,7 @@ def _dataset_fingerprint(data_path: Path) -> str:
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--data-root", default="data")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--openset-method", default="mahalanobis")
@@ -201,7 +189,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--knn-neighbors", type=int, default=5)
     parser.add_argument("--allow-partial", action="store_true")
     args = parser.parse_args(argv)
-    log, paths = setup_run("exp8_health_index_benchmark")
+    log, paths = setup_run("exp8_health_index_benchmark", data_root=args.data_root)
     log.info(f"參數：{vars(args)}")
     result = run(
         args.data_root,

@@ -8,11 +8,13 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
 from loguru import logger
 
+from experiments.health.index import CalibratedHealthIndex
 from experiments.health_monitor import iter_run, main, run
 from core.feature_schema import SCHEMAS
 from web.experiments import ExperimentRunner, jsonable
@@ -64,16 +66,45 @@ class HealthMonitorWindows(unittest.TestCase):
         with self.assertRaises(IndexError):
             self.call(baseline_run(), "5screws")
 
+    def test_alias_config_1screw_resolves_to_canonical_pool(self):
+        """池 key 是正規名；CLI/網頁打 1screw 不能 KeyError（#285 R2-03）。"""
+        alias = self.call(run, "1screw", max_windows=3)
+        canonical = self.call(run, "1screws", max_windows=3)
+        self.assertEqual(json.dumps(alias, sort_keys=True), json.dumps(canonical, sort_keys=True))
+        with self.assertRaises(KeyError):
+            self.call(run, "9screws", max_windows=3)
+
     def test_max_windows_truncates_fault_pool(self):
         self.assertEqual(len(self.call(run, "5screws", max_windows=7)), 7)
         self.assertEqual(len(self.call(run, "7screws", max_windows=500)), 120)
 
-    def test_healthy_output_unchanged(self):
+    def test_healthy_sampling_unchanged(self):
+        """健康 holdout 的取樣與開集分數和基準 commit 相同；健康指數映射在 #267 改過，不比對。"""
+        keys = ("window_index", "openset_score", "is_fault", "fault_type", "openset_method", "condition")
         for kwargs in ({}, {"max_windows": 9}):
             old = self.call(baseline_run(), "8screws", **kwargs)
             new = self.call(run, "8screws", **kwargs)
-            self.assertEqual(json.dumps(old, sort_keys=True), json.dumps(new, sort_keys=True))
+            self.assertEqual([{k: r[k] for k in keys} for r in old], [{k: r[k] for k in keys} for r in new])
             self.assertEqual(len(new), kwargs.get("max_windows", 60))
+
+    def test_seed_reaches_detector_random_state(self):
+        """detector 的 random_state 跟 --seed（#285 R2-06）；LW 不用亂數，結果與基準相同（見上一個測試）。"""
+        with patch("experiments.health_monitor.CalibratedHealthIndex.fit",
+                   wraps=CalibratedHealthIndex.fit) as fit:
+            list(iter_run(self.root, "T1", "8000", "8screws", seed=9, motor_id="m", session_id="s", max_windows=3))
+        self.assertEqual(fit.call_args.kwargs["random_state"], 9)
+
+    def test_confidence_is_forwarded_to_calibration(self):
+        events = {c: list(iter_run(self.root, "T1", "8000", "8screws", seed=42, motor_id="m",
+                                   session_id="s", max_windows=5, confidence=c)) for c in (0.95, 0.8)}
+        for c, items in events.items():
+            calibration = items[0]["model"]["calibration"]
+            self.assertEqual(calibration["confidence"], c)
+            self.assertEqual(items[0]["model"]["resolved_config"]["effective"]["confidence"], c)
+        self.assertNotEqual([e["window"]["openset_score"] for e in events[0.8][1:]],
+                            [e["window"]["openset_score"] for e in events[0.95][1:]])
+        self.assertEqual(self.call(run, "8screws", max_windows=5, confidence=0.8),
+                         [e["window"] for e in events[0.8][1:]])
 
     def test_iter_run_matches_run(self):
         for config in ("8screws", "5screws"):
@@ -106,7 +137,7 @@ class HealthMonitorWindows(unittest.TestCase):
     def test_cli_uses_setup_run_and_saves_printed_windows(self):
         """CLI 經 setup_run 寫 logs/output，windows.jsonl 與 stdout 及 API 逐行相同。"""
         argv = ["--data-root", str(self.root), "--motor", "T1", "--rpm", "8000rpm", "--config", "5screws",
-                "--seed", "42", "--motor-id", "m", "--session-id", "s", "--max-windows", "12"]
+                "--seed", "42", "--confidence", "0.95", "--motor-id", "m", "--session-id", "s", "--max-windows", "12"]
         previous = Path.cwd()
         with tempfile.TemporaryDirectory() as workspace:
             try:

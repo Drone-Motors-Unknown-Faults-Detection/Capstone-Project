@@ -9,25 +9,30 @@ from __future__ import annotations
 import argparse
 
 import numpy as np
-from sklearn.metrics import (
-    accuracy_score,
-    average_precision_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_auc_score,
-)
-
 from core.data import HEALTHY
 from core.logger import save_plot, setup_run
 from core.monitor import OpenSetMonitor
-from core.openset import SUPPORTED_OPENSET_METHODS, fpr_at_tpr
+from core.openset import SUPPORTED_OPENSET_METHODS, fpr_at_tpr, openset_metrics
 from core.runner import add_dataset_args, resolve_dataset, save_json
 
 
 def _fpr_at_tpr95(y_true: np.ndarray, scores: np.ndarray) -> float:
     y_true, scores = np.asarray(y_true), np.asarray(scores)
     return fpr_at_tpr(scores[y_true == 0], scores[y_true == 1], 0.95)
+
+
+# 實驗七輸出鍵沿用既有名稱（web/static/experiments.js、docs/experiments/exp7_compare_openset.md 已依賴）；
+# 數值與實驗六正式版同一份 core.openset.openset_metrics。
+_EXP7_METRIC_KEYS = {
+    "auroc": "auroc",
+    "aupr_unknown_positive": "aupr_unknown_positive",
+    "fpr_at_tpr95": "fpr_at_95_tpr",
+    "open_set_accuracy": "open_set_accuracy",
+    "known_accuracy": "known_class_accuracy",
+    "unknown_recall": "unknown_recall",
+    "unknown_precision": "unknown_precision",
+    "unknown_f1": "f1_unknown",
+}
 
 
 def evaluate_method(
@@ -51,7 +56,6 @@ def evaluate_method(
 
     known_X = monitor.holdout(HEALTHY)
     known_scores = monitor.score(known_X)
-    known_predictions = monitor.classify(known_X)
     unknown_scores_parts = []
     details = []
     for config, pool in pools.items():
@@ -71,9 +75,7 @@ def evaluate_method(
             }
         )
     unknown_scores = np.concatenate(unknown_scores_parts)
-    all_scores = np.r_[known_scores, unknown_scores]
-    y_true = np.r_[np.zeros(len(known_scores), dtype=int), np.ones(len(unknown_scores), dtype=int)]
-    y_pred = (all_scores > 1.0).astype(int)
+    metrics = openset_metrics(known_scores, unknown_scores)
     model = monitor.summary()
 
     details.insert(
@@ -100,16 +102,7 @@ def evaluate_method(
         "split": model["split"],
         "n_known_test": int(len(known_scores)),
         "n_unknown_test": int(len(unknown_scores)),
-        "auroc": float(roc_auc_score(y_true, all_scores)),
-        "aupr_unknown_positive": float(average_precision_score(y_true, all_scores)),
-        "fpr_at_95_tpr": _fpr_at_tpr95(y_true, all_scores),
-        "open_set_accuracy": float(accuracy_score(y_true, y_pred)),
-        "known_class_accuracy": float(
-            np.mean([prediction == HEALTHY for prediction in known_predictions])
-        ),
-        "unknown_recall": float(recall_score(y_true, y_pred, zero_division=0)),
-        "unknown_precision": float(precision_score(y_true, y_pred, zero_division=0)),
-        "f1_unknown": float(f1_score(y_true, y_pred, zero_division=0)),
+        **{legacy: metrics[key] for key, legacy in _EXP7_METRIC_KEYS.items()},
         "class_thresholds": [c["threshold"] for c in model["classes"]],
     }
     return result, details
@@ -192,7 +185,7 @@ def main() -> None:
     args = parser.parse_args()
 
     ds, pools = resolve_dataset(args)
-    log, paths = setup_run("openset_comparison")
+    log, paths = setup_run("openset_comparison", data_root=args.data_root)
     result = run(
         pools,
         tuple(args.openset_methods),
