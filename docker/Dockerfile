@@ -24,6 +24,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.10.21-slim-bookworm
 COPY --from=builder /opt/venv /opt/venv
 WORKDIR /app
+# core.runtime_environment 以 /app/pyproject.toml 認程式根、雜湊 /app/uv.lock；少了它們，存下的結果 lock_status 是 UNKNOWN
+COPY pyproject.toml uv.lock ./
 COPY src ./src
 # AI 問答的 get_experiment／lookup_knowledge 讀實驗手冊（web/assistant.py EXPERIMENTS_DIR）
 COPY docs/experiments ./docs/experiments
