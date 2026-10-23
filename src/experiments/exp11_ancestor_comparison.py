@@ -100,6 +100,11 @@ def _paired_wilcoxon(rows: list[dict], methods: tuple[str, ...]) -> dict | None:
             by_key.setdefault((r["dataset"], r["seed"]), {})[r["method"]] = r["macro_f1"]
         pairs = [(v["legacy"], v["ledoit_wolf"]) for v in by_key.values()
                  if "legacy" in v and "ledoit_wolf" in v]
+        if not pairs:
+            # 沒有配對就沒有檢定：回 None，不捏造 p=1（#301 F-08）
+            result[f"protocol_{protocol}_macro_f1"] = {"n_pairs": 0, "mean_diff_pp": None,
+                                                       "statistic": None, "p_value": None}
+            continue
         legacy_vals = np.array([p[0] for p in pairs])
         lw_vals = np.array([p[1] for p in pairs])
         diffs = lw_vals - legacy_vals
@@ -119,6 +124,9 @@ def _paired_wilcoxon(rows: list[dict], methods: tuple[str, ...]) -> dict | None:
 def run(data_root: str = "data", seeds: tuple[int, ...] = (42, 123, 2026),
         confidence: float = 0.95, methods: tuple[str, ...] = ("legacy", "ledoit_wolf")) -> dict:
     datasets = discover_datasets(data_root)
+    if not datasets:
+        # 跟 exp6_osr 一樣直接報錯；否則平均空列表得 NaN，save_json 才崩潰（#301 F-08）
+        raise FileNotFoundError(f"no clean feature datasets found under {data_root}")
     rows: list[dict] = []
     for ds in datasets:
         key = dataset_key(ds["motor"], ds["rpm"])

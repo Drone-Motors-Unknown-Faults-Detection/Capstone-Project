@@ -7,6 +7,7 @@ import numpy as np
 from experiments.exp11_ancestor_comparison import (
     _ancestor_known_configs,
     _evaluate_protocol,
+    _paired_wilcoxon,
     build_ancestor_monitor,
     run,
 )
@@ -124,6 +125,25 @@ class RunIntegrationTests(unittest.TestCase):
         self.assertIsNotNone(result["wilcoxon"])
         self.assertIn("protocol_A_macro_f1", result["wilcoxon"])
         self.assertEqual(result["wilcoxon"]["protocol_A_macro_f1"]["n_pairs"], 2)
+
+
+class EmptyInputTests(unittest.TestCase):
+    """沒有資料或沒有配對時報錯／回 None，不算 NaN、不捏造 p=1（#301 F-08）。"""
+
+    def test_empty_data_root_raises(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(FileNotFoundError, "no clean feature datasets"):
+                run(data_root=directory, seeds=(1,))
+
+    def test_no_pairs_reports_none(self):
+        rows = [{"protocol": protocol, "dataset": "T1/8000", "seed": 1, "method": "legacy", "macro_f1": 0.5}
+                for protocol in ("A", "B")]
+        result = _paired_wilcoxon(rows, ("legacy", "ledoit_wolf"))
+        for protocol in ("A", "B"):
+            self.assertEqual(result[f"protocol_{protocol}_macro_f1"],
+                             {"n_pairs": 0, "mean_diff_pp": None, "statistic": None, "p_value": None})
 
 
 if __name__ == "__main__":
