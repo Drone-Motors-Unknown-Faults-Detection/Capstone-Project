@@ -33,6 +33,11 @@ from core.runner import save_json
 
 def run(data_root: str = "data", seed: int = 42, confidence: float = 0.95) -> dict:
     datasets = discover_datasets(data_root)
+    if not datasets:
+        # 空資料根不能算成 NaN 再讓 save_json 崩潰；與 exp6_formal_benchmark 一樣先拒絕（#285 R2-04）
+        raise FileNotFoundError(f"no clean feature datasets found under {data_root}")
+    if len({(ds["motor"], ds["rpm"]) for ds in datasets}) != len(datasets):
+        raise ValueError(f"duplicate conditions discovered under {data_root}")
     rng = np.random.default_rng(seed)
     rows = []
     for ds in datasets:

@@ -37,6 +37,7 @@ import pandas as pd
 from scipy.fftpack import fft
 from scipy.stats import kurtosis, skew
 
+from core.feature_schema import CONFIG_ALIASES
 from core.provenance import sha256_bytes, sha256_file
 
 
@@ -170,8 +171,13 @@ def _validate_archive(archive: ZipFile) -> None:
 
 
 def _validate_condition(motor: str, rpm: str, config: str) -> None:
-    if motor not in MOTORS or rpm not in RPMS or config not in {*CONFIGS, "1screw"}:
+    if motor not in MOTORS or rpm not in RPMS or config not in {*CONFIGS, *CONFIG_ALIASES}:
         raise FormalDataError(f"未知正式配置：{motor}/{rpm}/{config}")
+
+
+def _canonical_condition(motor: str, rpm: str, config: str) -> tuple[str, str, str]:
+    """條件篩選一律比正規配置名：使用者打 `1screw`、archive 目錄叫 `1screws` 也要對得上（#285 R2-01）。"""
+    return motor, rpm, CONFIG_ALIASES.get(config, config)
 
 
 def _contained_output(path: Path, output_root: Path) -> Path:
@@ -257,7 +263,7 @@ def _copy_clean_features(
                     raise FormalDataError(f"unexpected feature path: {info.filename}")
                 motor, rpm, config, _ = parts
                 _validate_condition(motor, rpm, config)
-                condition = (motor, rpm, config)
+                condition = _canonical_condition(motor, rpm, config)
                 if selected_conditions is not None and condition not in selected_conditions:
                     continue
                 payload = features.read(info.filename)
@@ -405,7 +411,7 @@ def _convert_condition(
             channels[channel] = info
 
     for config in sorted(by_config):
-        condition = (motor, rpm, config)
+        condition = _canonical_condition(motor, rpm, config)
         if selected_conditions is not None and condition not in selected_conditions:
             continue
         channels = by_config[config]
@@ -529,9 +535,11 @@ def materialize(
     _ensure_output_not_source(source, output)
     archives = discover_stage_archives(source, stages)
     archive_sha = {stage: sha256_file(path) for stage, path in archives.items()}
-    selected = set(conditions) if conditions else None
-    for condition in selected or ():
-        _validate_condition(*condition)
+    selected = None
+    if conditions:
+        for condition in conditions:
+            _validate_condition(*condition)
+        selected = {_canonical_condition(*condition) for condition in conditions}
     records: list[MaterializedFile] = []
     pending: list[tuple[Path, bytes]] = []
     for stage in stages:
@@ -605,7 +613,7 @@ def _parse_condition(value: str) -> tuple[str, str, str]:
         _validate_condition(parts[0], parts[1], parts[2])
     except FormalDataError as exc:
         raise argparse.ArgumentTypeError(f"unknown formal condition: {value}") from exc
-    return parts[0], parts[1], parts[2]
+    return _canonical_condition(parts[0], parts[1], parts[2])
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -69,6 +69,15 @@ class Exp6BenchmarkTests(unittest.TestCase):
             self.assertEqual(result["requested_method"], "k-nn")
             self.assertEqual(result["rows"][0]["requested_method"], "k-nn")
 
+    def test_seed_reaches_detector_random_state(self) -> None:
+        """MCD 的亂數跟著 --seed，不固定 42（#285 R2-12）。"""
+        with tempfile.TemporaryDirectory() as directory:
+            root = _fixture(Path(directory))
+            with patch("experiments.exp6_formal_benchmark.create_openset_detector",
+                       wraps=create_openset_detector) as factory:
+                run(root, seed=7, require_nine=False)
+            self.assertEqual(factory.call_args.kwargs["random_state"], 7)
+
     def test_formal_benchmark_rejects_legacy_training_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = _fixture(Path(directory))
@@ -119,10 +128,15 @@ class Exp6BenchmarkTests(unittest.TestCase):
             environment = json.loads((evidence / "environment.json").read_text(encoding="utf-8"))
             self.assertEqual(environment, result["environment"])
             self.assertNotIn(directory, json.dumps(result).replace("\\\\", "\\"))
-            # 目錄裡已有 environment.json（CLI 的 setup_run 先寫）就沿用，不覆寫
+            # 只有呼叫端說剛寫過（CLI 的 setup_run）才沿用；矩陣重跑同一個 run 目錄要重新收集並覆寫（#285 R2-11）
             (evidence / "environment.json").write_text('{"marker": true}', encoding="utf-8")
             again = run(root, seed=42, openset_method="knn", require_nine=False, evidence_dir=evidence)
-            self.assertEqual(again["environment"], {"marker": True})
+            self.assertEqual(again["environment"], environment)
+            self.assertEqual(json.loads((evidence / "environment.json").read_text(encoding="utf-8")), environment)
+            (evidence / "environment.json").write_text('{"marker": true}', encoding="utf-8")
+            reused = run(root, seed=42, openset_method="knn", require_nine=False, evidence_dir=evidence,
+                         reuse_environment=True)
+            self.assertEqual(reused["environment"], {"marker": True})
 
     def test_fpr_metric_is_separate_from_normalized_detector_threshold(self) -> None:
         fpr = _fpr_at_tpr95(np.array([0.2, 0.4]), np.array([2.0, 3.0, 4.0, 5.0]))

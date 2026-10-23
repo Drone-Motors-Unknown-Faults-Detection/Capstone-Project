@@ -103,6 +103,8 @@ def iter_run(
     unknown = [key for key in (scenarios or ()) if key not in SCENARIOS]
     if unknown:
         raise ValueError(f"scenario: unknown {unknown[0]!r}; choose A or B")
+    if n_trials < 1:
+        raise ValueError(f"n_trials must be at least 1, got {n_trials}")  # 0 會讓 alarm_rate 除以零（#285 R2-05）
     selected = SCENARIOS if scenarios is None else {key: SCENARIOS[key] for key in scenarios}
     monitor = OpenSetMonitor(
         pools,

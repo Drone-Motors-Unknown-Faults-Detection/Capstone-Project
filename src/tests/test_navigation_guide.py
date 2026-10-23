@@ -8,6 +8,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import tornado.httpclient
 import tornado.websocket
 from tornado.testing import AsyncHTTPTestCase, gen_test
 
@@ -253,6 +254,31 @@ class GuideSocketTests(AsyncHTTPTestCase):
                 self.assertFalse(state["running"])
         self.assertEqual(self.hub.rate, 4)
         ws.close()
+
+    @gen_test
+    async def test_origin_check_shares_server_rules(self):
+        """導覽 WebSocket 與首頁同一套 Origin 規則：同站不分大小寫、--allow-origin 名單放行（#285 R2-08）。"""
+        from web import server
+
+        url = self.get_url("/ws")
+        same_site = url[:url.index("/ws")]
+
+        async def connect(origin):
+            request = tornado.httpclient.HTTPRequest(url.replace("http", "ws", 1), headers={"Origin": origin})
+            ws = await tornado.websocket.websocket_connect(request)
+            await ws.read_message()
+            ws.close()
+
+        await connect(same_site)
+        await connect(same_site.upper())
+        with self.assertRaises(tornado.httpclient.HTTPClientError) as ctx:
+            await connect("https://untrusted.invalid")
+        self.assertEqual(ctx.exception.code, 403)
+        server.ALLOWED_ORIGINS.add("https://untrusted.invalid")
+        try:
+            await connect("https://untrusted.invalid")
+        finally:
+            server.ALLOWED_ORIGINS.discard("https://untrusted.invalid")
 
     @gen_test
     async def test_busy_rejects_duplicate(self):

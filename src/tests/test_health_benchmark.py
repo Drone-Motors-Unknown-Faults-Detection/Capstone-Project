@@ -63,6 +63,17 @@ class HealthBenchmarkTests(unittest.TestCase):
         finally:
             temporary.cleanup()
 
+    def test_seed_reaches_health_index_random_state(self):
+        """矩陣每個 seed 的 MCD 亂數都要跟著 seed（#285 R2-06）。"""
+        temporary, root = self._fixture_root()
+        try:
+            with patch("experiments.health_index_benchmark.CalibratedHealthIndex.fit",
+                       wraps=health_index_benchmark.CalibratedHealthIndex.fit) as fit:
+                run(root, seed=123, openset_method="mahalanobis", require_nine=False)
+            self.assertEqual(fit.call_args.kwargs["random_state"], 123)
+        finally:
+            temporary.cleanup()
+
     def test_knn_smoke_root_uses_same_contract(self):
         temporary, root = self._fixture_root()
         try:

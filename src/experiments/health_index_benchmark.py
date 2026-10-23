@@ -100,6 +100,7 @@ def run(
             mahalanobis_method=mahalanobis_method,
             confidence=confidence,
             knn_neighbors=knn_neighbors,
+            random_state=seed,
         )
         known_results = model.predict(X_known, condition=f"{dataset['motor']}/{dataset['rpm']}")
         unknown_results = model.predict(X_unknown, condition=f"{dataset['motor']}/{dataset['rpm']}")

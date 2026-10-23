@@ -102,5 +102,12 @@ class Exp6OsrBenchmarkTests(unittest.TestCase):
         self.assertEqual(len(table), len(self.result["rows"]))
 
 
+class OsrBenchmarkInputTests(unittest.TestCase):
+    def test_empty_data_root_is_rejected_before_scoring(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(FileNotFoundError):
+                exp6_osr_benchmark.run(Path(directory), seed=1)
+
+
 if __name__ == "__main__":
     unittest.main()

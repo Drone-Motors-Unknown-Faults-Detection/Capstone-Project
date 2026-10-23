@@ -260,6 +260,25 @@ class WebSocketContracts(AsyncHTTPTestCase):
             await self.disconnect(socket)
 
     @gen_test
+    async def test_busy_and_error_state_show_fixed_text_not_exception_name(self):
+        """忙碌／錯誤狀態的拒絕是 CommandError：畫面看到固定文字，不是「ValueError」（#285 R2-09）。"""
+        socket = await self.connect()
+        try:
+            self.hub.busy = True
+            messages = await self.send_until(socket, {"cmd": "start"})
+            self.assertEqual(messages[0]["level"], "error")
+            self.assertIn("工作進行中", messages[0]["text"])
+            self.hub.busy = False
+            self.hub.error = "boom"
+            messages = await self.send_until(socket, {"cmd": "start"})
+            self.assertIn("目前有錯誤", messages[0]["text"])
+            self.assertNotIn("ValueError", json.dumps(messages, ensure_ascii=False))
+            self.assertFalse(messages[-1]["running"])
+        finally:
+            self.hub.error = None
+            await self.disconnect(socket)
+
+    @gen_test
     async def test_untrusted_origin_rejected_unless_allow_listed(self):
         with self.assertRaises(tornado.httpclient.HTTPClientError) as ctx:
             await self.connect("https://untrusted.invalid")
