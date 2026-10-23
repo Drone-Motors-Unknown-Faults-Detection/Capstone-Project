@@ -83,6 +83,35 @@ class HealthMatrixTests(unittest.TestCase):
                 logger.remove()
                 os.chdir(previous)
 
+    def test_manifest_data_root_matches_benchmark_for_dot_and_symlink(self):
+        """#305：manifest 的 data_root 與 benchmark 的 dataset_root 同為解析後的根名稱，彙總的相等檢查才會過。"""
+        from experiments import health_index_benchmark
+
+        seen = []
+
+        def recording_run(data_root, **kwargs):
+            seen.append(Path(data_root).expanduser().resolve().name)   # health_index_benchmark.run 記的值
+            return _fake_run(data_root, **kwargs)
+
+        self.assertIn("data_path.name", Path(health_index_benchmark.__file__).read_text(encoding="utf-8"))
+        previous = Path.cwd()
+        with tempfile.TemporaryDirectory() as workspace:
+            real = Path(workspace) / "features_real"
+            real.mkdir()
+            link = Path(workspace) / "features_link"
+            link.symlink_to(real, target_is_directory=True)
+            try:
+                os.chdir(real)
+                for index, root in enumerate((".", str(link))):
+                    with self.subTest(root=root), patch.object(health_index_matrix, "run", recording_run), \
+                            patch.object(health_index_matrix, "dataset_fingerprint", return_value=FINGERPRINT):
+                        manifest = health_index_matrix.run_matrix(
+                            root, Path(workspace) / f"matrix{index}", seeds=(42,), methods=("knn",))
+                    self.assertEqual(manifest["data_root"], "features_real")
+                    self.assertEqual(manifest["data_root"], seen[-1])
+            finally:
+                os.chdir(previous)
+
     def test_resume_reruns_when_dataset_fingerprint_differs(self):
         """既有 JSON 的指紋跟現在的資料不同就重跑，不沿用（#269 C06）。"""
         calls: list = []
